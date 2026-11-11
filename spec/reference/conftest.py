@@ -1,7 +1,11 @@
 """pytest configuration for the matplotlib reference run of the spec.
 
-Default mode verifies that matplotlib reproduces the committed goldens
-exactly. ``--update-goldens`` rewrites them from matplotlib instead.
+Default mode verifies that matplotlib reproduces the committed goldens:
+exactly on Linux x86-64, where they are recorded, and as far as pltrs is
+held to them on a platform with goldens of its own. ``--update-goldens``
+rewrites them from matplotlib instead: the common goldens on Linux x86-64,
+and on such a platform only its own, for what matplotlib computes there
+that fails for the common ones (see ``spec_support.golden``).
 """
 
 from __future__ import annotations
@@ -62,7 +66,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """
     import json
 
-    from spec_support.golden import all_probe_sets, dump_json, values_equal
+    from spec_support.golden import (GoldenAnswers, agrees, all_probe_sets, dump_json,
+                                     golden_probes, probe_key, record_probes)
 
     config = session.config
     reporter = config.pluginmanager.get_plugin("terminalreporter")
@@ -72,34 +77,28 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             return
         for probes in all_probe_sets():
             if len(probes):
-                probes.path.parent.mkdir(parents=True, exist_ok=True)
-                probes.path.write_text(dump_json(probes.document()),
-                                       encoding="utf-8", newline="\n")
+                record_probes(probes)
         return
 
     problems = []
     for probes in all_probe_sets():
         if not len(probes):
             continue
-        if not probes.path.exists():
+        committed = golden_probes(probes.area)
+        if committed is None:
             problems.append(f"{probes.area}: golden missing (run with --update-goldens)")
             continue
-        committed = json.loads(probes.path.read_text(encoding="utf-8"))["probes"]
-        committed = {_key(p): p for p in committed}
         fresh = json.loads(dump_json(probes.document()))["probes"]
+        answers = GoldenAnswers(committed, {probe_key(probe): probe for probe in fresh})
         for probe in fresh:
-            golden = committed.get(_key(probe))
+            golden = answers.key(probe)
             if golden is None:
-                problems.append(f"{probes.area}: new probe {_key(probe)} not in golden")
-            elif not values_equal(golden, probe):
-                problems.append(f"{probes.area}: matplotlib disagrees with golden for {_key(probe)}")
+                problems.append(f"{probes.area}: new probe {probe_key(probe)} not in golden")
+            elif not agrees(committed[golden], probe):
+                problems.append(
+                    f"{probes.area}: matplotlib disagrees with golden for {probe_key(probe)}")
     if problems:
         session.exitstatus = pytest.ExitCode.TESTS_FAILED
         for line in problems:
             reporter.write_line(f"GOLDEN MISMATCH {line}", red=True)
 
-
-def _key(probe: dict) -> str:
-    import json
-
-    return f"{probe['op']} {json.dumps(probe['args'], sort_keys=True)}"

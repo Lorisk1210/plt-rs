@@ -92,6 +92,12 @@ class Triangulation:
                              "as the triangles array")
         if bound["correct_triangle_orientations"]:
             self._native = _native_tri.new(x, y, triangles, None)
+            given = bound["triangles"]
+            # The extension turns the clockwise triangles where they are,
+            # which shows in an array it does not have to convert.
+            if (isinstance(given, np.ndarray) and given.dtype == np.intc
+                    and given.flags.c_contiguous and given.flags.writeable):
+                given[...] = _native_tri.oriented(self._native)
         else:
             self._native = _native_tri.as_given(x, y, triangles)
         self._ntri = len(triangles)

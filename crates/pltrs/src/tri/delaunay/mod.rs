@@ -18,6 +18,11 @@
 //! * [`hull`], [`lists`], [`sets`] — storage, facet lists and set order;
 //! * [`geom`], [`planes`] — geometry with qhull's rounding.
 //!
+//! "matplotlib's qhull" is the one its wheel for the platform holds: on
+//! arm64 macOS that build fuses products into the sums they feed, which
+//! turns cocircular sites into other (equally valid) triangles than on
+//! x86-64, and so does this port there (`pltrs_core::numeric::fused`).
+//!
 //! `Qz` adds a point "at infinity" above the paraboloid so cocircular input
 //! is not degenerate; `Qc` keeps points that are not vertices (such as all
 //! but one of a set of duplicate sites) in coplanar sets instead of
@@ -39,6 +44,7 @@ mod sets;
 mod triangulate;
 
 use pltrs_core::Point;
+use pltrs_core::numeric::fused;
 
 use self::geom::Vec3;
 use self::hull::{Hull, HullResult};
@@ -106,10 +112,8 @@ fn lift(points: &[Point]) -> Vec<Vec3> {
     let mut max_lifted = 0.0_f64;
     for p in points {
         let (x, y) = (p.x - x_mean, p.y - y_mean);
-        let mut lift = 0.0;
-        lift += x * x;
+        let lift = fused(y, y, x * x);
         infinity[0] += x;
-        lift += y * y;
         infinity[1] += y;
         lifted.push([x, y, lift]);
         max_lifted = max_lifted.max_qhull(lift);
@@ -210,6 +214,8 @@ impl Hull {
 
 #[cfg(test)]
 mod tests {
+    use pltrs_core::numeric::FUSES_PRODUCTS;
+
     use super::*;
     use crate::testing::points;
 
@@ -230,6 +236,38 @@ mod tests {
         let tri = triangulate(&points).unwrap();
         assert_eq!(tri.triangles.len(), 2 * 20 - 2 - 14);
         assert!(tri.triangles.iter().all(|&t| orient(&points, t) > 0.0));
+    }
+
+    /// A 2 × 5 grid of four cocircular cells: matplotlib's triangles for it
+    /// on x86-64 and, where its qhull fuses products, on arm64 macOS
+    /// (`Triangulation(x, y).triangles` of matplotlib 3.11.2's wheels).
+    #[test]
+    fn cocircular_cells_split_as_matplotlib_splits_them_here() {
+        let coords: Vec<(f64, f64)> = (0..5)
+            .flat_map(|j| [(0.0, f64::from(j) / 4.0), (1.0, f64::from(j) / 4.0)])
+            .collect();
+        let tri = triangulate(&points(&coords)).unwrap();
+        let upper = [[8, 6, 9], [9, 6, 7]];
+        let rest: [[usize; 3]; 6] = if FUSES_PRODUCTS {
+            [
+                [7, 6, 5],
+                [5, 6, 4],
+                [3, 2, 0],
+                [0, 1, 3],
+                [4, 2, 3],
+                [3, 5, 4],
+            ]
+        } else {
+            [
+                [3, 2, 0],
+                [0, 1, 3],
+                [7, 6, 5],
+                [5, 6, 4],
+                [4, 2, 5],
+                [2, 3, 5],
+            ]
+        };
+        assert_eq!(tri.triangles, [upper.as_slice(), rest.as_slice()].concat());
     }
 
     #[test]

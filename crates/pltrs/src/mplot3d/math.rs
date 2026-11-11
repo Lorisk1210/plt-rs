@@ -4,12 +4,19 @@
 //! column vectors, exactly as in matplotlib, so that the projection of a
 //! point is `M · [x, y, z, 1]` followed by the perspective divide.
 //!
-//! matplotlib's products go through numpy's `dot`, that is `OpenBLAS`,
-//! whose kernels round in their own ways: matrix products and dot products of
-//! vectors sum with fused multiply-adds in order, a matrix times a single
-//! vector sums its products in pairs. The functions here round the same
-//! way, so that projected depths tie (or not) exactly as in matplotlib,
-//! which decides the order faces and points are drawn in.
+//! matplotlib's products go through numpy's `dot`, that is the BLAS
+//! numpy brings, whose kernels round in their own ways. `OpenBLAS`'s:
+//! matrix products and dot products of vectors sum with fused
+//! multiply-adds in order, a matrix times a single vector sums its
+//! products in pairs. Apple's Accelerate's, which numpy's wheel for arm64
+//! macOS uses ([`ACCELERATE_BLAS`]): vectors and a matrix times a single
+//! vector sum rounded products (four of them in pairs), and a matrix
+//! product takes its columns four at a time, fusing in pairs, and what is
+//! left of them with fused multiply-adds in order. The functions here
+//! round the same way, so that projected depths tie (or not) exactly as
+//! in matplotlib, which decides the order faces and points are drawn in.
+
+use pltrs_core::numeric::ACCELERATE_BLAS;
 
 /// A point or direction in 3-D space.
 pub type Vec3 = [f64; 3];
@@ -46,20 +53,54 @@ pub(crate) fn dot(a: Vec3, b: Vec3) -> f64 {
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
 
-/// numpy's `dot` of two 1-D vectors, or of a row and a column in a matrix
-/// product (`OpenBLAS`'s `ddot` and `dgemm`): the products summed in order
-/// with fused multiply-adds.
-pub(crate) fn blas_dot<const N: usize>(a: [f64; N], b: [f64; N]) -> f64 {
+/// The products of `a` and `b` summed in order with fused multiply-adds
+/// (`OpenBLAS`'s `ddot` and `dgemm`, and what Accelerate's `dgemm` does
+/// with the columns its groups of four leave).
+fn fused_in_order<const N: usize>(a: [f64; N], b: [f64; N]) -> f64 {
     a.iter()
         .zip(&b)
         .skip(1)
         .fold(a[0] * b[0], |sum, (x, y)| x.mul_add(*y, sum))
 }
 
+/// The four products summed as `(p0 + p2) + (p1 + p3)`: both libraries'
+/// matrix-vector kernel, and Accelerate's `ddot` of four.
+fn paired_sums(a: [f64; 4], b: [f64; 4]) -> f64 {
+    (a[0] * b[0] + a[2] * b[2]) + (a[1] * b[1] + a[3] * b[3])
+}
+
+/// [`paired_sums`] with the second product of each pair fused into the
+/// first: Accelerate's `dgemm` for a group of four columns.
+fn paired_fused(a: [f64; 4], b: [f64; 4]) -> f64 {
+    a[2].mul_add(b[2], a[0] * b[0]) + a[3].mul_add(b[3], a[1] * b[1])
+}
+
+/// numpy's `dot` of two 1-D vectors of three (the BLAS's `ddot`).
+fn vector_dot(a: Vec3, b: Vec3) -> f64 {
+    if ACCELERATE_BLAS {
+        dot(a, b)
+    } else {
+        fused_in_order(a, b)
+    }
+}
+
+/// numpy's `dot` of a 3×3 matrix and a vector of three (the BLAS's
+/// `dgemv`): `OpenBLAS`'s kernel for three columns starts from the middle
+/// product, Accelerate's sums the rounded products in order.
+fn matrix_dot_vector(rows: [Vec3; 3], v: Vec3) -> Vec3 {
+    rows.map(|row| {
+        if ACCELERATE_BLAS {
+            dot(row, v)
+        } else {
+            row[2].mul_add(v[2], row[0].mul_add(v[0], row[1] * v[1]))
+        }
+    })
+}
+
 /// numpy's `linalg.norm` of one vector: the square root of its
-/// [`blas_dot`] with itself.
+/// [`vector_dot`] with itself.
 pub(crate) fn blas_norm(a: Vec3) -> f64 {
-    blas_dot(a, a).sqrt()
+    vector_dot(a, a).sqrt()
 }
 
 /// The cross product (numpy's `cross`).
@@ -83,21 +124,42 @@ fn normalized(a: Vec3) -> Vec3 {
     [a[0] / n, a[1] / n, a[2] / n]
 }
 
-/// How many points numpy's `dot` multiplies by a matrix at once, which
-/// decides how `OpenBLAS` sums the products of each row.
+/// How numpy's `dot` multiplies a point by a matrix, which depends on how
+/// many points it multiplies at once and, with Accelerate, on where the
+/// point stands among them: it decides how the BLAS sums the products of
+/// each row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Batch {
     /// A single point: the matrix-vector kernel, `(p0 + p2) + (p1 + p3)`.
     One,
-    /// Two points or more: the matrix-matrix kernel, fused multiply-adds
-    /// in order.
+    /// One of two points or more in the matrix-matrix kernel that sums
+    /// with fused multiply-adds in order: all of them with `OpenBLAS`,
+    /// with Accelerate those its groups of four leave.
     Many,
+    /// One of a group of four points in Accelerate's matrix-matrix
+    /// kernel, which fuses in pairs.
+    Four,
 }
 
 impl Batch {
-    /// The batch of `len` points multiplied together.
-    pub fn of(len: usize) -> Self {
-        if len == 1 { Self::One } else { Self::Many }
+    /// How the point at `index` of `len` multiplied together is summed.
+    pub fn at(index: usize, len: usize) -> Self {
+        if len == 1 {
+            Self::One
+        } else if ACCELERATE_BLAS && index < len - len % 4 {
+            Self::Four
+        } else {
+            Self::Many
+        }
+    }
+
+    /// The sum of the products of a matrix row `a` and a point `b`.
+    fn sum(self, a: [f64; 4], b: [f64; 4]) -> f64 {
+        match self {
+            Self::One => paired_sums(a, b),
+            Self::Many => fused_in_order(a, b),
+            Self::Four => paired_fused(a, b),
+        }
     }
 }
 
@@ -131,7 +193,7 @@ impl Matrix4 {
     pub fn dot(&self, other: &Self) -> Self {
         Self(
             self.0
-                .map(|row| [0, 1, 2, 3].map(|j| blas_dot(row, other.0.map(|r| r[j])))),
+                .map(|row| [0, 1, 2, 3].map(|j| Batch::at(j, 4).sum(row, other.0.map(|r| r[j])))),
         )
     }
 
@@ -142,10 +204,7 @@ impl Matrix4 {
 
     /// `self · v` for a homogeneous vector multiplied in `batch`.
     pub fn transform_in(&self, batch: Batch, v: [f64; 4]) -> [f64; 4] {
-        self.0.map(|row| match batch {
-            Batch::One => (row[0] * v[0] + row[2] * v[2]) + (row[1] * v[1] + row[3] * v[3]),
-            Batch::Many => blas_dot(row, v),
-        })
+        self.0.map(|row| batch.sum(row, v))
     }
 
     /// The inverse matrix, by Gauss-Jordan elimination with partial
@@ -237,8 +296,9 @@ impl Matrix4 {
     /// Projects `points` together (matplotlib's `proj_transform` of
     /// arrays).
     pub fn project_all(&self, points: &[Vec3]) -> Vec<Vec3> {
-        let batch = Batch::of(points.len());
-        points.iter().map(|&p| self.project_in(batch, p)).collect()
+        (points.iter().enumerate())
+            .map(|(i, &p)| self.project_in(Batch::at(i, points.len()), p))
+            .collect()
     }
 
     /// Maps `points` together back through this inverse of a projection
@@ -251,10 +311,11 @@ impl Matrix4 {
     /// assert_eq!(flat.unproject_all(&[[0.5, 1.0, 2.0]]), vec![[0.5, 0.0, 0.0]]);
     /// ```
     pub fn unproject_all(&self, points: &[Vec3]) -> Vec<Vec3> {
-        let batch = Batch::of(points.len());
         points
             .iter()
-            .map(|&p| {
+            .enumerate()
+            .map(|(i, &p)| {
+                let batch = Batch::at(i, points.len());
                 let [x, y, z, w] = self.transform_in(batch, [p[0], p[1], p[2], 1.0]);
                 if w == 0.0 {
                     [x, y, z]
@@ -345,10 +406,7 @@ pub fn view_axes(eye: Vec3, center: Vec3, vertical: Vec3, roll: f64) -> [Vec3; 3
     }
     // A positive rotation of the camera is a negative rotation of the world.
     let r = rotation_about_vector(w, -roll);
-    // `OpenBLAS`'s matrix-vector kernel for three columns starts from the
-    // middle product.
-    let rotate = |a: Vec3| r.map(|row| row[2].mul_add(a[2], row[0].mul_add(a[0], row[1] * a[1])));
-    [rotate(u), rotate(v), w]
+    [matrix_dot_vector(r, u), matrix_dot_vector(r, v), w]
 }
 
 /// The world-to-view transformation for the view axes `u, v, w` and the

@@ -114,6 +114,19 @@ class Triangulation:
         """
         return self.get_cpp_triangulation().calculate_plane_coefficients(z)
 
+    def _turn_clockwise_triangles(self):
+        """
+        Turn the clockwise triangles of `triangles` anticlockwise, in place
+        and once: what matplotlib's C++ triangulation does to the triangles
+        it is given, in the array it shares with this object, when it is
+        first made (by the edges, the neighbors, a trifinder, the plane
+        coefficients or a contour).
+        """
+        if self.is_delaunay or getattr(self, "_turned", False):
+            return
+        self._turned = True
+        self.triangles[...] = _tri.oriented(self._native)
+
     def get_cpp_triangulation(self):
         """
         Return the underlying C++ Triangulation object, creating it
@@ -121,6 +134,7 @@ class Triangulation:
         """
         from .. import _tri
         if getattr(self, "_cpp_triangulation", None) is None:
+            self._turn_clockwise_triangles()
             self._cpp_triangulation = _tri.Triangulation(
                 # For unset arrays use empty tuple which has size of zero.
                 self.x, self.y, self.triangles,
@@ -138,6 +152,7 @@ class Triangulation:
         index.  Each edge appears only once, i.e. for an edge between points
         *i*  and *j*, there will only be either *(i, j)* or *(j, i)*.
         """
+        self._turn_clockwise_triangles()
         return _tri.edges(self._native).astype(np.int32)
 
     def get_masked_triangles(self):
@@ -205,6 +220,7 @@ class Triangulation:
         """
         if getattr(self, "_trifinder", None) is None:
             from ._trifinder import TrapezoidMapTriFinder
+            self._turn_clockwise_triangles()
             self._trifinder = TrapezoidMapTriFinder(self)
         return self._trifinder
 
@@ -219,6 +235,7 @@ class Triangulation:
         to the edge from point index ``triangles[i, j]`` to point index
         ``triangles[i, (j+1)%3]``.
         """
+        self._turn_clockwise_triangles()
         return _tri.neighbors(self._native).astype(np.int32)
 
     def set_mask(self, mask):

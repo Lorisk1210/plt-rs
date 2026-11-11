@@ -15,6 +15,7 @@
 mod walk;
 
 use pltrs_core::Point;
+use pltrs_core::numeric::fused;
 
 use super::Mesh;
 use super::init::{
@@ -200,7 +201,10 @@ impl<'a> Site<'a> {
         let (mesh, i0, i1) = (self.mesh, slot(p0), slot(p1));
         let zcp = (level - mesh.z[i0]) / (mesh.z[i1] - mesh.z[i0]);
         let (xy0, xy1) = (mesh.point(i0), mesh.point(i1));
-        let point = Point::new(zcp * (xy1.x - xy0.x) + xy0.x, zcp * (xy1.y - xy0.y) + xy0.y);
+        let point = Point::new(
+            fused(zcp, xy1.x - xy0.x, xy0.x),
+            fused(zcp, xy1.y - xy0.y, xy0.y),
+        );
         self.mark(point, kind)
     }
 

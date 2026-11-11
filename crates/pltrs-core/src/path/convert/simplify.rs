@@ -3,6 +3,7 @@
 use super::queue::VertexQueue;
 use super::{Vertex, VertexSource};
 use crate::Point;
+use crate::numeric::sum_of_products;
 use crate::path::PathCode;
 
 /// Merges runs of nearly collinear line segments; see
@@ -73,7 +74,7 @@ impl<I: VertexSource> Simplifier<I> {
     /// Starts a run along `p - last` from the last point.
     fn start_run(&mut self, p: Point) {
         self.orig = p - self.last;
-        self.orig_norm2 = self.orig.x * self.orig.x + self.orig.y * self.orig.y;
+        self.orig_norm2 = norm2(self.orig);
         self.forward_max_norm2 = self.orig_norm2;
         self.last_forward_max = true;
         self.backward_max_norm2 = 0.0;
@@ -179,15 +180,15 @@ impl<I: VertexSource> Simplifier<I> {
             // Split the offset from the run start into its components along
             // and across the run direction.
             let tot = p - self.run_start;
-            let tot_dot = self.orig.x * tot.x + self.orig.y * tot.y;
+            let tot_dot = sum_of_products(self.orig.x, tot.x, self.orig.y, tot.y);
             let para = Point::new(
                 tot_dot * self.orig.x / self.orig_norm2,
                 tot_dot * self.orig.y / self.orig_norm2,
             );
             let perp = tot - para;
-            let perp_norm2 = perp.x * perp.x + perp.y * perp.y;
+            let perp_norm2 = norm2(perp);
             if perp_norm2 < threshold_sq {
-                let para_norm2 = para.x * para.x + para.y * para.y;
+                let para_norm2 = norm2(para);
                 self.last_forward_max = false;
                 self.last_backward_max = false;
                 if tot_dot > 0.0 {
@@ -213,6 +214,11 @@ impl<I: VertexSource> Simplifier<I> {
         }
         self.queue.pop()
     }
+}
+
+/// The squared length of `v` (matplotlib's `dx * dx + dy * dy`).
+fn norm2(v: Point) -> f64 {
+    sum_of_products(v.x, v.x, v.y, v.y)
 }
 
 impl<I: VertexSource> Iterator for Simplifier<I> {

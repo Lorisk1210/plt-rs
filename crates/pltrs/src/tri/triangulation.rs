@@ -2,6 +2,7 @@
 
 use std::collections::BTreeSet;
 
+use pltrs_core::numeric::{difference_of_products, fused, sum_of_products};
 use pltrs_core::{Path, Point};
 
 use super::edge_map::EdgeMap;
@@ -172,6 +173,24 @@ impl Triangulation {
     /// ```
     pub fn given_triangles(&self) -> &[[usize; 3]] {
         self.given.as_deref().unwrap_or(&self.triangles)
+    }
+
+    /// Forgets the vertex order the triangles were given in:
+    /// [`given_triangles`](Self::given_triangles) are the anticlockwise
+    /// [`triangles`](Self::triangles) from now on. matplotlib's C++
+    /// triangulation turns the clockwise triangles in the array it shares
+    /// with the Python object, the first time something makes it (edges,
+    /// neighbours, a trifinder, plane coefficients, contours).
+    ///
+    /// ```
+    /// use pltrs::tri::Triangulation;
+    /// let mut tri = Triangulation::new(&[0.0, 1.0, 0.0], &[0.0, 0.0, 1.0], vec![[0, 2, 1]])?;
+    /// tri.forget_given_order();
+    /// assert_eq!(tri.given_triangles(), [[0, 1, 2]]);
+    /// # Ok::<(), pltrs::tri::TriError>(())
+    /// ```
+    pub fn forget_given_order(&mut self) {
+        self.given = None;
     }
 
     /// The unmasked triangles in the vertex order they were given, which
@@ -382,8 +401,7 @@ impl Triangulation {
         let given = self.triangles.clone();
         for t in 0..self.triangles.len() {
             let [a, b, c] = self.triangles[t].map(|v| self.point(v));
-            let (ab, ac) = (b - a, c - a);
-            if ab.x * ac.y - ab.y * ac.x < 0.0 {
+            if cross_z(b - a, c - a) < 0.0 {
                 self.triangles[t].swap(1, 2);
             }
         }
@@ -425,22 +443,33 @@ fn check_lengths(x: &[f64], y: &[f64]) -> Result<(), TriError> {
     }
 }
 
-/// The plane through three `[x, y, z]` points (matplotlib's C++ formula).
+/// The z component of `a × b` (matplotlib's `XY::cross_z`), `a.x * b.y -
+/// a.y * b.x` with the first product fused where matplotlib's build fuses.
+pub(super) fn cross_z(a: Point, b: Point) -> f64 {
+    difference_of_products(a.x, b.y, a.y, b.x)
+}
+
+/// The plane through three `[x, y, z]` points (matplotlib's C++ formula,
+/// with its build's fused products: of each sum of products the first is
+/// fused into the second, and every later one into the sum so far).
 fn plane([p0, p1, p2]: [[f64; 3]; 3]) -> [f64; 3] {
     let s1 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
     let s2 = [p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]];
     let normal = [
-        s1[1] * s2[2] - s1[2] * s2[1],
-        s1[2] * s2[0] - s1[0] * s2[2],
-        s1[0] * s2[1] - s1[1] * s2[0],
+        difference_of_products(s1[1], s2[2], s1[2], s2[1]),
+        difference_of_products(s1[2], s2[0], s1[0], s2[2]),
+        difference_of_products(s1[0], s2[1], s1[1], s2[0]),
     ];
     if normal[2] == 0.0 {
-        let sum2 = s1[0] * s1[0] + s1[1] * s1[1] + s2[0] * s2[0] + s2[1] * s2[1];
-        let a = (s1[0] * s1[2] + s2[0] * s2[2]) / sum2;
-        let b = (s1[1] * s1[2] + s2[1] * s2[2]) / sum2;
-        [a, b, p0[2] - a * p0[0] - b * p0[1]]
+        let sum2 = sum_of_products(s1[0], s1[0], s1[1], s1[1]);
+        let sum2 = fused(s2[0], s2[0], sum2);
+        let sum2 = fused(s2[1], s2[1], sum2);
+        let a = sum_of_products(s1[0], s1[2], s2[0], s2[2]) / sum2;
+        let b = sum_of_products(s1[1], s1[2], s2[1], s2[2]) / sum2;
+        [a, b, fused(-b, p0[1], fused(-a, p0[0], p0[2]))]
     } else {
-        let dot = normal[0] * p0[0] + normal[1] * p0[1] + normal[2] * p0[2];
+        let dot = sum_of_products(normal[0], p0[0], normal[1], p0[1]);
+        let dot = fused(normal[2], p0[2], dot);
         [
             -normal[0] / normal[2],
             -normal[1] / normal[2],
@@ -451,6 +480,8 @@ fn plane([p0, p1, p2]: [[f64; 3]; 3]) -> [f64; 3] {
 
 #[cfg(test)]
 mod tests {
+    use pltrs_core::numeric::FUSES_PRODUCTS;
+
     use super::*;
 
     fn grid3() -> Triangulation {
@@ -509,6 +540,34 @@ mod tests {
                 actual: 1
             })
         );
+    }
+
+    /// matplotlib 3.11.2's `calculate_plane_coefficients` on x86-64 and on
+    /// arm64 macOS, whose build fuses products: a last digit, and for
+    /// collinear points the branch taken (a fused cross product of
+    /// dependent sides keeps a residue, so the plane is steep, not flat).
+    #[test]
+    fn plane_coefficients_round_as_matplotlib_rounds_them_here() {
+        let z = [0.3, 0.7, 0.1, 0.9];
+        let (x, y) = ([0.1, 0.9, 0.3, 0.7], [0.2, 0.1, 0.8, 0.9]);
+        let tri = Triangulation::new(&x, &y, vec![[0, 1, 2], [1, 3, 2]]).unwrap();
+        let constant = tri.plane_coefficients(&z).unwrap()[1][2];
+        let expected = if FUSES_PRODUCTS {
+            -1.011_764_705_882_353_1
+        } else {
+            -1.011_764_705_882_353_3
+        };
+        assert_eq!(constant.to_bits(), f64::to_bits(expected));
+
+        let (x, y) = ([0.0, 0.3, 0.6, 0.1], [0.0, 0.1, 0.2, 0.7]);
+        let tri = Triangulation::new(&x, &y, vec![[0, 1, 2], [0, 2, 3]]).unwrap();
+        let collinear = tri.plane_coefficients(&z).unwrap()[0];
+        let expected = if FUSES_PRODUCTS {
+            [2f64.powi(54) * 5.0 / 3.0, -(2f64.powi(56) * 1.25), 0.3]
+        } else {
+            [0.0, 0.0, 0.3]
+        };
+        assert_eq!(collinear, expected);
     }
 
     #[test]

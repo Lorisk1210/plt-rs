@@ -1,6 +1,7 @@
 //! Affine transformations of the plane.
 
 use crate::Point;
+use crate::numeric::{ACCELERATE_BLAS, difference_of_products, sum_of_products};
 
 /// An affine transformation `x' = a·x + c·y + e`, `y' = b·x + d·y + f`.
 ///
@@ -169,15 +170,27 @@ impl Affine2D {
 
     /// Composition: the result applies `self` first, then `next`
     /// (matplotlib's `self + next`).
+    ///
+    /// matplotlib multiplies the two 3×3 matrices with numpy's `dot`,
+    /// whose BLAS sums each entry's products in order: rounded one by one
+    /// here, and with fused multiply-adds where it is Apple's Accelerate
+    /// (`numeric::ACCELERATE_BLAS`).
     #[must_use]
     pub fn then(self, next: Self) -> Self {
+        let dot = |x: f64, p: f64, y: f64, q: f64| {
+            if ACCELERATE_BLAS {
+                y.mul_add(q, x * p)
+            } else {
+                x * p + y * q
+            }
+        };
         Self::from_values(
-            next.a * self.a + next.c * self.b,
-            next.b * self.a + next.d * self.b,
-            next.a * self.c + next.c * self.d,
-            next.b * self.c + next.d * self.d,
-            next.a * self.e + next.c * self.f + next.e,
-            next.b * self.e + next.d * self.f + next.f,
+            dot(next.a, self.a, next.c, self.b),
+            dot(next.b, self.a, next.d, self.b),
+            dot(next.a, self.c, next.c, self.d),
+            dot(next.b, self.c, next.d, self.d),
+            dot(next.a, self.e, next.c, self.f) + next.e,
+            dot(next.b, self.e, next.d, self.f) + next.f,
         )
     }
 
@@ -236,6 +249,61 @@ impl Affine2D {
         let (c, d) = solve(second, first, 0.0);
         let (e, f) = solve(0.0, 0.0, 1.0);
         Some(Self::from_values(a, b, c, d, e, f))
+    }
+
+    /// Composition as Agg's `trans_affine::multiply` (its `*=`) computes
+    /// it: [`then`](Self::then) with the products matplotlib's build of
+    /// Agg fuses (`numeric::fused`). The renderers' transforms are composed
+    /// this way in matplotlib's C++; its Python transforms are numpy's
+    /// products, which [`then`](Self::then) is.
+    #[must_use]
+    pub fn agg_then(self, next: Self) -> Self {
+        Self::from_values(
+            sum_of_products(self.a, next.a, self.b, next.c),
+            sum_of_products(self.a, next.b, self.b, next.d),
+            sum_of_products(self.c, next.a, self.d, next.c),
+            sum_of_products(self.c, next.b, self.d, next.d),
+            sum_of_products(self.e, next.a, self.f, next.c) + next.e,
+            sum_of_products(self.e, next.b, self.f, next.d) + next.f,
+        )
+    }
+
+    /// One over the determinant of the linear part (Agg's
+    /// `trans_affine::determinant_reciprocal`): infinite or NaN for a
+    /// singular transform.
+    pub fn agg_determinant_reciprocal(&self) -> f64 {
+        1.0 / difference_of_products(self.a, self.d, self.b, self.c)
+    }
+
+    /// The inverse as Agg's `trans_affine::invert` computes it: by the
+    /// reciprocal of the determinant, whatever its value (a singular
+    /// transform inverts to infinities and NaN, as in Agg).
+    #[must_use]
+    pub fn agg_inverted(&self) -> Self {
+        let d = self.agg_determinant_reciprocal();
+        let a = self.d * d;
+        let d_new = self.a * d;
+        let b = -self.b * d;
+        let c = -self.c * d;
+        Self::from_values(
+            a,
+            b,
+            c,
+            d_new,
+            difference_of_products(-self.e, a, self.f, c),
+            difference_of_products(-self.e, b, self.f, d_new),
+        )
+    }
+
+    /// Applies the transformation as Agg's `trans_affine::transform` does
+    /// (`conv_transform`, the span interpolators): where matplotlib's build
+    /// of Agg fuses, `x * a` is fused into `x * a + y * c`, which shows
+    /// once the transform rotates or shears.
+    pub fn agg_transform_point(&self, p: Point) -> Point {
+        Point::new(
+            sum_of_products(p.x, self.a, p.y, self.c) + self.e,
+            sum_of_products(p.x, self.b, p.y, self.d) + self.f,
+        )
     }
 
     /// Returns `true` for the exact identity.

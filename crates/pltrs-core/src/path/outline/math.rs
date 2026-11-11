@@ -1,8 +1,10 @@
 //! The helpers of Agg's `agg_math.h` that its stroke and contour
 //! generators (and Gouraud shading) build on, with the same floating-point
-//! expressions in the same order as the C++ code.
+//! expressions in the same order as the C++ code, and its products fused
+//! where matplotlib's build of it fuses them (`numeric::fused`).
 
 use crate::Point;
+use crate::numeric::{difference_of_products, fused, sum_of_products};
 
 /// Below this magnitude the denominator of [`calc_intersection`] counts as
 /// zero, and three points as collinear (Agg's `intersection_epsilon`).
@@ -12,26 +14,29 @@ pub const INTERSECTION_EPSILON: f64 = 1.0e-30;
 /// `cross_product`): positive on one side, negative on the other, zero on
 /// the line.
 pub fn cross_product(a: Point, b: Point, p: Point) -> f64 {
-    (p.x - b.x) * (b.y - a.y) - (p.y - b.y) * (b.x - a.x)
+    difference_of_products(p.x - b.x, b.y - a.y, p.y - b.y, b.x - a.x)
 }
 
 /// The intersection of the lines `a → b` and `c → d`, or `None` when they
 /// are parallel (Agg's `calc_intersection`).
 pub fn calc_intersection(a: Point, b: Point, c: Point, d: Point) -> Option<Point> {
-    let num = (a.y - c.y) * (d.x - c.x) - (a.x - c.x) * (d.y - c.y);
-    let den = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x);
+    let num = difference_of_products(a.y - c.y, d.x - c.x, a.x - c.x, d.y - c.y);
+    let den = difference_of_products(b.x - a.x, d.y - c.y, b.y - a.y, d.x - c.x);
     if den.abs() < INTERSECTION_EPSILON {
         return None;
     }
     let r = num / den;
-    Some(Point::new(a.x + r * (b.x - a.x), a.y + r * (b.y - a.y)))
+    Some(Point::new(
+        fused(r, b.x - a.x, a.x),
+        fused(r, b.y - a.y, a.y),
+    ))
 }
 
 /// The distance between `a` and `b` (Agg's `calc_distance`).
 pub fn calc_distance(a: Point, b: Point) -> f64 {
     let dx = b.x - a.x;
     let dy = b.y - a.y;
-    (dx * dx + dy * dy).sqrt()
+    sum_of_products(dx, dx, dy, dy).sqrt()
 }
 
 #[cfg(test)]

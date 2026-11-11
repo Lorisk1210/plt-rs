@@ -2,9 +2,12 @@
 //!
 //! Each kernel is evaluated for `x >= 0` only; the weight table mirrors it.
 //! Expressions keep Agg's operation order so that the tabulated weights
-//! round identically.
+//! round identically, with the products matplotlib's build of Agg fuses
+//! written through `numeric::fused`.
 
 use std::f64::consts::PI;
+
+use pltrs_core::numeric::{difference_of_products, fused, sum_of_products};
 
 use super::params::Interpolation;
 
@@ -52,13 +55,13 @@ pub(super) struct MitchellCoefficients {
 impl MitchellCoefficients {
     fn new(b: f64, c: f64) -> Self {
         Self {
-            p0: (6.0 - 2.0 * b) / 6.0,
-            p2: (-18.0 + 12.0 * b + 6.0 * c) / 6.0,
-            p3: (12.0 - 9.0 * b - 6.0 * c) / 6.0,
-            q0: (8.0 * b + 24.0 * c) / 6.0,
-            q1: (-12.0 * b - 48.0 * c) / 6.0,
-            q2: (6.0 * b + 30.0 * c) / 6.0,
-            q3: (-b - 6.0 * c) / 6.0,
+            p0: fused(-2.0, b, 6.0) / 6.0,
+            p2: fused(6.0, c, fused(12.0, b, -18.0)) / 6.0,
+            p3: fused(-6.0, c, fused(-9.0, b, 12.0)) / 6.0,
+            q0: sum_of_products(8.0, b, 24.0, c) / 6.0,
+            q1: difference_of_products(-12.0, b, 48.0, c) / 6.0,
+            q2: sum_of_products(6.0, b, 30.0, c) / 6.0,
+            q3: fused(-6.0, c, -b) / 6.0,
         }
     }
 }
@@ -120,11 +123,11 @@ impl FilterShape {
         match *self {
             Self::Bilinear => 1.0 - x,
             Self::Hanning => 0.5 + 0.5 * (PI * x).cos(),
-            Self::Hamming => 0.54 + 0.46 * (PI * x).cos(),
-            Self::Hermite => (2.0 * x - 3.0) * x * x + 1.0,
+            Self::Hamming => fused(0.46, (PI * x).cos(), 0.54),
+            Self::Hermite => fused((2.0 * x - 3.0) * x, x, 1.0),
             Self::Quadric => quadric(x),
             Self::Bicubic => bicubic(x),
-            Self::Kaiser { b, i0_inv } => bessel_i0(b * (1.0 - x * x).sqrt()) * i0_inv,
+            Self::Kaiser { b, i0_inv } => bessel_i0(b * fused(-x, x, 1.0).sqrt()) * i0_inv,
             Self::Catrom => catrom(x),
             Self::Mitchell(c) => mitchell(&c, x),
             Self::Spline16 => spline16(x),
@@ -140,7 +143,7 @@ impl FilterShape {
             Self::Sinc { .. } => sinc(x),
             Self::Lanczos { radius } => windowed_sinc(x, radius, |xr| xr.sin() / xr),
             Self::Blackman { radius } => windowed_sinc(x, radius, |xr| {
-                0.42 + 0.5 * xr.cos() + 0.08 * (2.0 * xr).cos()
+                fused(0.08, (2.0 * xr).cos(), 0.42 + 0.5 * xr.cos())
             }),
         }
     }
@@ -148,7 +151,7 @@ impl FilterShape {
 
 fn quadric(x: f64) -> f64 {
     if x < 0.5 {
-        0.75 - x * x
+        fused(-x, x, 0.75)
     } else if x < 1.5 {
         let t = x - 1.5;
         0.5 * t * t
@@ -159,18 +162,15 @@ fn quadric(x: f64) -> f64 {
 
 fn bicubic(x: f64) -> f64 {
     let pow3 = |v: f64| if v <= 0.0 { 0.0 } else { v * v * v };
-    (1.0 / 6.0) * (pow3(x + 2.0) - 4.0 * pow3(x + 1.0) + 6.0 * pow3(x) - 4.0 * pow3(x - 1.0))
+    let sum = fused(6.0, pow3(x), fused(-4.0, pow3(x + 1.0), pow3(x + 2.0)));
+    (1.0 / 6.0) * fused(-4.0, pow3(x - 1.0), sum)
 }
 
-#[expect(
-    clippy::manual_midpoint,
-    reason = "Agg's polynomial, kept verbatim for identical rounding"
-)]
 fn catrom(x: f64) -> f64 {
     if x < 1.0 {
-        0.5 * (2.0 + x * x * (-5.0 + x * 3.0))
+        0.5 * fused(x * x, fused(x, 3.0, -5.0), 2.0)
     } else if x < 2.0 {
-        0.5 * (4.0 + x * (-8.0 + x * (5.0 - x)))
+        0.5 * fused(x, fused(x, 5.0 - x, -8.0), 4.0)
     } else {
         0.0
     }
@@ -178,9 +178,9 @@ fn catrom(x: f64) -> f64 {
 
 fn mitchell(c: &MitchellCoefficients, x: f64) -> f64 {
     if x < 1.0 {
-        c.p0 + x * x * (c.p2 + x * c.p3)
+        fused(x * x, fused(x, c.p3, c.p2), c.p0)
     } else if x < 2.0 {
-        c.q0 + x * (c.q1 + x * (c.q2 + x * c.q3))
+        fused(x, fused(x, fused(x, c.q3, c.q2), c.q1), c.q0)
     } else {
         0.0
     }
@@ -188,22 +188,26 @@ fn mitchell(c: &MitchellCoefficients, x: f64) -> f64 {
 
 fn spline16(x: f64) -> f64 {
     if x < 1.0 {
-        ((x - 9.0 / 5.0) * x - 1.0 / 5.0) * x + 1.0
+        fused(fused(x - 9.0 / 5.0, x, -(1.0 / 5.0)), x, 1.0)
     } else {
         let t = x - 1.0;
-        ((-1.0 / 3.0 * t + 4.0 / 5.0) * t - 7.0 / 15.0) * t
+        fused(fused(-1.0 / 3.0, t, 4.0 / 5.0), t, -(7.0 / 15.0)) * t
     }
 }
 
 fn spline36(x: f64) -> f64 {
     if x < 1.0 {
-        ((13.0 / 11.0 * x - 453.0 / 209.0) * x - 3.0 / 209.0) * x + 1.0
+        fused(
+            fused(fused(13.0 / 11.0, x, -(453.0 / 209.0)), x, -(3.0 / 209.0)),
+            x,
+            1.0,
+        )
     } else if x < 2.0 {
         let t = x - 1.0;
-        ((-6.0 / 11.0 * t + 270.0 / 209.0) * t - 156.0 / 209.0) * t
+        fused(fused(-6.0 / 11.0, t, 270.0 / 209.0), t, -(156.0 / 209.0)) * t
     } else {
         let t = x - 2.0;
-        ((1.0 / 11.0 * t - 45.0 / 209.0) * t + 26.0 / 209.0) * t
+        fused(fused(1.0 / 11.0, t, -(45.0 / 209.0)), t, 26.0 / 209.0) * t
     }
 }
 
@@ -257,7 +261,7 @@ fn besj(x: f64, n: i32) -> f64 {
     let mut b1 = 0.0;
     let mut m1 = x.abs() as i32 + 6;
     if x.abs() > 5.0 {
-        m1 = (1.4 * x + 60.0 / x).abs() as i32;
+        m1 = fused(1.4, x, 60.0 / x).abs() as i32;
     }
     let mut m2 = (f64::from(n + 2) + x.abs() / 4.0) as i32;
     if m1 > m2 {

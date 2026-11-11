@@ -55,6 +55,12 @@ class _TriContourGenerator(_ContourGenerator):
     with matplotlib's generator of the ``_tri`` extension for them.
     """
 
+    def __init__(self, tri, z):
+        # matplotlib makes the extension's generator, and so its
+        # triangulation, with the contour set.
+        tri._turn_clockwise_triangles()
+        super().__init__(tri, z)
+
     def _make_matplotlib(self):
         tri, z = self.field
         # The extension loads when first used, as matplotlib's does.

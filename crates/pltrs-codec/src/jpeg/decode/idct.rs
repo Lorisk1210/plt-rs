@@ -3,13 +3,16 @@
 //! component planes it produces.
 //!
 //! The arithmetic follows the SIMD form of the routine that Pillow's
-//! libjpeg-turbo runs on x86-64 (`jsimd_idct_islow_avx2`, like its SSE2
-//! twin): products of coefficients and quantization steps, and the
-//! sums the SIMD code forms before multiplying, wrap to 16 bits, the
-//! multiplications accumulate in 32 bits, and each pass saturates its
-//! outputs to 16 bits. For every block a real encoder produces this is
-//! the C routine's result exactly; for corrupt coefficients it is still
-//! Pillow's.
+//! libjpeg-turbo runs on the processor ([`Simd`]). On x86-64
+//! (`jsimd_idct_islow_avx2`, like its SSE2 twin): products of coefficients
+//! and quantization steps, and the sums the SIMD code forms before
+//! multiplying, wrap to 16 bits, the multiplications accumulate in 32
+//! bits, and each pass saturates its outputs to 16 bits. On arm64
+//! (`jsimd_idct_islow_neon`) the sums are the same and the passes narrow
+//! them otherwise: the first keeps the low 16 bits, the second takes the
+//! high half before it rounds and saturates. For every block a real
+//! encoder produces either is the C routine's result exactly; for corrupt
+//! coefficients it is still Pillow's on that processor.
 
 use super::frame::{Block, Component};
 use crate::jpeg::tables::{
@@ -24,16 +27,59 @@ fn madd(a: i16, ca: i32, b: i16, cb: i32) -> i32 {
     i32::from(a) * ca + i32::from(b) * cb
 }
 
-/// `x / 2^n`, rounded half up, saturated to 16 bits (`DESCALE`, then
-/// `packssdw`).
-fn descale(x: i32, n: u32) -> i16 {
-    let value = x.wrapping_add(1 << (n - 1)) >> n;
-    value.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16
+/// The SIMD form of the routine: how each pass narrows its 32-bit sums.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Simd {
+    /// libjpeg-turbo's AVX2 and SSE2 routines.
+    X86,
+    /// Its Neon routine.
+    Neon,
 }
 
-/// One pass over eight inputs (a column, then a row), descaled by
-/// `2^shift`.
-fn pass(input: [i16; 8], shift: u32) -> [i16; 8] {
+impl Simd {
+    /// The form libjpeg-turbo runs on this processor.
+    const HOST: Self = if cfg!(target_arch = "aarch64") {
+        Self::Neon
+    } else {
+        Self::X86
+    };
+
+    /// A sum of the first pass, descaled by `2^(CONST_BITS - PASS1_BITS)`
+    /// and rounded half up.
+    fn first(self, x: i32) -> i16 {
+        let shift = CONST_BITS - PASS1_BITS;
+        match self {
+            // `paddd`, `psrad`, then `packssdw`: the rounding wraps, the
+            // result saturates.
+            Self::X86 => {
+                let value = x.wrapping_add(1 << (shift - 1)) >> shift;
+                value.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16
+            }
+            // `vrshrn_n_s32`: rounded without wrapping, the low half kept.
+            Self::Neon => ((i64::from(x) + (1 << (shift - 1))) >> shift) as i16,
+        }
+    }
+
+    /// A sum of the second pass as a sample: descaled by
+    /// `2^(CONST_BITS + PASS1_BITS + 3)`, rounded half up, saturated to a
+    /// signed byte and centred.
+    fn second(self, x: i32) -> u8 {
+        let shift = CONST_BITS + PASS1_BITS + 3;
+        let value = match self {
+            // As the first pass, then `packsswb`.
+            Self::X86 => (x.wrapping_add(1 << (shift - 1)) >> shift)
+                .clamp(i32::from(i16::MIN), i32::from(i16::MAX)),
+            // `vaddhn_s32` keeps the high half of the sum, which
+            // `vqrshrn_n_s16` rounds without wrapping.
+            Self::Neon => ((x >> 16) + (1 << (shift - 17))) >> (shift - 16),
+        };
+        (value.clamp(-128, 127) + 128) as u8
+    }
+}
+
+/// The eight sums of one pass over eight inputs (a column, then a row),
+/// before they are descaled.
+fn pass(input: [i16; 8]) -> [i32; 8] {
     let [in0, in1, in2, in3, in4, in5, in6, in7] = input;
     // Even part: the rotator is sqrt(2) · c(−6).
     let tmp3 = madd(in2, FIX_0_541196100 + FIX_0_765366865, in6, FIX_0_541196100);
@@ -84,17 +130,22 @@ fn pass(input: [i16; 8], shift: u32) -> [i16; 8] {
         tmp11.wrapping_sub(odd2),
         tmp10.wrapping_sub(odd3),
     ]
-    .map(|x| descale(x, shift))
 }
 
 /// The 8×8 samples (row-major) of a block of quantized coefficients and
 /// its quantization table (both in natural order).
 pub(super) fn inverse_dct(block: &Block, quant: &[u16; 64]) -> [u8; 64] {
+    inverse_dct_as(Simd::HOST, block, quant)
+}
+
+/// [`inverse_dct`] in the form `simd`.
+fn inverse_dct_as(simd: Simd, block: &Block, quant: &[u16; 64]) -> [u8; 64] {
     // Dequantization keeps the low 16 bits (`pmullw`).
     let dequantized: [i16; 64] = std::array::from_fn(|i| block[i].wrapping_mul(quant[i] as i16));
     // Pass 1: columns, scaled up by 2^PASS1_BITS. A block without AC
     // terms below its first row takes the shortcut of shifting its first
-    // row in 16 bits.
+    // row in 16 bits (the Neon routine decides that for each half of the
+    // block, and its full pass gives those columns the same).
     let mut workspace = [0_i16; 64];
     if block[8..].iter().all(|&c| c == 0) {
         for (column, &dc) in dequantized[..8].iter().enumerate() {
@@ -106,20 +157,18 @@ pub(super) fn inverse_dct(block: &Block, quant: &[u16; 64]) -> [u8; 64] {
     } else {
         for column in 0..8 {
             let input = std::array::from_fn(|row| dequantized[row * 8 + column]);
-            let output = pass(input, CONST_BITS - PASS1_BITS);
-            for (row, value) in output.into_iter().enumerate() {
-                workspace[row * 8 + column] = value;
+            for (row, sum) in pass(input).into_iter().enumerate() {
+                workspace[row * 8 + column] = simd.first(sum);
             }
         }
     }
     // Pass 2: rows, descaled by 8 · 2^PASS1_BITS, saturated to signed
-    // bytes and centred (`packsswb`, then adding 128).
+    // bytes and centred.
     let mut samples = [0; 64];
     let rows = workspace.as_chunks::<8>().0;
     for (&input, out) in rows.iter().zip(samples.as_chunks_mut::<8>().0) {
-        let output = pass(input, CONST_BITS + PASS1_BITS + 3);
-        for (sample, value) in out.iter_mut().zip(output) {
-            *sample = (value.clamp(-128, 127) + 128) as u8;
+        for (sample, sum) in out.iter_mut().zip(pass(input)) {
+            *sample = simd.second(sum);
         }
     }
     samples
@@ -215,10 +264,49 @@ mod tests {
         }
     }
 
+    /// Where the two SIMD forms part: sums beyond what a real encoder
+    /// produces.
+    #[test]
+    fn the_simd_forms_narrow_out_of_range_sums_their_own_way() {
+        // In range, both round half up.
+        for x in [0, 1023, 1024, -1024, -1025, 5_000_000, -5_000_000] {
+            assert_eq!(Simd::X86.first(x), Simd::Neon.first(x), "{x}");
+        }
+        for x in [0, 131_071, 131_072, -131_072, -131_073, 20_000_000] {
+            assert_eq!(Simd::X86.second(x), Simd::Neon.second(x), "{x}");
+        }
+        // The first pass saturates on x86 and keeps the low half on arm64.
+        assert_eq!(Simd::X86.first(1 << 27), i16::MAX);
+        assert_eq!(Simd::Neon.first(1 << 27), 0);
+        assert_eq!(Simd::Neon.first((1 << 27) + (3 << 11)), 3);
+        // Rounding the largest sums wraps on x86 only.
+        assert_eq!(Simd::X86.first(i32::MAX), i16::MIN);
+        assert_eq!(Simd::Neon.first(i32::MAX), 0);
+        assert_eq!(Simd::X86.second(i32::MAX), 0);
+        assert_eq!(Simd::Neon.second(i32::MAX), 255);
+        // A block of large coefficients decodes differently.
+        let block: Block = std::array::from_fn(|i| if i % 9 == 0 { 3000 } else { -700 });
+        let quant = [40; 64];
+        assert_ne!(
+            inverse_dct_as(Simd::X86, &block, &quant),
+            inverse_dct_as(Simd::Neon, &block, &quant)
+        );
+        // One a real encoder produces does not.
+        let block: Block = std::array::from_fn(|i| if i < 6 { 20 - 3 * i as i16 } else { 0 });
+        assert_eq!(
+            inverse_dct_as(Simd::X86, &block, &[8; 64]),
+            inverse_dct_as(Simd::Neon, &block, &[8; 64])
+        );
+    }
+
     #[test]
     fn extreme_coefficients_do_not_overflow() {
         let block = [i16::MIN; 64];
-        let samples = inverse_dct(&block, &[u16::MAX; 64]);
+        let samples = inverse_dct_as(Simd::X86, &block, &[u16::MAX; 64]);
         assert!(samples.iter().all(|&s| s == 0 || s == 255));
+        // The Neon form wraps where that one saturates: any sample may
+        // come out, but none panics.
+        let wrapped = inverse_dct_as(Simd::Neon, &block, &[u16::MAX; 64]);
+        assert_eq!(wrapped.len(), 64);
     }
 }

@@ -251,3 +251,56 @@ rcparams/text_1_v2$ | ^warning (missing|extra): UserWarning: Glyph N \(\\N\{CJK 
 # out freed large blocks again, that is whatever the process left there
 # (two runs of matplotlib on the Mac draw different images).
 ipython-cookbook/chapter05_hpc/04_ctypes$ | ^image: RMS > 1$ | the figure draws an np.empty array the missing C library never fills: memory left by the process (two matplotlib runs on the Mac differ too)
+ipython-cookbook/chapter05_hpc/04_ctypes$ | ^warning (extra|missing): RuntimeWarning: invalid value encountered in log$ | the program takes the logarithm of that np.empty array: whether the memory left there holds a negative number differs from run to run
+# The program lowercases its working directory. The tester takes the two
+# runs' directories out of what it compares as they are written, which a
+# lowercased one is only where the path has no capital letter: not below
+# /Users.
+scienceplots/examples/plot-examples$ | ^value\[lower\]: str$ @ ^11:0$ | os.getcwd().lower() names the run's own directory, which the tester does not recognise lowercased below /Users
+
+# What differs on Apple silicon and is not followed (arm64 macOS, task
+# MAC4; pltrs fuses products and rounds numpy's small matrix products as
+# matplotlib's and numpy's builds for that platform do, see "Apple silicon"
+# in python/DESIGN.md).
+#
+# C leaves the conversion of a float no int holds undefined: x86-64 gives
+# INT_MIN for every such value, arm64 saturates (+inf to INT_MAX, NaN to 0).
+# A marker stroked with an infinite edge width has infinite and NaN
+# corners. In Agg's unclipped rasterizer of marker stamps they are one
+# point on x86-64 and nothing is drawn; on arm64 they span the whole
+# coordinate range, Agg fills its 32768 blocks of cells (2.1 GB in 0.4 s)
+# and raises "Exceeded cell block limit", and as its cell storage never
+# gives the blocks back, every later draw of that renderer raises it too
+# (matplotlib 3.11.2 on the Mac: plot(..., "o", mew=inf) and the draws
+# after it; mew=1e300 does the same). pltrs leaves such corners out
+# everywhere. A hatch whose lines are infinitely wide ends the same way
+# (matplotlib 3.11.2 on the Mac: a Rectangle with hatch="//" and
+# hatch_linewidth=inf raises it after 0.7 s and 2.1 GB, and the next draw
+# with a width of 2 raises it again; on Linux both draw).
+hostile/axis_artist_ticks_variant_(6|11)$ | ^exception\[draw\]: missing OverflowError$ | on arm64 Agg rasterizes the saturated corners of a marker stroked infinitely wide until its cell limit and keeps failing afterwards; pltrs draws no such corner
+hostile/axis_artist_ticks_variant_(6|11)$ | ^calls\[draw\]: runs only under pltrs$ | the draws after the one Agg's cell limit stops on arm64, which matplotlib's broken renderer no longer reaches
+hostile/table_cell_10$ | ^exception\[draw\]: missing OverflowError$ | on arm64 Agg rasterizes the saturated outline of hatch lines stroked infinitely wide until its cell limit and keeps the cells; x86-64 and pltrs draw nothing for them
+hostile/table_cell_10$ | ^crash: OverflowError: Exceeded cell block limit in Agg, however for the following reasons:$ | the draws after the one Agg's cell limit stops on arm64 fail in matplotlib's broken renderer, which ends the program there
+# numpy's astype('datetime64[us]') of an infinite date number saturates on
+# arm64 (a date of the year 294247) where x86-64 gives NaT. matplotlib's
+# MicrosecondLocator then asks numpy.arange for 922337203685475584 values,
+# 6.40 EiB no machine has (numpy's _ArrayMemoryError), where on x86-64 the
+# NaN length makes arange raise a ValueError. pltrs converts as the
+# processor does (numeric::np_int), gets the same count, and refuses it as
+# a number of ticks it will not make: its ValueError.
+hostile/microsecond_locator_0$ | ^exception\[tick_values\]: _ArrayMemoryError -> ValueError$ | numpy fails to allocate the 922337203685475584 ticks an infinite date saturated on arm64 asks for; pltrs refuses the same count as a ValueError
+# The first bin of this spectrum is -3.8e-6 but for an imaginary part of
+# rounding noise (1.5e-17 on x86-64, -5.3e-18 on arm64 macOS, where numpy's
+# pocketfft is built with fused products and computes its twiddle factors
+# in double, long double being one), whose sign makes the angle pi or -pi.
+# pltrs' transform is numpy's x86-64 one to the bit.
+hostile/module_matplotlib_pyplot_0$ | ^value\[angle_spectrum\]: array values$ @ ^79:0\[0\]$ | the angle of a negative real bin whose imaginary rounding noise has the other sign in numpy's arm64 build of pocketfft
+# The same signal (sin(arange(128) * 0.3)[:-1]) in three more programs, and
+# its phase spectrum, which unwraps from that angle: 2 pi lower throughout
+# on arm64 macOS (matplotlib there: angle[0] -pi, phase[55] -12.7101; on
+# x86-64 and in pltrs pi and -6.4269).
+hostile/axes_19$ | ^value\[angle_spectrum\]: array values$ @ ^49:0\[0\]$ | the angle of a negative real bin whose imaginary rounding noise has the other sign in numpy's arm64 build
+hostile/axes_variant_19$ | ^value\[angle_spectrum\]: array values$ @ ^50:0\[0\]$ | the angle of a negative real bin whose imaginary rounding noise has the other sign in numpy's arm64 build
+hostile/axes_19$ | ^value\[phase_spectrum\]: array values$ @ ^105:0\[0\]$ | the phase unwrapped from that angle, 2 pi lower throughout in numpy's arm64 build
+hostile/axes_variant_19$ | ^value\[phase_spectrum\]: array values$ @ ^106:0\[0\]$ | the phase unwrapped from that angle, 2 pi lower throughout in numpy's arm64 build
+hostile/module_matplotlib_pyplot_15$ | ^value\[phase_spectrum\]: array values$ @ ^49:0\[0\]$ | the phase unwrapped from that angle, 2 pi lower throughout in numpy's arm64 build

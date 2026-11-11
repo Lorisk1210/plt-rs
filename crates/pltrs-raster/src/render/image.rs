@@ -114,8 +114,8 @@ pub fn draw_coverage(
 #[derive(Clone, Debug)]
 pub(crate) struct CoverageSampler<'a> {
     src: &'a Mask,
-    /// Inverse transform in Agg's order `[sx, shy, shx, sy, tx, ty]`.
-    inv: [f64; 6],
+    /// From device pixels back to the bitmap (Agg's `trans_affine::invert`).
+    inv: Affine2D,
     color: Rgba8,
     lut: WeightLut,
 }
@@ -123,29 +123,20 @@ pub(crate) struct CoverageSampler<'a> {
 impl<'a> CoverageSampler<'a> {
     /// `None` when `transform` is not invertible.
     pub(crate) fn new(src: &'a Mask, transform: &Affine2D, color: Rgba8) -> Option<Self> {
-        let [sx, shy, shx, sy, tx, ty] = transform.values();
-        let d = 1.0 / (sx * sy - shy * shx);
-        if !d.is_finite() {
+        if !transform.agg_determinant_reciprocal().is_finite() {
             return None;
         }
-        // Agg's trans_affine::invert, operation for operation.
-        let t0 = sy * d;
-        let sy = sx * d;
-        let shy = -shy * d;
-        let shx = -shx * d;
-        let t4 = -tx * t0 - ty * shx;
-        let ty = -tx * shy - ty * sy;
         Some(Self {
             src,
-            inv: [t0, shy, shx, sy, t4, ty],
+            inv: transform.agg_inverted(),
             color,
             lut: WeightLut::spline36(),
         })
     }
 
     fn inverse(&self, x: f64, y: f64) -> (f64, f64) {
-        let [sx, shy, shx, sy, tx, ty] = self.inv;
-        (x * sx + y * shx + tx, x * shy + y * sy + ty)
+        let p = self.inv.agg_transform_point(Point::new(x, y));
+        (p.x, p.y)
     }
 
     fn sample(&self, x: i32, y: i32) -> i32 {
@@ -203,7 +194,7 @@ impl<'a> CoverageSampler<'a> {
     pub(crate) fn outline(transform: &Affine2D, width: u32, height: u32) -> [Point; 4] {
         let (w, h) = (f64::from(width), f64::from(height));
         [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)]
-            .map(|(x, y)| transform.transform_point(Point::new(x, y)))
+            .map(|(x, y)| transform.agg_transform_point(Point::new(x, y)))
     }
 }
 

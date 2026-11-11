@@ -47,7 +47,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use pltrs::look::FigureLook;
-use pltrs_spec::figures::vector::{VectorFormat, render_vector};
+use pltrs_spec::figures::vector::{VectorFormat, compare_documents, render_vector};
 use pltrs_spec::figures::{self, CaseVerdict, FigureCase};
 use pltrs_spec::probes::{self, AreaReport, ProbeFile};
 
@@ -62,6 +62,7 @@ fn main() -> ExitCode {
             render(rest)
         }
         Some((command, rest)) if command == "vectors" => vectors(rest),
+        Some((command, rest)) if command == "vector-check" => vector_check(rest),
         Some((command, rest)) if command == "bench" => bench::run(rest),
         Some((command, rest)) if command == "mpl-tests" => mpl_tests::run(rest),
         Some((command, rest)) if command == "rust-coverage" => rust_coverage::run(rest),
@@ -77,6 +78,7 @@ fn main() -> ExitCode {
             eprintln!("       cargo xtask render PREFIX... [--vectors]");
             eprintln!("       cargo xtask render --look modern|modern-dark PREFIX...");
             eprintln!("       cargo xtask vectors [PREFIX...] [--formats svg,pdf,ps,pgf]");
+            eprintln!("       cargo xtask vector-check GOLDEN DOCUMENT");
             eprintln!("       cargo xtask bench [PREFIX...] [--reference | --report] [--runs N]");
             eprintln!("       cargo xtask bench --rewrite-report [--to DIR]");
             eprintln!("       cargo xtask mpl-tests [--strict]");
@@ -93,6 +95,39 @@ fn main() -> ExitCode {
                 "       cargo xtask diff [--gallery] [--generated] [--corpus [NAME...]] [PATTERN...] [--failures] [--reduce] [--baseline REPORT] [--coverage | --docs [--strict]]"
             );
             ExitCode::FAILURE
+        }
+    }
+}
+
+/// Whether the document `DOCUMENT` passes for the golden `GOLDEN` (both of
+/// the format of `GOLDEN`'s extension) as `figure_vectors` judges a
+/// document of pltrs: the exit status is 0 if it does and 1, with the
+/// differences printed, if it does not. The reference runner asks on a
+/// platform with goldens of its own, where matplotlib's document becomes
+/// the platform's golden only if the common one fails for it
+/// (`spec/reference/figures/test_vectors.py`).
+fn vector_check(args: &[String]) -> ExitCode {
+    const USAGE: u8 = 2;
+    let [golden, document] = args else {
+        eprintln!("usage: cargo xtask vector-check GOLDEN DOCUMENT");
+        return ExitCode::from(USAGE);
+    };
+    let extension = Path::new(golden).extension().and_then(|e| e.to_str());
+    let mut formats = VectorFormat::ALL.into_iter().chain([VectorFormat::Eps]);
+    let Some(format) = formats.find(|f| Some(f.extension()) == extension) else {
+        eprintln!("{golden}: not an svg, pdf, ps or eps document");
+        return ExitCode::from(USAGE);
+    };
+    let document = std::fs::read(document).map_err(Into::into);
+    match compare_documents(format, Path::new(golden), document) {
+        Ok(report) if report.agrees() => ExitCode::SUCCESS,
+        Ok(report) => {
+            println!("{report}\n{}", report.details(8));
+            ExitCode::FAILURE
+        }
+        Err(err) => {
+            eprintln!("{err}");
+            ExitCode::from(USAGE)
         }
     }
 }
@@ -331,11 +366,14 @@ fn spec(args: &[String]) -> ExitCode {
 
     let mut reports = Vec::new();
     for path in paths {
-        match ProbeFile::load(&path) {
-            Ok(file) if areas.is_empty() || areas.contains(&file.area.as_str()) => {
-                reports.push(probes::run(&file, probes::ops_for(&file.area)));
-            }
-            Ok(_) => {}
+        let Some(area) = path.file_stem().and_then(|stem| stem.to_str()) else {
+            continue;
+        };
+        if !(areas.is_empty() || areas.contains(&area)) {
+            continue;
+        }
+        match ProbeFile::load_area(area) {
+            Ok(file) => reports.push(probes::run(&file, probes::ops_for(&file.area))),
             Err(err) => {
                 eprintln!("{}: {err}", path.display());
                 return ExitCode::FAILURE;

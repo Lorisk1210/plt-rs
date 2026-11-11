@@ -2,6 +2,7 @@
 //! coincident vertices and records the length of each segment.
 
 use crate::Point;
+use crate::numeric::sum_of_products;
 
 /// Points closer than this are coincident (Agg's `vertex_dist_epsilon`).
 pub const VERTEX_DIST_EPSILON: f64 = 1e-14;
@@ -37,7 +38,7 @@ impl VertexDist {
     fn measure(&mut self, next: &Self) -> bool {
         let dx = next.x - self.x;
         let dy = next.y - self.y;
-        self.dist = (dx * dx + dy * dy).sqrt();
+        self.dist = sum_of_products(dx, dx, dy, dy).sqrt();
         let distinct = self.dist > VERTEX_DIST_EPSILON;
         if !distinct {
             self.dist = 1.0 / VERTEX_DIST_EPSILON;

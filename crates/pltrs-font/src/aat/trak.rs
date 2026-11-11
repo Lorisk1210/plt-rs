@@ -6,6 +6,8 @@
 //! normal track, and (as matplotlib's fonts never give it a point size)
 //! with the values for CoreText's default size.
 
+use pltrs_core::numeric::fused_f32;
+
 use crate::face::Face;
 use crate::layout::buffer::Buffer;
 use crate::reader::peek;
@@ -124,7 +126,7 @@ impl TrackData<'_> {
                 let (t0, t1) = (self.track(i), self.track(j));
                 let t = (track - t0) / (t1 - t0);
                 let (a, b) = (self.value_at(i, point_size), self.value_at(j, point_size));
-                a + t * (b - a)
+                fused_f32(t, b - a, a)
             }
         }
     }
@@ -167,7 +169,7 @@ impl TrackData<'_> {
             return f32::midpoint(v0, v1);
         }
         let t = (point_size - s0) / (s1 - s0);
-        v0 + t * (v1 - v0)
+        fused_f32(t, v1 - v0, v0)
     }
 }
 

@@ -10,6 +10,8 @@
 
 use pltrs_core::Point;
 
+use crate::tri::triangulation::cross_z;
+
 /// An edge of the map, directed from `left` to `right` (lexicographically
 /// larger), with the triangles and opposite points on either side.
 #[derive(Clone, Copy, Debug)]
@@ -488,10 +490,11 @@ impl TrapezoidMap {
     }
 
     /// Which side of `edge` `xy` lies on: `1` below, `-1` above, `0` on
-    /// its line (matplotlib's `Edge::get_point_orientation`).
+    /// its line (matplotlib's `Edge::get_point_orientation`, the sign of
+    /// its `cross_z`, rounded as its build rounds it).
     fn orientation(&self, edge: usize, xy: Point) -> i8 {
         let (left, right) = self.ends(edge);
-        let cross = (xy.x - left.x) * (right.y - left.y) - (xy.y - left.y) * (right.x - left.x);
+        let cross = cross_z(xy - left, right - left);
         if cross > 0.0 {
             1
         } else if cross < 0.0 {

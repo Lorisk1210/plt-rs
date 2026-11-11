@@ -5,6 +5,7 @@
 use super::source::next_point;
 use super::{Vertex, VertexSource};
 use crate::Point;
+use crate::numeric::{difference_of_products, fused, sum_of_products};
 use crate::path::PathCode;
 
 const COLLINEARITY_EPSILON: f64 = 1e-30;
@@ -153,18 +154,18 @@ impl<'a> Subdivider<'a> {
 
         let dx = p3.x - p1.x;
         let dy = p3.y - p1.y;
-        let d = ((p2.x - p3.x) * dy - (p2.y - p3.y) * dx).abs();
+        let d = difference_of_products(p2.x - p3.x, dy, p2.y - p3.y, dx).abs();
         if d > COLLINEARITY_EPSILON {
-            if d * d <= DISTANCE_TOLERANCE_SQ * (dx * dx + dy * dy) {
+            if d * d <= DISTANCE_TOLERANCE_SQ * sum_of_products(dx, dx, dy, dy) {
                 self.out.push(p123);
                 return;
             }
         } else {
-            let da = dx * dx + dy * dy;
+            let da = sum_of_products(dx, dx, dy, dy);
             let d = if da == 0.0 {
                 sq_distance(p1, p2)
             } else {
-                let t = ((p2.x - p1.x) * dx + (p2.y - p1.y) * dy) / da;
+                let t = sum_of_products(p2.x - p1.x, dx, p2.y - p1.y, dy) / da;
                 if t > 0.0 && t < 1.0 {
                     // Simple collinear case 1---2---3: the end points suffice.
                     return;
@@ -193,9 +194,9 @@ impl<'a> Subdivider<'a> {
 
         let dx = p4.x - p1.x;
         let dy = p4.y - p1.y;
-        let d2 = ((p2.x - p4.x) * dy - (p2.y - p4.y) * dx).abs();
-        let d3 = ((p3.x - p4.x) * dy - (p3.y - p4.y) * dx).abs();
-        let chord_sq = dx * dx + dy * dy;
+        let d2 = difference_of_products(p2.x - p4.x, dy, p2.y - p4.y, dx).abs();
+        let d3 = difference_of_products(p3.x - p4.x, dy, p3.y - p4.y, dx).abs();
+        let chord_sq = sum_of_products(dx, dx, dy, dy);
         let flat_enough = |d: f64| d * d <= DISTANCE_TOLERANCE_SQ * chord_sq;
         match (d2 > COLLINEARITY_EPSILON, d3 > COLLINEARITY_EPSILON) {
             (false, false) => {
@@ -204,8 +205,8 @@ impl<'a> Subdivider<'a> {
                     (sq_distance(p1, p2), sq_distance(p4, p3))
                 } else {
                     let k = 1.0 / chord_sq;
-                    let t2 = k * ((p2.x - p1.x) * dx + (p2.y - p1.y) * dy);
-                    let t3 = k * ((p3.x - p1.x) * dx + (p3.y - p1.y) * dy);
+                    let t2 = k * sum_of_products(p2.x - p1.x, dx, p2.y - p1.y, dy);
+                    let t3 = k * sum_of_products(p3.x - p1.x, dx, p3.y - p1.y, dy);
                     if t2 > 0.0 && t2 < 1.0 && t3 > 0.0 && t3 < 1.0 {
                         // Simple collinear case 1---2---3---4.
                         return;
@@ -253,7 +254,7 @@ impl<'a> Subdivider<'a> {
 fn sq_distance(a: Point, b: Point) -> f64 {
     let dx = b.x - a.x;
     let dy = b.y - a.y;
-    dx * dx + dy * dy
+    sum_of_products(dx, dx, dy, dy)
 }
 
 /// Squared distance from `p` to the chord `a → a + d` at the projection
@@ -264,7 +265,7 @@ fn chord_distance(p: Point, a: Point, b: Point, d: Point, t: f64) -> f64 {
     } else if t >= 1.0 {
         sq_distance(p, b)
     } else {
-        sq_distance(p, Point::new(a.x + t * d.x, a.y + t * d.y))
+        sq_distance(p, Point::new(fused(t, d.x, a.x), fused(t, d.y, a.y)))
     }
 }
 

@@ -16,6 +16,7 @@ import warnings
 import numpy as np
 import pytest
 
+import build_facts
 import pltrs
 import pltrs.patches as mpatches
 import pltrs.pyplot as plt
@@ -69,6 +70,13 @@ def warned(call):
         for message in [warning.message for warning in caught] + logged.messages))
 
 
+def here(counts):
+    """*counts*, of Linux' numpy, as this system's numpy counts: without
+    the warnings of matrix products where it warns of none
+    (`build_facts.PRODUCTS_WARN`)."""
+    return {message: counts[message] for message in build_facts.as_numpy_warns(counts)}
+
+
 def plotted():
     """A figure with a line."""
     fig, ax = plt.subplots(figsize=(3, 2), dpi=50)
@@ -80,9 +88,9 @@ def plotted():
 
 def test_spans_warn_where_they_are_added_as_matplotlibs_search_for_the_data_transform():
     _, ax = plotted()
-    assert warned(lambda: ax.axvspan(INF, 0.4)) == {DOT: 4, ADD: 1}
-    assert warned(lambda: ax.axvspan(0.2, INF)) == {DOT: 6}
-    assert warned(lambda: ax.axhspan(0.2, 0.4, xmin=INF)) == {DOT: 1, ADD: 1}
+    assert warned(lambda: ax.axvspan(INF, 0.4)) == here({DOT: 4, ADD: 1})
+    assert warned(lambda: ax.axvspan(0.2, INF)) == here({DOT: 6})
+    assert warned(lambda: ax.axhspan(0.2, 0.4, xmin=INF)) == here({DOT: 1, ADD: 1})
 
 
 def test_spans_warn_at_every_draw_and_relim():
@@ -92,20 +100,20 @@ def test_spans_warn_at_every_draw_and_relim():
         ax.axvspan(INF, 0.4)
         ax.axvspan(0.2, INF)
         ax.axhspan(0.2, 0.4, xmin=INF)
-    assert warned(fig.canvas.draw) == {DOT: 4, ADD: 2}
-    assert warned(fig.canvas.draw) == {DOT: 4, ADD: 2}, "nothing of them is kept"
-    assert warned(ax.relim) == {DOT: 14, ADD: 2}
-    assert warned(lambda: fig.savefig(io.BytesIO(), format="svg")) == {DOT: 4, ADD: 2}
+    assert warned(fig.canvas.draw) == here({DOT: 4, ADD: 2})
+    assert warned(fig.canvas.draw) == here({DOT: 4, ADD: 2}), "nothing of them is kept"
+    assert warned(ax.relim) == here({DOT: 14, ADD: 2})
+    assert warned(lambda: fig.savefig(io.BytesIO(), format="svg")) == here({DOT: 4, ADD: 2})
 
 
 def test_bars_of_infinite_height_warn_added_and_drawn():
     fig, ax = plotted()
-    assert warned(lambda: ax.bar([1, 2], [INF, 3])) == {DOT: 1}
-    assert warned(fig.canvas.draw) == {DOT: 1}
+    assert warned(lambda: ax.bar([1, 2], [INF, 3])) == here({DOT: 1})
+    assert warned(fig.canvas.draw) == here({DOT: 1})
     fig, ax = plotted()
-    assert warned(lambda: ax.hist([3.0, 1.0, 4.0], bottom=INF)) == {
-        DOT: 10, ADD: 10, "invalid value encountered in subtract": 10}
-    assert warned(fig.canvas.draw) == {DOT: 10, ADD: 10}
+    assert warned(lambda: ax.hist([3.0, 1.0, 4.0], bottom=INF)) == here({
+        DOT: 10, ADD: 10, "invalid value encountered in subtract": 10})
+    assert warned(fig.canvas.draw) == here({DOT: 10, ADD: 10})
 
 
 @pytest.mark.parametrize("make, added, drawn", [
@@ -119,9 +127,9 @@ def test_bars_of_infinite_height_warn_added_and_drawn():
 def test_patches_made_by_the_program_warn_once_per_computation(make, added, drawn):
     fig, ax = plotted()
     patch = make()
-    assert warned(lambda: ax.add_patch(patch)) == added
-    assert warned(fig.canvas.draw) == drawn
-    assert warned(fig.canvas.draw) == drawn
+    assert warned(lambda: ax.add_patch(patch)) == here(added)
+    assert warned(fig.canvas.draw) == here(drawn)
+    assert warned(fig.canvas.draw) == here(drawn)
     patch.set_visible(False)
     assert warned(fig.canvas.draw) == {}, "a hidden patch computes nothing"
 
@@ -131,10 +139,10 @@ def test_patches_made_by_the_program_warn_once_per_computation(make, added, draw
 def test_a_view_without_width_warns_as_the_nodes_built_on_it_are_computed():
     fig, ax = plotted()
     ax.yaxis.set_view_interval(0, 0, ignore=True)
-    first = {BY_ZERO: 1, DOT: 8, MULTIPLY: 1}
+    first = here({BY_ZERO: 1, DOT: 8, MULTIPLY: 1})
     assert warned(fig.canvas.draw) == first
     # The limits' matrix and the blends are kept; the line's is made anew.
-    assert warned(fig.canvas.draw) == {DOT: 2}
+    assert warned(fig.canvas.draw) == here({DOT: 2})
     # Setting the limits, to the same values too, invalidates them.
     ax.yaxis.set_view_interval(0, 0, ignore=True)
     assert warned(fig.canvas.draw) == first
@@ -148,16 +156,16 @@ def test_the_data_transform_is_composed_at_every_call():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         fig.canvas.draw()
-    assert warned(ax.transData.get_affine) == {DOT: 2}
-    assert warned(ax.transData.get_affine) == {DOT: 2}
-    assert warned(lambda: ax.transData.transform((0.5, 0.5))) == {DOT: 2}
+    assert warned(ax.transData.get_affine) == here({DOT: 2})
+    assert warned(ax.transData.get_affine) == here({DOT: 2})
+    assert warned(lambda: ax.transData.transform((0.5, 0.5))) == here({DOT: 2})
 
 
 def test_a_view_without_width_on_a_log_axis():
     fig, ax = plotted()
     ax.xaxis.set_view_interval(1, 1, ignore=True)
     ax.set_yscale("log")
-    assert warned(fig.canvas.draw) == {BY_ZERO: 1, DOT: 6}
+    assert warned(fig.canvas.draw) == here({BY_ZERO: 1, DOT: 6})
 
 
 # -- tick labels an infinite distance away ----------------------------------------------
@@ -167,9 +175,9 @@ def test_infinite_tick_pads_warn_each_time_a_label_is_placed():
     fig.canvas.draw()
     ax.xaxis.get_major_ticks()[1].set_pad(INF)
     # Measured for the draw, drawn, measured again to place the axis label.
-    assert warned(fig.canvas.draw) == {DOT: 3}
+    assert warned(fig.canvas.draw) == here({DOT: 3})
     ax.tick_params(axis="y", pad=INF)
-    assert warned(fig.canvas.draw) == {DOT: 18}
+    assert warned(fig.canvas.draw) == here({DOT: 18})
 
 
 # -- polar Axes ---------------------------------------------------------------------------
@@ -186,10 +194,13 @@ def polar():
 def test_radial_labels_at_an_infinite_angle():
     fig, ax = polar()
     ax.set_rlabel_position(INF)
+    # numpy's remainder of an infinity is the C library's fmod, as its
+    # floor division is: no warning where that raises no exception.
+    remainders = build_facts.FLOOR_DIVIDING_INFINITY_WARNS
     assert warned(fig.canvas.draw) == {
         "invalid value encountered in cos": 9, "invalid value encountered in sin": 9,
-        REMAINDER: 8}
-    assert warned(ax.yaxis.get_ticklabels) == {REMAINDER: 4}
+        **({REMAINDER: 8} if remainders else {})}
+    assert warned(ax.yaxis.get_ticklabels) == ({REMAINDER: 4} if remainders else {})
 
 
 def test_a_radial_origin_that_is_no_number():

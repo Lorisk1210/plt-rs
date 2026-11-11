@@ -53,17 +53,18 @@ const EQUAL_DEPTH_ORDER: &str = "Poly3DCollection sorts faces with numpy's unsta
 
 /// Why a report fails the acceptance policy, if it does.
 fn problems(report: &VectorReport) -> Option<String> {
+    if report.agrees() {
+        return None;
+    }
     if !report.is_structurally_equal() {
         return Some(format!("structural differences:\n{}", report.details(4)));
     }
-    (!report.numeric.is_empty()).then(|| {
-        let mut text = String::from("numbers differ:\n");
-        for (item, deviation) in report.numeric.iter().take(4) {
-            let short: String = item.chars().take(200).collect();
-            let _ = writeln!(text, "    ({deviation:.4}) {short}");
-        }
-        text
-    })
+    let mut text = String::from("numbers differ:\n");
+    for (item, deviation) in report.numeric.iter().take(4) {
+        let short: String = item.chars().take(200).collect();
+        let _ = writeln!(text, "    ({deviation:.4}) {short}");
+    }
+    Some(text)
 }
 
 /// Writes the pltrs document `rendered` and the normalized item lists of
@@ -210,7 +211,7 @@ fn pdf_pages_match_matplotlib_structurally() {
         .iter()
         .map(|name| translated(name))
         .collect();
-    let golden = pltrs_spec::spec_root().join("goldens/figures/vectors/pages.pdf");
+    let golden = pltrs_spec::golden_path("figures/vectors/pages.pdf");
     let rendered = vector::render_pdf_pages(&cases);
     dump(
         "vectors__pages",

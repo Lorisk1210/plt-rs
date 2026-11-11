@@ -17,6 +17,14 @@ distiller is missing. pltrs compares its own documents with
 these structurally (pltrs-spec's ``figure_vectors`` test); keep the lists in
 sync with ``VECTOR_CASES``, ``TEX_VECTOR_CASES``, ``VECTOR_VARIANTS`` and
 ``PDF_PAGES`` there.
+
+On a platform with goldens of its own (``spec_support.golden``)
+matplotlib's bytes differ from the common documents in digits and in what
+the installed TeX and Ghostscript embed, which that comparison passes
+over. Its document is the platform's golden only where the comparison
+itself fails it against the common one (a rasterized artist drawn
+otherwise): ``cargo xtask vector-check`` says so, which needs ``cargo`` on
+``PATH`` there.
 """
 
 from __future__ import annotations
@@ -26,12 +34,15 @@ import importlib
 import io
 import os
 import pathlib
+import subprocess
+import tempfile
 
 import pytest
 
 from spec_support import all_cases
-from spec_support.figcases import FIGURE_ROOT, VECTOR_METADATA
+from spec_support.figcases import VECTOR_METADATA
 from spec_support.fonts import figure_fonts_only
+from spec_support.golden import PLATFORM, SPEC_ROOT, golden_path, record_golden
 from spec_support.tex import document_skip_reason
 
 for module in sorted(pathlib.Path(__file__).parent.glob("cases_*.py")):
@@ -148,19 +159,49 @@ PDF_PAGES = ["vectors/text_fonts", "vectors/rasterized_artists"]
 _BY_NAME = {case.name: case for case in all_cases()}
 
 
-def _check(path, document, update_goldens):
+def _structure_passes(golden: bytes, document: bytes, suffix: str) -> bool:
+    """Whether ``document`` passes for the golden one (both of the format
+    of ``suffix``) as pltrs-spec judges a document of pltrs: the same
+    drawing items, their numbers within the formatting precision."""
+    if golden == document:
+        return True
+    with tempfile.TemporaryDirectory() as scratch:
+        paths = [pathlib.Path(scratch) / f"{name}{suffix}" for name in ("golden", "document")]
+        for path, data in zip(paths, (golden, document)):
+            path.write_bytes(data)
+        done = subprocess.run(["cargo", "xtask", "vector-check", *map(str, paths)],
+                              cwd=SPEC_ROOT.parent, capture_output=True, text=True)
+    if done.returncode not in (0, 1):
+        raise RuntimeError(f"cargo xtask vector-check failed:\n{done.stderr}")
+    return done.returncode == 0
+
+
+def _check(golden, document, update_goldens):
+    """Record ``document`` as the golden ``golden`` (below ``spec/goldens``),
+    or compare it with the golden this machine is held to: byte for byte
+    where the common goldens are recorded, structurally on a platform with
+    goldens of its own."""
+    suffix = pathlib.PurePath(golden).suffix
+
+    def passes(held, document):
+        return _structure_passes(held, document, suffix)
+
     if update_goldens:
-        path.write_bytes(document)
+        record_golden(golden, document, passes=passes)
         return
+    path = golden_path(golden)
     assert path.exists(), f"missing golden {path}; run --update-goldens"
-    assert path.read_bytes() == document
+    if PLATFORM is None:
+        assert path.read_bytes() == document
+    else:
+        assert passes(path.read_bytes(), document)
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
 @pytest.mark.parametrize("name", VECTOR_CASES)
 def test_vector_case(name, fmt, update_goldens):
     case = _BY_NAME[name]
-    _check(case.vector_path(fmt), case.render_vector(fmt), update_goldens)
+    _check(case.vector_golden(fmt), case.render_vector(fmt), update_goldens)
 
 
 @pytest.mark.parametrize("fmt", TEX_FORMATS)
@@ -169,7 +210,7 @@ def test_tex_vector_case(name, fmt, update_goldens):
     case = _BY_NAME[name]
     if reason := document_skip_reason(case, fmt):
         pytest.skip(reason)
-    _check(case.vector_path(fmt), case.render_vector(fmt), update_goldens)
+    _check(case.vector_golden(fmt), case.render_vector(fmt), update_goldens)
 
 
 @pytest.mark.parametrize(
@@ -181,8 +222,7 @@ def test_vector_variant(name, variant, rc, fmt, update_goldens):
     if reason := document_skip_reason(case, fmt, rc):
         pytest.skip(reason)
     varied = dataclasses.replace(case, rc={**case.rc, **rc})
-    path = FIGURE_ROOT / f"{name}.{variant}.{fmt}"
-    _check(path, varied.render_vector(fmt), update_goldens)
+    _check(case.vector_golden(fmt, variant), varied.render_vector(fmt), update_goldens)
 
 
 def test_pdf_pages(update_goldens):
@@ -211,4 +251,4 @@ def test_pdf_pages(update_goldens):
             del os.environ["SOURCE_DATE_EPOCH"]
         else:
             os.environ["SOURCE_DATE_EPOCH"] = previous_epoch
-    _check(FIGURE_ROOT / "vectors" / "pages.pdf", buffer.getvalue(), update_goldens)
+    _check("figures/vectors/pages.pdf", buffer.getvalue(), update_goldens)

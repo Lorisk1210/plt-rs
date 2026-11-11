@@ -5,6 +5,7 @@ use std::f64::consts::PI;
 
 use super::{Vertex, VertexSource};
 use crate::Point;
+use crate::numeric::{fused, sum_of_products};
 use crate::path::PathCode;
 
 /// The total length (in units, hence pieces) a [`Segmenter`] cuts per pass:
@@ -101,7 +102,7 @@ impl<I: VertexSource> Segmenter<I> {
     fn line_to(&mut self, p: Point) {
         self.origin += self.delta;
         self.delta = p - self.origin;
-        let len = (self.delta.x * self.delta.x + self.delta.y * self.delta.y).sqrt();
+        let len = sum_of_products(self.delta.x, self.delta.x, self.delta.y, self.delta.y).sqrt();
         let len = if len < 1e-30 { 1e-30 } else { len };
         // Non-finite lengths would never terminate in Agg, and lengths beyond
         // the budget would take too long: emit the end point.
@@ -132,8 +133,8 @@ impl<I: VertexSource> Segmenter<I> {
             return Some(Vertex::new(cmd, self.origin + self.delta));
         }
         let p = Point::new(
-            self.origin.x + self.delta.x * self.dl,
-            self.origin.y + self.delta.y * self.dl,
+            fused(self.delta.x, self.dl, self.origin.x),
+            fused(self.delta.y, self.dl, self.origin.y),
         );
         self.dl += self.ddl;
         Some(Vertex::new(cmd, p))
@@ -244,13 +245,13 @@ impl<I: VertexSource> Iterator for Sketcher<I> {
             self.phase += (self.rng.next_f64() * wiggle.log_randomness).exp();
             let den = self.last.x - vertex.point.x;
             let num = self.last.y - vertex.point.y;
-            let len_sq = num * num + den * den;
+            let len_sq = sum_of_products(num, num, den, den);
             self.last = vertex.point;
             if len_sq != 0.0 {
                 let r = (self.phase * wiggle.p_scale).sin() * wiggle.scale;
                 let r_over_len = r / len_sq.sqrt();
-                vertex.point.x += r_over_len * num;
-                vertex.point.y -= r_over_len * den;
+                vertex.point.x = fused(r_over_len, num, vertex.point.x);
+                vertex.point.y = fused(-r_over_len, den, vertex.point.y);
             }
         } else {
             self.last = vertex.point;

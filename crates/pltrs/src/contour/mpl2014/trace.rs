@@ -2,6 +2,7 @@
 //! boundaries, with mpl2014's exact interpolation arithmetic.
 
 use pltrs_core::Point;
+use pltrs_core::numeric::sum_of_products;
 
 use super::cache::{Cache, Corner, Exists, LevelIndex, VISITED_CORNER, VISITED_S, VISITED_W};
 use super::edge::{
@@ -66,8 +67,8 @@ impl Tracer<'_> {
         let fraction = (z[p2] - level) / (z[p2] - z[p1]);
         let (xy1, xy2) = (self.field.point(p1), self.field.point(p2));
         line.push(Point::new(
-            xy1.x * fraction + xy2.x * (1.0 - fraction),
-            xy1.y * fraction + xy2.y * (1.0 - fraction),
+            sum_of_products(xy1.x, fraction, xy2.x, 1.0 - fraction),
+            sum_of_products(xy1.y, fraction, xy2.y, 1.0 - fraction),
         ));
     }
 

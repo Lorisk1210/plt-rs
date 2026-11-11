@@ -7,7 +7,9 @@
 //! [`ops::Channel`] captures the scalar arithmetic and [`ops::PixelOps`]
 //! the gray/RGBA layouts built on it.
 
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Mul, Sub};
+
+use pltrs_core::numeric::{fused, fused_f32};
 
 use super::numeric::FILTER_SHIFT;
 use crate::color::multiply;
@@ -51,10 +53,8 @@ pub mod ops {
         const ACC_ZERO: Self::Acc;
         /// `full_value()` as an accumulator.
         const ACC_FULL: Self::Acc;
-        /// `value * weight` with Agg's operand types.
-        fn weighted(self, weight: i32) -> Self::Acc;
-        /// Accumulator addition.
-        fn add(acc: Self::Acc, term: Self::Acc) -> Self::Acc;
+        /// `acc += value * weight` with Agg's operand types.
+        fn accumulate(self, acc: Self::Acc, weight: i32) -> Self::Acc;
         /// `downshift(acc, image_filter_shift)`.
         fn downshift(acc: Self::Acc) -> Self::Acc;
         /// `acc /= total_weight`.
@@ -106,7 +106,7 @@ pub mod ops {
         const BACKGROUND: Self = T::ZERO;
 
         fn accumulate(self, acc: &mut T::Acc, weight: i32) {
-            *acc = T::add(*acc, self.weighted(weight));
+            *acc = self.accumulate(*acc, weight);
         }
 
         fn nearest(self) -> Gray<T> {
@@ -149,7 +149,7 @@ pub mod ops {
 
         fn accumulate(self, acc: &mut [T::Acc; 4], weight: i32) {
             for (sum, channel) in acc.iter_mut().zip(self) {
-                *sum = T::add(*sum, channel.weighted(weight));
+                *sum = channel.accumulate(*sum, weight);
             }
         }
 
@@ -209,12 +209,8 @@ impl ops::Channel for u8 {
     const ACC_ZERO: i32 = 0;
     const ACC_FULL: i32 = 255;
 
-    fn weighted(self, weight: i32) -> i32 {
-        i32::from(self).wrapping_mul(weight)
-    }
-
-    fn add(acc: i32, term: i32) -> i32 {
-        acc.wrapping_add(term)
+    fn accumulate(self, acc: i32, weight: i32) -> i32 {
+        acc.wrapping_add(i32::from(self).wrapping_mul(weight))
     }
 
     fn downshift(acc: i32) -> i32 {
@@ -290,12 +286,8 @@ impl ops::Channel for u16 {
 
     /// `int16u * int`, evaluated as an `int`, then widened to the `int64`
     /// accumulator.
-    fn weighted(self, weight: i32) -> i64 {
-        i64::from(i32::from(self).wrapping_mul(weight))
-    }
-
-    fn add(acc: i64, term: i64) -> i64 {
-        acc.wrapping_add(term)
+    fn accumulate(self, acc: i64, weight: i32) -> i64 {
+        acc.wrapping_add(i64::from(i32::from(self).wrapping_mul(weight)))
     }
 
     fn downshift(acc: i64) -> i64 {
@@ -356,13 +348,10 @@ impl ops::Channel for f32 {
     const ACC_ZERO: f64 = 0.0;
     const ACC_FULL: f64 = 1.0;
 
-    /// `float * int` is evaluated in single precision, then widened.
-    fn weighted(self, weight: i32) -> f64 {
-        f64::from(self * weight as f32)
-    }
-
-    fn add(acc: f64, term: f64) -> f64 {
-        acc + term
+    /// `float * int` is evaluated in single precision, then widened: a
+    /// product no build fuses into the double sum.
+    fn accumulate(self, acc: f64, weight: i32) -> f64 {
+        acc + f64::from(self * weight as f32)
     }
 
     fn downshift(acc: f64) -> f64 {
@@ -409,12 +398,8 @@ impl ops::Channel for f64 {
     const ACC_ZERO: f64 = 0.0;
     const ACC_FULL: f64 = 1.0;
 
-    fn weighted(self, weight: i32) -> f64 {
-        self * f64::from(weight)
-    }
-
-    fn add(acc: f64, term: f64) -> f64 {
-        acc + term
+    fn accumulate(self, acc: f64, weight: i32) -> f64 {
+        fused(self, f64::from(weight), acc)
     }
 
     fn downshift(acc: f64) -> f64 {
@@ -454,23 +439,37 @@ impl ops::Channel for f64 {
     }
 }
 
-/// Floating-point `lerp`: `(1 - a)·p + a·q`.
-fn lerp_float<T>(p: T, q: T, a: T) -> T
-where
-    T: ops::Channel + Add<Output = T> + Sub<Output = T> + Mul<Output = T>,
-{
-    (T::FULL - a) * p + a * q
+/// A float channel: `a * b + c` in its own precision, as matplotlib's
+/// build of Agg computes it (fused where that build fuses).
+trait FloatChannel: ops::Channel + Sub<Output = Self> + Mul<Output = Self> {
+    /// `self * b + c`.
+    fn times_plus(self, b: Self, c: Self) -> Self;
 }
 
-/// Agg's `blender_rgba_pre`, which matplotlib uses for float RGBA.
-fn blend_premultiplied<T>(dst: &mut [T; 4], src: [T; 4], cover: u8)
-where
-    T: ops::Channel + Add<Output = T> + Sub<Output = T> + Mul<Output = T>,
-{
+impl FloatChannel for f32 {
+    fn times_plus(self, b: Self, c: Self) -> Self {
+        fused_f32(self, b, c)
+    }
+}
+
+impl FloatChannel for f64 {
+    fn times_plus(self, b: Self, c: Self) -> Self {
+        fused(self, b, c)
+    }
+}
+
+/// Floating-point `lerp`: `(1 - a)·p + a·q`.
+fn lerp_float<T: FloatChannel>(p: T, q: T, a: T) -> T {
+    (T::FULL - a).times_plus(p, a * q)
+}
+
+/// Agg's `blender_rgba_pre`, which matplotlib uses for float RGBA: its
+/// `prelerp`, `(1 - a)·p + q`.
+fn blend_premultiplied<T: FloatChannel>(dst: &mut [T; 4], src: [T; 4], cover: u8) {
     let src = src.map(|c| c.mult_cover(cover));
     let keep = T::FULL - src[3];
     for (d, s) in dst.iter_mut().zip(src) {
-        *d = keep * *d + s;
+        *d = keep.times_plus(*d, s);
     }
 }
 

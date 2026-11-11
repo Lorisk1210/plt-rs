@@ -2,6 +2,10 @@
 //!
 //! The fixtures are produced by `tests/fixtures/generate.py`; long inputs
 //! are not stored but regenerated here with the same `SplitMix64` stream.
+//! They are matplotlib's on Linux x86-64; where matplotlib's build fuses
+//! products into sums and pltrs with it
+//! ([`FUSES_PRODUCTS`](pltrs_core::numeric::FUSES_PRODUCTS)), the tests
+//! read the fixtures the same script wrote there.
 
 #![allow(dead_code, reason = "each test binary uses a different subset")]
 
@@ -14,11 +18,18 @@ use pltrs_core::{Affine2D, Bbox, Path, PathCode, Point};
 
 pub(crate) use json::{Fixture, Json};
 
-/// Loads `tests/fixtures/<name>`.
+/// The directory below `tests/fixtures` of the fixtures of the one
+/// platform whose matplotlib fuses products.
+const FUSING_PLATFORM: &str = "aarch64-apple-darwin";
+
+/// Loads `tests/fixtures/<name>`, as matplotlib computes it on this
+/// platform.
 pub(crate) fn load(name: &str) -> Json {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures")
-        .join(name);
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    if pltrs_core::numeric::FUSES_PRODUCTS {
+        path.push(FUSING_PLATFORM);
+    }
+    path.push(name);
     let text = std::fs::read_to_string(&path)
         .unwrap_or_else(|err| panic!("cannot read {}: {err}", path.display()));
     json::parse(&text)

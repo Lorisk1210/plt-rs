@@ -3,9 +3,11 @@
 //! Bit-exact agreement with matplotlib depends on reproducing Agg's integer
 //! conversions *exactly*, including their behaviour on x86-64 for values
 //! that do not fit in an `int`, and on evaluating affine maps with Agg's
-//! operation order (which differs from `pltrs_core::Affine2D::inverted`).
+//! operation order (which differs from `pltrs_core::Affine2D::inverted`)
+//! and, where matplotlib's build of Agg fuses products, with those fused.
 
 use pltrs_core::Affine2D;
+use pltrs_core::numeric::{difference_of_products, sum_of_products};
 
 /// `image_subpixel_shift`: sample coordinates carry 8 fractional bits.
 pub(super) const SUBPIXEL_SHIFT: u32 = 8;
@@ -77,21 +79,21 @@ impl AggAffine {
     /// `trans_affine::transform`.
     pub(super) fn transform(&self, x: f64, y: f64) -> (f64, f64) {
         (
-            x * self.sx + y * self.shx + self.tx,
-            x * self.shy + y * self.sy + self.ty,
+            sum_of_products(x, self.sx, y, self.shx) + self.tx,
+            sum_of_products(x, self.shy, y, self.sy) + self.ty,
         )
     }
 
     /// `trans_affine::invert`, including its use of the determinant's
     /// reciprocal and its update order.
     pub(super) fn inverted(&self) -> Self {
-        let d = 1.0 / (self.sx * self.sy - self.shy * self.shx);
+        let d = 1.0 / difference_of_products(self.sx, self.sy, self.shy, self.shx);
         let t0 = self.sy * d;
         let sy = self.sx * d;
         let shy = -self.shy * d;
         let shx = -self.shx * d;
-        let t4 = -self.tx * t0 - self.ty * shx;
-        let ty = -self.tx * shy - self.ty * sy;
+        let t4 = difference_of_products(-self.tx, t0, self.ty, shx);
+        let ty = difference_of_products(-self.tx, shy, self.ty, sy);
         Self {
             sx: t0,
             shy,
@@ -106,8 +108,8 @@ impl AggAffine {
     /// estimate how many source pixels one destination pixel spans.
     pub(super) fn scaling_abs(&self) -> (f64, f64) {
         (
-            (self.sx * self.sx + self.shx * self.shx).sqrt(),
-            (self.shy * self.shy + self.sy * self.sy).sqrt(),
+            sum_of_products(self.sx, self.sx, self.shx, self.shx).sqrt(),
+            sum_of_products(self.shy, self.shy, self.sy, self.sy).sqrt(),
         )
     }
 

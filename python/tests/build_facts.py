@@ -12,8 +12,9 @@ in the values the smoke tests compare, which differ by system:
 * whether numpy warns of the floating-point exceptions of its matrix
   products (``np.dot``, ``@``): not on Apple silicon, where its BLAS,
   Accelerate, multiplies on a coprocessor raising none;
-* whether numpy warns where it floor-divides an infinity: not on macOS,
-  whose ``fmod`` raises no invalid exception for an infinite dividend.
+* whether numpy warns where it floor-divides an infinity or takes its
+  remainder: not on macOS, whose ``fmod`` raises no invalid exception for
+  an infinite dividend.
 """
 
 import platform
@@ -39,7 +40,7 @@ def _warns(compute):
 #: Whether numpy's matrix products warn of invalid values.
 PRODUCTS_WARN = _warns(lambda: np.dot(np.zeros((2, 2)), np.full(2, np.inf)))
 
-#: Whether numpy's scalar floor division of an infinity warns.
+#: Whether numpy's scalar floor division and remainder of an infinity warn.
 FLOOR_DIVIDING_INFINITY_WARNS = _warns(lambda: np.float64(np.inf) // 1.0)
 
 

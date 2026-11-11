@@ -98,6 +98,13 @@ must reproduce them.
 
 * `spec/mpl-reference` — run the reference suite against matplotlib
   (`--update-goldens` to regenerate; never hand-edit goldens).
+* The goldens are matplotlib's on Linux x86-64. Where matplotlib's own
+  output on another platform fails pltrs' check against one (a value past
+  the tolerance, an image past RMS 1, a document's structure),
+  `spec/goldens/platforms/<target>/` (`aarch64-apple-darwin`) holds that
+  output under the same path, and `pltrs-spec` built for that target
+  prefers it. Only `spec/mpl-reference --update-goldens` run on that
+  platform writes it; rerun it there when the common goldens change.
 * Probes (`spec/reference/probes/test_<area>.py`) record `op(args) -> value`
   via `ProbeSet(area).probe("op", fn, **args)`; goldens in
   `spec/goldens/probes/<area>.json`. Each area is owned by one module; run the

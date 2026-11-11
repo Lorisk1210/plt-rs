@@ -6,6 +6,11 @@ reference interpreter:
 
     .venv/bin/python -I crates/pltrs-raster/tests/fixtures/generate.py
 
+The file next to this script is matplotlib's on Linux x86-64. matplotlib's
+wheel for arm64 macOS fuses products into sums, which pltrs follows there:
+run there, this writes that platform's file, into aarch64-apple-darwin/,
+which the test built for it reads instead.
+
 Every op drives RendererAgg directly with dpi=72 (1 pt = 1 px) and
 snapping disabled. Paths are given in device pixels (y down); passing
 ``Affine2D().scale(1, -1).translate(0, H)`` as the transform makes Agg's
@@ -18,7 +23,9 @@ Output format (little endian):
 """
 
 import pathlib
+import platform
 import struct
+import sys
 
 import matplotlib as mpl
 import numpy as np
@@ -27,6 +34,9 @@ from matplotlib.path import Path
 from matplotlib.transforms import Affine2D, Bbox, TransformedPath
 
 HERE = pathlib.Path(__file__).resolve().parent
+#: Where this machine's reference goes: arm64 macOS has its own.
+OUT = (HERE / "aarch64-apple-darwin"
+       if sys.platform == "darwin" and platform.machine() == "arm64" else HERE)
 CODES = {"M": (Path.MOVETO, 1), "L": (Path.LINETO, 1), "Q": (Path.CURVE3, 2), "C": (Path.CURVE4, 3)}
 
 
@@ -191,7 +201,8 @@ def main():
         encoded = name.encode()
         out += struct.pack("<H", len(encoded)) + encoded
         out += struct.pack("<III", px.shape[1], px.shape[0], len(data)) + data
-    (HERE / "agg_reference.bin").write_bytes(bytes(out))
+    OUT.mkdir(exist_ok=True)
+    (OUT / "agg_reference.bin").write_bytes(bytes(out))
     print(f"wrote {len(cases)} cases, {len(out)} bytes")
 
 

@@ -161,16 +161,12 @@ impl FigureCase {
 
     /// Golden facts file for this case.
     pub fn facts_path(&self) -> PathBuf {
-        crate::spec_root()
-            .join("goldens/figures")
-            .join(format!("{}.json", self.name))
+        crate::golden_path(format!("figures/{}.json", self.name))
     }
 
     /// Golden image for this case.
     pub fn png_path(&self) -> PathBuf {
-        crate::spec_root()
-            .join("goldens/figures")
-            .join(format!("{}.png", self.name))
+        crate::golden_path(format!("figures/{}.png", self.name))
     }
 
     /// Builds the figure under the spec's reference configuration

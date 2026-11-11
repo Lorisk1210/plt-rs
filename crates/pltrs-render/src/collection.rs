@@ -201,11 +201,15 @@ impl<'a> PathCollection<'a> {
                     (shape, shape, cycled(self.path_transforms, i))
                 }
             };
-            let transform = own
-                .copied()
-                .unwrap_or_default()
-                .then(self.master_transform)
-                .translate(offset.x, offset.y);
+            // Agg composes the item's transform with the master's in C++
+            // (`trans *= master_transform`), the vector backends' iteration
+            // with numpy.
+            let own = own.copied().unwrap_or_default();
+            let transform = match cycle {
+                ItemCycle::RawPaths => own.then(self.master_transform),
+                ItemCycle::Agg => own.agg_then(self.master_transform),
+            }
+            .translate(offset.x, offset.y);
             Some(CollectionItem {
                 path: &self.paths[shape],
                 path_index,

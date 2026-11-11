@@ -6,6 +6,7 @@
 //! the corners of the correspondingly enlarged, mitered triangle.
 
 use pltrs_core::Point;
+use pltrs_core::numeric::{fused, sum_of_products};
 use pltrs_core::path::outline::{INTERSECTION_EPSILON, calc_intersection, cross_product};
 
 use super::iround;
@@ -18,7 +19,7 @@ const SUBPIXEL_SCALE: i32 = 1 << SUBPIXEL_SHIFT;
 fn orthogonal(d: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> (f64, f64) {
     let dx = x2 - x1;
     let dy = y2 - y1;
-    let len = (dx * dx + dy * dy).sqrt();
+    let len = sum_of_products(dx, dx, dy, dy).sqrt();
     (d * dy / len, -d * dx / len)
 }
 
@@ -163,7 +164,7 @@ impl Edge {
         for i in 0..4 {
             self.color[i] = self.start[i].wrapping_add(iround(f64::from(self.delta[i]) * k));
         }
-        self.x = iround((self.x1 + self.dx * k) * f64::from(SUBPIXEL_SCALE));
+        self.x = iround(fused(self.dx, k, self.x1) * f64::from(SUBPIXEL_SCALE));
     }
 }
 

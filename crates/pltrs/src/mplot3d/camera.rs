@@ -181,9 +181,11 @@ impl Projection {
     /// them, as matplotlib does for the masked vertices whose depth still
     /// counts.
     pub(crate) fn project_hidden_too_all(&self, points: &[Vec3]) -> Vec<Vec3> {
-        let batch = Batch::of(points.len());
-        (points.iter())
-            .map(|&p| self.matrix.project_in(batch, self.scale_transform(p)))
+        (points.iter().enumerate())
+            .map(|(i, &p)| {
+                let batch = Batch::at(i, points.len());
+                self.matrix.project_in(batch, self.scale_transform(p))
+            })
             .collect()
     }
 
@@ -195,8 +197,9 @@ impl Projection {
     /// Projects data points together (matplotlib's `_scale_proj_transform`
     /// of arrays).
     pub(crate) fn project_all(&self, points: &[Vec3]) -> Vec<Vec3> {
-        let batch = Batch::of(points.len());
-        points.iter().map(|&p| self.project_in(batch, p)).collect()
+        (points.iter().enumerate())
+            .map(|(i, &p)| self.project_in(Batch::at(i, points.len()), p))
+            .collect()
     }
 
     /// Projects a single point already in transformed coordinates

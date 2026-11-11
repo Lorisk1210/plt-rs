@@ -11,6 +11,11 @@ Every expected value comes straight from matplotlib.  Long inputs are not
 stored: they are regenerated on both sides from a SplitMix64 stream with
 plain arithmetic, so they are bit-identical.
 
+The fixtures next to this script are matplotlib's on Linux x86-64.
+matplotlib's wheel for arm64 macOS fuses products into sums, which pltrs
+follows there: run there, this writes that platform's fixtures, into
+``aarch64-apple-darwin/``, which the tests built for it read instead.
+
 ``--scale K`` multiplies the number of random cases and ``--seed`` picks
 another random stream (for local fuzzing; the committed fixtures use the
 defaults).
@@ -20,7 +25,9 @@ import argparse
 import json
 import math
 import pathlib
+import platform
 import random
+import sys
 
 import matplotlib
 import numpy as np
@@ -29,6 +36,9 @@ from matplotlib.path import Path
 from matplotlib.transforms import Affine2D, Bbox
 
 HERE = pathlib.Path(__file__).resolve().parent
+#: Where this machine's fixtures go: arm64 macOS has its own.
+OUT = (HERE / "aarch64-apple-darwin"
+       if sys.platform == "darwin" and platform.machine() == "arm64" else HERE)
 M, L, C3, C4, CL = 1, 2, 3, 4, 79
 MASK64 = (1 << 64) - 1
 
@@ -345,7 +355,7 @@ def hatch_cases():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--scale", type=int, default=1)
-    parser.add_argument("--out", type=pathlib.Path, default=HERE)
+    parser.add_argument("--out", type=pathlib.Path, default=OUT)
     parser.add_argument("--seed", type=int, default=20261016)
     args = parser.parse_args()
     k = args.scale

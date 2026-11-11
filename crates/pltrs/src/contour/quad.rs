@@ -387,6 +387,30 @@ mod tests {
         }
     }
 
+    /// A crossing whose last digit depends on how the interpolation's
+    /// products are rounded: contourpy 1.4.0's vertices on x86-64 and,
+    /// fused, on arm64 macOS (`contour(x, y, z, [0.4], algorithm=...)`).
+    #[test]
+    fn crossings_round_as_contourpy_rounds_them_here() {
+        let x = Grid::from_rows([[0.1, 0.4, 0.9], [0.1, 0.4, 0.9]]).unwrap();
+        let y = Grid::from_rows([[0.3, 0.3, 0.3], [0.7, 0.7, 0.7]]).unwrap();
+        let z = Grid::from_rows([[0.11, 0.57, 0.23], [0.93, 0.31, 0.77]]).unwrap();
+        let fused = pltrs_core::numeric::FUSES_PRODUCTS;
+        for algorithm in ALGORITHMS {
+            let mut generator =
+                QuadContourGenerator::with_algorithm(algorithm, &x, &y, &z, None, false, (0, 0))
+                    .unwrap();
+            let first = generator.lines(0.4).vertices()[0];
+            let expected = match (algorithm, fused) {
+                (ContourAlgorithm::Mpl2005, true) => Point::new(0.289_130_434_782_608_75, 0.3),
+                (ContourAlgorithm::Mpl2005, false) => Point::new(0.289_130_434_782_608_8, 0.3),
+                (_, true) => Point::new(0.099_999_999_999_999_99, 0.441_463_414_634_146_34),
+                (_, false) => Point::new(0.099_999_999_999_999_99, 0.441_463_414_634_146_3),
+            };
+            assert_eq!(first, expected, "{algorithm}");
+        }
+    }
+
     #[test]
     fn invalid_inputs() {
         let square = Grid::filled(2, 2, 0.0);

@@ -447,7 +447,9 @@ def test_gallery_examples_draw_as_matplotlib(spec_cases, module, name):
     case = spec_cases[name]
     png, _ = case.render()
     got = np.asarray(Image.open(io.BytesIO(png)).convert("RGB"), dtype=float)
-    want = np.asarray(Image.open(case.png_path).convert("RGB"), dtype=float)
+    # matplotlib's image on this platform (see `spec_support.golden`).
+    golden = sys.modules["spec_support.golden"].golden_path(case.png_golden)
+    want = np.asarray(Image.open(golden).convert("RGB"), dtype=float)
     assert got.shape == want.shape
     assert np.sqrt(np.mean((got - want) ** 2)) <= _TOLERANCE
 

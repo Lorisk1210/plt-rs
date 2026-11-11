@@ -4,6 +4,7 @@
 use std::fmt::Write as _;
 
 use super::{SketchParams, Vertex, VertexSource};
+use crate::numeric::fused;
 use crate::path::{Path, PathCode};
 use crate::{Affine2D, Bbox, Point};
 
@@ -155,12 +156,12 @@ fn command<'a>(
         PathCode::Curve3 if codes.quad_to.is_empty() => {
             let [control, end, _] = points;
             let c1 = Point::new(
-                last.x + 2.0 / 3.0 * (control.x - last.x),
-                last.y + 2.0 / 3.0 * (control.y - last.y),
+                fused(2.0 / 3.0, control.x - last.x, last.x),
+                fused(2.0 / 3.0, control.y - last.y, last.y),
             );
             let c2 = Point::new(
-                c1.x + 1.0 / 3.0 * (end.x - last.x),
-                c1.y + 1.0 / 3.0 * (end.y - last.y),
+                fused(1.0 / 3.0, end.x - last.x, c1.x),
+                fused(1.0 / 3.0, end.y - last.y, c1.y),
             );
             (codes.cubic_to, [c1, c2, end], 3)
         }

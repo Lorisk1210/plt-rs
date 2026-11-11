@@ -23,6 +23,7 @@ pub use grid::{Grid, GridShapeError};
 pub use interp::interp;
 pub use number::Number;
 pub(crate) use number::{to_f64s, with_numbers};
+use pltrs_core::numeric::fused;
 pub use pltrs_core::numeric::{linspace, linspace_with, pow, remainder};
 pub use regions::{block_perimeters, contiguous_regions};
 
@@ -31,7 +32,9 @@ pub use regions::{block_perimeters, contiguous_regions};
 /// numpy stores `start` and `start + step`, then fills the rest with
 /// `start + i * delta` where `delta = (start + step) - start`, which can
 /// differ from `step` in the last bits: `arange(-3.0, 3.0, 0.025)[173]` is
-/// `1.324999999999985`, not `1.3250000000000002`.
+/// `1.324999999999985`, not `1.3250000000000002`. numpy's wheel for arm64
+/// macOS is built like matplotlib's, with that product fused
+/// (`pltrs_core::numeric::fused`): the value is `1.3249999999999846` there.
 ///
 /// Returns an empty vector for a zero or wrongly-signed step.
 pub fn arange(start: f64, stop: f64, step: f64) -> Vec<f64> {
@@ -48,7 +51,7 @@ pub fn arange(start: f64, stop: f64, step: f64) -> Vec<f64> {
         .map(|i| match i {
             0 => start,
             1 => next,
-            _ => start + i as f64 * delta,
+            _ => fused(i as f64, delta, start),
         })
         .collect()
 }
@@ -114,6 +117,8 @@ pub fn nan_extent<I: IntoIterator<Item = f64>>(values: I) -> Option<(f64, f64)> 
 
 #[cfg(test)]
 mod tests {
+    use pltrs_core::numeric::FUSES_PRODUCTS;
+
     use super::*;
 
     #[test]
@@ -127,8 +132,16 @@ mod tests {
         let grid = arange(-3.0, 3.0, 0.025);
         assert_eq!(grid.len(), 240);
         assert_eq!(grid[1], -2.975);
-        assert_eq!(grid[173], 1.324_999_999_999_985);
+        // numpy 2.5.4: its x86-64 wheel's values and its arm64 macOS
+        // wheel's, which fuses `i * delta` into the sum.
+        let (far, near) = if FUSES_PRODUCTS {
+            (1.324_999_999_999_984_6, 0.700_000_000_000_000_2)
+        } else {
+            (1.324_999_999_999_985, 0.700_000_000_000_000_1)
+        };
+        assert_eq!(grid[173], far);
         assert_eq!(arange(0.1, 1.0, 0.2)[2], 0.500_000_000_000_000_1);
+        assert_eq!(arange(0.1, 1.0, 0.2)[3], near);
     }
 
     #[test]

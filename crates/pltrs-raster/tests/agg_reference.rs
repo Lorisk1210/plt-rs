@@ -2,10 +2,11 @@
 //!
 //! `fixtures/cases.txt` describes small scenes; `fixtures/generate.py`
 //! rendered them with matplotlib 3.11's `RendererAgg` into
-//! `fixtures/agg_reference.bin`. Each scene is rendered here through
-//! pltrs-raster the way matplotlib drives Agg and compared channel by
-//! channel. All cases are expected to match exactly unless listed in
-//! [`TOLERANCES`].
+//! `fixtures/agg_reference.bin` (on Linux x86-64, and on arm64 macOS, whose
+//! matplotlib rounds otherwise, into `fixtures/aarch64-apple-darwin`). Each
+//! scene is rendered here through pltrs-raster the way matplotlib drives
+//! Agg and compared channel by channel. All cases are expected to match
+//! exactly unless listed in [`TOLERANCES`].
 //!
 //! To inspect a mismatch, set `DUMP=<case name>` and run with
 //! `--nocapture`: every differing pixel is printed.

@@ -123,6 +123,15 @@ fn triangles(tri: Native<Triangulation>) -> PyResult<NdArray<i64>> {
     triangles_array(tri.given_triangles())
 }
 
+/// Every triangle anticlockwise, which the triangles "given" are from now
+/// on (matplotlib's C++ triangulation, once made, has turned the clockwise
+/// ones in the array it shares with the Python triangulation).
+fn oriented(tri: Native<Triangulation>) -> PyResult<NdArray<i64>> {
+    let mut tri = tri.borrow_mut();
+    tri.forget_given_order();
+    triangles_array(tri.triangles())
+}
+
 /// The unmasked triangles, in the vertex order given.
 fn masked_triangles(tri: Native<Triangulation>) -> PyResult<NdArray<i64>> {
     let tri = tri.borrow();
@@ -405,6 +414,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("triangle_paths", triangle_paths)?;
     module.add("points", points)?;
     module.add("triangles", triangles)?;
+    module.add("oriented", oriented)?;
     module.add("masked_triangles", masked_triangles)?;
     module.add("used_points", used_points)?;
     module.add("mask", mask)?;

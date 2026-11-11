@@ -314,17 +314,13 @@ impl fmt::Display for VectorFormat {
 impl FigureCase {
     /// The vector golden of this case.
     pub fn vector_path(&self, format: VectorFormat) -> PathBuf {
-        crate::spec_root().join("goldens/figures").join(format!(
-            "{}.{}",
-            self.name,
-            format.extension()
-        ))
+        crate::golden_path(format!("figures/{}.{}", self.name, format.extension()))
     }
 
     /// The golden of this case saved in `format` as `variant`.
     pub fn variant_path(&self, variant: &str, format: VectorFormat) -> PathBuf {
-        crate::spec_root().join("goldens/figures").join(format!(
-            "{}.{variant}.{}",
+        crate::golden_path(format!(
+            "figures/{}.{variant}.{}",
             self.name,
             format.extension()
         ))

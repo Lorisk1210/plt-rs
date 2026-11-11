@@ -9,6 +9,7 @@
 //! boundary, the edge followed is the one on the right of the quad.
 
 use pltrs_core::Point;
+use pltrs_core::numeric::sum_of_products;
 
 use super::cache::{
     Cache, Corner, LOOK_N, LOOK_S, START_BOUNDARY_S, START_BOUNDARY_W, START_CORNER, START_E,
@@ -545,8 +546,8 @@ impl Tracer<'_> {
         let frac = (z1 - level) / (z1 - z0);
         let (p0, p1) = (self.field.point(point0), self.field.point(point1));
         self.points.push(Point::new(
-            p0.x * frac + p1.x * (1.0 - frac),
-            p0.y * frac + p1.y * (1.0 - frac),
+            sum_of_products(p0.x, frac, p1.x, 1.0 - frac),
+            sum_of_products(p0.y, frac, p1.y, 1.0 - frac),
         ));
     }
 }

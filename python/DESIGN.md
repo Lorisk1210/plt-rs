@@ -2469,6 +2469,109 @@ wait cursor; vector canvases leave their figure at 72 dpi once drawn); and
 a Jupyter kernel runs pltrs' windows between its messages
 (`_pltrs_loop._kernel_loop`, `%matplotlib pltrs`).
 
+### Apple silicon
+
+pltrs agrees with numpy and matplotlib on the machine it runs on, not
+with itself across machines. On arm64 macOS the reference is one set of
+binaries: the wheels PyPI serves for the platform, matplotlib 3.11.2
+(`matplotlib-3.11.2-cp314-cp314-macosx_11_0_arm64.whl`, SHA-256
+`1a3040b2…5e2863`), contourpy 1.4.0 (`…072a702e…f3c23d`) and numpy 2.5.4,
+with Pillow 12.3.0 for images. They differ from the x86-64 wheels in four
+ways, each followed there and only there; the x86-64 results stay bit
+for bit what they were, and a macOS x86-64 build (which Rosetta runs
+beside the x86-64 wheels) follows x86-64.
+
+* **Fused products.** clang compiled the wheels, and clang contracts a
+  product and the sum or difference it feeds into one fused multiply-add
+  wherever both stand in one expression (`-ffp-contract=on`, its
+  default); GCC's x86-64 wheels round the product first. The results
+  differ in the last bit, which decides which diagonal splits four
+  cocircular points, on which side of an edge a point is, whether three
+  points are collinear, and the last digit of every stroked, clipped or
+  resampled coordinate. `pltrs_core::numeric::FUSES_PRODUCTS` is true for
+  `cfg(all(target_os = "macos", target_arch = "aarch64"))`, and
+  `numeric::fused(a, b, c)` is `a.mul_add(b, c)` when it is and
+  `a * b + c` when it is not (`sum_of_products`, `difference_of_products`
+  and `fused_f32` are built on it). A port writes each contracted
+  expression through them, in clang's operand order, so the code reads
+  the same on every platform. The rule is syntactic, which makes the
+  order certain: of a sum or difference, the left operand is fused if it
+  is a product, otherwise the right one; `a * b + c * d` is
+  `fused(a, b, c * d)`, `c - a * b` is `fused(-a, b, c)`, `x += a * b` is
+  `x = fused(a, b, x)`. A product kept in a variable, converted to
+  another type or reached through an overloaded operator (`_tri`'s `XY`
+  arithmetic in `TriContourGenerator::interp`) is rounded first, and one
+  by a power of two is exact either way. Fused are:
+  - qhull's geometry as the Delaunay triangulation uses it
+    (`tri/delaunay`), `_tri` (`XY::cross_z`, the plane coefficients) and
+    contourpy's interpolation of a crossing in its three algorithms;
+  - Agg and matplotlib's path code (`pltrs-core`'s `path`): the affine
+    transform of vertices and its composition and inverse
+    (`Affine2D::agg_transform_point`, `agg_then`, `agg_inverted`:
+    matplotlib's Python transforms are numpy's and are not fused), curve
+    subdivision, the stroker's joins, caps and miters, simplification,
+    sketching, clipping to a rectangle, the intersection tests, quadratic
+    to cubic conversion, Gouraud triangles, and the image resampler's
+    filter kernels and floating-point accumulation and blending
+    (`pltrs-raster`);
+  - numpy's own loops, built the same way: `arange`'s fill and `interp`
+    (`pltrs::numeric`);
+  - HarfBuzz's interpolation of `trak` tracking. Nothing else in
+    `ft2font` changes a value: FreeType computes in integers, and the
+    remaining fused instructions are HarfBuzz's variable-font and paint
+    code, which matplotlib's shaping does not reach, and two products by
+    1/64.
+* **Accelerate.** numpy's wheel links Apple's BLAS, whose small products
+  round in ways of their own (`numeric::ACCELERATE_BLAS`): a matrix
+  product takes its columns four at a time, fusing each row's products in
+  pairs, and fuses in order what is left of them; a matrix times one
+  vector and the dot of two vectors sum rounded products (four of them in
+  pairs). `Affine2D::then` (3×3 products) and `mplot3d::math` (the
+  projection of points, 4×4 products) follow it; matrix products of
+  other shapes whose rule was not found (three rows by four columns and
+  more) and LAPACK's inverse are not.
+* **Sorting.** numpy has no SIMD `argsort` off x86, so ties come out in
+  the order of its own introsort (`numeric::argsort::generic`).
+* **Conversions.** A float no integer holds saturates on arm64 where
+  x86-64 gives the smallest integer (`numeric::np_int`), and Pillow's
+  libjpeg-turbo narrows the sums of corrupt JPEG blocks as its Neon
+  routine does (`pltrs-codec`'s `jpeg::decode::idct`).
+
+`python/tools/fused_sites.py` finds the fused expressions again for a new
+release's wheels (on an arm64 Mac, with Xcode's tools alone):
+`fused_sites.py wheel FILE.whl` says which wheel it read, with its
+SHA-256, and counts the fused instructions of every function of its
+extensions (3.11.2: `_qhull` 285, `_tri` 22, `_path` 235, `_image` 339,
+`_backend_agg` 353, `ft2font` 145, contourpy 64; the wheels are linked
+with link-time optimisation, so a function's count includes what was
+inlined into it); `fused_sites.py sources ...` compiles the same sources
+with `-O3 -g` and prints the function, the source line and the
+expression of each fused instruction, inlined code under the line it
+came from. A line only printing, another dimension or an option
+matplotlib does not set reaches is left alone. Other builds of
+matplotlib for the platform (conda-forge, Homebrew, a source build with
+other flags) may contract elsewhere, and GCC's builds for arm64 Linux
+contract across statements too; pltrs follows the PyPI wheels for macOS.
+
+The spec's goldens are matplotlib's on Linux x86-64, and most of what
+the Mac's matplotlib computes otherwise stays within what pltrs is
+allowed against them (values within 1e-9, images within an RMS of 1).
+Where matplotlib's own output there fails that check (contour vertices
+and triangulations that take another branch, the order of equal values,
+a few images of them), it is recorded there as that platform's golden
+(`spec/goldens/platforms/aarch64-apple-darwin`, see CLAUDE.md and
+`spec/reference/spec_support/golden.py`), and the spec is green on the
+Mac against both. The fixture tests of `pltrs-core` and `pltrs-raster`,
+which compare bit for bit, have that platform's fixtures beside the
+common ones (`tests/fixtures/aarch64-apple-darwin`, written by the same
+`generate.py` run there), and smoke tests pinning such a value hold both
+(`python/tests/test_platform_arithmetic.py`). The trapezoid map shuffles
+its edges in libc++'s order there (`tri/finder/shuffle.rs`). What is not
+followed is in `spec/diff/allowlist.txt` with the proof: Agg's rasterizer
+running into its cell limit on saturated coordinates, numpy failing to
+allocate what a saturated date asks for, and the sign of rounding noise
+in numpy's arm64 build of pocketfft.
+
 ## Adding a function: a worked example
 
 `Text.get_rotation()` and `Text.set_rotation()`:

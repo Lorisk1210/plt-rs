@@ -61,7 +61,7 @@ impl<I: VertexSource> Iterator for Transformed<I> {
     fn next(&mut self) -> Option<Vertex> {
         let mut vertex = self.source.next()?;
         if vertex.is_vertex() {
-            vertex.point = self.transform.transform_point(vertex.point);
+            vertex.point = self.transform.agg_transform_point(vertex.point);
         }
         Some(vertex)
     }

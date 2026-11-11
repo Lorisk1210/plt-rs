@@ -59,8 +59,8 @@ impl CollectionGeometry<'_> {
         } else {
             let offset = self
                 .offset_transform
-                .transform_point(self.offsets[i % self.offsets.len()]);
-            base.then(Affine2D::translation(offset.x, offset.y))
+                .agg_transform_point(self.offsets[i % self.offsets.len()]);
+            base.agg_then(Affine2D::translation(offset.x, offset.y))
         };
         (path, transform)
     }
@@ -102,7 +102,7 @@ impl CollectionGeometry<'_> {
             .filter(|&i| {
                 let base = self
                     .item_transform(i)
-                    .map_or(self.master_transform, |t| t.then(self.master_transform));
+                    .map_or(self.master_transform, |t| t.agg_then(self.master_transform));
                 let (path, transform) = self.item(i, base);
                 if filled {
                     path.contains_point(point, Some(&transform), radius)

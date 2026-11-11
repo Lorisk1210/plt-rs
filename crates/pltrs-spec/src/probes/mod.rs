@@ -12,6 +12,7 @@ mod areas;
 mod args;
 mod encode;
 mod fonts;
+mod platform;
 pub mod waivers;
 
 use std::collections::BTreeMap;
@@ -139,8 +140,19 @@ impl std::error::Error for LoadError {}
 impl ProbeFile {
     /// Reads and parses a golden file.
     pub fn load(path: &Path) -> Result<Self, LoadError> {
-        let text = std::fs::read_to_string(path).map_err(LoadError::Io)?;
-        Self::parse(&Json::parse(&text).map_err(LoadError::Json)?)
+        Self::parse(&read_json(path)?)
+    }
+
+    /// The golden of `area` this build is held to: the common one, with
+    /// what its platform's golden changes where matplotlib records one
+    /// for the target ([`PLATFORM`](crate::PLATFORM)).
+    pub fn load_area(area: &str) -> Result<Self, LoadError> {
+        let name = format!("{area}.json");
+        let common = Self::load(&crate::probe_goldens_dir().join(&name))?;
+        match crate::platform_golden(Path::new("probes").join(name)) {
+            Some(path) => common.with_platform(&read_json(&path)?),
+            None => Ok(common),
+        }
     }
 
     /// Interprets a parsed golden document.
@@ -159,6 +171,12 @@ impl ProbeFile {
             .collect::<Result<_, _>>()?;
         Ok(Self { area, probes })
     }
+}
+
+/// Reads a JSON document.
+fn read_json(path: &Path) -> Result<Json, LoadError> {
+    let text = std::fs::read_to_string(path).map_err(LoadError::Io)?;
+    Json::parse(&text).map_err(LoadError::Json)
 }
 
 fn parse_probe(entry: &Json) -> Result<Probe, LoadError> {

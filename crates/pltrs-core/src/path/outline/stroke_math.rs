@@ -10,6 +10,7 @@ use std::f64::consts::PI;
 use super::math::{calc_distance, calc_intersection, cross_product};
 use super::vertex_seq::{VERTEX_DIST_EPSILON, VertexDist};
 use crate::Point;
+use crate::numeric::{fused, sum_of_products};
 
 /// The most intermediate points of a round cap or join. A stroke as wide as
 /// the largest canvas (2²³ pixels) needs about 6 400 for a half turn.
@@ -171,6 +172,15 @@ impl StrokeMath {
         dot > 0.0 && turn > dot * 1e-6 && turn < dot * limit
     }
 
+    /// The point of the offset circle around `center` at `angle`, as
+    /// Agg's round joins and caps place it.
+    fn on_circle(&self, center: Point, angle: f64) -> Point {
+        Point::new(
+            fused(angle.cos(), self.width, center.x),
+            fused(angle.sin(), self.width, center.y),
+        )
+    }
+
     /// `y.atan2(x)`, remembered for the next join.
     fn angle(&self, y: f64, x: f64) -> f64 {
         let key = (y.to_bits(), x.to_bits());
@@ -227,10 +237,7 @@ impl StrokeMath {
             let da = (a2 - a1) / f64::from(n + 1);
             a1 += da;
             for _ in 0..n {
-                out.push(Point::new(
-                    x + a1.cos() * self.width,
-                    y + a1.sin() * self.width,
-                ));
+                out.push(self.on_circle(center, a1));
                 a1 += da;
             }
         } else {
@@ -241,10 +248,7 @@ impl StrokeMath {
             let da = (a1 - a2) / f64::from(n + 1);
             a1 -= da;
             for _ in 0..n {
-                out.push(Point::new(
-                    x + a1.cos() * self.width,
-                    y + a1.sin() * self.width,
-                ));
+                out.push(self.on_circle(center, a1));
                 a1 -= da;
             }
         }
@@ -307,12 +311,12 @@ impl StrokeMath {
                 if intersection_failed {
                     let mlimit = mlimit * self.width_sign;
                     out.push(Point::new(
-                        v1.x + dx1 + dy1 * mlimit,
-                        v1.y - dy1 + dx1 * mlimit,
+                        fused(dy1, mlimit, v1.x + dx1),
+                        fused(dx1, mlimit, v1.y - dy1),
                     ));
                     out.push(Point::new(
-                        v1.x + dx2 - dy2 * mlimit,
-                        v1.y - dy2 - dx2 * mlimit,
+                        fused(-dy2, mlimit, v1.x + dx2),
+                        fused(-dx2, mlimit, v1.y - dy2),
                     ));
                 } else {
                     let x1 = v1.x + dx1;
@@ -320,8 +324,8 @@ impl StrokeMath {
                     let x2 = v1.x + dx2;
                     let y2 = v1.y - dy2;
                     let di = (lim - dbevel) / (di - dbevel);
-                    out.push(Point::new(x1 + (xi - x1) * di, y1 + (yi - y1) * di));
-                    out.push(Point::new(x2 + (xi - x2) * di, y2 + (yi - y2) * di));
+                    out.push(Point::new(fused(xi - x1, di, x1), fused(yi - y1, di, y1)));
+                    out.push(Point::new(fused(xi - x2, di, x2), fused(yi - y2, di, y2)));
                 }
             }
         }
@@ -343,19 +347,13 @@ impl StrokeMath {
             if self.width_sign > 0.0 {
                 let mut a1 = dy1.atan2(-dx1) + da;
                 for _ in 0..n {
-                    out.push(Point::new(
-                        v0.x + a1.cos() * self.width,
-                        v0.y + a1.sin() * self.width,
-                    ));
+                    out.push(self.on_circle(v0.point(), a1));
                     a1 += da;
                 }
             } else {
                 let mut a1 = (-dy1).atan2(dx1) - da;
                 for _ in 0..n {
-                    out.push(Point::new(
-                        v0.x + a1.cos() * self.width,
-                        v0.y + a1.sin() * self.width,
-                    ));
+                    out.push(self.on_circle(v0.point(), a1));
                     a1 -= da;
                 }
             }
@@ -412,7 +410,7 @@ impl StrokeMath {
                     );
                 }
                 InnerJoin::Jag | InnerJoin::Round => {
-                    let d = (dx1 - dx2) * (dx1 - dx2) + (dy1 - dy2) * (dy1 - dy2);
+                    let d = sum_of_products(dx1 - dx2, dx1 - dx2, dy1 - dy2, dy1 - dy2);
                     if d < len1 * len1 && d < len2 * len2 {
                         self.calc_miter(
                             out,
@@ -441,7 +439,7 @@ impl StrokeMath {
         // Outer join: distance from v1 to the middle of the bevel line.
         let dx = f64::midpoint(dx1, dx2);
         let dy = f64::midpoint(dy1, dy2);
-        let dbevel = (dx * dx + dy * dy).sqrt();
+        let dbevel = sum_of_products(dx, dx, dy, dy).sqrt();
 
         if matches!(self.join, LineJoin::Round | LineJoin::Bevel)
             && self.approx_scale * (self.width_abs - dbevel) < self.width_eps

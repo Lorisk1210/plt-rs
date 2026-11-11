@@ -2667,6 +2667,15 @@ class LogitLocator(MaxNLocator):
         return {"kind": "logit", "minor": bool(self._minor),
                 "nbins": self._nbins}
 
+    def _as_matplotlib(self, *values):
+        # docstring inherited
+        # matplotlib takes the logarithms of limits of another precision
+        # (a numpy.float32) in that precision, with numpy's log10 of the
+        # platform (Intel's SVML where numpy runs with AVX-512, the C
+        # library's elsewhere, which round 0.01 to either side of a
+        # decade): its code computes them, with that numpy.
+        return super()._as_matplotlib(*values) or _other_precision(*values)
+
     def tick_values(self, vmin, vmax):
         # docstring inherited
         self._refuse_polar()
@@ -2695,7 +2704,16 @@ class LogitLocator(MaxNLocator):
     def nonsingular(self, vmin, vmax):
         # docstring inherited
         _locators_as_matplotlib.warn_outside_logit(vmin, vmax)
+        if _other_precision(vmin, vmax):
+            return _locators_as_matplotlib.logit_nonsingular(self, vmin, vmax)
         return super().nonsingular(vmin, vmax)
+
+
+def _other_precision(*values):
+    """Whether one of *values* is a numpy float that is no Python float (a
+    numpy.float32, say), which matplotlib computes with in its precision."""
+    return any(isinstance(value, np.floating) and not isinstance(value, float)
+               for value in values)
 
 
 def _logit_zoomed(vmin, vmax):

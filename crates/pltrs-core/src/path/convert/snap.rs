@@ -188,7 +188,7 @@ impl Path {
                 PathCode::Curve3 | PathCode::Curve4 => return false,
                 // Closures keep their stored point, as `Transformed` leaves it.
                 PathCode::ClosePoly => point,
-                PathCode::MoveTo | PathCode::LineTo => transform.transform_point(point),
+                PathCode::MoveTo | PathCode::LineTo => transform.agg_transform_point(point),
             };
             if !point.is_finite() {
                 return false;

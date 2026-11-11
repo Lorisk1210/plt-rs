@@ -149,6 +149,12 @@ impl VectorReport {
         self.structural.is_empty() && self.missing.is_empty() && self.extra.is_empty()
     }
 
+    /// Whether the document passes for its golden: the same items, with
+    /// every number within the formatting precision.
+    pub fn agrees(&self) -> bool {
+        self.is_structurally_equal() && self.numeric.is_empty()
+    }
+
     /// A multi-line description of the first `limit` differences.
     pub fn details(&self, limit: usize) -> String {
         let mut out = String::new();

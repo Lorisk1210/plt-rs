@@ -275,7 +275,7 @@ impl Renderer for RasterRenderer {
         let masked = self.prepare_clip_mask(gc, Some(rect.unwrap_or_else(|| self.full_box())));
         let to_pixels = self.to_device(transform);
         for (triangle, colors) in triangles.iter().zip(colors) {
-            let points = triangle.map(|p| to_pixels.transform_point(p));
+            let points = triangle.map(|p| to_pixels.agg_transform_point(p));
             if points.iter().any(|p| p.x.is_nan() || p.y.is_nan()) {
                 continue;
             }

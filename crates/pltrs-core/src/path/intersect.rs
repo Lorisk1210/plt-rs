@@ -3,6 +3,7 @@
 
 use super::Path;
 use super::convert::VertexSource;
+use crate::numeric::{difference_of_products, fused, sum_of_products};
 use crate::{Affine2D, Bbox, Point};
 
 /// matplotlib's `isclose` (relative 1e-10, absolute 1e-13).
@@ -13,7 +14,7 @@ fn isclose(a: f64, b: f64) -> bool {
 fn squared_length(a: Point, b: Point) -> f64 {
     let dx = a.x - b.x;
     let dy = a.y - b.y;
-    dx * dx + dy * dy
+    sum_of_products(dx, dx, dy, dy)
 }
 
 /// matplotlib's `segments_intersect` for `p1 → p2` and `p3 → p4`, with
@@ -25,10 +26,11 @@ fn squared_length(a: Point, b: Point) -> f64 {
 fn segments_intersect(p1: Point, p2: Point, p3: Point, p4: Point) -> bool {
     let (x1, y1, x2, y2) = (p1.x, p1.y, p2.x, p2.y);
     let (x3, y3, x4, y4) = (p3.x, p3.y, p4.x, p4.y);
-    let den = ((y4 - y3) * (x2 - x1)) - ((x4 - x3) * (y2 - y1));
+    let den = difference_of_products(y4 - y3, x2 - x1, x4 - x3, y2 - y1);
     if isclose(den, 0.0) {
         // Parallel: only collinear segments can meet, by overlapping.
-        let t_area = (x2 * y3 - x3 * y2) - x1 * (y3 - y2) + y1 * (x3 - x2);
+        let t_area = difference_of_products(x2, y3, x3, y2);
+        let t_area = fused(y1, x3 - x2, fused(-x1, y3 - y2, t_area));
         if !isclose(t_area, 0.0) {
             return false;
         }
@@ -42,8 +44,8 @@ fn segments_intersect(p1: Point, p2: Point, p3: Point, p4: Point) -> bool {
             overlap(x1, x2, x3, x4)
         };
     }
-    let n1 = ((x4 - x3) * (y1 - y3)) - ((y4 - y3) * (x1 - x3));
-    let n2 = ((x2 - x1) * (y1 - y3)) - ((y2 - y1) * (x1 - x3));
+    let n1 = difference_of_products(x4 - x3, y1 - y3, y4 - y3, x1 - x3);
+    let n2 = difference_of_products(x2 - x1, y1 - y3, y2 - y1, x1 - x3);
     let u1 = n1 / den;
     let u2 = n2 / den;
     let in_unit = |u: f64| (u > 0.0 || isclose(u, 0.0)) && (u < 1.0 || isclose(u, 1.0));
@@ -55,8 +57,8 @@ fn segments_intersect(p1: Point, p2: Point, p3: Point, p4: Point) -> bool {
 fn segment_intersects_rectangle(a: Point, b: Point, c: Point, w: f64, h: f64) -> bool {
     (a.x + b.x - 2.0 * c.x).abs() < w + (a.x - b.x).abs()
         && (a.y + b.y - 2.0 * c.y).abs() < h + (a.y - b.y).abs()
-        && 2.0 * ((a.x - c.x) * (a.y - b.y) - (a.y - c.y) * (a.x - b.x)).abs()
-            < w * (a.y - b.y).abs() + h * (a.x - b.x).abs()
+        && 2.0 * difference_of_products(a.x - c.x, a.y - b.y, a.y - c.y, a.x - b.x).abs()
+            < sum_of_products(w, (a.y - b.y).abs(), h, (a.x - b.x).abs())
 }
 
 impl Path {

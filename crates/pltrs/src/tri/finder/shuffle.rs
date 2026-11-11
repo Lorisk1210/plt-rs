@@ -24,10 +24,10 @@
 //! * otherwise each position `i` from 1 swaps with one uniform in `[0, i]`.
 //!
 //! The libc++ order, written from a description of its behaviour too
-//! (and not yet checked against a Mac's), walks from the front:
-//! position `i` swaps with `i + k`, `k` uniform in `[0, n - 1 - i]`, drawn
-//! as the low `w` bits of draws (`w` bits enough for the range), redrawn
-//! while out of range.
+//! and checked the same way (the tests hold orders of a program built with
+//! Apple clang 17), walks from the front: position `i` swaps with `i + k`,
+//! `k` uniform in `[0, n - 1 - i]`, drawn as the low `w` bits of draws
+//! (`w` bits enough for the range), redrawn while out of range.
 
 /// The 32-bit Mersenne Twister `std::mt19937`.
 pub(super) struct Mt19937 {
@@ -245,15 +245,27 @@ mod tests {
         assert_eq!(output, Some(4_123_659_995));
     }
 
-    /// The first items and an order hash of `std::shuffle` of `0..n`
-    /// with `std::mt19937 rng(1234)`, from a program built with g++ 14.
-    fn libstdcxx(n: usize) -> (u64, Vec<usize>) {
+    /// An order hash and the first items of `0..n` shuffled by `shuffle`
+    /// with the generator seeded with 1234.
+    fn shuffled(n: usize, shuffle: fn(&mut [usize], &mut Mt19937)) -> (u64, Vec<usize>) {
         let mut items: Vec<usize> = (0..n).collect();
-        shuffle_libstdcxx(&mut items, &mut Mt19937::new(1234));
+        shuffle(&mut items, &mut Mt19937::new(1234));
         let hash = items.iter().fold(0_u64, |hash, &item| {
             hash.wrapping_mul(1_000_003).wrapping_add(item as u64)
         });
         (hash, items.into_iter().take(12).collect())
+    }
+
+    /// `std::shuffle` of `0..n` with `std::mt19937 rng(1234)`, from a
+    /// program built with g++ 14.
+    fn libstdcxx(n: usize) -> (u64, Vec<usize>) {
+        shuffled(n, shuffle_libstdcxx)
+    }
+
+    /// The same from a program built with Apple clang 17 on macOS 26
+    /// (libc++).
+    fn libcxx(n: usize) -> (u64, Vec<usize>) {
+        shuffled(n, shuffle_libcxx)
     }
 
     #[test]
@@ -280,18 +292,26 @@ mod tests {
     }
 
     #[test]
-    fn the_libcxx_order_is_a_permutation_walked_from_the_front() {
-        let mut items: Vec<usize> = (0..50).collect();
-        shuffle_libcxx(&mut items, &mut Mt19937::new(1234));
-        let mut sorted = items.clone();
-        sorted.sort_unstable();
-        assert_eq!(sorted, (0..50).collect::<Vec<_>>());
-        assert_ne!(items, sorted);
-        // Two items: one draw of a single bit decides.
-        let mut pair = [0, 1];
-        let bit = Mt19937::new(1234).next_u32() & 1;
-        shuffle_libcxx(&mut pair, &mut Mt19937::new(1234));
-        assert_eq!(pair, if bit == 1 { [1, 0] } else { [0, 1] });
+    fn the_libcxx_order_is_apple_clangs() {
+        assert_eq!(libcxx(0), (0, vec![]));
+        assert_eq!(libcxx(1), (0, vec![0]));
+        assert_eq!(libcxx(2), (1_000_003, vec![1, 0]));
+        assert_eq!(libcxx(3), (2_000_012_000_019, vec![2, 0, 1]));
+        assert_eq!(libcxx(4).1, vec![3, 0, 1, 2]);
+        assert_eq!(libcxx(5).1, vec![3, 0, 1, 2, 4]);
+        assert_eq!(libcxx(10).1, vec![3, 7, 1, 2, 8, 5, 0, 4, 9, 6]);
+        assert_eq!(
+            libcxx(17),
+            (
+                14_943_143_090_613_215_780,
+                vec![15, 4, 8, 2, 16, 9, 14, 1, 5, 7, 11, 13]
+            )
+        );
+        assert_eq!(libcxx(1000).0, 3_464_287_770_629_461_700);
+        // Either side of a power of two, where a draw gains a bit.
+        assert_eq!(libcxx(65_535).0, 4_848_170_295_527_812_755);
+        assert_eq!(libcxx(65_536).0, 9_828_220_514_130_117_512);
+        assert_eq!(libcxx(200_000).0, 15_861_224_853_990_749_804);
     }
 
     #[test]

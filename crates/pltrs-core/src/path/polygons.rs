@@ -4,6 +4,7 @@
 
 use super::convert::{SimplifySettings, VertexSource};
 use super::{Path, PathCode};
+use crate::numeric::fused;
 use crate::{Affine2D, Bbox, Point};
 
 /// The parameters of [`Path::to_polygons`]; the defaults are matplotlib's.
@@ -76,10 +77,10 @@ fn clip_step(
 /// that order.
 fn clip_polygon(polygon: &[Point], xmin: f64, xmax: f64, ymin: f64, ymax: f64) -> Vec<Point> {
     let at_x = |x: f64| {
-        move |s: Point, p: Point| Point::new(x, s.y + (p.y - s.y) * ((x - s.x) / (p.x - s.x)))
+        move |s: Point, p: Point| Point::new(x, fused(p.y - s.y, (x - s.x) / (p.x - s.x), s.y))
     };
     let at_y = |y: f64| {
-        move |s: Point, p: Point| Point::new(s.x + (p.x - s.x) * ((y - s.y) / (p.y - s.y)), y)
+        move |s: Point, p: Point| Point::new(fused(p.x - s.x, (y - s.y) / (p.y - s.y), s.x), y)
     };
     let step = clip_step(polygon, |p| p.x <= xmax, at_x(xmax));
     let step = clip_step(&step, |p| p.x >= xmin, at_x(xmin));
@@ -106,7 +107,7 @@ impl Path {
                 Some(t) => self
                     .vertices
                     .iter()
-                    .map(|p| t.transform_point(*p))
+                    .map(|p| t.agg_transform_point(*p))
                     .collect(),
                 None => self.vertices.clone(),
             };

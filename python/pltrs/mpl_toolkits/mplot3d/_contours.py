@@ -230,6 +230,8 @@ class ContoursMixin:
         look = _contour_look(self, kwargs)
         z = np.ma.filled(np.ma.asarray(z, dtype=float), np.nan).ravel()
         _properties.check_known(TriContourSet, kwargs)
+        # matplotlib's contour set makes the extension's triangulation.
+        tri._turn_clockwise_triangles()
         native = _mplot3d.tricontour(self._native, bool(filled), (tri._native, z),
                                      placement, _levels(levels), *look[:2])
         return _finish(_in_3d(TriContourSet, placement), native, self, look, kwargs)

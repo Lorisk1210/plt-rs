@@ -4,13 +4,10 @@ from __future__ import annotations
 
 import dataclasses
 import io
-import pathlib
 from typing import Any, Callable
 
 from .fonts import figure_fonts_only
-from .golden import GOLDEN_ROOT, to_jsonable
-
-FIGURE_ROOT = GOLDEN_ROOT / "figures"
+from .golden import to_jsonable
 
 _CASES: dict[str, "FigureCase"] = {}
 
@@ -39,12 +36,15 @@ class FigureCase:
     needs_tex: bool = False
 
     @property
-    def png_path(self) -> pathlib.Path:
-        return FIGURE_ROOT / f"{self.name}.png"
+    def png_golden(self) -> str:
+        """The image golden, below ``spec/goldens`` (see
+        ``golden.golden_path`` and ``golden.record_golden``)."""
+        return f"figures/{self.name}.png"
 
     @property
-    def facts_path(self) -> pathlib.Path:
-        return FIGURE_ROOT / f"{self.name}.json"
+    def facts_golden(self) -> str:
+        """The facts golden, below ``spec/goldens``."""
+        return f"figures/{self.name}.json"
 
     def render(self) -> tuple[bytes, dict[str, Any]]:
         """Build the figure with matplotlib; return PNG bytes and facts.
@@ -71,8 +71,10 @@ class FigureCase:
                 plt.close(fig)
         return png, facts
 
-    def vector_path(self, fmt: str) -> pathlib.Path:
-        return FIGURE_ROOT / f"{self.name}.{fmt}"
+    def vector_golden(self, fmt: str, variant: str | None = None) -> str:
+        """The golden of the case saved as ``fmt`` (as ``variant``, if
+        any), below ``spec/goldens``."""
+        return f"figures/{self.name}.{variant + '.' if variant else ''}{fmt}"
 
     def render_vector(self, fmt: str) -> bytes:
         """Build the figure with matplotlib and save it as ``fmt`` (svg, pdf,

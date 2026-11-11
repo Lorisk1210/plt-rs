@@ -1,6 +1,7 @@
 //! Shared helpers for the matplotlib reference tests: the case corpus
-//! (`fixtures/cases.txt`), the reference images (`fixtures/agg_reference.bin`)
-//! and the deterministic test images both sides use.
+//! (`fixtures/cases.txt`), the reference images (`fixtures/agg_reference.bin`,
+//! and arm64 macOS's own in `fixtures/aarch64-apple-darwin`) and the
+//! deterministic test images both sides use.
 
 pub(crate) mod backend;
 
@@ -136,9 +137,18 @@ pub(crate) fn cases() -> Vec<Case> {
     cases
 }
 
-/// Decodes `fixtures/agg_reference.bin` into named pixmaps.
+/// matplotlib's renderings of the cases on Linux x86-64.
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+const REFERENCE: &[u8] = include_bytes!("../fixtures/agg_reference.bin");
+
+/// matplotlib's renderings of the cases on arm64 macOS, where its build
+/// fuses products into sums and pltrs with it.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+const REFERENCE: &[u8] = include_bytes!("../fixtures/aarch64-apple-darwin/agg_reference.bin");
+
+/// Decodes the reference of this platform into named pixmaps.
 pub(crate) fn references() -> HashMap<String, Pixmap> {
-    let bytes: &[u8] = include_bytes!("../fixtures/agg_reference.bin");
+    let bytes = REFERENCE;
     assert_eq!(&bytes[..8], b"PLTAGG1\n", "bad reference header");
     let mut pos = 8;
     let mut take = |n: usize| {

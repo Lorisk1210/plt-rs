@@ -2,6 +2,8 @@
 //! coordinate and qhull's roundoff-derived constants (`qh_maxmin`,
 //! `qh_scalelast`, `qh_detroundoff`).
 
+use pltrs_core::numeric::fused;
+
 use super::geom::{Vec3, div_zero};
 use super::hull::{HullError, HullResult};
 
@@ -88,7 +90,7 @@ impl Precision {
         // qhull's `newlow - low * scale` with `newlow == 0`.
         let shift = 0.0 - low * scale;
         for p in points.iter_mut() {
-            p[2] = p[2] * scale + shift;
+            p[2] = fused(p[2], scale, shift);
         }
         Ok((
             Self::from_extent(max_abs_coord, max_sum_coord, max_width, near_zero),
@@ -107,11 +109,11 @@ impl Precision {
         if max_dist_sum > max_sum_coord {
             max_dist_sum = max_sum_coord;
         }
-        let dist_round = f64::EPSILON * (DIM * max_dist_sum * 1.01 + max_abs_coord);
+        let dist_round = f64::EPSILON * fused(DIM * max_dist_sum, 1.01, max_abs_coord);
         let centrum_radius = 2.0 * dist_round;
         // qhull adds `sqrt(dim) * width * sin(max merge angle)` to the
         // roundoff; without angle merging the angle term is zero.
-        let one_merge = dist_round.max_qhull(DIM * centrum_radius + dist_round);
+        let one_merge = dist_round.max_qhull(fused(DIM, centrum_radius, dist_round));
         let min_visible = centrum_radius;
         let max_coplanar = min_visible;
         let min_outside = 2.0 * min_visible;

@@ -8,8 +8,10 @@ mod creation;
 mod navigation;
 
 use std::error::Error;
+use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
-use pltrs_core::{Path, Point};
+use pltrs_core::{Bbox, Path, Point};
 use pltrs_text::{HAlign, VAlign};
 
 use super::*;
@@ -18,10 +20,11 @@ use crate::axes::{Adjustable, AspectError, Axes, AxesState, AxisName, Projection
 use crate::figure::Figure;
 use crate::layout::{ConstrainedLayout, LayoutEngine, TightLayout};
 use crate::navigation::{DragKey, NavMode, Navigation, PointerButton};
+use crate::rc::Aspect;
 use crate::scale::ScaleName;
 use crate::spines::SpineSide;
 use crate::testing::{RecordingRenderer, close_points};
-use crate::transforms::{Affine2D, ResolvedTransform};
+use crate::transforms::{Affine2D, PointMap, ResolvedTransform, Step};
 
 /// A shear of 45° to the right, in axes fractions.
 fn shear() -> ResolvedTransform {
@@ -175,6 +178,101 @@ impl Projection for Broken {
     }
 }
 
+/// The plane as it is, noting the interpolation steps of the lines (the
+/// paths of two vertices: gridlines and spines, not the marks of ticks)
+/// it is asked to map (a transform of a program's bends a path by them).
+#[derive(Debug)]
+struct NotingSteps(Arc<Mutex<Vec<usize>>>);
+
+impl PointMap for NotingSteps {
+    fn forward(&self, point: Point) -> Point {
+        point
+    }
+
+    fn inverse(&self, point: Point) -> Point {
+        point
+    }
+
+    fn transform_path(&self, path: &Path) -> Path {
+        if path.vertices().len() == 2 {
+            self.0.lock().unwrap().push(path.interpolation_steps());
+        }
+        path.clone()
+    }
+}
+
+/// Rectilinear axes whose class made one spine, around its outline (the
+/// `'geo'` spine of matplotlib's geographic axes, drawn as the top
+/// spine), whose x axis maps its gridlines through a map of the plane and
+/// whose bottom side lies a whole axes height below the axes.
+#[derive(Clone, Debug, Default)]
+struct OneSpine {
+    steps: Arc<Mutex<Vec<usize>>>,
+}
+
+impl Projection for OneSpine {
+    fn name(&self) -> &'static str {
+        "one spine"
+    }
+
+    fn data_to_axes(&self, view: &ProjectionView<'_>) -> ResolvedTransform {
+        view.rectilinear()
+    }
+
+    fn axis_transform(
+        &self,
+        view: &ProjectionView<'_>,
+        axis: AxisName,
+    ) -> Option<ResolvedTransform> {
+        let noting = Step::Plane(Rc::new(NotingSteps(Arc::clone(&self.steps))));
+        let lowered = Affine2D::identity().scale(1.0, 2.0).translate(0.0, -1.0);
+        let across = ResolvedTransform::blend(view.rectilinear(), ResolvedTransform::identity());
+        (axis == AxisName::X).then(|| ResolvedTransform::with_step(noting, lowered).then(across))
+    }
+
+    fn spines(&self) -> Vec<SpineSide> {
+        vec![SpineSide::Top]
+    }
+}
+
+/// Rectilinear axes giving their own inverse of the data transform: the
+/// rectilinear one, landing a hundred to the right of where the inverse
+/// of the whole transform lands.
+#[derive(Clone, Debug)]
+struct OwnInverse;
+
+impl Projection for OwnInverse {
+    fn name(&self) -> &'static str {
+        "own inverse"
+    }
+
+    fn data_to_axes(&self, view: &ProjectionView<'_>) -> ResolvedTransform {
+        view.rectilinear()
+    }
+
+    fn axes_to_data(&self, view: &ProjectionView<'_>) -> Option<ResolvedTransform> {
+        let shifted = ResolvedTransform::affine(Affine2D::identity().translate(100.0, 0.0));
+        Some(view.rectilinear().inverted()?.then(shifted))
+    }
+}
+
+/// Rectilinear axes noting where their hooks are told the axes is.
+#[derive(Clone, Debug, Default)]
+struct NotingPosition {
+    seen: Arc<Mutex<Vec<Bbox>>>,
+}
+
+impl Projection for NotingPosition {
+    fn name(&self) -> &'static str {
+        "noting position"
+    }
+
+    fn data_to_axes(&self, view: &ProjectionView<'_>) -> ResolvedTransform {
+        self.seen.lock().unwrap().push(view.position());
+        view.rectilinear()
+    }
+}
+
 /// A figure with sheared axes filling its default subplot area.
 fn sheared() -> (Figure, Axes) {
     let kind = register(Sheared::default).unwrap();
@@ -304,6 +402,71 @@ fn outlines_clip_pick_and_frame_the_axes() {
 }
 
 #[test]
+fn gridlines_ask_for_the_steps_matplotlib_gives_them() {
+    let steps = Arc::new(Mutex::new(Vec::new()));
+    let noted = Arc::clone(&steps);
+    let kind = register(move || OneSpine {
+        steps: Arc::clone(&noted),
+    })
+    .unwrap();
+    let fig = Figure::new();
+    let ax = fig.subplot_with_projection(kind).unwrap();
+    ax.grid(true);
+    ax.set_xticks([0.25, 0.75]);
+    let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
+    fig.draw(&mut renderer).unwrap();
+    // matplotlib's `GRIDLINE_INTERPOLATION_STEPS` on the two gridlines;
+    // the spines are lines of one step.
+    let steps = steps.lock().unwrap();
+    let asked: Vec<usize> = (steps.iter().copied())
+        .filter(|&steps| steps != 1)
+        .collect();
+    assert_eq!(asked, [180, 180], "{steps:?}");
+}
+
+#[test]
+fn the_hooks_see_the_axes_where_its_aspect_puts_it() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let noted = Arc::clone(&seen);
+    let kind = register(move || NotingPosition {
+        seen: Arc::clone(&noted),
+    })
+    .unwrap();
+    let fig = Figure::new();
+    let ax = fig.subplot_with_projection(kind).unwrap();
+    let whole = ax.position();
+    // A third as high as wide: the box shrinks before anything is drawn
+    // through the projection.
+    ax.set_aspect(Aspect::Ratio(1.0 / 3.0)).unwrap();
+    seen.lock().unwrap().clear();
+    let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
+    fig.draw(&mut renderer).unwrap();
+    let seen = seen.lock().unwrap();
+    let last = seen.last().expect("asked while drawing");
+    assert_eq!(*last, ax.position());
+    assert!(last.height() < whole.height() && (last.width() - whole.width()).abs() < 1e-12);
+}
+
+#[test]
+fn a_label_goes_beyond_the_axes_on_a_side_without_a_spine() {
+    let kind = register(OneSpine::default).unwrap();
+    let fig = Figure::new();
+    let ax = fig.subplot_with_projection(kind).unwrap();
+    ax.set_xticks(Vec::<f64>::new());
+    ax.set_xlabel("below");
+    let bottom = display(&fig, &ax.trans_axes(), Point::new(0.0, 0.0)).y;
+    let pad = ax.xaxis().label_pad() * fig.dpi() / 72.0;
+    let label = ax.xaxis().label_extent().unwrap();
+    // matplotlib's `spines.get("bottom", self.axes)`: no spine of the class
+    // frames the bottom, so the label hangs below the axes, not below
+    // where the x axis draws its side (a whole axes height further down).
+    assert!(
+        (label.y1() - (bottom - pad)).abs() < 1.0,
+        "{label:?} {bottom} {pad}"
+    );
+}
+
+#[test]
 fn labels_go_where_the_projection_puts_them() {
     let (fig, ax) = disc();
     let centre = display(&fig, &ax.trans_axes(), Point::new(0.5, 0.5));
@@ -377,6 +540,16 @@ fn panning_moves_the_view_through_the_inverse() {
     let readout =
         Navigation::new().readout(&fig, display(&fig, &ax.trans_data(), Point::new(0.5, 0.25)));
     assert!(readout.contains("0.5 0.2"), "{readout}");
+    // A projection inverting its transform itself is panned through its
+    // own inverse (the frozen one of the start of the pan, there and
+    // back: its shift cancels out of the limits' width, not of where a
+    // box lands).
+    let fig = Figure::new();
+    let ax = fig
+        .subplot_with_projection(register(|| OwnInverse).unwrap())
+        .unwrap();
+    let (x0, x1) = pan(&fig, &ax);
+    assert!((x1 - x0 - 1.0).abs() < 1e-9 && x0 > 99.0, "{x0} {x1}");
 }
 
 #[test]

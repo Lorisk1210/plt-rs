@@ -313,7 +313,13 @@ class Tick(Artist):
         """Return the figure of the tick's Axes, which matplotlib's ticks
         join when they are made."""
         axes = self.axes
-        return super()._get_figure(root) if axes is None else axes.get_figure(root=root)
+        if axes is None:
+            return super()._get_figure(root)
+        if self.axis is None:
+            # A tick made by its constructor keeps the figure it joined
+            # then, also once its Axes left it, as matplotlib's does.
+            return axes._home_figure(root)
+        return axes.get_figure(root=root)
 
     def _sync(self):
         """Fill the parts of a tick of an axis from the axis."""
@@ -423,6 +429,9 @@ class Tick(Artist):
                 self._index)
         if part is self.label1 or part is self.label2:
             _axis.push_tick_label(*args, part is self.label2, part._native)
+            if "_path_effects" in part.__dict__:
+                # Those the label was given, in place of the rcParam's.
+                _axis.push_tick_label_effects(*args, part is self.label2, part._native)
         elif part is self.gridline:
             _axis.push_gridline(*args, part._native)
         else:
@@ -820,8 +829,10 @@ class _AxisText:
         are."""
 
     #: The native functions filling the mirror, reading it back and giving
-    #: its extent.
+    #: its extent, and the one giving the text the path effects its mirror
+    #: was given (None: the text is drawn through the rcParam's).
     _sync_native = _push_native = _extent_native = None
+    _push_effects_native = None
     #: The position matplotlib's axes of each name give the text when they
     #: make it (``self.label.set(x=0.5, y=0)``...), by axis name.
     _START = {}
@@ -841,6 +852,10 @@ class _AxisText:
 
     def _push(self, text):
         type(self)._push_native(*self._args(), text._native)
+        push_effects = type(self)._push_effects_native
+        if "_path_effects" in text.__dict__ and push_effects is not None:
+            # Those the text was given, in place of the rcParam's.
+            push_effects(*self._args(), text._native)
 
     def _extent(self, text):
         return type(self)._extent_native(*self._args())
@@ -872,6 +887,7 @@ class AxisLabel(_AxisText):
 
     _sync_native = _axis.sync_axis_label
     _push_native = _axis.push_axis_label
+    _push_effects_native = _axis.push_axis_label_effects
     _extent_native = _axis.axis_label_extent
     _START = {"x": (0.5, 0), "y": (0, 0.5)}
 

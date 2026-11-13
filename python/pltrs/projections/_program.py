@@ -40,19 +40,21 @@ makes (`cleared`), which clips what the Axes draws unless it is a
 fits one).
 
 While pltrs (Rust) lays the figure out or draws it, its Axes cannot be
-asked about themselves: every hook hands the adapter the view limits
+asked about themselves: every hook hands the adapter the view limits and
+the position
 pltrs (Rust) works with, which the Axes' ``_viewLim`` is set to, so that
 the class' transforms compute with them (and polar Axes answer
 ``get_rorigin`` and ``get_rsign`` from them, as matplotlib's do).
 """
 
+import collections
 import contextlib
 import functools
 import weakref
 
 import numpy as np
 
-from .. import _transform_trees
+from .. import _lazy_imports, _transform_trees
 from .._program_classes import takes_from_program
 from .._native import artist as _artist
 from .._native import polar as _polar
@@ -63,8 +65,11 @@ from ..axis import _AxisOfAxes
 from .._axis_artists import Tick
 from ..path import Path
 from ..spines import _LINEAR_PATHS, Spine
-from ..transforms import (CompositeAffine2D, CompositeGenericTransform,
-                          IdentityTransform, TransformWrapper)
+from ..transforms import (Affine2DBase, CompositeAffine2D,
+                          CompositeGenericTransform, IdentityTransform,
+                          TransformWrapper, TransformedPath)
+
+_owned_paths = _lazy_imports.module(globals(), ".._owned_paths")
 
 #: The projections pltrs (Rust) has: its own Axes are made with them.
 _NATIVE_PROJECTIONS = frozenset(
@@ -75,19 +80,38 @@ _LABEL_TRANSFORMS = {"bottom": ("x", 1), "top": ("x", 2),
                      "left": ("y", 1), "right": ("y", 2)}
 
 
+def _nearest_own(cls):
+    """The nearest of the classes of *cls* this package defines that names
+    a projection of pltrs (Rust); None without one."""
+    package = __name__.partition(".")[0]
+    for base in cls.__mro__:
+        if (base.__module__.partition(".")[0] == package
+                and getattr(base, "name", None) in _NATIVE_PROJECTIONS):
+            return base
+    return None
+
+
+def is_program_geo(cls):
+    """Whether *cls* is a class of the program's deriving from one of the
+    geographic Axes classes (mplstereonet's ``StereonetAxes``, a
+    `.LambertAxes` with a transform, grids and a ``cla`` of its own) or
+    from `.GeoAxes` itself."""
+    from . import geo
+    return issubclass(cls, geo.GeoAxes) and cls not in geo.OWN_CLASSES
+
+
 def native_name(cls):
     """
     The name of the projection of pltrs (Rust) the Axes class *cls* is
     drawn with: that of the nearest of its classes this package defines
     (a subclass of `.PolarAxes` registered under a name of its own is
-    polar).
+    polar), and rectilinear for a program's subclass of a geographic
+    class (`is_program_geo`).
     """
-    package = __name__.partition(".")[0]
-    for base in cls.__mro__:
-        if (base.__module__.partition(".")[0] == package
-                and getattr(base, "name", None) in _NATIVE_PROJECTIONS):
-            return base.name
-    return "rectilinear"
+    own = _nearest_own(cls)
+    if own is None or is_program_geo(cls):
+        return "rectilinear"
+    return own.name
 
 
 #: The methods matplotlib's ``Axes.__init__`` builds an Axes with, and the
@@ -98,13 +122,17 @@ _PROJECTION_HOOKS = ("_set_lim_and_transforms", "_gen_axes_spines", "_init_axis"
 
 
 def is_program_class(cls):
-    """Whether *cls* is an Axes class of a projection the program defines
-    (one whose ``name`` pltrs (Rust) does not know, or which overrides how
+    """Whether *cls* is an Axes class of a projection the program defines:
+    one whose ``name`` pltrs (Rust) does not know, or which overrides how
     matplotlib's ``__init__`` builds an Axes, deriving from the rectilinear
-    or the polar Axes, and which does not make its native Axes itself)."""
-    return (issubclass(cls, Axes)
-            and (cls.name not in _NATIVE_PROJECTIONS
-                 or any(takes_from_program(cls, hook) for hook in _PROJECTION_HOOKS))
+    or the polar Axes, and which does not make its native Axes itself; or
+    one deriving from a geographic class (`is_program_geo`)."""
+    if not issubclass(cls, Axes):
+        return False
+    if is_program_geo(cls):
+        return True
+    return ((cls.name not in _NATIVE_PROJECTIONS
+             or any(takes_from_program(cls, hook) for hook in _PROJECTION_HOOKS))
             and native_name(cls) in ("rectilinear", "polar")
             and getattr(cls, "_make_native", None) is None)
 
@@ -127,13 +155,39 @@ def _split(transform, middle):
     return None
 
 
+class _AxesToUnit(Affine2DBase):
+    """
+    The inverse of an Axes' ``transAxes`` as it is whenever it is asked
+    for. `.Transform.inverted` gives the inverse of the matrix the
+    transform has then, which the Axes leaves behind when it moves (its
+    aspect applied, a layout): what follows a transform of the program's
+    that does not end with ``transAxes`` (MetPy's skew, applied in pixels
+    after ``transData``) has to follow the Axes.
+    """
+
+    def __init__(self, trans_axes):
+        super().__init__()
+        self._trans_axes = trans_axes
+        self.set_children(trans_axes)
+        self._mtx = None
+
+    def get_matrix(self):
+        # docstring inherited
+        if self._invalid or self._mtx is None:
+            self._mtx = np.linalg.inv(self._trans_axes.get_matrix())
+            self._inverted = None
+            self._invalid = 0
+        return self._mtx
+
+
 def _to_axes(ax, transform):
     """*transform* of *ax* up to its final ``transAxes``; a transform that
-    does not end with it, followed by the inverse of ``transAxes`` (the
-    trees are those of the laid-out figure while pltrs (Rust) asks)."""
+    does not end with it, followed by the inverse of ``transAxes`` as it
+    is when pltrs (Rust) asks (`_AxesToUnit`; the trees are those of the
+    laid-out figure then)."""
     found = _split(transform, ax.transAxes)
     if found is None or not isinstance(found[1], IdentityTransform):
-        return transform + ax.transAxes.inverted()
+        return transform + _AxesToUnit(ax.transAxes)
     return found[0]
 
 
@@ -150,8 +204,14 @@ def _tick_label_parts(ax, transform):
     if found is not None and found[1].is_affine:
         matrix = found[1].get_matrix()
     if matrix is None or not np.allclose(matrix[:2, :2], np.eye(2)):
-        return transform + ax.transAxes.inverted(), None
+        return transform + _AxesToUnit(ax.transAxes), None
     return found[0], found[1]
+
+
+#: How many mapped paths the data transform of an Axes keeps (see
+#: `_NonAffinePart`): those of its lines, the least recently drawn dropped
+#: first.
+_KEPT_PATHS = 128
 
 
 class _NonAffinePart:
@@ -160,15 +220,31 @@ class _NonAffinePart:
     paths through it (with its inverse). *viewing*, when given, is the
     context its every computation runs in (the view it was evaluated at,
     which polar transforms read from their Axes).
+
+    With *keeps_paths* (the data transform of an Axes), a path is mapped
+    as matplotlib's artists map theirs: a line's through a
+    `.TransformedPath`, which calls the transform for the path and then
+    for its vertices as points, and keeps both until the transform is
+    invalidated, so that the next draw calls nothing; the path an artist
+    owns (a collection's, a patch's outline) anew at every draw. The
+    vertices of a kept path asked for as points (a line's markers) are
+    those the `.TransformedPath` computed. The parts of an axis (its
+    gridlines and marks) are mapped call by call by pltrs (Rust), which
+    keeps nothing.
     """
 
-    def __init__(self, transform, viewing=None):
+    def __init__(self, transform, viewing=None, keeps_paths=False):
         self._transform = transform
         self._viewing = viewing
         #: Whether the part gives the same answer for the same point for as
         #: long as it lives (computing in no context of a view), so that
         #: pltrs (Rust) may answer from what it answered before.
         self._answers_alike = viewing is None
+        #: The paths mapped and kept, by content, the last drawn last
+        #: (None: none is kept), and the key of the path kept for each
+        #: array of vertices.
+        self._paths = collections.OrderedDict() if keeps_paths else None
+        self._of_vertices = {}
 
     def _computing(self):
         """The context of a computation."""
@@ -180,7 +256,12 @@ class _NonAffinePart:
         `.Transform.transform` hands them)."""
         values = np.asarray(values, dtype=float)
         with self._computing():
-            points = self._transform.transform_non_affine(values.reshape(-1, 2))
+            kept = (self._paths.get(self._of_vertices.get(values.tobytes()))
+                    if self._of_vertices and values.ndim == 2 else None)
+            if kept is not None:
+                points = kept.get_transformed_points_and_affine()[0].vertices
+            else:
+                points = self._transform.transform_non_affine(values.reshape(-1, 2))
         return np.reshape(points, values.shape)
 
     def transform_path(self, vertices, codes, steps=1):
@@ -188,6 +269,30 @@ class _NonAffinePart:
         interpolation steps) through the non-affine part, as the class'
         ``transform_path_non_affine`` maps it (curving straight segments,
         as the Hammer projection's subdivides them)."""
+        with self._computing():
+            if self._paths is None:
+                path = Path(vertices, codes, _interpolation_steps=steps)
+                return self._transform.transform_path_non_affine(path)
+            held = _owned_paths.held(vertices, codes, steps)
+            if held is not None:
+                return self._transform.transform_path_non_affine(held)
+            key = (vertices.tobytes(), None if codes is None else codes.tobytes(), steps)
+            kept = self._paths.get(key)
+            if kept is None:
+                path = Path(vertices, codes, _interpolation_steps=steps)
+                kept = self._paths[key] = TransformedPath(path, self._transform)
+                self._of_vertices[key[0]] = key
+                if len(self._paths) > _KEPT_PATHS:
+                    dropped, _ = self._paths.popitem(last=False)
+                    if self._of_vertices.get(dropped[0]) == dropped:
+                        del self._of_vertices[dropped[0]]
+            else:
+                self._paths.move_to_end(key)
+            return kept.get_transformed_path_and_affine()[0]
+
+    def transform_outline(self, vertices, codes, steps=1):
+        """The outline of a patch through the non-affine part, mapped anew
+        as matplotlib's ``Patch.draw`` maps it at every draw."""
         path = Path(vertices, codes, _interpolation_steps=steps)
         with self._computing():
             return self._transform.transform_path_non_affine(path)
@@ -307,7 +412,11 @@ class _Projection:
         given = ax.__dict__.get("_rectilinear_axis_transforms", (None, None))
         for name, rectilinear in zip("xy", given):
             transform = getattr(ax, f"get_{name}axis_transform")(which="grid")
-            if transform is not rectilinear:
+            # The rectilinear one blends the ``transData`` it was made
+            # with: a class that replaced ``transData`` since (a skew
+            # added after it) left its gridlines and ticks with the old.
+            follows_data = getattr(transform, f"_{name}", None) is ax.transData
+            if transform is not rectilinear or not follows_data:
                 self.axis_transforms[name] = _to_axes(ax, transform)
             axis = getattr(ax, f"{name}axis")
             probe = axis._get_tick(major=True)
@@ -338,7 +447,8 @@ class _Projection:
 class _Adapter:
     """What pltrs (Rust) asks of the Axes of a program's projection class,
     holding the Axes weakly so that pltrs (Rust) keeps no Python object
-    alive. Each hook gets the view limits pltrs (Rust) works with."""
+    alive. Each hook gets the view limits and the position pltrs (Rust)
+    works with (`_viewing`)."""
 
     def __init__(self, ax):
         self._axes = weakref.ref(ax)
@@ -370,41 +480,52 @@ class _Adapter:
         self._parts_at = limits
 
     def _kept(self, key, limits, make):
-        """What *make* gives, kept under *key* while the view limits stay
-        *limits* (*make* gives what it is made from, kept alive, and the
-        object)."""
-        if self._parts_at != limits:
-            self._forget_parts(limits)
+        """What *make* gives, kept under *key* while the view limits (of
+        *limits*, see `_viewing`) stay (*make* gives what it is made from,
+        kept alive, and the object)."""
+        view, _ = limits
+        if self._parts_at != view:
+            self._forget_parts(view)
         kept = self._parts.get(key)
         if kept is None:
             kept = self._parts[key] = make()
         return kept[1]
 
-    def _evaluated_kept(self, key, transform, limits):
+    def _evaluated_kept(self, key, transform, limits, keeps_paths=False):
         """*transform* evaluated (see `_evaluated`), its affine matrix anew
         and its non-affine part the same object while *key* and the view
         limits *limits* stay: the part names the transform's code to pltrs
         (Rust), which answers from what it answered before while it lays
-        the figure out."""
+        the figure out. *keeps_paths*: see `_NonAffinePart`."""
         if transform.is_affine:
             return np.asarray(transform.get_matrix(), dtype=float), None
         # By the transform's identity too: the memo keeps it alive.
-        part = self._kept((key, id(transform)), limits,
-                          lambda: (transform, _NonAffinePart(transform)))
+        part = self._kept(
+            (key, id(transform)), limits,
+            lambda: (transform, _NonAffinePart(transform, keeps_paths=keeps_paths)))
         return np.asarray(transform.get_affine().get_matrix(), dtype=float), part
 
     @contextlib.contextmanager
     def _viewing(self, limits):
-        """The Axes and its projection, its ``_viewLim`` at *limits*
-        (``(x0, y0, x1, y1)``), those pltrs (Rust) works with."""
+        """The Axes and its projection as pltrs (Rust) works with them:
+        *limits* are its view limits and its position, each ``(x0, y0, x1,
+        y1)``. Its ``_viewLim`` is set to the first. The ``_position`` of
+        an Axes placed in its (sub)figure is set to the second (its
+        aspect applied, which the trees otherwise learn of at the end of
+        the native call running), so that a transform made of the Axes'
+        box computes with it, once per move of the Axes; an Axes placed
+        in another stays where its host put it."""
         ax = self._axes()
         if ax is None:
             raise ReferenceError("the Axes of the projection is gone")
+        view, position = limits
         answering = ax.__dict__.get("_answering_from_trees", False)
         ax.__dict__["_answering_from_trees"] = True
         try:
             with _transform_trees.setting_leaves():
-                _transform_trees.set_extents(ax._viewLim, limits)
+                _transform_trees.set_extents(ax._viewLim, view)
+                if "_child_of" not in ax.__dict__:
+                    _transform_trees.set_extents(ax._position, position)
                 yield ax, ax._program_projection
         finally:
             ax.__dict__["_answering_from_trees"] = answering
@@ -425,7 +546,21 @@ class _Adapter:
             if projection.polar:
                 return _evaluated(projection.to_axes,
                                   functools.partial(self._viewing, limits))
-            return self._evaluated_kept("data", projection.to_axes, limits)
+            return self._evaluated_kept("data", projection.to_axes, limits,
+                                        keeps_paths=True)
+
+    def axes_to_data(self, limits):
+        """The matrix of the inverse of ``transData`` up to ``transAxes``
+        when it is affine, as matplotlib's tree inverts it: each affine
+        part its own matrix, the inverses multiplied (what pans and zooms
+        map the pointer back through, whose last bit differs from the
+        inverse of the product); None for a transform that is not affine,
+        which pltrs (Rust) inverts whole."""
+        with self._viewing(limits) as (ax, projection):
+            if projection.polar or not projection.to_axes.is_affine:
+                return None
+            inverse = projection.to_axes.inverted()
+            return np.asarray(inverse.get_matrix(), dtype=float)
 
     def axis_transform(self, limits, name):
         """The transform of the gridlines and ticks of axis *name* up to

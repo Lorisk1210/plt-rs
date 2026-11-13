@@ -14,7 +14,8 @@ use crate::transforms::{ResolvedTransform, unit_to_bbox};
 impl AxesState {
     /// What the hooks of a projection see of this axes.
     pub(crate) fn projection_view(&self) -> ProjectionView<'_> {
-        ProjectionView::new(self.view_lim, &self.xaxis, &self.yaxis)
+        let position = self.aspect.active_position(&self.position);
+        ProjectionView::new(self.view_lim, position, &self.xaxis, &self.yaxis)
     }
 
     /// The data → display transform of a projection defined by the

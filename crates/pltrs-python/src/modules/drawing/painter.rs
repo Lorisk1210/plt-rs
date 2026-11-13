@@ -137,6 +137,47 @@ impl PythonPainter {
             emit.call::<Owned>((artist,))
         });
     }
+
+    /// The class' `get_tightbbox`, through the package's
+    /// `measure_artist(artist, for_layout_only)` (for a layout engine with
+    /// `for_layout_only`, as matplotlib's engines ask an Axes and its
+    /// axes): the extents of the box, None for no space, or no extents
+    /// when the artist only made itself ready for pltrs to measure it (an
+    /// Axes class placing its titles its own way); an exception it raises
+    /// is kept for the native call laying out to raise where it takes the
+    /// extent (`extent_taken`). The extent measured before does not count
+    /// meanwhile: the class' own asks for the tight box pltrs computes
+    /// (`super().get_tightbbox`).
+    fn measure_as(&self, for_layout_only: bool) {
+        if !self.measures {
+            return;
+        }
+        self.measured.set(MeasuredExtent::Unmeasured);
+        drop(self.failure.take());
+        let extents = Python::with_gil(|py| {
+            let artist = self.artist(py)?;
+            let measure: Callback = lookup(py, "measure_artist").ok()?.extract().ok()?;
+            measure
+                .try_call::<Option<Vec<f64>>>((artist, for_layout_only))
+                .unwrap_or_else(|err| {
+                    match current_call() {
+                        Some(call) => drop(self.failure.replace(Some((call, err)))),
+                        None => report(err),
+                    }
+                    None
+                })
+        });
+        self.measured
+            .set(match extents.as_ref().map(|extents| extents.as_deref()) {
+                Some(None) => MeasuredExtent::Empty,
+                Some(Some(&[x0, y0, x1, y1])) => {
+                    MeasuredExtent::Extent(Bbox::from_extents(x0, y0, x1, y1))
+                }
+                // Nothing measured, or an artist that only made itself ready
+                // to be measured (no extents): pltrs measures it.
+                None | Some(Some(_)) => MeasuredExtent::Unmeasured,
+            });
+    }
 }
 
 impl ArtistPainter for PythonPainter {
@@ -169,43 +210,12 @@ impl ArtistPainter for PythonPainter {
         self.rasterizes
     }
 
-    /// The class' `get_tightbbox`, through the package's
-    /// `measure_artist(artist)`: the extents of the box, None for no
-    /// space, or no extents when the artist only made itself ready for
-    /// pltrs to measure it (an Axes class placing its titles its own
-    /// way); an exception it raises is kept for the native call laying
-    /// out to raise where it takes the extent (`extent_taken`). The
-    /// extent measured before does not count meanwhile: the class' own
-    /// asks for the tight box pltrs computes (`super().get_tightbbox`).
     fn measure(&self, _artist: &RawHandle) {
-        if !self.measures {
-            return;
-        }
-        self.measured.set(MeasuredExtent::Unmeasured);
-        drop(self.failure.take());
-        let extents = Python::with_gil(|py| {
-            let artist = self.artist(py)?;
-            let measure: Callback = lookup(py, "measure_artist").ok()?.extract().ok()?;
-            measure
-                .try_call::<Option<Vec<f64>>>((artist,))
-                .unwrap_or_else(|err| {
-                    match current_call() {
-                        Some(call) => drop(self.failure.replace(Some((call, err)))),
-                        None => report(err),
-                    }
-                    None
-                })
-        });
-        self.measured
-            .set(match extents.as_ref().map(|extents| extents.as_deref()) {
-                Some(None) => MeasuredExtent::Empty,
-                Some(Some(&[x0, y0, x1, y1])) => {
-                    MeasuredExtent::Extent(Bbox::from_extents(x0, y0, x1, y1))
-                }
-                // Nothing measured, or an artist that only made itself ready
-                // to be measured (no extents): pltrs measures it.
-                None | Some(Some(_)) => MeasuredExtent::Unmeasured,
-            });
+        self.measure_as(false);
+    }
+
+    fn measure_for_layout(&self, _artist: &RawHandle) {
+        self.measure_as(true);
     }
 
     fn measured_extent(&self) -> MeasuredExtent {

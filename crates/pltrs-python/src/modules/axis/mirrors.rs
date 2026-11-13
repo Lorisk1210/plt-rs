@@ -347,9 +347,45 @@ fn push_tick_label(
             across(axis.name(), text.position()),
             &level.label_across.unwrap_or(side(!second)),
         ),
+        // Those it was given stay (`push_tick_label_effects`).
+        path_effects: (axis.tick_label_props_on(minor, index, !second)).path_effects,
         ..label_props(&text, &level, alignment, second)
     };
     axis.set_tick_label_props_on(minor, index, !second, props);
+    Ok(())
+}
+
+/// Draws the label on the first or `second` side of the major (or
+/// `minor`) tick at `index` through the path effects its mirror `text`
+/// was given, in place of those of `path.effects` (matplotlib's
+/// `Tick.label1.set_path_effects`). The axes of a 3-D axes draw their
+/// labels through the rcParam's.
+fn push_tick_label_effects(
+    owner: AxisOwner,
+    name: String,
+    minor: bool,
+    index: usize,
+    second: bool,
+    text: Text,
+) -> PyResult<()> {
+    if let AnyAxis::Flat(axis) = owner.axis(&name)? {
+        let props = TickLabelProps {
+            path_effects: Some(text.path_effects()),
+            ..axis.tick_label_props_on(minor, index, !second)
+        };
+        axis.set_tick_label_props_on(minor, index, !second, props);
+    }
+    Ok(())
+}
+
+/// Draws the label of axis `name` through the path effects its mirror
+/// `text` was given, in place of those of `path.effects` (matplotlib's
+/// `label.set_path_effects`). The axes of a 3-D axes draw their labels
+/// through the rcParam's.
+fn push_axis_label_effects(owner: AxisOwner, name: String, text: Text) -> PyResult<()> {
+    if let AnyAxis::Flat(axis) = owner.axis(&name)? {
+        axis.set_label_path_effects(Some(text.path_effects()));
+    }
     Ok(())
 }
 
@@ -395,6 +431,9 @@ pub(super) fn label_props(
                 .label_antialiased
                 .unwrap_or(pltrs::rc::params().text_antialiased),
         ),
+        // Those the label was given are pushed apart
+        // (`push_tick_label_effects`).
+        path_effects: None,
     }
 }
 
@@ -682,6 +721,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("sync_tick", sync_tick)?;
     module.add("drawn_tick_label", drawn_tick_label)?;
     module.add("push_tick_label", push_tick_label)?;
+    module.add("push_tick_label_effects", push_tick_label_effects)?;
+    module.add("push_axis_label_effects", push_axis_label_effects)?;
     module.add("push_tick_mark", push_tick_mark)?;
     module.add("push_gridline", push_gridline)?;
     module.add("push_tick_pad", push_tick_pad)?;

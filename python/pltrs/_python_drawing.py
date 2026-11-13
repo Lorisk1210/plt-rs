@@ -376,13 +376,38 @@ def effect_draw_path(effect, target, gc_spec, geometry):
     return drawing, native_gc(gc)
 
 
-def measure_artist(artist):
+def _tight_box(artist, renderer, for_layout_only):
+    """The ``get_tightbbox`` of *artist* as matplotlib asks for it: of an
+    Axes or of one of its axes with ``for_layout_only=True`` when a
+    layout engine asks (*for_layout_only*, as matplotlib's
+    ``_get_tightbbox_for_layout_only``), of an Axes with
+    ``bbox_extra_artists=None`` otherwise (as ``Figure.get_tightbbox``
+    asks its Axes), each without the keyword for a class whose method
+    does not take it, and plainly of any other artist."""
+    from .axes._base import _AxesBase
+    from .axis import Axis
+    if for_layout_only and isinstance(artist, (_AxesBase, Axis)):
+        keywords = {"for_layout_only": True}
+    elif isinstance(artist, _AxesBase):
+        keywords = {"bbox_extra_artists": None}
+    else:
+        keywords = {}
+    if keywords:
+        try:
+            return artist.get_tightbbox(renderer, **keywords)
+        except TypeError:
+            pass
+    return artist.get_tightbbox(renderer)
+
+
+def measure_artist(artist, for_layout_only=False):
     """The extents of the box *artist* occupies in display coordinates as
     its class measures it (its ``get_tightbbox``, as matplotlib's layouts
-    and tight boxes ask it), None for no space: what pltrs (Rust) takes
-    for it, before it lays the figure out or computes its tight box. No
-    extents (an empty tuple) for an artist that only makes itself ready
-    there, which pltrs (Rust) then measures itself."""
+    and tight boxes ask it: see `_tight_box` for *for_layout_only*), None
+    for no space: what pltrs (Rust) takes for it, before it lays the
+    figure out or computes its tight box. No extents (an empty tuple) for
+    an artist that only makes itself ready there, which pltrs (Rust) then
+    measures itself."""
     figure = artist.get_figure(root=True)
     if figure is not None:
         # Where the figure is now (a layout engine between its passes).
@@ -393,7 +418,7 @@ def measure_artist(artist):
     if _left_out_of_axes_box(artist):
         return None
     if figure is None:
-        bbox = artist.get_tightbbox(None)
+        bbox = _tight_box(artist, None, for_layout_only)
     else:
         renderer = figure._get_renderer()
         # What measuring draws with a renderer of this package (astropy's
@@ -401,7 +426,7 @@ def measure_artist(artist):
         # matplotlib's layouts draw is drawn over.
         with (_recording(renderer) if hasattr(renderer, "_recording")
               else contextlib.nullcontext()):
-            bbox = _tightbbox_of(artist, renderer)
+            bbox = _tight_box(artist, renderer, for_layout_only)
     if bbox is None or (bbox.width == 0 and bbox.height == 0):
         return None
     return tuple(map(float, bbox.extents))
@@ -417,19 +442,6 @@ def _left_out_of_axes_box(artist):
     return (getattr(artist, "axes", None) is not None
             and not isinstance(artist, (_AxesBase, Axis, AnnotationBbox, OffsetBox))
             and artist._fully_clipped_to_axes())
-
-
-def _tightbbox_of(artist, renderer):
-    """*artist*'s ``get_tightbbox(renderer)``, an Axes' with
-    ``bbox_extra_artists=None`` unless its class takes no such keyword, as
-    matplotlib's ``Figure.get_tightbbox`` asks its Axes."""
-    from .axes._base import _AxesBase
-    if isinstance(artist, _AxesBase):
-        try:
-            return artist.get_tightbbox(renderer, bbox_extra_artists=None)
-        except TypeError:
-            pass
-    return artist.get_tightbbox(renderer)
 
 
 def measure_box(box):

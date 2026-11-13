@@ -38,7 +38,7 @@ impl Axes {
     /// ```
     pub fn tight_bbox(&self, for_layout_only: bool) -> Option<Bbox> {
         let _standing = self.raw().standing_in();
-        self.raw().measure_painters_under();
+        self.raw().measure_painters_under(for_layout_only);
         self.raw().figure_state().work_on(|state| {
             state.prepare();
             state.axes_tight_bbox(self.id(), for_layout_only)

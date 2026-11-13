@@ -1055,7 +1055,12 @@ matplotlib's objects:
   artists that a native `sync` fills from the axis when they are handed
   out and that every setter pushes back (`push`): what one tick has of its
   own is what differs from the style of its level, kept as pltrs (Rust)'s
-  per-tick properties (`Axis::set_tick_label_props`).
+  per-tick properties (`Axis::set_tick_label_props`). The path effects a
+  tick label or the axis label was given go apart, only once the mirror
+  was given some (`push_tick_label_effects`, `push_axis_label_effects`):
+  the text is then laid out and drawn through them in place of
+  `path.effects`, as matplotlib's `Text` keeps the effects it was given
+  (`axis_layout::rc_with_effects`).
 
 The axes of a 3-D axes (`axis3d.Axis`) are `XAxis` objects, as in
 matplotlib: `_native.axis` routes the functions of the tick helpers, the
@@ -1856,7 +1861,8 @@ What a class may override or add, and how each is honoured:
 | `clear` (or `cla`) | called where matplotlib's `__init__` and the program call it. `super().clear()` clears the native Axes and every held axis, and ends as matplotlib's: each held axis no Axes shares gets `_set_lim(0, 1, auto=True)`, and `_share<name>` is read first, which fails for a class that did not set it, as it fails in matplotlib. An axis hidden before a clear stays hidden (`Axis.clear` leaves the artist its visibility). |
 | `draw`, `get_tightbbox`, `_update_title_position`, `autoscale_view`, `get_data_ratio`, `tick_params`, `grid` | called where matplotlib calls them (see "Drawing defined in Python", `_program_locators`, `_program_tick_params`). |
 | `callbacks` as a property of the class | matplotlib's registry knows `xlim_changed`, `ylim_changed` and `zlim_changed` only, so a class with another axis keeps a registry of its own. pltrs (Rust) tells the Axes' `callbacks` of a change by reading that attribute then, and connects itself when the Axes is cleared rather than when pltrs' own property is first read (`ClearMixin._hear_limit_changes`). |
-| `_axis_names`, `_shared_axes` of its own | the Axes' `_axis_map`, `get_children`, `set_axisbelow`, the unit pipeline and `__repr__` go over `_axis_names`, as matplotlib's do. What reaches a native axis by name asks first whether the name is one (`_AxesBase._native_axis_names`: x and y, z on 3-D Axes). |
+| `_axis_names`, `_shared_axes` of its own | the Axes' `_axis_map`, `get_children`, `set_axisbelow`, the unit pipeline and `__repr__` go over `_axis_names`, as matplotlib's do. What reaches a native axis by name asks first whether the name is one (`_AxesBase._native_axis_names`: x and y, z on 3-D Axes). `sharex` and `sharey` join the class' own groups too (`_join_class_group`), which `get_shared_x_axes()` and the held axes read. |
+| a subclass of `GeoAxes`, `AitoffAxes`, `HammerAxes`, `MollweideAxes` or `LambertAxes` | a projection class of the program's like any other (`_program.is_program_geo`): a rectilinear native Axes that matplotlib's own `GeoAxes` code makes geographic (below). |
 
 matplotlib itself asks three things of a class listing a third axis,
 which mpltern does and the test projection does too: `_share<name>` set
@@ -1921,7 +1927,14 @@ the package:
   the measuring to pltrs (Rust); a held axis has its Axes apply the
   aspect, then is measured by its own `get_tightbbox`. The trees are
   brought up to where the figure is first, so a layout engine's second
-  pass measures at the positions of its first.
+  pass measures at the positions of its first. A layout engine, and
+  `Axes.get_tightbbox(for_layout_only=True)`, ask an Axes and its axes
+  with `for_layout_only=True`, as matplotlib's do
+  (`ArtistPainter::measure_for_layout`, `_python_drawing._tight_box`:
+  without the keyword for a class whose method does not take it).
+* **Figure.** A held axis and the ticks its class makes keep the figure
+  they were made in when their Axes leaves it (`ax.remove()`), as
+  matplotlib decouples the Axes only.
 * **Calls, and how often.** The axis' `draw` runs once per draw of the
   Axes that reaches it. Painters are prepared in the order the Axes
   draws its children and only for those it draws
@@ -1957,26 +1970,66 @@ figure has not added yet (`Axis::ticklocs_as_is` of a removed axes;
 pysmithchart draws its grid from them), and matplotlib's `_gridOn`
 (mplstereonet's `grid` reads it).
 
+**A subclass of a geographic class** (mplstereonet's `StereonetAxes`, a
+`LambertAxes` with a transform, an affine part, grids and a `cla` of its
+own) is not drawn by pltrs (Rust)'s geographic Axes, which knows four
+projections and nothing a class changes about them. matplotlib's
+`GeoAxes` is a plain `Axes` with a few methods on top, and the example
+`custom_projection` is the proof that pltrs draws such a class through
+the hooks. So `projections/geo.py` keeps matplotlib's code beside what
+pltrs (Rust) does for its own Axes, and each method takes one or the
+other by the class (`GeoAxes._is_programs`): `__init__` (the cap, the
+aspect, the clear), `_init_axis`, `_gen_axes_spines`, `clear` (the grids
+set through the class' `set_longitude_grid` and friends, the limits),
+`_get_affine_transform` (which asks the class for its core transform
+with resolution 1 and maps two points, as matplotlib's does),
+`set_longitude_grid`, `set_latitude_grid`, `set_longitude_grid_ends`.
+Every method the class overrides is then called where matplotlib calls
+it, with matplotlib's arguments. The private attributes programs read
+are plain attributes there (`_longitude_cap`, `_center_longitude`,
+`_center_latitude`); on pltrs (Rust)'s own Axes they read what it holds
+(`geo._NativeSetting`).
+
+What the hooks of every projection class gained for this:
+
+* A gridline's path asks for matplotlib's 180 interpolation steps
+  (`AxisPainter::gridline_path`): a transform of the program's decides by
+  them whether it bends the path.
+* The data transform maps the paths of lines through a
+  `TransformedPath`, kept per path (`_NonAffinePart`, `keeps_paths`): the
+  class' `transform_path_non_affine` and `transform_non_affine` are
+  called once for a line until the transform is invalidated, as
+  matplotlib's lines call them, not at every draw.
+* A label goes beyond the Axes on a side the class made no spine of
+  (`Projection::spines`, matplotlib's `spines.get("bottom", self.axes)`).
+* An Axes whose constructor adds other Axes to the figure joins it after
+  them (`_constructed_native`).
+* Pans and zooms map the pointer back through the inverse the program's
+  tree gives (`Projection::axes_to_data`, `_Adapter.axes_to_data`):
+  matplotlib inverts each affine part of `transData` apart and
+  multiplies the inverses, which leaves another last bit than the
+  inverse of the product.
+
 Not done:
 
-* A layout engine measures a held axis as a tight box does (the painter's
-  `get_tightbbox` is called without `for_layout_only`), and pltrs (Rust)
-  aligns the labels of the x and y axes only.
-* A subclass of a geographic Axes that replaces the projection itself
-  (mplstereonet's `StereonetAxes` derives from `LambertAxes` and
-  overrides `_get_core_transform` and `_get_affine_transform`). pltrs
-  (Rust) draws such an Axes as its own Lambert projection. It needs what
-  the subclasses of `PolarAxes` have: the native geographic Axes asking
-  the class for its data transform (a `ProgramGeo` beside
-  `ProgramPolar`), and matplotlib's private attributes of the geographic
-  classes (`_center_latitude`, `_longitude_cap`).
+* pltrs (Rust) aligns the labels of the x and y axes only: matplotlib's
+  `align_labels` knows no other axis either.
+* A plain Axes sharing an axis with an Axes whose class keeps groups of
+  its own follows that Axes' limits; in matplotlib it does not, since
+  the two classes keep separate groups and `set_xlim` walks the group of
+  the Axes it is called on. pltrs (Rust) has one group per shared axis.
+* The x and y axis of an Axes that left its figure answer no figure, and
+  measure nothing (matplotlib's still measure there).
 
-Tests: `python/tests/test_proj1.py` defines a three-axis projection in
-the test file (no library imported) and checks it against values recorded
-from matplotlib. `cargo xtask diff --corpus mpltern pysmithchart
-mplstereonet` runs three libraries' projections: a ternary Axes with
-three held axes, a Smith chart (an `Axes` subclass with transforms,
-spines, a patch and a grid of its own), and the stereonets.
+Tests: `python/tests/test_proj1.py` and `test_proj2.py` check a
+three-axis projection (`python/tests/curve_projection.py`) and a
+sinusoidal projection on each geographic class against values recorded
+from matplotlib, with no library imported. `cargo xtask diff --corpus
+mpltern pysmithchart mplstereonet pyrolite` runs four libraries'
+projections: a ternary Axes with three held axes, a Smith chart (an
+`Axes` subclass with transforms, spines, a patch and a grid of its own),
+the stereonets (a `LambertAxes` subclass), and a library drawing on the
+ternary Axes of another.
 
 ### Methods of matplotlib's classes that programs override
 

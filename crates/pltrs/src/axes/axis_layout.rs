@@ -17,6 +17,7 @@ use super::ticks::TickStyle;
 use crate::artist::{ArtistId, FigureReader, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
+use crate::patheffects::PathEffect;
 use crate::polar;
 use crate::rc::RcParams;
 use crate::spines::{SpineArtist, SpineSide};
@@ -61,6 +62,10 @@ pub(crate) struct PlacedText {
     /// Whether the text is antialiased (`None`: as `text.antialiased`
     /// says).
     pub(crate) antialiased: Option<bool>,
+    /// The path effects the text is drawn through in place of
+    /// `path.effects`, when the program gave it some
+    /// ([`rc_with_effects`]).
+    pub(crate) path_effects: Option<Vec<PathEffect>>,
 }
 
 impl PlacedText {
@@ -503,6 +508,10 @@ impl<'a> AxisPainter<'a> {
     /// The spine's extent widened by the outward/inward part of the ticks
     /// drawn on it (matplotlib's `Spine.get_window_extent`): the major and
     /// the minor ticks each pad the bare spine, so the longer ones count.
+    /// `None` on a side the axes has no spine of: what goes beyond the
+    /// spine then goes beyond the axes (matplotlib's
+    /// `spines.get("bottom", self.axes)`, where a projection class made a
+    /// single spine around its outline).
     pub(crate) fn spine_extent(&self, cx: &mut impl FigureReader, side: SpineSide) -> Option<Bbox> {
         program_calls::quietly(|| self.spine_extent_quietly(cx, side))
     }
@@ -510,6 +519,9 @@ impl<'a> AxisPainter<'a> {
     /// [`spine_extent`](Self::spine_extent), the program's scales
     /// answering quietly.
     fn spine_extent_quietly(&self, cx: &mut impl FigureReader, side: SpineSide) -> Option<Bbox> {
+        if !self.axes.projection.has_spine(side) {
+            return None;
+        }
         let outline = {
             let layout = cx.read();
             self.spine(layout, side)?.outline_through(layout)?
@@ -560,6 +572,7 @@ fn lay_out_tick_label(
     placement: &LabelPlacement,
     rc: &RcParams,
 ) -> Result<PlacedText, TextProblem> {
+    let rc = &*rc_with_effects(rc, style.label_path_effects.as_deref());
     let font = style.label_font(rc);
     let (halign, valign) = placement.align;
     let halign = style.label_halign.unwrap_or(halign);
@@ -586,8 +599,48 @@ fn lay_out_tick_label(
     Ok(PlacedText {
         url: style.label_url.clone(),
         antialiased: style.label_antialiased,
+        path_effects: style.label_path_effects.clone(),
         ..placed
     })
+}
+
+/// The rcParams an axis text is laid out and drawn with: the axes' own,
+/// or a copy on the heap for a text with path effects of its own (the
+/// parameters are too large to copy onto the stack of every text's
+/// layout and draw).
+#[derive(Debug)]
+pub(crate) enum TextRc<'a> {
+    /// The parameters of the axes.
+    Shared(&'a RcParams),
+    /// Those with the text's own path effects.
+    Own(Box<RcParams>),
+}
+
+impl std::ops::Deref for TextRc<'_> {
+    type Target = RcParams;
+
+    fn deref(&self) -> &RcParams {
+        match self {
+            Self::Shared(rc) => rc,
+            Self::Own(rc) => rc,
+        }
+    }
+}
+
+/// The rcParams an axis text with path effects of its own is laid out
+/// and drawn with: `rc` with `own` in place of `path.effects`
+/// (matplotlib's `Text` keeps the effects it was given, which the
+/// rcParam only gives a text made without any), `rc` itself without
+/// `own`.
+pub(crate) fn rc_with_effects<'a>(rc: &'a RcParams, own: Option<&[PathEffect]>) -> TextRc<'a> {
+    match own {
+        None => TextRc::Shared(rc),
+        Some(effects) => {
+            let mut rc = Box::new(rc.clone());
+            rc.path_effects = effects.to_vec();
+            TextRc::Own(rc)
+        }
+    }
 }
 
 /// The extents of the tick labels of `texts` that count in layouts, each
@@ -692,6 +745,7 @@ pub(crate) fn place_text_measured(
         color,
         url: None,
         antialiased: None,
+        path_effects: None,
     })
 }
 

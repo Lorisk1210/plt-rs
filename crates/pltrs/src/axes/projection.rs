@@ -3,6 +3,7 @@
 use super::{Axes, AxesState};
 use crate::polar::PolarState;
 use crate::projections::{AxesOutline, Projection, ProjectionView};
+use crate::spines::SpineSide;
 
 /// The kind of coordinate system an axes draws in.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -120,6 +121,15 @@ impl ProjectionState {
             Self::Polar(_) | Self::ProgramPolar(..) => false,
             Self::Custom(custom) => custom.outline() == AxesOutline::Rectangle,
         }
+    }
+
+    /// Whether the axes has a spine on `side` (matplotlib's
+    /// `ax.spines` naming it): a projection drawn through the
+    /// [`Projection`] hooks says which sides its class made spines of
+    /// ([`Projection::spines`]).
+    pub(crate) fn has_spine(&self, side: SpineSide) -> bool {
+        self.custom()
+            .is_none_or(|custom| custom.spines().contains(&side))
     }
 
     /// The projection drawn through the [`Projection`] hooks, if it is one.

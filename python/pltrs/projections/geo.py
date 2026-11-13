@@ -6,6 +6,14 @@ Aitoff, Hammer, Lambert or Mollweide projection, made by
 trees are matplotlib's (``GeoAxes._set_lim_and_transforms``, from
 matplotlib 3.11.2, under the Matplotlib License), over pltrs (Rust)'s
 leaves (`.._transform_trees`).
+
+A class of the program's deriving from one of these classes (one that
+replaces the projection's transform, its grids or its ``clear``:
+mplstereonet's ``StereonetAxes``) is a projection class of the program's
+(`._program`): a rectilinear pltrs (Rust) Axes which matplotlib's own
+`GeoAxes` code, kept here beside what pltrs (Rust) does for its own
+(`GeoAxes._is_programs`), makes geographic, so that every method the
+class overrides is called where matplotlib calls it.
 """
 
 from numbers import Real
@@ -121,6 +129,22 @@ def _transform_pair(projection, forward_doc):
     return forward, inverse
 
 
+class _NativeSetting:
+    """
+    A private attribute of matplotlib's geographic Axes (``_longitude_cap``,
+    ``_center_latitude``), which a class of the program's sets and reads as
+    a plain attribute; an Axes that never set it reads what pltrs (Rust)
+    holds (*read*, of the Axes).
+    """
+
+    def __init__(self, read):
+        self._read = read
+
+    def __get__(self, obj, objtype=None):
+        # No ``__set__``: what was set on the instance is read before this.
+        return self if obj is None else self._read(obj)
+
+
 class GeoAxes(Axes):
     """An abstract base class for geographic projections."""
 
@@ -137,15 +161,62 @@ class GeoAxes(Axes):
 
     RESOLUTION = 75
 
+    #: The latitude the longitude gridlines end at, in radians.
+    _longitude_cap = _NativeSetting(
+        lambda self: -self._xaxis_pretransform.get_matrix()[1, 2])
+
+    @classmethod
+    def _is_programs(cls):
+        """Whether the class is a program's: its Axes is then geographic by
+        matplotlib's own code below, over a rectilinear pltrs (Rust) Axes
+        (`._program.is_program_geo`)."""
+        from . import _program
+        return _program.is_program_geo(cls)
+
+    def _init_as_matplotlib(self, aspect, args, kwargs):
+        """matplotlib's ``__init__`` of a geographic class, for an Axes of a
+        class of the program's: the Axes of *args* and *kwargs*, at the
+        *aspect* of the projection."""
+        self._longitude_cap = np.pi / 2.0
+        super(GeoAxes, self).__init__(*args, **kwargs)
+        self.set_aspect(aspect, adjustable='box', anchor='C')
+        self.clear()
+
+    def _init_axis(self):
+        self.xaxis = maxis.XAxis(self, clear=False)
+        self.yaxis = maxis.YAxis(self, clear=False)
+        self.spines['geo'].register_axis(self.yaxis)
+
     def _gen_axes_patch(self):
         # docstring inherited
         from ..patches import Circle
         return Circle((0.5, 0.5), 0.5)
 
+    def _gen_axes_spines(self):
+        return {'geo': mspines.Spine.circular_spine(self, (0.5, 0.5), 0.5)}
+
     def clear(self):
-        # docstring inherited; pltrs (Rust) clears a geographic Axes to its
-        # grids, ticks and limits, as matplotlib's does.
+        # docstring inherited; pltrs (Rust) clears a geographic Axes of its
+        # own to its grids, ticks and limits, as matplotlib's does.
         super().clear()
+        if not self._is_programs():
+            return
+
+        self.set_longitude_grid(30)
+        self.set_latitude_grid(15)
+        self.set_longitude_grid_ends(75)
+        self.xaxis.set_minor_locator(NullLocator())
+        self.yaxis.set_minor_locator(NullLocator())
+        self.xaxis.set_ticks_position('none')
+        self.yaxis.set_ticks_position('none')
+        self.yaxis.set_tick_params(label1On=True)
+        # Why do we need to turn on yaxis tick labels, but
+        # xaxis tick labels are already on?
+
+        self.grid(mpl.rcParams['axes.grid'])
+
+        Axes.set_xlim(self, -np.pi, np.pi)
+        Axes.set_ylim(self, -np.pi / 2.0, np.pi / 2.0)
 
     def set_yscale(self, *args, **kwargs):
         if args[0] != 'linear':
@@ -201,12 +272,13 @@ class GeoAxes(Axes):
             self.transAffine + \
             self.transAxes
 
-        # This is the transform for longitude ticks (its cap is pltrs
-        # (Rust)'s, given by `_apply_projection_leaves`).
+        # This is the transform for longitude ticks (the cap of pltrs
+        # (Rust)'s own Axes is given by `_apply_projection_leaves`).
+        cap = self._longitude_cap if self._is_programs() else np.pi / 2
         self._xaxis_pretransform = \
             Affine2D() \
-            .scale(1, np.pi) \
-            .translate(0, -np.pi / 2)
+            .scale(1, cap * 2) \
+            .translate(0, -cap)
         self._xaxis_transform = \
             self._xaxis_pretransform + \
             self.transData
@@ -239,7 +311,10 @@ class GeoAxes(Axes):
             Affine2D().translate(8, 0)
 
     def _apply_projection_leaves(self, leaves):
-        """Give the longitude gridlines pltrs (Rust)'s latitude cap."""
+        """Give the longitude gridlines pltrs (Rust)'s latitude cap (a
+        class of the program's keeps its own, ``_longitude_cap``)."""
+        if self._is_programs():
+            return
         _, cap = leaves
         with np.errstate(all="ignore"):
             # (`set_longitude_grid_ends` said what the arithmetic warns of.)
@@ -247,7 +322,14 @@ class GeoAxes(Axes):
         set_matrix(self._xaxis_pretransform, matrix)
 
     def _get_affine_transform(self):
-        return Affine2D(_transforms.geo_affine(self._native))
+        if not self._is_programs():
+            return Affine2D(_transforms.geo_affine(self._native))
+        transform = self._get_core_transform(1)
+        xscale, _ = transform.transform((np.pi, 0))
+        _, yscale = transform.transform((0, np.pi/2))
+        return Affine2D() \
+            .scale(0.5 / xscale, 0.5 / yscale) \
+            .translate(0.5, 0.5)
 
     def get_xaxis_transform(self, which='grid'):
         _api.check_in_list(['tick1', 'tick2', 'grid'], which=which)
@@ -273,24 +355,39 @@ class GeoAxes(Axes):
         """
         Set the number of degrees between each longitude grid.
         """
-        # matplotlib's grid, its fixed limits skipped: what it refuses,
-        # refused alike.
-        np.arange(-180 + degrees, 180, degrees)
-        _transforms.set_longitude_grid(self._native, float(degrees))
+        # Skip -180 and 180, which are the fixed limits.
+        grid = np.arange(-180 + degrees, 180, degrees)
+        if not self._is_programs():
+            # What matplotlib's grid refuses is refused alike.
+            _transforms.set_longitude_grid(self._native, float(degrees))
+            return
+        self.xaxis.set_major_locator(FixedLocator(np.deg2rad(grid)))
+        self.xaxis.set_major_formatter(self.ThetaFormatter(degrees))
 
     def set_latitude_grid(self, degrees):
         """
         Set the number of degrees between each latitude grid.
         """
-        # matplotlib's grid, its fixed limits skipped: what it refuses,
-        # refused alike.
-        np.arange(-90 + degrees, 90, degrees)
-        _transforms.set_latitude_grid(self._native, float(degrees))
+        # Skip -90 and 90, which are the fixed limits.
+        grid = np.arange(-90 + degrees, 90, degrees)
+        if not self._is_programs():
+            # What matplotlib's grid refuses is refused alike.
+            _transforms.set_latitude_grid(self._native, float(degrees))
+            return
+        self.yaxis.set_major_locator(FixedLocator(np.deg2rad(grid)))
+        self.yaxis.set_major_formatter(self.ThetaFormatter(degrees))
 
     def set_longitude_grid_ends(self, degrees):
         """
         Set the latitude(s) at which to stop drawing the longitude grids.
         """
+        if self._is_programs():
+            self._longitude_cap = np.deg2rad(degrees)
+            self._xaxis_pretransform \
+                .clear() \
+                .scale(1.0, self._longitude_cap * 2.0) \
+                .translate(0.0, -self._longitude_cap)
+            return
         # matplotlib's conversion to radians: what it refuses, refused
         # alike, and its scaling of the longitude ticks' transform, which
         # warns as numpy's arithmetic does for a cap that is no number.
@@ -334,9 +431,12 @@ class AitoffAxes(GeoAxes):
     name = 'aitoff'
 
     def __init__(self, *args, **kwargs):
-        # matplotlib's signature; pltrs (Rust) sets the axes' aspect and
-        # limits up.
-        super().__init__(*args, **kwargs)
+        # matplotlib's signature; pltrs (Rust) sets the aspect and the
+        # limits of its own Axes up.
+        if self._is_programs():
+            self._init_as_matplotlib(0.5, args, kwargs)
+        else:
+            super().__init__(*args, **kwargs)
 
     AitoffTransform, InvertedAitoffTransform = _transform_pair(
         'aitoff', "The base Aitoff transform.")
@@ -349,9 +449,12 @@ class HammerAxes(GeoAxes):
     name = 'hammer'
 
     def __init__(self, *args, **kwargs):
-        # matplotlib's signature; pltrs (Rust) sets the axes' aspect and
-        # limits up.
-        super().__init__(*args, **kwargs)
+        # matplotlib's signature; pltrs (Rust) sets the aspect and the
+        # limits of its own Axes up.
+        if self._is_programs():
+            self._init_as_matplotlib(0.5, args, kwargs)
+        else:
+            super().__init__(*args, **kwargs)
 
     HammerTransform, InvertedHammerTransform = _transform_pair(
         'hammer', "The base Hammer transform.")
@@ -364,9 +467,12 @@ class MollweideAxes(GeoAxes):
     name = 'mollweide'
 
     def __init__(self, *args, **kwargs):
-        # matplotlib's signature; pltrs (Rust) sets the axes' aspect and
-        # limits up.
-        super().__init__(*args, **kwargs)
+        # matplotlib's signature; pltrs (Rust) sets the aspect and the
+        # limits of its own Axes up.
+        if self._is_programs():
+            self._init_as_matplotlib(0.5, args, kwargs)
+        else:
+            super().__init__(*args, **kwargs)
 
     MollweideTransform, InvertedMollweideTransform = _transform_pair(
         'mollweide', "The base Mollweide transform.")
@@ -410,7 +516,18 @@ class LambertAxes(GeoAxes):
             return LambertAxes.LambertTransform(
                 self._center_longitude, self._center_latitude, self._resolution)
 
+    #: The centre of the projection, in radians.
+    _center_longitude = _NativeSetting(
+        lambda self: _transforms.lambert_center(self._native)[0])
+    _center_latitude = _NativeSetting(
+        lambda self: _transforms.lambert_center(self._native)[1])
+
     def __init__(self, *args, center_longitude=0, center_latitude=0, **kwargs):
+        if self._is_programs():
+            self._center_longitude = center_longitude
+            self._center_latitude = center_latitude
+            self._init_as_matplotlib('equal', args, kwargs)
+            return
         super().__init__(*args, **kwargs)
         _transforms.set_lambert_center(
             self._native, (float(center_longitude), float(center_latitude)))
@@ -422,12 +539,30 @@ class LambertAxes(GeoAxes):
         return cls._constructed_native(figure, kwargs, spec=spec, rect=rect)
 
     def clear(self):
-        # docstring inherited; pltrs (Rust) hides the latitude labels.
+        # docstring inherited; pltrs (Rust) hides the latitude labels of
+        # its own Axes.
         super().clear()
+        if self._is_programs():
+            self.yaxis.set_major_formatter(NullFormatter())
 
     def _get_core_transform(self, resolution):
         return self.LambertTransform(
-            *_transforms.lambert_center(self._native), resolution)
+            self._center_longitude,
+            self._center_latitude,
+            resolution)
+
+    def _get_affine_transform(self):
+        if not self._is_programs():
+            return super()._get_affine_transform()
+        return Affine2D() \
+            .scale(0.25) \
+            .translate(0.5, 0.5)
+
+
+#: The geographic Axes classes pltrs (Rust) draws itself. A class of the
+#: program's deriving from one of them is a projection class of the
+#: program's (`._program.is_program_geo`).
+OWN_CLASSES = frozenset([GeoAxes, AitoffAxes, HammerAxes, MollweideAxes, LambertAxes])
 
 
 # Methods of their own, as matplotlib's Lambert transforms define them.

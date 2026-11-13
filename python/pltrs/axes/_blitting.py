@@ -24,4 +24,7 @@ class BlittingMixin:
         """
         Efficiently redraw Axes data, but not axis ticks, labels, etc.
         """
+        # matplotlib's `draw` of the Axes applies its aspect first, which
+        # changes the limits of an Axes adjusting its data limits.
+        self.apply_aspect()
         _backends.redraw_in_frame(self._native)

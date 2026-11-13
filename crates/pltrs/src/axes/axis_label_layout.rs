@@ -5,7 +5,7 @@
 use pltrs_core::{Bbox, Point};
 use pltrs_text::{BlockStyle, HAlign, RotationMode, VAlign};
 
-use super::axis_layout::{AxisPainter, PlacedText, place_text_measured};
+use super::axis_layout::{AxisPainter, PlacedText, place_text_measured, rc_with_effects};
 use crate::artist::{FigureReader, LayoutContext};
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
@@ -57,7 +57,8 @@ impl AxisPainter<'_> {
                 extent.y0() + at.y * extent.height(),
             )
         });
-        Some(place_text_measured(
+        let rc = &*rc_with_effects(rc, label.path_effects.as_deref());
+        let placed = place_text_measured(
             cx,
             &label.text,
             &label.font,
@@ -66,7 +67,11 @@ impl AxisPainter<'_> {
             anchor,
             rc,
             Typesetting::of(rc.text_parse_math, label.usetex),
-        ))
+        );
+        Some(placed.map(|placed| PlacedText {
+            path_effects: label.path_effects.clone(),
+            ..placed
+        }))
     }
 
     /// Where the axis label goes unless placed by coordinates, with or

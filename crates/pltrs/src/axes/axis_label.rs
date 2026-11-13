@@ -14,6 +14,7 @@ use super::{AxesState, PlotError};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize, FontStyle, FontWeight};
+use crate::patheffects::PathEffect;
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
 use crate::text::{TextBoxPatch, TextBoxProps};
@@ -58,6 +59,9 @@ pub(crate) struct AxisLabel {
     /// Whether LaTeX typesets the label (matplotlib's `label.set_usetex`;
     /// `text.usetex` when the axis was made).
     pub(crate) usetex: bool,
+    /// The path effects the label is drawn through in place of
+    /// `path.effects` (matplotlib's `label.set_path_effects`).
+    pub(crate) path_effects: Option<Vec<PathEffect>>,
 }
 
 pltrs_core::archive_struct!(AxisLabel {
@@ -75,7 +79,8 @@ pltrs_core::archive_struct!(AxisLabel {
     valign,
     coords,
     bbox,
-    usetex
+    usetex,
+    path_effects
 });
 
 impl AxisLabel {
@@ -226,6 +231,30 @@ impl Axis {
     pub fn set_label_usetex(&self, usetex: bool) -> &Self {
         self.update(|axis| axis.label.usetex = usetex);
         self
+    }
+
+    /// Draws the axis label through `effects` in place of those of
+    /// `path.effects` (matplotlib's `label.set_path_effects`); `None`
+    /// draws it through the rcParam's again.
+    ///
+    /// ```
+    /// use pltrs::patheffects::{GcUpdate, PathEffect, Stroke};
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let white = GcUpdate::default().linewidth(4.0).foreground("w");
+    /// let halo = vec![PathEffect::with_stroke(Stroke::new(white))];
+    /// ax.xaxis().set_label_text("depth").set_label_path_effects(Some(halo.clone()));
+    /// assert_eq!(ax.xaxis().label_path_effects(), Some(halo));
+    /// ```
+    pub fn set_label_path_effects(&self, effects: Option<Vec<PathEffect>>) -> &Self {
+        self.update(|axis| axis.label.path_effects = effects);
+        self
+    }
+
+    /// The path effects the axis label has of its own
+    /// ([`set_label_path_effects`](Self::set_label_path_effects)).
+    pub fn label_path_effects(&self) -> Option<Vec<PathEffect>> {
+        self.read(|axis| axis.label.path_effects.clone())
     }
 
     /// Whether LaTeX typesets the axis label (matplotlib's

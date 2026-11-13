@@ -60,6 +60,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from collections import Counter, defaultdict
 from typing import Any
 
@@ -276,19 +277,45 @@ def _run(setup: Setup, impl: str, program: Program, out: pathlib.Path) -> dict[s
         for directory in HOME_DIRECTORIES:
             (home / directory).mkdir(parents=True)
         setup.seed_config(impl, program)
+    # A temporary directory of the run's own: the tracer seeds `random`, so
+    # `tempfile` names repeat from run to run, and what a crashed program
+    # left in a shared one makes every name collide. Records read it as the
+    # shared one (`_records_shared_tmp`), as the cached reference runs do.
+    tmp = out / "tmp"
+    tmp.mkdir()
+    env = setup.environment(impl, program) | {"TMPDIR": str(tmp)}
     try:
-        done = subprocess.run(setup.command(impl, program, out), env=setup.environment(impl, program),
+        done = subprocess.run(setup.command(impl, program, out), env=env,
                               capture_output=True, text=True, timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
         (out / "failure").write_text(f"timed out after {TIMEOUT} s")
         return None
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
     (out / "stderr.txt").write_text(done.stderr[-20000:])
     record = out / "record.json"
     if done.returncode != 0 or not record.exists():
         tail = done.stderr.strip().splitlines()[-1:] or [f"exit status {done.returncode}"]
         (out / "failure").write_text(f"exit status {done.returncode}: {tail[0]}")
         return None
-    return json.loads(record.read_text())
+    return json.loads(_records_shared_tmp(record.read_text(), tmp))
+
+
+def _records_shared_tmp(text: str, tmp: pathlib.Path) -> str:
+    """The record *text* of a run given the temporary directory *tmp*, as
+    if it had the shared one (`tempfile.gettempdir`), JSON's escapes
+    included: the random names in it read ``<tmp>`` (as ``describe.py``
+    has those of the shared one), the rest the shared directory. The
+    tracer names pltrs' package matplotlib's in what it records, the run's
+    directory in the path too."""
+    def escaped(path: str) -> str:
+        return json.dumps(path)[1:-1]
+    shared = escaped(tempfile.gettempdir())
+    for path in {str(tmp), str(tmp).replace("pltrs", "matplotlib")}:
+        own = re.escape(escaped(path))
+        text = re.sub(own + re.escape(escaped(os.sep)) + r"tmp[\w-]{8}", "<tmp>", text)
+        text = re.sub(own, lambda _: shared, text)
+    return text
 
 
 def run_program(setup: Setup, program: Program) -> dict[str, Any]:

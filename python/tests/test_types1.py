@@ -110,9 +110,6 @@ def test_an_image_is_an_array_through_the_buffer_protocol():
 
 
 def test_rcparams_copy_as_matplotlibs():
-    # The backend resolved first: comparing the copy with the live
-    # parameters must not be what resolves it.
-    pltrs.rcParams["backend"]  # noqa: B018
     copied = copy.copy(pltrs.rcParams)
     assert type(copied) is pltrs.RcParams and copied == pltrs.rcParams
 

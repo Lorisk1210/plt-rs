@@ -191,6 +191,7 @@ pub(super) struct PyProjection {
     set_up: Callback,
     data_ratio: Callback,
     data_to_axes: Callback,
+    axes_to_data: Callback,
     axis_transform: Callback,
     tick_interval: Callback,
     tick_sides: Callback,
@@ -198,11 +199,18 @@ pub(super) struct PyProjection {
     tick_label: Callback,
 }
 
-/// The view limits as the adapter takes them: `(x0, y0, x1, y1)`, an
-/// inverted axis the other way round.
-fn limits(view: &ProjectionView<'_>) -> (f64, f64, f64, f64) {
-    let limits = view.limits();
-    (limits.p0.x, limits.p0.y, limits.p1.x, limits.p1.y)
+/// Four numbers of a box, as the adapter takes them.
+type Extents = (f64, f64, f64, f64);
+
+/// The view as the adapter takes it: the view limits `(x0, y0, x1, y1)`,
+/// an inverted axis the other way round, and the position of the axes,
+/// its extents in the fractions of what it is placed in.
+fn limits(view: &ProjectionView<'_>) -> (Extents, Extents) {
+    let (limits, position) = (view.limits(), view.position());
+    (
+        (limits.p0.x, limits.p0.y, limits.p1.x, limits.p1.y),
+        (position.x0(), position.y0(), position.x1(), position.y1()),
+    )
 }
 
 impl PyProjection {
@@ -231,6 +239,7 @@ impl PyProjection {
             set_up: method("set_up")?,
             data_ratio: method("data_ratio")?,
             data_to_axes: method("data_to_axes")?,
+            axes_to_data: method("axes_to_data")?,
             axis_transform: method("axis_transform")?,
             tick_interval: method("tick_interval")?,
             tick_sides: method("tick_sides")?,
@@ -255,6 +264,17 @@ impl Projection for PyProjection {
         self.data_to_axes
             .call::<Evaluated>((limits(view),))
             .map_or_else(|| view.rectilinear(), Evaluated::resolved)
+    }
+
+    /// The inverse of an affine `transData` without its final `transAxes`
+    /// as matplotlib's transform tree inverts it, at the view: the matrix
+    /// the adapter gives (None for a transform that is not affine, which
+    /// is inverted whole).
+    fn axes_to_data(&self, view: &ProjectionView<'_>) -> Option<ResolvedTransform> {
+        let matrix = self
+            .axes_to_data
+            .call::<Option<NdArray>>((limits(view),))??;
+        affine(&matrix).ok().map(ResolvedTransform::affine)
     }
 
     /// The adapter connects the axes again (it runs whenever the axes is
@@ -368,7 +388,8 @@ mod tests {
     use pltrs::figure::Figure;
 
     /// An adapter leaning the x axis by a shear of 1 and ticking it over
-    /// twice its view, which records the calls it gets.
+    /// twice its view, which records the calls it gets and where each
+    /// hook is told the axes is.
     const ADAPTER: &str = r"
 class Adapter:
     name = 'leaning'
@@ -381,6 +402,7 @@ class Adapter:
 
     def __init__(self):
         self.calls = []
+        self.positions = set()
 
     def set_up(self):
         self.calls.append('set_up')
@@ -389,27 +411,33 @@ class Adapter:
         return 1.0
 
     def data_to_axes(self, limits):
-        x0, y0, x1, y1 = limits
+        (x0, y0, x1, y1), position = limits
+        self.positions.add(position)
         sx, sy = 1 / (x1 - x0), 1 / (y1 - y0)
         # The limits to the unit square, then the shear.
         return [[sx, sy, -x0 * sx - y0 * sy], [0, sy, -y0 * sy], [0, 0, 1.0]], None
+
+    def axes_to_data(self, limits):
+        # Inverted whole.
+        return None
 
     def axis_transform(self, limits, name):
         raise AssertionError('not overridden')
 
     def tick_interval(self, limits, name):
-        x0, y0, x1, y1 = limits
+        (x0, y0, x1, y1), _ = limits
         return 2 * x0 - x1, x1
 
     def tick_sides(self, limits, name, loc):
         return loc >= 0, True
 
     def spine_interval(self, limits, side):
-        return limits[0] / 2, limits[2]
+        (x0, _, x1, _), _ = limits
+        return x0 / 2, x1
 
     def tick_label(self, limits, side):
         # Left labels 8 pixels inside the axes at their tick's height.
-        x0, y0, x1, y1 = limits
+        (x0, y0, x1, y1), _ = limits
         sy = 1 / (y1 - y0)
         return ([[1, 0, 0], [0, sy, -y0 * sy], [0, 0, 1.0]], None), (8.0, 0.0), 'left', 'center'
 ";
@@ -437,6 +465,11 @@ class Adapter:
             );
             let ticks = axes.ticks(AxisName::X).unwrap();
             assert!(ticks.major_locs.contains(&-10.0), "{:?}", ticks.major_locs);
+            // The hooks are told where the axes is, with its view.
+            assert_eq!(
+                adapter.getattr("positions").unwrap().repr().unwrap(),
+                "{(0.0, 0.0, 1.0, 1.0)}"
+            );
             assert!(
                 install(axes, adapter.unbind()).is_err(),
                 "only rectilinear axes"

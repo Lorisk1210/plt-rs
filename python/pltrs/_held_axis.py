@@ -276,6 +276,12 @@ class Axis:
     def isDefault_minfmt(self, value):
         self.minor._formatter_is_default = value
 
+    def _get_figure(self, root):
+        # The figure the axis was made in, also once its Axes left it:
+        # matplotlib decouples a removed Axes from its figure, not the
+        # axes of the Axes.
+        return self.axes._home_figure(root)
+
     def _get_shared_axes(self):
         return self.axes._shared_axes[
             self._get_axis_name()].get_siblings(self.axes)

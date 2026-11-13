@@ -12,7 +12,7 @@ use pltrs_render::{ClipPath, GraphicsContext, SnapMode};
 use super::AxesState;
 use super::axis_artists::{AxisGroup, TickGroups, TickPart, tick_group_name};
 pub(crate) use super::axis_layout::AxisTextDraw;
-use super::axis_layout::{AxisPainter, PlacedText, TickLabel};
+use super::axis_layout::{AxisPainter, PlacedText, TickLabel, rc_with_effects};
 use super::grid_props::{GridClip, GridLineProps};
 use super::tick_set::Tick;
 use super::ticks::{GridStyle, TickDirection, TickStyle};
@@ -123,37 +123,42 @@ impl AxisPainter<'_> {
             ),
             None => self.draw_tick_lines(ctx, tick.loc, &style, rc, groups),
         }
-        let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
-            for label in labels {
-                let shown = if label.first_side {
-                    sides.first
-                } else {
-                    sides.second
-                };
-                if shown {
-                    groups.part(ctx, TickPart::label(!label.first_side), |ctx| {
-                        if let Some(bbox) = &style.label_bbox {
-                            self.draw_text_box(ctx, bbox, &label.text, style.label_size, rc);
-                        }
-                        draw_text(
-                            ctx,
-                            self.axes_id,
-                            &label.text,
-                            rc,
-                            AxisTextDraw::AfterMeasuring,
-                        );
-                    });
-                }
+        for label in labels {
+            let shown = if label.first_side {
+                sides.first
+            } else {
+                sides.second
+            };
+            if !shown {
+                continue;
             }
-        });
-        if let Err(err) = drawn {
-            ctx.report(self.axes_id, err);
+            let rc = &*rc_with_effects(rc, label.text.path_effects.as_deref());
+            let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
+                groups.part(ctx, TickPart::label(!label.first_side), |ctx| {
+                    if let Some(bbox) = &style.label_bbox {
+                        self.draw_text_box(ctx, bbox, &label.text, style.label_size, rc);
+                    }
+                    draw_text(
+                        ctx,
+                        self.axes_id,
+                        &label.text,
+                        rc,
+                        AxisTextDraw::AfterMeasuring,
+                    );
+                });
+            });
+            // Effects that do not resolve draw no label of the tick.
+            if let Err(err) = drawn {
+                ctx.report(self.axes_id, err);
+                break;
+            }
         }
     }
 
-    /// Draws the axis label or offset text `text` with the rc path
-    /// effects.
+    /// Draws the axis label or offset text `text` with its path effects:
+    /// its own, else those of `path.effects`.
     fn draw_text_with_effects(&self, ctx: &mut DrawContext<'_>, text: &PlacedText, rc: &RcParams) {
+        let rc = &*rc_with_effects(rc, text.path_effects.as_deref());
         let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
             draw_text(ctx, self.axes_id, text, rc, AxisTextDraw::AsPlaced);
         });
@@ -263,12 +268,16 @@ impl AxisPainter<'_> {
     }
 
     /// The path the gridline of the tick at `loc` is drawn as, in its
-    /// coordinates (data along the axis, axes fractions across it).
+    /// coordinates (data along the axis, axes fractions across it), with
+    /// the interpolation steps matplotlib gives the path of a gridline
+    /// (`GRIDLINE_INTERPOLATION_STEPS`), which a projection of the
+    /// program's bends it by (mplstereonet's transforms interpolate a
+    /// path of two points only when it asks for steps).
     pub(crate) fn gridline_path(&self, loc: f64, grid: &GridStyle) -> Path {
         let (start, end) = (self.tick_point(loc, 0.0), self.tick_point(loc, 1.0));
         let points = line_vertices(&[start.x, end.x], &[start.y, end.y], grid.line.drawstyle)
             .expect("the two ends of a gridline make a line of any draw style");
-        Path::polyline(points)
+        Path::polyline(points).with_interpolation_steps(polar::GRIDLINE_INTERPOLATION_STEPS)
     }
 
     /// The path of the mark of the tick at `loc` on the first or second
@@ -549,8 +558,10 @@ mod tests {
     use pltrs_core::Bbox;
 
     use super::*;
+    use crate::axes::TickLabelProps;
     use crate::figure::Figure;
     use crate::patches::PatchProps;
+    use crate::patheffects::{GcUpdate, PathEffect, Stroke};
     use crate::testing::{Call, RecordingRenderer};
     use crate::text::TextBoxProps;
 
@@ -609,6 +620,71 @@ mod tests {
         // (matplotlib: 3 misses, 6 hits).
         let info = cache.info();
         assert_eq!((info.misses, info.hits, info.size), (3, 6, 3), "{info:?}");
+    }
+
+    /// The boxes of the paths a draw of `fig` strokes 4 points wide: the
+    /// halos of the texts drawn through `halo()`.
+    fn halos(fig: &Figure) -> Vec<Bbox> {
+        let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
+        fig.draw(&mut renderer).expect("drawable");
+        (renderer.calls.into_iter())
+            .filter_map(|call| match call {
+                Call::Path {
+                    points, linewidth, ..
+                } if linewidth.to_bits() == 4.0_f64.to_bits() => Some(Bbox::from_points(points)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// A white stroke 4 points wide below the text (matplotlib's
+    /// `withStroke(linewidth=4, foreground="w")`).
+    fn halo() -> Vec<PathEffect> {
+        let white = GcUpdate::default().linewidth(4.0).foreground("w");
+        vec![PathEffect::with_stroke(Stroke::new(white))]
+    }
+
+    #[test]
+    fn an_axis_label_is_drawn_through_the_path_effects_it_was_given() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_xlabel("depth");
+        ax.set_ylabel("height");
+        assert!(halos(&fig).is_empty(), "no effects but the rcParam's none");
+        ax.xaxis().set_label_path_effects(Some(halo()));
+        let label = ax.xaxis().label_extent().expect("a label");
+        let drawn = halos(&fig);
+        assert!(!drawn.is_empty(), "the label's glyphs, stroked");
+        for stroked in drawn {
+            assert!(stroked.x0() >= label.x0() - 1.0 && stroked.x1() <= label.x1() + 1.0);
+            assert!(stroked.y0() >= label.y0() - 1.0 && stroked.y1() <= label.y1() + 1.0);
+        }
+        ax.xaxis().set_label_path_effects(None);
+        assert!(halos(&fig).is_empty(), "the rcParam's again");
+    }
+
+    #[test]
+    fn a_tick_label_is_drawn_through_the_path_effects_it_was_given() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_xticks([0.0, 1.0]);
+        let with_halo = TickLabelProps {
+            path_effects: Some(halo()),
+            ..TickLabelProps::default()
+        };
+        ax.xaxis().set_major_ticklabel_props(1, with_halo);
+        let labels = ax.xaxis().ticklabel_extents();
+        let drawn = halos(&fig);
+        assert!(!drawn.is_empty(), "the second label's glyphs, stroked");
+        for stroked in drawn {
+            assert!(stroked.x0() > labels[0].x1(), "the first label has none");
+            assert!(stroked.x0() >= labels[1].x0() - 1.0 && stroked.x1() <= labels[1].x1() + 1.0);
+        }
+        // An empty list draws the label as it is, whatever the rcParam.
+        let mut rc = RcParams::matplotlib();
+        rc.path_effects = halo();
+        assert_eq!(rc_with_effects(&rc, Some(&[])).path_effects, []);
+        assert_eq!(rc_with_effects(&rc, None).path_effects, halo());
     }
 
     #[test]

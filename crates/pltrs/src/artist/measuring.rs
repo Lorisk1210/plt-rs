@@ -57,7 +57,7 @@ impl RawHandle {
             }
             to_measure
         };
-        self.measure_in_order(&to_measure);
+        self.measure_in_order(&to_measure, false);
     }
 
     /// [`measure_painters`](Self::measure_painters) for a layout engine,
@@ -70,27 +70,37 @@ impl RawHandle {
             let state = self.figure_state().borrow();
             in_tree_order(&state, state.root, true, Reach::LaidOut)
         };
-        self.measure_in_order(&to_measure);
+        self.measure_in_order(&to_measure, true);
     }
 
     /// Has the painters of the artists this artist holds measure them,
     /// parents first, before its tight box is computed (matplotlib's
-    /// `Axes.get_tightbbox` asking each of its artists for theirs).
-    pub(crate) fn measure_painters_under(&self) {
+    /// `Axes.get_tightbbox` asking each of its artists for theirs): for
+    /// a layout with `for_layout`, as `get_tightbbox(renderer,
+    /// for_layout_only=True)` asks the axes of the axes.
+    pub(crate) fn measure_painters_under(&self, for_layout: bool) {
         let to_measure = {
             let state = self.figure_state().borrow();
             in_tree_order(&state, self.id(), false, Reach::All)
         };
-        self.measure_in_order(&to_measure);
+        self.measure_in_order(&to_measure, for_layout);
     }
 
     /// Measures the artists of `to_measure` in order, past the artists
-    /// held by one its painter measured.
-    fn measure_in_order(&self, to_measure: &[ToMeasure]) {
+    /// held by one its painter measured: for a layout engine with
+    /// `for_layout` ([`ArtistPainter::measure_for_layout`]).
+    ///
+    /// [`ArtistPainter::measure_for_layout`]: super::ArtistPainter::measure_for_layout
+    fn measure_in_order(&self, to_measure: &[ToMeasure], for_layout: bool) {
         let mut next = 0;
         while let Some(entry) = to_measure.get(next) {
             let painter = entry.painter.get();
-            painter.measure(&self.sibling(entry.id));
+            let artist = self.sibling(entry.id);
+            if for_layout {
+                painter.measure_for_layout(&artist);
+            } else {
+                painter.measure(&artist);
+            }
             (self.figure_state().borrow_mut()).note_measured_axes(entry.id);
             next = if painter.measured_extent() == MeasuredExtent::Unmeasured {
                 next + 1
@@ -213,6 +223,7 @@ mod tests {
     use super::*;
     use crate::artist::{ArtistHandle, ArtistPainter, DrawContext};
     use crate::figure::Figure;
+    use crate::layout::TightLayout;
 
     /// Notes the artists it measures in a shared log, measuring them as a
     /// fixed box when `measures`.
@@ -267,7 +278,7 @@ mod tests {
         assert_eq!(*log.borrow(), [first.id()]);
         // An axes' tight box measures the artists it holds.
         log.borrow_mut().clear();
-        first.raw().measure_painters_under();
+        first.raw().measure_painters_under(false);
         assert_eq!(*log.borrow(), [line.id()]);
         let painter = line.raw().painter().expect("painted");
         let any: &dyn Any = painter.get();
@@ -292,5 +303,52 @@ mod tests {
         fig.root_handle().measure_painters();
         assert_eq!(log.borrow().len(), 3);
         assert!(log.borrow().contains(&note.id()));
+    }
+
+    /// Counts its measures for tight boxes and for layout engines apart.
+    #[derive(Debug, Default)]
+    struct Asked {
+        plainly: Cell<usize>,
+        for_layout: Cell<usize>,
+    }
+
+    impl ArtistPainter for Asked {
+        fn draw(&self, _ctx: &mut DrawContext<'_>, _artist: ArtistId) {}
+
+        fn measure(&self, _artist: &RawHandle) {
+            self.plainly.set(self.plainly.get() + 1);
+        }
+
+        fn measure_for_layout(&self, _artist: &RawHandle) {
+            self.for_layout.set(self.for_layout.get() + 1);
+        }
+    }
+
+    #[test]
+    fn a_layout_engine_asks_painters_to_measure_for_a_layout() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let axis = ax.add_program_axis("t");
+        let painter = Painter::new(Asked::default());
+        axis.raw().set_painter(Some(painter.clone()));
+        let any: &dyn Any = painter.get();
+        let asked = any.downcast_ref::<Asked>().expect("the painter");
+        // matplotlib's `get_tightbbox(renderer, for_layout_only=True)`.
+        fig.tight_layout(TightLayout::default()).expect("laid out");
+        assert!(asked.for_layout.get() > 0);
+        assert_eq!(asked.plainly.get(), 0, "no plain measure by a layout");
+        let measured_for_layouts = asked.for_layout.get();
+        // A tight box asks plainly, unless it is one for a layout.
+        ax.tight_bbox(false);
+        assert_eq!(asked.for_layout.get(), measured_for_layouts);
+        assert_eq!(asked.plainly.get(), 1);
+        ax.tight_bbox(true);
+        assert_eq!(asked.for_layout.get(), measured_for_layouts + 1);
+        assert_eq!(asked.plainly.get(), 1);
+        // The default measures for a layout as for a tight box.
+        let log = Rc::default();
+        axis.raw().set_painter(Some(logged(&log, false)));
+        fig.root_handle().measure_painters_for_layout();
+        assert_eq!(*log.borrow(), [axis.raw().id()]);
     }
 }

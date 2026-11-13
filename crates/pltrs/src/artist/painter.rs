@@ -109,6 +109,14 @@ pub trait ArtistPainter: Any + fmt::Debug {
     /// nothing by default.
     fn measure(&self, _artist: &RawHandle) {}
 
+    /// [`measure`](Self::measure) for a layout engine, which matplotlib's
+    /// engines ask of an axes and of its axes with `for_layout_only=True`
+    /// (an axis then counts its label as no wider than itself); by
+    /// default as `measure` does.
+    fn measure_for_layout(&self, artist: &RawHandle) {
+        self.measure(artist);
+    }
+
     /// The artist's extent as the painter last measured it (matplotlib's
     /// `get_window_extent` of a subclass), which layouts and tight boxes
     /// take in place of the artist's own; [`MeasuredExtent::Unmeasured`]

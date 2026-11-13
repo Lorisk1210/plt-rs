@@ -427,6 +427,7 @@ impl AxisState {
                 coords: None,
                 bbox: None,
                 usetex: rc.text_usetex,
+                path_effects: None,
             },
             visible: true,
             animated: false,

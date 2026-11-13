@@ -281,6 +281,10 @@ pub struct TickStyle {
     /// (matplotlib's `set_antialiased` on a tick's labels); `None`: as
     /// `text.antialiased` says.
     pub label_antialiased: Option<bool>,
+    /// The path effects the labels are drawn through, when the program
+    /// gave them some (matplotlib's `set_path_effects` on a tick's
+    /// labels); `None`: those of `path.effects`.
+    pub label_path_effects: Option<Vec<PathEffect>>,
     /// Where the label is across the axis, in the coordinates of the
     /// axis' side transform (0 on the first side, 1 on the second), when
     /// the program moved it there (matplotlib's `Tick.label1.set_x` on a
@@ -324,6 +328,7 @@ pltrs_core::archive_struct!(TickStyle {
     label_in_layout,
     label_url,
     label_antialiased,
+    label_path_effects,
     label_across,
     label_bbox,
     grid_on,
@@ -378,6 +383,7 @@ impl TickStyle {
             label_in_layout: true,
             label_url: None,
             label_antialiased: None,
+            label_path_effects: None,
             label_across: None,
             label_bbox: None,
             grid_on: grid_on_from_rc(axis, major, rc),

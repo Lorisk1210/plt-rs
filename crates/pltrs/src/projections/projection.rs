@@ -108,6 +108,18 @@ pub trait Projection: Any + fmt::Debug + Send + ProjectionClone {
         Ok(())
     }
 
+    /// The inverse of [`data_to_axes`](Self::data_to_axes) as the program
+    /// computes it, when its arithmetic is not that of inverting the
+    /// whole transform: matplotlib inverts a transform part by part (each
+    /// affine part of the tree its own matrix) and multiplies the
+    /// inverses, which leaves another last bit than inverting the product.
+    /// Pans and zooms map the pointer back through it. `None`, the
+    /// default, inverts `data_to_axes` whole.
+    fn axes_to_data(&self, view: &ProjectionView<'_>) -> Option<ResolvedTransform> {
+        let _ = view;
+        None
+    }
+
     /// Maps `(data, fraction)` onto the unit square of the axes for the
     /// gridlines, tick marks and spines of `axis`: a data value along the
     /// axis and a fraction of the way across it (matplotlib's

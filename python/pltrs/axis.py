@@ -274,7 +274,7 @@ _TICK_DEFAULTS = {'tick1On': True, 'tick2On': True, 'label1On': True,
 #: `_serving_held` leaves alone: its Axes and figure, and how its
 #: staleness follows its Axes' draws.
 _COMMON_TO_HELD = frozenset([
-    "axes", "figure", "_get_figure", "_drawer", "_drawn_by_drawer", "__str__",
+    "axes", "_drawer", "_drawn_by_drawer", "__str__",
     "_readies_before_measured", "_before_measured"])
 
 

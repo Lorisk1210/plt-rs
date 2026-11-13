@@ -11,6 +11,7 @@ use crate::axes::ticks::TickStyle;
 use crate::axes::{Axis, TickLevel};
 use crate::colors::Color;
 use crate::fonts::{FontSize, FontStyle, FontWeight};
+use crate::patheffects::PathEffect;
 use crate::text::TextBoxPatch;
 
 /// Text properties of tick labels (the keyword arguments of matplotlib's
@@ -60,6 +61,10 @@ pub struct TickLabelProps {
     /// Whether the label is antialiased (matplotlib's `set_antialiased`
     /// on a tick's label).
     pub antialiased: Option<bool>,
+    /// The path effects the label is drawn through in place of
+    /// `path.effects` (matplotlib's `set_path_effects` on a tick's
+    /// label).
+    pub path_effects: Option<Vec<PathEffect>>,
 }
 
 pltrs_core::archive_struct!(TickLabelProps {
@@ -79,7 +84,8 @@ pltrs_core::archive_struct!(TickLabelProps {
     label2_visible,
     across,
     bbox,
-    antialiased
+    antialiased,
+    path_effects
 });
 
 impl TickLabelProps {
@@ -112,6 +118,7 @@ impl TickLabelProps {
             across: newer.across.or(self.across),
             bbox: newer.bbox.clone().or_else(|| self.bbox.clone()),
             antialiased: newer.antialiased.or(self.antialiased),
+            path_effects: (newer.path_effects.clone()).or_else(|| self.path_effects.clone()),
         }
     }
 
@@ -168,6 +175,9 @@ impl TickLabelProps {
         }
         if self.antialiased.is_some() {
             style.label_antialiased = self.antialiased;
+        }
+        if self.path_effects.is_some() {
+            style.label_path_effects.clone_from(&self.path_effects);
         }
     }
 }

@@ -1,5 +1,5 @@
-//! What the hooks of a projection see of their axes: the view limits and
-//! the scales.
+//! What the hooks of a projection see of their axes: the view limits,
+//! the scales and where the axes is.
 
 use pltrs_core::Bbox;
 
@@ -12,19 +12,34 @@ use crate::transforms::{ResolvedTransform, Step, bbox_to_unit};
 #[derive(Clone, Copy, Debug)]
 pub struct ProjectionView<'a> {
     limits: Bbox,
+    position: Bbox,
     xaxis: &'a AxisState,
     yaxis: &'a AxisState,
 }
 
 impl<'a> ProjectionView<'a> {
-    /// The view of axes with view limits `limits` and axes `xaxis` and
-    /// `yaxis`.
-    pub(crate) fn new(limits: Bbox, xaxis: &'a AxisState, yaxis: &'a AxisState) -> Self {
+    /// The view of axes with view limits `limits`, placed at `position`,
+    /// with the axes `xaxis` and `yaxis`.
+    pub(crate) fn new(
+        limits: Bbox,
+        position: Bbox,
+        xaxis: &'a AxisState,
+        yaxis: &'a AxisState,
+    ) -> Self {
         Self {
             limits,
+            position,
             xaxis,
             yaxis,
         }
+    }
+
+    /// Where the axes is, its aspect applied, in the fractions of what
+    /// it is placed in (matplotlib's `get_position()`): a transform of a
+    /// program's may depend on the box of its axes (a skew in pixels
+    /// around its bottom).
+    pub fn position(&self) -> Bbox {
+        self.position
     }
 
     /// The view limits in data coordinates (matplotlib's `viewLim`); an

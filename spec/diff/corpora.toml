@@ -929,5 +929,14 @@ licence = "MIT (LICENSE)"
 fetch = ["/LICENSE", "/README.md"]
 sha256 = "e160fcff29c7bcc4384f9d028339ebe115dcab708a436e5be4a1b539c5753785"
 programs = ["README.md"]
+
+[pyrolite]
+title = "pyrolite (geochemistry: ternary diagrams on mpltern's projection, spider and density plots, plot templates), its documentation's gallery"
+repository = "https://github.com/morganjwilliams/pyrolite"
+commit = "f91cc379a06c9cabf4e18d95ad87459a5de8f022"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/docs/source/gallery/"]
+sha256 = "9907faed913b63a94ea2fb4ed437dccb2cac0e0a22eedbf453cabb44cab2d6ba"
+programs = ["docs/source/gallery/**/*.py"]
 exclude = []
 outputs = []

@@ -489,8 +489,13 @@ impl AxesState {
         if let Some(polar) = self.polar_view() {
             return polar.data_transform_inverse(display);
         }
-        if let Some(custom) = self.custom_data_transform(display) {
-            return custom.inverted();
+        if let Some(custom) = self.projection.custom() {
+            // The axes box inverted apart, as for rectilinear axes below,
+            // after the inverse the projection computes for its own part.
+            return match custom.axes_to_data(&self.projection_view()) {
+                Some(to_data) => Some(to_data.after_affine(unit_to_bbox(display).inverted()?)),
+                None => self.custom_data_transform(display)?.inverted(),
+            };
         }
         let to_unit = self.projection_view().rectilinear().inverted()?;
         Some(to_unit.after_affine(unit_to_bbox(display).inverted()?))

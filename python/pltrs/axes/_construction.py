@@ -21,7 +21,8 @@ import numpy as np
 
 from .. import _api, _handles, _python_drawing
 from .._program_classes import takes_from_program
-from .._native import axis as _axis, figure as _figure, insets as _insets
+from .._native import artist as _artist, axis as _axis, figure as _figure
+from .._native import insets as _insets, mplot3d as _mplot3d
 from ..transforms import Bbox
 from . import _program_tick_params
 
@@ -191,7 +192,16 @@ class ConstructionMixin:
             where = ((rect,) if rect is not None
                      else (SubplotSpec._from_native(spec, figure),))
         ax = cls(figure, *where, **kwargs)
-        ax._add_to_figure(figure, False)
+        # The Axes joins the figure once its constructor returns: after the
+        # Axes the constructor added meanwhile (mplstereonet's hidden polar
+        # Axes), which pltrs (Rust) made later than it.
+        made = _artist.id(ax._native)
+        root = figure.get_figure(root=True)
+        if any(_artist.id(native) > made
+               for native, _ in _mplot3d.figure_axes(root._native)):
+            figure._add_axes_back(ax)
+        else:
+            ax._add_to_figure(figure, False)
         return ax._native, {}
 
     def _init_axes_state(self):

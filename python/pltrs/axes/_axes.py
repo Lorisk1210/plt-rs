@@ -205,3 +205,12 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
 # matplotlib defines the methods of the mixins on Axes itself.
 cbook._own_mixin_methods(Axes, _AxesBase)
 _failed_calls.guard(Axes)
+
+
+def __getattr__(name):
+    # matplotlib's parser of format strings, a private function of this
+    # module that libraries call (healpy's projection Axes).
+    if name == "_process_plot_format":
+        from ._plotting._events_reference import _process_plot_format
+        return _process_plot_format
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

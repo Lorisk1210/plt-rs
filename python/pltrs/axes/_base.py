@@ -361,6 +361,7 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         _api.check_isinstance(_AxesBase, other=other)
         _axes_base.share(self._native, "x", other._native)
+        self._join_class_group("x", other)
         self.xaxis._take_shared_tickers()
 
     def sharey(self, other):
@@ -373,7 +374,18 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         _api.check_isinstance(_AxesBase, other=other)
         _axes_base.share(self._native, "y", other._native)
+        self._join_class_group("y", other)
         self.yaxis._take_shared_tickers()
+
+    def _join_class_group(self, name, other):
+        """Join *other* in the group of Axes sharing the axis *name* that
+        the class keeps itself, as matplotlib's ``sharex`` joins it: a
+        projection class with axes of its own replaces ``_shared_axes``
+        with plain Groupers (one per name of ``_axis_names``), which
+        pltrs (Rust)'s groups do not fill."""
+        group = self._shared_axes.get(name)
+        if isinstance(group, cbook.Grouper):
+            group.join(self, other)
 
     @property
     def _sharex(self):
@@ -891,3 +903,12 @@ cbook._set_module(__name__, ArtistList)
 
 # matplotlib defines the methods of the mixins on _AxesBase itself.
 cbook._own_mixin_methods(_AxesBase, Artist)
+
+
+def __getattr__(name):
+    # matplotlib's parser of format strings, a private function of this
+    # module that libraries call (healpy's projection Axes).
+    if name == "_process_plot_format":
+        from ._plotting._events_reference import _process_plot_format
+        return _process_plot_format
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

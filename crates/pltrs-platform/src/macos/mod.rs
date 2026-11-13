@@ -8,9 +8,11 @@
 //!   displays). Frames are kept in a [`Surface`](crate::surface::Surface)
 //!   of the view's pixel size, in Core Graphics' native BGRA order, and
 //!   drawn as images in `drawRect:` for the regions presented. The loop
-//!   waits in `nextEventMatchingMask:untilDate:inMode:dequeue:`, until
-//!   the next timer of the generic loop at the latest; proxies wake it by
-//!   posting an application-defined event. Every call into `AppKit` runs
+//!   waits in `nextEventMatchingMask:untilDate:inMode:dequeue:` without
+//!   dequeuing (the wait alone, which runs through the loop's wait hook),
+//!   until the next timer of the generic loop at the latest, then
+//!   dispatches what is queued; proxies wake it by posting an
+//!   application-defined event. Every call into `AppKit` runs
 //!   within an autorelease pool: without `-[NSApplication run]`, nothing
 //!   drains the main thread's own, so what `AppKit` autoreleases outside
 //!   one is never released (a window resized outside one was never

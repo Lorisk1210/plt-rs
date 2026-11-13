@@ -68,3 +68,10 @@ fn timers_and_wake_ups_drive_a_blocking_run() {
         common::timers_and_wake_ups_drive_a_blocking_run(&mut event_loop);
     }
 }
+
+#[test]
+fn blocked_waits_wake_through_the_hook() {
+    if let Some((_serial, mut event_loop)) = x11() {
+        common::blocked_waits_wake_through_the_hook(&mut event_loop);
+    }
+}

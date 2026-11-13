@@ -208,10 +208,13 @@ class TimerPltrs(TimerBase):
 
     def __init__(self, *args, **kwargs):
         self._timer = None
+        #: The interval the running timer was started with, in ms.
+        self._started_interval = None
         super().__init__(*args, **kwargs)
 
     def _timer_start(self):
         self._timer_stop()
+        self._started_interval = self._interval
         self._timer = _pltrs_loop.start_timer(
             self, self._interval / 1000, not self._single)
 
@@ -221,7 +224,12 @@ class TimerPltrs(TimerBase):
         self._timer = None
 
     def _timer_set_interval(self):
-        if self._timer is not None:
+        # As Qt's timers do, a running timer starts again only when its
+        # interval changes: an animation sets the same one again at each
+        # frame, which would otherwise delay every frame by the previous
+        # one's lateness.
+        if (self._timer is not None
+                and self._interval != self._started_interval):
             self._timer_start()
 
     def _timer_set_single_shot(self):
@@ -303,6 +311,7 @@ class FigureCanvasPltrs(FigureCanvasAgg):
     def stop_event_loop(self):
         # docstring inherited
         self._looping = False
+        _pltrs_loop.wake()
 
     def set_cursor(self, cursor):
         # docstring inherited

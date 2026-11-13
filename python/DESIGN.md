@@ -217,7 +217,9 @@ thread that made it. The model is in `binding/threads.rs`; in short:
   reach are only touched by native calls and the native type's slots,
   which hold it, and the GIL's release and acquisition order every touch.
   The binding never releases the GIL while pltrs (Rust) works (only
-  `home`'s wait for the main thread releases it, touching nothing), and
+  waits release it, touching nothing: `home`'s wait for the main thread,
+  and the windows' event loop's wait for something to happen, through
+  `binding::blocking`), and
   Python code that releases it in the middle of a native call (a
   callback) runs no Rust code of that thread until it takes it back.
   abi3 builds exist only for CPython with a GIL.
@@ -2112,10 +2114,19 @@ backend: the framework already running, else pltrs' own windows
   `tight_layout`, `ConstrainedLayoutEngine.set`) before showing the
   figure's layout again; under constrained layout it adjusts that
   layout's padding and spacing, or hands the subplots to the subplot
-  parameters (see `pltrs::gui`'s subplot tool). The loop runs in short
-  slices, between which signals arrive (Ctrl+C) and the calls other
-  threads queued for the windows run (see "Threads"); its framework
-  counts as running once the host is
+  parameters (see `pltrs::gui`'s subplot tool). The loop blocks until
+  something happens, as Qt's does, so an idle window costs nothing:
+  input, the next timer, a call another thread queued for the windows
+  (see "Threads"), an idle draw or a stop asked for on another thread
+  (`_pltrs_loop.wake`), or a signal: around the loop on the main thread,
+  Python's signal handler writes to the host's wake pipe
+  (`signal.set_wakeup_fd`, as matplotlib's Qt backend sets it; the
+  program's own descriptor is put back afterwards, with the signals that
+  came meanwhile), so Ctrl+C interrupts at once. The wait itself runs
+  without the GIL (`binding::blocking`, through `pltrs_platform`'s wait
+  hook), and IPython's input hook and the Jupyter kernel's loop wait for
+  their descriptor in a thread, as Qt's socket notifiers do. Its
+  framework counts as running once the host is
   made (`cbook._get_running_interactive_framework`). A headless host
   (`_pltrs_loop.connect_headless`) opens windows off screen and takes
   injected input, for tests.

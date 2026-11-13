@@ -8,8 +8,10 @@ use super::super::request::{self, WindowAttribute, event_mask, testing};
 use super::super::server_event::ServerEvent;
 use super::{Driver, ResetResources, is, live, of, open_window, pump_until, x11_loop, xid};
 use crate::backend::Wait;
+use crate::blocking::Blocking;
 use crate::error::Error;
 use crate::event::WindowEvent;
+use crate::event_loop::wake_tests;
 use crate::geometry::{LogicalSize, PhysicalSize};
 use crate::icon::{Icon, IconImage};
 use crate::window::{CursorIcon, WindowOptions};
@@ -113,9 +115,10 @@ fn window_manager_messages_are_handled() {
         event_loop
             .pump_events(Some(Duration::ZERO), |_, _| {})
             .unwrap();
-        let events = driver
-            .conn
-            .wait_for_events(Wait::Until(Instant::now() + Duration::from_millis(20)));
+        let events = driver.conn.wait_for_events(
+            Wait::Until(Instant::now() + Duration::from_millis(20)),
+            Blocking::DIRECT,
+        );
         let pong = events.unwrap().iter().map(ServerEvent::parse).find(|event| {
             matches!(event, ServerEvent::ClientMessage { window, data, .. } if *window == root && data[0] == ping)
         });
@@ -161,4 +164,13 @@ fn scale_factor_follows_xft_dpi() {
     pump_until(&mut event_loop, "the default scale", |e| {
         is(e, window, &WindowEvent::ScaleFactorChanged(1.0))
     });
+}
+
+#[test]
+fn a_blocked_wait_is_woken_by_a_proxy_and_by_a_wake_pipe() {
+    let Some(_live) = live() else { return };
+    let mut event_loop = x11_loop();
+    let proxy = event_loop.proxy();
+    wake_tests::assert_woken_while_blocked(&mut event_loop, move || proxy.wake_up().unwrap());
+    wake_tests::assert_woken_by_a_wake_pipe(&mut event_loop);
 }

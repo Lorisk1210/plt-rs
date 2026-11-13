@@ -12,7 +12,9 @@
 //! (`backends/_pltrs_loop.py`): a native function called on another
 //! thread with an argument tied to the main thread is then queued to it,
 //! the calling thread waits without the GIL, and the main thread runs the
-//! call at its next step and hands back the result or the exception. When
+//! call at its next step and hands back the result or the exception: the
+//! queued call wakes the loop ([`set_loop_waker`]), which blocks until
+//! something happens. When
 //! the main thread stops serving it runs what is still queued, so no
 //! caller is left waiting. A call made while the main thread does not
 //! serve waits up to a second for it to start (as tkinter waits for its
@@ -55,6 +57,31 @@ static SERVING: Condvar = Condvar::new();
 
 /// How long a call waits for the main thread to start serving.
 const WAIT_FOR_SERVICE: Duration = Duration::from_secs(1);
+
+/// What wakes the windows' event loop from any thread, once it exists.
+type LoopWaker = Box<dyn Fn() + Send>;
+
+/// See [`set_loop_waker`].
+static LOOP_WAKER: Mutex<Option<LoopWaker>> = Mutex::new(None);
+
+/// Has `waker` wake the windows' event loop from now on, when a call is
+/// queued for it and when [`wake_loop`] is called.
+pub(crate) fn set_loop_waker(waker: LoopWaker) {
+    *LOOP_WAKER.lock().unwrap_or_else(PoisonError::into_inner) = Some(waker);
+}
+
+/// Wakes the windows' event loop, from any thread, if there is one: it
+/// looks at what changed (an idle draw asked for, a loop asked to stop,
+/// a signal) and waits again.
+pub(crate) fn wake_loop() {
+    if let Some(waker) = LOOP_WAKER
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .as_ref()
+    {
+        waker();
+    }
+}
 
 /// What a native function call runs: the native function's capsule and
 /// its arguments, as `dispatch` receives them.
@@ -179,6 +206,7 @@ pub(super) unsafe fn call_on_main(
         }
         service.queue.push(job);
         drop(service);
+        wake_loop();
         Some(reply.wait())
     };
     // SAFETY: (caller) the GIL is held; the wait touches no Python object

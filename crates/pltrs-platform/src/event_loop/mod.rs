@@ -27,6 +27,8 @@
 
 mod context;
 mod timers;
+#[cfg(test)]
+pub(crate) mod wake_tests;
 
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -36,6 +38,7 @@ pub use context::Context;
 pub use timers::TimerId;
 
 use crate::backend::{Backend, BackendKind, Waker};
+use crate::blocking::{Blocking, WaitHook};
 use crate::decoration::DecorationPainter;
 use crate::error::Error;
 use crate::event::{Event, WindowEvent};
@@ -89,6 +92,8 @@ pub enum PumpStatus {
 pub struct EventLoop {
     backend: Box<dyn Backend>,
     state: LoopState,
+    /// What the backend's blocking waits run through, if anything.
+    wait_hook: Option<WaitHook>,
 }
 
 /// Loop bookkeeping shared by [`EventLoop`] and [`Context`].
@@ -266,7 +271,20 @@ impl EventLoop {
 
     fn from_backend(backend: Box<dyn Backend>) -> Self {
         let state = LoopState::new(backend.waker());
-        Self { backend, state }
+        Self {
+            backend,
+            state,
+            wait_hook: None,
+        }
+    }
+
+    /// Runs the loop's blocking waits for input through `hook` from now
+    /// on (`None`: as they are). The waits block until input comes, the
+    /// next timer is due or an [`EventLoopProxy`] wakes the loop, and touch
+    /// nothing but the backend's connection, so that `hook` may let other
+    /// threads run meanwhile (see [`WaitHook`]).
+    pub fn set_wait_hook(&mut self, hook: Option<WaitHook>) {
+        self.wait_hook = hook;
     }
 
     /// Which backend this loop drives.
@@ -381,7 +399,11 @@ impl EventLoop {
             earliest(deadline, self.state.timers.next_deadline())
         };
         let mut events = Vec::new();
-        self.backend.poll(wait_until, &mut events)?;
+        self.backend.poll(
+            wait_until,
+            &mut events,
+            Blocking::through(self.wait_hook.as_ref()),
+        )?;
         for event in events {
             self.deliver(handler, event);
         }
@@ -461,6 +483,7 @@ impl std::fmt::Debug for EventLoop {
         f.debug_struct("EventLoop")
             .field("backend", &self.backend.kind())
             .field("state", &self.state)
+            .field("wait_hook", &self.wait_hook.is_some())
             .finish()
     }
 }

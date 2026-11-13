@@ -21,6 +21,14 @@ pub(crate) fn timers_and_wake_ups_drive_a_blocking_run() {
     common::timers_and_wake_ups_drive_a_blocking_run(&mut event_loop);
 }
 
+/// A loop blocked in `nextEventMatchingMask:` (its wait through the
+/// embedder's hook, without dequeuing) wakes for a proxy and for a write
+/// to a wake pipe, from other threads.
+pub(crate) fn blocked_waits_wake_through_the_hook() {
+    let mut event_loop = appkit_loop();
+    common::blocked_waits_wake_through_the_hook(&mut event_loop);
+}
+
 /// Text put on the clipboard is there for every application, and comes
 /// back as it was.
 pub(crate) fn text_goes_to_the_clipboard_and_comes_back() {

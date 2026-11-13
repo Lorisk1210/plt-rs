@@ -12,6 +12,7 @@ use super::protocol::{Event, Interface};
 use super::transport::{self, SharedOutput};
 use super::wire::{Args, HEADER_LEN, Header, MAX_MESSAGE_LEN, Request};
 use crate::backend::Wait;
+use crate::blocking::Blocking;
 use crate::error::{Error, WaylandError};
 
 /// The first id of objects the compositor creates.
@@ -118,10 +119,14 @@ impl Connection {
         self.output.lock().flush()
     }
 
-    /// Waits as `wait` allows for data, then returns every complete event
-    /// received, in order. Fatal protocol errors and a closed connection
-    /// are errors.
-    pub(crate) fn read_events(&mut self, wait: Wait) -> Result<Vec<Received>, Error> {
+    /// Waits as `wait` allows for data (through `blocking`), then returns
+    /// every complete event received, in order. Fatal protocol errors and
+    /// a closed connection are errors.
+    pub(crate) fn read_events(
+        &mut self,
+        wait: Wait,
+        blocking: Blocking<'_>,
+    ) -> Result<Vec<Received>, Error> {
         self.flush()?;
         let mut events = Vec::new();
         let mut wait = wait;
@@ -130,7 +135,7 @@ impl Connection {
             if !events.is_empty() && wait != Wait::Poll {
                 wait = Wait::Poll;
             }
-            if !self.receive(wait)? {
+            if !self.receive(wait, blocking)? {
                 return Ok(events);
             }
         }
@@ -151,15 +156,21 @@ impl Connection {
                 events.remove(at);
                 return Ok(events);
             }
-            self.receive(Wait::Forever)?;
+            self.receive(Wait::Forever, Blocking::DIRECT)?;
         }
     }
 
-    /// Reads once; returns whether anything arrived.
-    fn receive(&mut self, wait: Wait) -> Result<bool, Error> {
+    /// Reads once (a read that may wait, through `blocking`); returns
+    /// whether anything arrived.
+    fn receive(&mut self, wait: Wait, blocking: Blocking<'_>) -> Result<bool, Error> {
         let mut chunk = [0; MAX_MESSAGE_LEN];
         let mut fds = Vec::new();
-        let received = transport::read(&self.stream, &mut chunk, &mut fds, wait);
+        let stream = &self.stream;
+        let received = if wait == Wait::Poll {
+            transport::read(stream, &mut chunk, &mut fds, wait)
+        } else {
+            blocking.run(|| transport::read(stream, &mut chunk, &mut fds, wait))
+        };
         let received = match received {
             Ok(received) => received,
             Err(error) => return Err(self.fail(error)),
@@ -285,7 +296,11 @@ mod tests {
         let delete = event(DISPLAY, 1, |r| r.uint(first));
         let wake_delete = event(DISPLAY, 1, |r| r.uint(WAKE_CALLBACK));
         sys::send(&server, &[delete, wake_delete].concat(), &[]).unwrap();
-        assert!(conn.read_events(Wait::Poll).unwrap().is_empty());
+        assert!(
+            conn.read_events(Wait::Poll, Blocking::DIRECT)
+                .unwrap()
+                .is_empty()
+        );
         assert_eq!(conn.interface(first), None);
         assert_eq!(conn.interface(WAKE_CALLBACK), Some(Interface::Callback));
         assert_eq!(conn.new_id(Interface::Viewport).unwrap(), first);
@@ -298,11 +313,13 @@ mod tests {
         let global = event(registry, 0, |r| r.uint(9).string("wl_shm").uint(2));
         sys::send(&server, &global[..10], &[]).unwrap();
         assert!(
-            conn.read_events(Wait::Poll).unwrap().is_empty(),
+            conn.read_events(Wait::Poll, Blocking::DIRECT)
+                .unwrap()
+                .is_empty(),
             "half a message"
         );
         sys::send(&server, &global[10..], &[]).unwrap();
-        let events = conn.read_events(Wait::Forever).unwrap();
+        let events = conn.read_events(Wait::Forever, Blocking::DIRECT).unwrap();
         assert!(matches!(
             &events[..],
             [Received { object, interface: Interface::Registry, event: Event::Global { name: 9, interface, version: 2 } }]
@@ -311,7 +328,9 @@ mod tests {
         let unknown = event(77, 0, |r| r.uint(1));
         sys::send(&server, &unknown, &[]).unwrap();
         assert!(
-            conn.read_events(Wait::Poll).unwrap().is_empty(),
+            conn.read_events(Wait::Poll, Blocking::DIRECT)
+                .unwrap()
+                .is_empty(),
             "unknown objects"
         );
     }
@@ -324,7 +343,7 @@ mod tests {
         let (reader, _writer) = std::io::pipe().unwrap();
         let fd = OwnedFd::from(reader);
         sys::send(&server, &keymap, &[std::os::fd::AsFd::as_fd(&fd)]).unwrap();
-        let events = conn.read_events(Wait::Forever).unwrap();
+        let events = conn.read_events(Wait::Forever, Blocking::DIRECT).unwrap();
         assert!(matches!(
             &events[..],
             [Received {
@@ -339,7 +358,7 @@ mod tests {
         let missing = event(keyboard, 0, |r| r.uint(1).uint(12));
         sys::send(&server, &missing, &[]).unwrap();
         assert!(matches!(
-            conn.read_events(Wait::Forever),
+            conn.read_events(Wait::Forever, Blocking::DIRECT),
             Err(Error::Malformed(_))
         ));
     }
@@ -350,7 +369,8 @@ mod tests {
         let error = event(DISPLAY, 0, |r| r.uint(5).uint(2).string("bad"));
         sys::send(&server, &error, &[]).unwrap();
         assert_eq!(
-            conn.read_events(Wait::Forever).unwrap_err(),
+            conn.read_events(Wait::Forever, Blocking::DIRECT)
+                .unwrap_err(),
             Error::Wayland(WaylandError {
                 object: 5,
                 code: 2,
@@ -365,7 +385,8 @@ mod tests {
         let (mut conn, server) = pair();
         drop(server);
         assert_eq!(
-            conn.read_events(Wait::Forever).unwrap_err(),
+            conn.read_events(Wait::Forever, Blocking::DIRECT)
+                .unwrap_err(),
             Error::ConnectionClosed
         );
     }

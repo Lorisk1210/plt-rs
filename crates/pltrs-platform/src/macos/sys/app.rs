@@ -127,26 +127,40 @@ impl App {
         };
     }
 
-    /// Waits for an event at most `seconds` (`None`: not at all,
-    /// infinity: no limit), then dispatches it and every other queued
-    /// event. Wake-up events only end the wait: the waker's flags say
-    /// that the loop was woken.
-    pub(crate) fn pump_events(self, seconds: Option<f64>) {
-        let mut wait = seconds;
-        // Each event is handled in a pool of its own.
-        while autoreleasepool(|| self.dispatch_next(wait)) {
-            wait = None;
-        }
+    /// Waits at most `seconds` (infinity: no limit) until an event is
+    /// queued, and leaves it queued: the wait alone, which runs `AppKit`'s
+    /// run loop but dispatches no event (see [`App::dispatch_queued`]).
+    pub(crate) fn wait_for_event(self, seconds: f64) {
+        autoreleasepool(|| {
+            // SAFETY: within the pool: an autoreleased date, the default
+            // mode, and the event only looked at (not dequeued), whose
+            // autoreleased reference is dropped unused.
+            unsafe {
+                let until = date(Some(seconds));
+                let _: *mut Object = send(
+                    self.0.as_ptr(),
+                    c"nextEventMatchingMask:untilDate:inMode:dequeue:",
+                    (ANY_EVENT, until, NSDefaultRunLoopMode, NO),
+                );
+            }
+        });
     }
 
-    /// Dispatches the next event (but wake-ups), waiting at most `seconds`
-    /// for it; returns whether there was one.
-    fn dispatch_next(self, seconds: Option<f64>) -> bool {
+    /// Dispatches every queued event, without waiting. Wake-up events
+    /// only end the wait: the waker's flags say that the loop was woken.
+    pub(crate) fn dispatch_queued(self) {
+        // Each event is handled in a pool of its own.
+        while autoreleasepool(|| self.dispatch_next()) {}
+    }
+
+    /// Dispatches the next queued event (but wake-ups); returns whether
+    /// there was one.
+    fn dispatch_next(self) -> bool {
         // SAFETY: within the caller's pool: an autoreleased date, the
         // default mode, and the autoreleased event dequeued, inspected and
         // dispatched.
         unsafe {
-            let until = date(seconds);
+            let until = date(None);
             let event: *mut Object = send(
                 self.0.as_ptr(),
                 c"nextEventMatchingMask:untilDate:inMode:dequeue:",

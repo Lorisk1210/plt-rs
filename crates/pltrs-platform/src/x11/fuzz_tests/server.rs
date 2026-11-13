@@ -24,6 +24,7 @@ use std::time::Instant;
 
 use super::{HEADER_LEN, reply, word};
 use crate::backend::Backend;
+use crate::blocking::Blocking;
 use crate::fuzz::{Corruption, Gen, fuzz};
 use crate::window::{CursorIcon, WindowId, WindowOptions};
 use crate::x11::X11Backend;
@@ -522,7 +523,7 @@ fn perform(backend: &mut X11Backend, window: WindowId, action: Action) {
     };
     let _ = backend.conn.round_trip(&request::get_input_focus());
     let mut events = Vec::new();
-    let _ = backend.poll(Some(Instant::now()), &mut events);
+    let _ = backend.poll(Some(Instant::now()), &mut events, Blocking::DIRECT);
 }
 
 /// Presents a grey frame over the whole window, if it is not huge.

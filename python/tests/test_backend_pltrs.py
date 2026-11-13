@@ -178,6 +178,28 @@ def _timers():
     plt.close("all")
 
 
+def _timer_intervals():
+    import pltrs.pyplot as plt
+
+    fig = plt.figure()
+    timer = fig.canvas.new_timer(50)
+    timer.add_callback(lambda: None)
+    timer.start()
+    running = timer._timer
+    # An animation sets its interval again at every frame: the timer goes
+    # on, its ticks due every 50 ms from its start, as a QTimer's.
+    timer.interval = 50
+    assert timer._timer == running
+    timer.interval = 60
+    assert timer._timer not in (None, running)
+    timer.stop()
+    print("KEPT", flush=True)
+
+
+def test_setting_the_same_interval_keeps_the_timer_running():
+    assert "KEPT" in _run(_timer_intervals)
+
+
 @pytest.mark.parametrize("host", HOSTS)
 def test_interactive_timers(host):
     _run(_timers, host=host)
@@ -722,6 +744,117 @@ def test_sigint(target):
         if proc.poll() is None:
             proc.kill()
     assert "SUCCESS" in stdout
+
+
+def _signal_from_a_thread():
+    import signal
+    import threading
+    import time
+
+    import pltrs.pyplot as plt
+
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+    plt.figure()
+    sent = []
+
+    def interrupt():
+        time.sleep(0.5)
+        sent.append(time.monotonic())
+        signal.raise_signal(signal.SIGINT)
+    threading.Thread(target=interrupt).start()
+    try:
+        plt.pause(30)
+    except KeyboardInterrupt:
+        took = time.monotonic() - sent[0]
+        # Python's handler wrote to the loop's wake pipe (a socket on
+        # Windows), which woke the blocked loop.
+        assert took < 5, took
+        print("INTERRUPTED", flush=True)
+
+
+def test_a_signal_wakes_the_blocked_loop():
+    assert "INTERRUPTED" in _run(_signal_from_a_thread)
+
+
+def _input_hook():
+    import socket
+    import threading
+    import time
+
+    from pltrs.backends import _pltrs_loop
+
+    # What IPython's prompt_toolkit hands the hook: a descriptor readable
+    # once the terminal needs IPython.
+    reader, writer = socket.socketpair()
+
+    class Context:
+        def fileno(self):
+            return reader.fileno()
+
+        def input_is_ready(self):
+            return bool(reader.recv(1, socket.MSG_PEEK | socket.MSG_DONTWAIT))
+
+    threading.Timer(0.3, writer.send, (b"x",)).start()
+    start = time.monotonic()
+    _pltrs_loop._input_hook(Context())
+    took = time.monotonic() - start
+    assert 0.3 <= took < 30, took
+    print("RETURNED", flush=True)
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="the hook polls on Windows")
+def test_ipython_input_hook_waits_for_the_terminal():
+    assert "RETURNED" in _run(_input_hook)
+
+
+def _kernel_loop():
+    import socket
+    import threading
+    import time
+
+    from pltrs.backends import _pltrs_loop
+
+    # What a kernel's shell stream does: its descriptor becomes readable
+    # when ZMQ has something to look at, a message or not (the first
+    # write), and flushing handles a message if one came (the second).
+    reader, writer = socket.socketpair()
+    reader.setblocking(False)
+    messages = []
+
+    class Stream:
+        flushes = 0
+
+        def flush(self, limit):
+            assert limit == 1
+            self.flushes += 1
+            while True:
+                try:
+                    reader.recv(1)
+                except BlockingIOError:
+                    break
+            return messages.pop() if messages else 0
+
+    stream = Stream()
+
+    def kernel_side():
+        time.sleep(0.2)
+        writer.send(b"x")
+        time.sleep(0.2)
+        messages.append(1)
+        writer.send(b"x")
+    threading.Thread(target=kernel_side).start()
+    start = time.monotonic()
+    _pltrs_loop._serve_kernel(stream, reader.fileno(), lambda: False)
+    took = time.monotonic() - start
+    assert 0.4 <= took < 30, took
+    # Once at first, once per readable descriptor: no polling meanwhile.
+    assert stream.flushes == 3, stream.flushes
+    print("SERVED", flush=True)
+
+
+def test_kernel_loop_waits_for_the_shell_stream():
+    assert "SERVED" in _run(_kernel_loop)
 
 
 def test_registry_knows_pltrs_beside_matplotlibs_backends():

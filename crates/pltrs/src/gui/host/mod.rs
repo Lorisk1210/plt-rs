@@ -11,7 +11,8 @@ use std::time::Duration;
 
 use pltrs_core::{Bbox, Rgba};
 use pltrs_platform::{
-    Context, CursorIcon, Event, EventLoop, HeadlessHandle, LogicalSize, TimerId, WindowId,
+    Context, CursorIcon, Event, EventLoop, EventLoopProxy, HeadlessHandle, LogicalSize, TimerId,
+    WaitHook, WindowId,
 };
 use pltrs_ui::TitleBarPainter;
 
@@ -220,6 +221,19 @@ impl WindowHost {
             next_window: 0,
             next_timer: 0,
         }
+    }
+
+    /// Runs the waits of [`WindowHost::pump`] for something to happen
+    /// through `hook` from now on (`None`: as they are): the waits alone,
+    /// which touch nothing but the window system's connection (see
+    /// [`EventLoop::set_wait_hook`]).
+    pub fn set_wait_hook(&mut self, hook: Option<WaitHook>) {
+        self.event_loop.set_wait_hook(hook);
+    }
+
+    /// A handle that ends [`WindowHost::pump`]'s wait from any thread.
+    pub fn proxy(&self) -> EventLoopProxy {
+        self.event_loop.proxy()
     }
 
     /// Describes a window titled `title` for `figure`, its canvas `size`

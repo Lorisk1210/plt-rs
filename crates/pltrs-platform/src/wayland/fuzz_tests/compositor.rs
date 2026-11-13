@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 
 use super::{Arg, args, message, word};
 use crate::backend::Backend;
+use crate::blocking::Blocking;
 use crate::decoration::{ButtonLayout, TitleBarAction, TitleBarSettings};
 use crate::frame::OwnedFrame;
 use crate::fuzz::{Gen, fuzz};
@@ -187,7 +188,7 @@ fn perform(
 ) {
     let deadline = Instant::now() + Duration::from_millis(2);
     let _ = match call {
-        Call::Poll => backend.poll(Some(deadline), &mut Vec::new()),
+        Call::Poll => backend.poll(Some(deadline), &mut Vec::new(), Blocking::DIRECT),
         Call::Present(width, height) => {
             let size = PhysicalSize::new(width.min(2000), height.min(2000));
             OwnedFrame::filled(size, [9, 99, 199, 255]).and_then(|frame| {
@@ -236,7 +237,10 @@ fn backends_against_a_hostile_compositor() {
         for (actions, call) in &run.steps {
             act(&fake, actions);
             perform(&mut backend, window, *call);
-            if backend.poll(Some(Instant::now()), &mut Vec::new()).is_err() {
+            if backend
+                .poll(Some(Instant::now()), &mut Vec::new(), Blocking::DIRECT)
+                .is_err()
+            {
                 break;
             }
         }
@@ -245,6 +249,7 @@ fn backends_against_a_hostile_compositor() {
             let _ = backend.poll(
                 Some(Instant::now() + Duration::from_millis(5)),
                 &mut Vec::new(),
+                Blocking::DIRECT,
             );
         }
         let _ = backend.read_pixels(window);

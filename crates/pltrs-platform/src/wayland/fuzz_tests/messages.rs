@@ -8,6 +8,7 @@ use std::os::unix::net::UnixStream;
 
 use super::{Arg, args, message};
 use crate::backend::Wait;
+use crate::blocking::Blocking;
 use crate::fuzz::fuzz;
 use crate::wayland::connection::Connection;
 use crate::wayland::protocol::{Event, Interface};
@@ -150,7 +151,7 @@ fn streams_read_by_a_connection() {
             }
             drop(theirs);
             for _ in 0..4 {
-                if conn.read_events(Wait::Poll).is_err() {
+                if conn.read_events(Wait::Poll, Blocking::DIRECT).is_err() {
                     break;
                 }
             }

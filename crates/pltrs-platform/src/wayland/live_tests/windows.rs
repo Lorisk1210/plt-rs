@@ -6,6 +6,7 @@ use std::time::Duration;
 use super::{is, live, open_window, pattern, pump_until, wayland_loop};
 use crate::error::Error;
 use crate::event::{Event, WindowEvent};
+use crate::event_loop::wake_tests;
 use crate::geometry::{LogicalSize, PhysicalRect, PhysicalSize};
 use crate::window::{CursorIcon, WindowOptions};
 
@@ -143,4 +144,13 @@ fn wake_ups_and_timers_interrupt_the_wait() {
     let proxy = event_loop.proxy();
     drop(event_loop);
     assert_eq!(proxy.wake_up(), Err(Error::EventLoopClosed));
+}
+
+#[test]
+fn a_blocked_wait_is_woken_by_a_proxy_and_by_a_wake_pipe() {
+    let Some(_live) = live() else { return };
+    let mut event_loop = wayland_loop();
+    let proxy = event_loop.proxy();
+    wake_tests::assert_woken_while_blocked(&mut event_loop, move || proxy.wake_up().unwrap());
+    wake_tests::assert_woken_by_a_wake_pipe(&mut event_loop);
 }

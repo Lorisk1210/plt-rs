@@ -30,6 +30,7 @@
 )]
 
 mod after_call;
+mod blocking;
 mod buffer;
 mod callback;
 mod containers;
@@ -52,6 +53,7 @@ mod threads;
 mod watched;
 
 pub(crate) use after_call::install as install_after_call;
+pub(crate) use blocking::releasing_gil;
 pub(crate) use buffer::{Element, FloatArray, NdArray};
 pub(crate) use callback::{
     Callback, current_call, failed as callback_failed, forgive, report, setting_failure_aside,
@@ -61,6 +63,7 @@ pub(crate) use convert::{Bytes, FromPy, IntoPy};
 pub(crate) use deferred::install as install_deferred;
 pub(crate) use error::{ExceptionKind, PyErr, PyResult, runtime_warning};
 pub(crate) use gil::Python;
+pub(crate) use home::{set_loop_waker, wake_loop};
 pub(crate) use init::init_module;
 pub(crate) use module::Module;
 pub(crate) use native::{

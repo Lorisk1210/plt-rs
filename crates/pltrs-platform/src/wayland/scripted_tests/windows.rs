@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use super::super::fake::{Fake, ICON_SIZES, Options};
 use super::{expect, open, poll_until, present, surface, wait_requests};
 use crate::backend::Backend;
+use crate::blocking::Blocking;
 use crate::event::{Event, WindowEvent};
 use crate::geometry::{LogicalSize, PhysicalSize};
 use crate::icon::{Icon, IconImage, IconLayout};
@@ -178,7 +179,9 @@ fn wake_ups_arrive_once_and_not_at_start() {
     let (mut backend, _fake) = Fake::start(Options::default());
     let mut events = Vec::new();
     let soon = Instant::now() + Duration::from_millis(50);
-    backend.poll(Some(soon), &mut events).unwrap();
+    backend
+        .poll(Some(soon), &mut events, Blocking::DIRECT)
+        .unwrap();
     assert!(!events.contains(&Event::WakeUp), "{events:?}");
     let waker = backend.waker();
     std::thread::spawn(move || {

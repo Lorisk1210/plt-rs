@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use super::WaylandBackend;
 use super::fake::Fake;
 use crate::backend::Backend;
+use crate::blocking::Blocking;
 use crate::event::{Event, WindowEvent};
 use crate::frame::OwnedFrame;
 use crate::geometry::{LogicalSize, PhysicalRect};
@@ -38,6 +39,7 @@ fn poll_until(
             .poll(
                 Some(Instant::now() + Duration::from_millis(10)),
                 &mut events,
+                Blocking::DIRECT,
             )
             .expect("polling succeeds");
     }

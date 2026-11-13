@@ -62,9 +62,10 @@ def _default_callback(artist):
 def _given_no_axes(artist):
     """Whether *artist* was given as its Axes something that is no artist,
     which matplotlib's stale callback fails to mark stale."""
-    from .artist import Artist
     axes = artist.__dict__.get("_axes")
-    return axes is not None and not isinstance(axes, Artist)
+    # Every artist, and only an artist, has this module's mixin (tested
+    # rather than `.Artist` to spare an import statement per call).
+    return axes is not None and not isinstance(axes, StalenessMixin)
 
 
 class StalenessMixin:

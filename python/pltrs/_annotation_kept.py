@@ -8,17 +8,18 @@ pltrs (Rust) holding ``'data'`` and the origin meanwhile, and fails as
 matplotlib's does wherever matplotlib's would place the point.
 """
 
-from . import _api, _unusable, _values, units
+from . import _api, _lazy_imports, _unusable, _values, units
 from ._native import annotation as _annotation
+
+_text_module = _lazy_imports.module(globals(), ".text", "_text_module")
 
 
 def native_point(xy, figure):
     """The point *xy* as `_native.annotation` takes it for an annotation
     in *figure*, or None for one pltrs (Rust) cannot hold (category names
     outside any figure, where no Axes' units convert them)."""
-    from .text import _point
     try:
-        point = _point(xy)
+        point = _text_module._point(xy)
     except (TypeError, ValueError):
         return None
     if figure is None and any(isinstance(value, str) for value in point):
@@ -30,9 +31,8 @@ def native_coords(coords, figure):
     """The coordinate systems *coords* of an annotation in *figure* (None
     outside any) as `_native.annotation` takes them, or None for systems
     pltrs (Rust) cannot hold."""
-    from .text import _native_coords
     try:
-        return _native_coords(coords, figure)
+        return _text_module._native_coords(coords, figure)
     except (TypeError, ValueError):
         return None
 
@@ -45,13 +45,12 @@ def annotate_arguments(xy, xytext, xycoords, textcoords, arrowprops,
     pltrs (Rust) cannot hold replaced by the origin and ``'data'``, which
     the annotation keeps (`KeptMixin._keep_given`).
     """
-    from .text import _native_arrowprops
     origin = (0.0, 0.0)
     return (native_point(xy, figure) or origin,
             None if xytext is None else native_point(xytext, figure) or origin,
             native_coords(xycoords, figure) or "data",
             None if textcoords is None else native_coords(textcoords, figure) or "data",
-            None if arrowprops is None else _native_arrowprops(arrowprops),
+            None if arrowprops is None else _text_module._native_arrowprops(arrowprops),
             annotation_clip)
 
 
@@ -192,9 +191,8 @@ class KeptMixin:
         """Keep *value*, the coordinate *index* of the text position the
         annotation was made with, as given; as unusable when pltrs (Rust)
         could not hold it (see `.Text._set_text_coordinate`)."""
-        from .text import _coordinate
         try:
-            _coordinate(value)
+            _text_module._coordinate(value)
         except (TypeError, ValueError):
             self._keep_unusable_coordinate(index, value)
         else:

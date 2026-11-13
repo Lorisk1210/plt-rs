@@ -1,5 +1,6 @@
 //! Edge, face and hatch properties shared by every patch.
 
+use std::cell::LazyCell;
 use std::rc::Rc;
 
 use pltrs_core::{Affine2D, Path, Rgba};
@@ -99,8 +100,11 @@ impl PatchStyle {
         alpha: Option<f64>,
         edge_default: bool,
     ) -> Result<ResolvedStyle, ColorError> {
-        let cycle = rc.axes_prop_cycle.colors();
-        let resolve = |color: &Color, alpha| color.resolve_with(alpha, &cycle);
+        // Read only for `"Cn"` colours (see `Color::resolve_alpha`).
+        let cycle = LazyCell::new(|| rc.axes_prop_cycle.colors());
+        let resolve = |color: &Color, alpha| {
+            color.resolve_with(alpha, if color.refers_to_cycle() { &cycle } else { &[] })
+        };
         let edge = resolve(&self.edge_spec(rc, edge_default), alpha)?;
         let face_spec = self
             .facecolor

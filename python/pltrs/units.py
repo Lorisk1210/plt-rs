@@ -50,6 +50,9 @@ from numpy import ma
 
 from . import cbook
 
+#: The number types `_is_natively_supported` answers for at once (pltrs).
+_PLAIN_NUMBERS = frozenset({float, int, bool, np.float64, np.int64})
+
 
 class ConversionError(TypeError):
     pass
@@ -61,6 +64,10 @@ def _is_natively_supported(x):
     array of objects of such types.
     """
     # Matplotlib natively supports all number types except Decimal.
+    if type(x) in _PLAIN_NUMBERS:
+        # (pltrs: the common case, answered without numpy's iterable test
+        # and the abstract base class checks, as they would answer it.)
+        return True
     if np.iterable(x):
         # Assume lists are homogeneous as other functions in unit system.
         for thisx in x:

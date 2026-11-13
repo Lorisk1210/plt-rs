@@ -12,9 +12,11 @@ annotation's ``draw``. An annotation outside any figure has no renderer to
 evaluate it with: its points are display pixels until a figure adopts it.
 """
 
-from . import _live_transforms
+from . import _lazy_imports, _live_transforms
 from .artist import Artist
 from .transforms import BboxBase, BboxTransformTo, Transform
+
+_text_module = _lazy_imports.module(globals(), ".text", "_text_module")
 
 
 def is_evaluated(coords):
@@ -22,8 +24,7 @@ def is_evaluated(coords):
     of them), is one the program evaluates."""
     if isinstance(coords, tuple):
         return any(map(is_evaluated, coords))
-    from .text import OffsetFrom
-    if isinstance(coords, OffsetFrom):
+    if isinstance(coords, _text_module.OffsetFrom):
         return not isinstance(coords._artist, Artist)
     return callable(coords) and not isinstance(coords, (str, Artist, Transform))
 

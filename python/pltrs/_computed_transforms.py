@@ -19,9 +19,11 @@ objects added to an Axes that are no artists (`.axes._foreign_children`).
 
 import weakref
 
-from . import _live_transforms, _program_paths
+from . import _lazy_imports, _live_transforms, _program_paths
 from ._program_classes import takes_from_program
 from ._native import transforms as _transforms
+
+_axes_base = _lazy_imports.module(globals(), ".axes._base", "_axes_base")
 
 #: The tracked artists of each root figure.
 _tracked = weakref.WeakKeyDictionary()
@@ -67,9 +69,8 @@ def _computes_transform(artist):
     """Whether the class of *artist* overrides ``get_transform``, but for
     an Axes, which matplotlib's draw never asks for its own transform
     (astropy's ``WCSAxes.get_transform(frame)`` is another method)."""
-    from .axes._base import _AxesBase
     return (takes_from_program(type(artist), "get_transform")
-            and not isinstance(artist, _AxesBase))
+            and not isinstance(artist, _axes_base._AxesBase))
 
 
 def _evaluate(figure):

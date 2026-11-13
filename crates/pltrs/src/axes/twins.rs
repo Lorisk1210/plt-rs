@@ -19,6 +19,28 @@ impl Axes {
         self.in_same_figure(ids)
     }
 
+    /// Counts `other`, an axes of this one's figure, among the twins of
+    /// this one, and what is twinned with either (matplotlib's
+    /// `_twinned_axes.join`, which programs making their own twins call):
+    /// nothing else of a twin is set up.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let fig = Figure::new();
+    /// let (a, b) = (fig.add_subplot(1, 1, 1)?, fig.add_axes([0.1, 0.1, 0.8, 0.8])?);
+    /// a.join_twins(&b);
+    /// assert_eq!(b.twins(), [a, b.clone()]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn join_twins(&self, other: &Self) -> &Self {
+        if std::rc::Rc::ptr_eq(self.raw.figure_state(), other.raw.figure_state()) {
+            let mut figure = self.raw.figure_state().borrow_mut();
+            figure.shared.join_twins(self.id(), other.id());
+            figure.stale = true;
+        }
+        self
+    }
+
     /// A new axes on top of this one sharing its x axis, with its y axis
     /// on the right (matplotlib's `twinx`).
     ///

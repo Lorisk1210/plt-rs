@@ -453,19 +453,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """Return the ``ZAxis`` (`~.axis3d.Axis`) instance."""
         return self.zaxis
 
-    def get_subplotspec(self):
-        """Return the `.SubplotSpec` associated with the subplot, or None."""
-        from pltrs.gridspec import SubplotSpec
-        native = _mplot3d.subplot_spec(self._native)
-        if native is None:
-            return None
-        spec = SubplotSpec._from_native(native, self.get_figure(root=False))
-        # The same object while the Axes stays in that block, as matplotlib
-        # keeps its ``_subplotspec``.
-        kept = self.__dict__.get("_subplotspec_kept")
-        if kept != spec:
-            kept = self._subplotspec_kept = spec
-        return kept
+    def _native_block(self):
+        # The block of the 3-D axes, of which pltrs (Rust) holds its own.
+        return _mplot3d.subplot_spec(self._native)
 
     def set_subplotspec(self, subplotspec):
         # docstring inherited
@@ -473,7 +463,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         # fails first for what is no spec.
         subplotspec.get_position(self.get_figure(root=False))
         _mplot3d.set_subplot_spec(self._native, subplotspec._native_spec())
-        self._subplotspec_kept = subplotspec
+        self._place_on(subplotspec)
 
     def clear(self):
         # docstring inherited.

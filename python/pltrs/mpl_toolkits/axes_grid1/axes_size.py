@@ -27,11 +27,16 @@ from pltrs import _api, _named
 from pltrs.artist import Artist
 from pltrs.axes import Axes
 from pltrs._offsetbox_trees import Unusable, number
+from pltrs._program_classes import takes_from_program
 
 
 def _described(size):
     """The native description of *size*; `.Unusable` for no size, or one
-    made of what pltrs (Rust) cannot take."""
+    made of what pltrs (Rust) cannot take. A size whose ``get_size`` the
+    program defines is evaluated through it, whatever class it derives
+    from (mplhep's ``RemainderFixed`` derives from `Scaled`)."""
+    if takes_from_program(type(size), "get_size"):
+        return ("python", size)
     describe = getattr(type(size), "_to_native", None)
     if describe is None:
         raise Unusable

@@ -20,7 +20,8 @@ pub use arrow::{ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps};
 
 use super::{BoxPlacement, Text, TextArtist, TextDrawError};
 use crate::artist::{
-    Artist, ArtistHandle, DrawContext, LayoutContext, ProgramShaping, RawHandle, TypedHandle,
+    Artist, ArtistHandle, ArtistId, DrawContext, LayoutContext, ProgramShaping, RawHandle,
+    TypedHandle,
 };
 use crate::coords::{CoordError, CoordFrame, Coords, annotation_shown};
 use crate::events::Dragger;
@@ -65,6 +66,9 @@ pub(crate) struct AnnotationState {
     pub(crate) annotation_clip: Option<bool>,
     /// The callbacks dragging the annotation, while it is draggable.
     pub(crate) dragger: Option<Dragger>,
+    /// The axes a program gave the annotation (matplotlib's `ann.axes =
+    /// ax`), whose coordinates it takes while no axes holds it.
+    pub(crate) given_axes: Option<ArtistId>,
 }
 
 pltrs_core::archive_struct!(AnnotationState {
@@ -74,7 +78,8 @@ pltrs_core::archive_struct!(AnnotationState {
     textcoords,
     arrow,
     annotation_clip,
-    dragger
+    dragger,
+    given_axes
 });
 
 impl AnnotationState {
@@ -100,24 +105,30 @@ impl AnnotationState {
                 .map(|props| AnnotationArrow::new(props, rc)),
             annotation_clip: options.annotation_clip,
             dragger: None,
+            given_axes: None,
         })
     }
 
-    /// The axes the annotation belongs to, if its parent is one.
-    fn axes(text: &TextArtist, layout: LayoutContext<'_>) -> Option<crate::artist::ArtistId> {
+    /// The axes whose coordinates the annotation takes (matplotlib's
+    /// `self.axes`): its parent if that is one, else the axes a program
+    /// gave it.
+    fn axes(&self, text: &TextArtist, layout: LayoutContext<'_>) -> Option<ArtistId> {
         text.base()
             .parent
-            .filter(|&parent| layout.axes_extent(parent).is_some())
+            .into_iter()
+            .chain(self.given_axes)
+            .find(|&axes| layout.axes_extent(axes).is_some())
     }
 
     fn frame<'a>(
+        &self,
         text: &TextArtist,
         layout: LayoutContext<'a>,
         offset_origin: Option<Point>,
     ) -> CoordFrame<'a> {
         CoordFrame {
             layout,
-            axes: Self::axes(text, layout),
+            axes: self.axes(text, layout),
             // An annotation in no container, only given its figure, is
             // placed in that figure (matplotlib's `get_figure(root=False)`).
             owner: Some(text.base().parent.unwrap_or_else(|| layout.root())),
@@ -130,7 +141,7 @@ impl AnnotationState {
     fn point(&self, text: &TextArtist, layout: LayoutContext<'_>) -> Result<Point, CoordError> {
         Ok(self
             .xycoords
-            .resolve(&Self::frame(text, layout, None))?
+            .resolve(&self.frame(text, layout, None))?
             .transform_point(self.xy))
     }
 
@@ -143,7 +154,7 @@ impl AnnotationState {
     ) -> Result<Point, CoordError> {
         Ok(self
             .textcoords
-            .resolve(&Self::frame(text, layout, Some(point)))?
+            .resolve(&self.frame(text, layout, Some(point)))?
             .transform_point(text.position))
     }
 
@@ -170,7 +181,7 @@ impl AnnotationState {
         let point = self.point(text, layout).ok()?;
         let transform = self
             .textcoords
-            .resolve(&Self::frame(text, layout, Some(point)))
+            .resolve(&self.frame(text, layout, Some(point)))
             .ok()?;
         Some(transform.inverted()?.transform_point(at))
     }
@@ -189,7 +200,7 @@ impl AnnotationState {
             layout,
             self.annotation_clip,
             &self.xycoords,
-            Self::axes(text, layout),
+            self.axes(text, layout),
             point,
         )
     }
@@ -448,6 +459,39 @@ impl Annotation {
             return Err(CoordError::NoOffset);
         }
         Ok(self.update(|a| a.xycoords = coords))
+    }
+
+    /// Gives the annotation the axes whose coordinates (`Coords::Data`,
+    /// `Coords::AxesFraction`, ...) it takes while no axes holds it, as a
+    /// program setting matplotlib's `ann.axes` does before adding the
+    /// annotation to its figure; an axes of another figure, or `None`,
+    /// takes it away.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::text::AnnotateOptions;
+    /// let (ax, elsewhere) = (Figure::new().subplot(), Figure::new().subplot());
+    /// let note = ax.annotate("x", (0.5, 0.5), AnnotateOptions::default())?;
+    /// note.set_coordinate_axes(Some(&ax));
+    /// assert_eq!(note.coordinate_axes(), Some(ax));
+    /// note.set_coordinate_axes(Some(&elsewhere));
+    /// assert_eq!(note.coordinate_axes(), None, "an axes of another figure");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_coordinate_axes(&self, axes: Option<&crate::axes::Axes>) -> &Self {
+        let figure = self.text.raw().figure_state();
+        let axes = axes
+            .filter(|axes| std::rc::Rc::ptr_eq(axes.raw().figure_state(), figure))
+            .map(ArtistHandle::id);
+        self.update(|a| a.given_axes = axes)
+    }
+
+    /// The axes a program gave the annotation for its coordinates (see
+    /// [`set_coordinate_axes`](Self::set_coordinate_axes)).
+    pub fn coordinate_axes(&self) -> Option<crate::axes::Axes> {
+        let id = self.state(|a| a.given_axes)?;
+        let raw = RawHandle::new(std::rc::Rc::clone(self.text.raw().figure_state()), id);
+        Some(crate::axes::Axes::from_raw(raw))
     }
 
     /// Sets when the annotation hides with its point outside the axes.

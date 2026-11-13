@@ -137,7 +137,9 @@ impl Figure {
     /// removed from this figure comes back under its own id, and a removed
     /// axes as the current axes. With `clip`, an artist without a clip
     /// path is clipped to the figure's frame. It is drawn above the
-    /// artists of equal z-order.
+    /// artists of equal z-order. A text added this way is among the
+    /// figure's [`artists`](Self::artists), not its
+    /// [`texts`](Self::texts), as matplotlib keeps the two lists apart.
     ///
     /// ```
     /// use pltrs::artist::{ArtistHandle, TypedHandle};
@@ -146,7 +148,9 @@ impl Figure {
     /// let fig = Figure::new();
     /// let note = Text::loose(0.5, 0.5, "note");
     /// let note = Text::from_raw_handle(&fig.adopt_artist(note.raw(), false)?).unwrap();
-    /// assert_eq!(fig.texts(), [note]);
+    /// let written = fig.text(0.1, 0.1, "written");
+    /// assert_eq!(fig.artists(), [note.raw().clone()]);
+    /// assert_eq!(fig.texts(), [written]);
     /// # Ok::<(), pltrs::artist::AttachError>(())
     /// ```
     ///
@@ -168,6 +172,12 @@ impl Figure {
             }
             if clip && base.clip_path.is_none() {
                 base.clip_box = Some(frame);
+            }
+        }
+        if state.store.get_as::<TextArtist>(artist.id()).is_some() {
+            // Listed among the figure's artists, not its texts.
+            if let Some(frame) = state.artist_as_mut::<FigureFrame>(frame) {
+                frame.texts_as_artists.push(artist.id());
             }
         }
         if state.store.get_as::<AxesState>(artist.id()).is_some() {
@@ -228,15 +238,24 @@ impl Figure {
     /// # Ok::<(), pltrs::axes::PlotError>(())
     /// ```
     pub fn artists(&self) -> Vec<RawHandle> {
-        self.own_artists_where(|artist| {
+        let added = self
+            .root
+            .with::<FigureFrame, _>(|frame| frame.texts_as_artists.clone());
+        let children = self.own_artists_where(|artist| {
             let any = artist as &dyn Any;
             !(any.is::<AxesState>()
                 || any.is::<Axes3DState>()
-                || any.is::<TextArtist>()
                 || any.is::<LegendArtist>()
                 || any.is::<FigureImageArtist>()
                 || any.is::<FigureFrame>())
-        })
+        });
+        let state = self.state.borrow();
+        children
+            .into_iter()
+            .filter(|artist| {
+                state.artist_as::<TextArtist>(artist.id()).is_none() || added.contains(&artist.id())
+            })
+            .collect()
     }
 
     /// Handles to the artists placed in this figure's (or subfigure's) own

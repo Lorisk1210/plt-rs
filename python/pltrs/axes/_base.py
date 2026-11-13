@@ -10,7 +10,7 @@ that name adds it (`.Artist._add_to_axes`, `.._handles.adopt`).
 
 import textwrap
 
-from .. import _api, _artist_clipping, _handles, _values, cbook
+from .. import _api, _artist_clipping, _gridspec_kept, _handles, _values, cbook
 from .._native import axes_base as _axes_base, gridspec as _gridspec
 from .._transform_trees import AxesTrees
 from ..artist import Artist, allow_rasterization
@@ -62,16 +62,12 @@ class _SharedAxes(SharedGroups):
         """
         Join given arguments into the same set.  Accepts one or more arguments.
         """
-        # pltrs (Rust) groups the Axes by *a* sharing the axis of each
-        # (ultraplot joins an Axes to the one it takes its limits from); an
-        # Axes sharing another's already stays where it is.
         for b in args:
-            if b is a or self.joined(a, b):
-                continue
-            try:
-                _axes_base.share(a._native, self._name, b._native)
-            except (ValueError, RuntimeError):
-                continue
+            _axes_base.join_shared(a._native, self._name, b._native)
+
+    def remove(self, a):
+        """Remove *a* from the grouper, doing nothing if it is not there."""
+        _axes_base.leave_shared(a._native, self._name)
 
 
 @_api.define_aliases({"facecolor": ["fc"]})
@@ -237,7 +233,7 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         from ..gridspec import SubplotSpec
         if "_unplaced_subplotspec" in self.__dict__:
             return self._unplaced_subplotspec
-        native = _gridspec.axes_spec(self._native)
+        native = self._native_block()
         if native is None:
             return None
         given = self.__dict__.get("_subplotspec_given")
@@ -260,20 +256,26 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         # the spec gives, which fails for what is no spec (the Axes staying
         # where it was).
         try:
-            subplotspec.get_position(self.get_figure(root=False))
+            position = subplotspec.get_position(self.get_figure(root=False))
         except Exception:
             self._unplaced_subplotspec = subplotspec
             raise
         self.__dict__.pop("_unplaced_subplotspec", None)
         _gridspec.set_axes_spec(self._native, subplotspec._native_spec())
         self._place_on(subplotspec)
+        if _gridspec_kept.placed_by_program(subplotspec):
+            self._set_position(position)
 
     def _place_on(self, subplotspec):
         """Keep *subplotspec*, which places the Axes, as matplotlib's Axes
         keeps it (``_subplotspec``), for as long as the Axes stays on the
         block of cells it gave."""
         self._subplotspec_kept = subplotspec
-        self._subplotspec_given = (subplotspec, _gridspec.axes_spec(self._native))
+        self._subplotspec_given = (subplotspec, self._native_block())
+
+    def _native_block(self):
+        """The native block of cells the Axes is placed on, or None."""
+        return _gridspec.axes_spec(self._native)
 
     def get_gridspec(self):
         """Return the `.GridSpec` associated with the subplot, or None."""

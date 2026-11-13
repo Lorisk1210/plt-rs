@@ -129,15 +129,22 @@ class GridSpecBase:
         native = self.__dict__.get("_native")
         if native is not None:
             return native
-        nrows, ncols = self.get_geometry()
-        widths = self.__dict__.get("_col_width_ratios") or [1] * ncols
-        heights = self.__dict__.get("_row_height_ratios") or [1] * nrows
+        return self._program_grid(*self.get_geometry())
+
+    def _program_grid(self, nrows, ncols):
+        """Give the grid of a class of the program's (see `_native`) a new
+        native grid of *nrows* by *ncols*, and return it."""
+        widths = self.__dict__.get("_col_width_ratios") or []
+        heights = self.__dict__.get("_row_height_ratios") or []
         native = _gridspec.new(
-            nrows, ncols, _gridspec_kept.native_ratios(widths, ncols),
-            _gridspec_kept.native_ratios(heights, nrows), (None,) * len(_KEYS))
+            nrows, ncols,
+            _gridspec_kept.native_ratios(widths if len(widths) == ncols else [1] * ncols, ncols),
+            _gridspec_kept.native_ratios(heights if len(heights) == nrows else [1] * nrows, nrows),
+            (None,) * len(_KEYS))
         # Constrained layout only places the grids of pltrs' classes.
         _gridspec.set_in_layout(native, False)
         self._adopt_native(native)
+        self._program_geometry = (nrows, ncols)
         return native
 
     @_native.setter
@@ -721,7 +728,13 @@ class SubplotSpec:
         ncols = gridspec.get_geometry()[1]
         r1, r2 = sorted([self.num1 // ncols, self.num2 // ncols])
         c1, c2 = sorted([self.num1 % ncols, self.num2 % ncols])
-        return _gridspec.span(gridspec._native, (r1, r2 + 1), (c1, c2 + 1))
+        native = gridspec._native
+        made = gridspec.__dict__.get("_program_geometry")
+        if made is not None and (r2 >= made[0] or c2 >= made[1]):
+            # A grid of the program's grown since it got its native grid
+            # (ultraplot adds rows and columns for panels): one as large.
+            native = gridspec._program_grid(max(made[0], r2 + 1), max(made[1], c2 + 1))
+        return _gridspec.span(native, (r1, r2 + 1), (c1, c2 + 1))
 
     def __repr__(self):
         return (f"{self.get_gridspec()}["

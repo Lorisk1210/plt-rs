@@ -2302,11 +2302,19 @@ class FigureCanvasBase:
         encoded, as matplotlib's ``Figure.draw`` does.
         """
         _print_targets.check(fmt, filename_or_obj)
+        printed = []
         with self._program_drawing(kwargs.get("bbox_inches_restore")):
-            data = _backends.print_figure(
-                self.figure._native, fmt, self._print_settings(**kwargs),
-                self._draw_event_sender())
-        _write_bytes(data, filename_or_obj, fmt)
+            # Through the figure's class' own draw, if it has one, with the
+            # renderer of the print (`._figure_draws`).
+            from . import _figure_draws
+            from ._python_drawing import installed_renderer
+            _figure_draws.draw(
+                self.figure,
+                lambda: printed.append(_backends.print_figure(
+                    self.figure._native, fmt, self._print_settings(**kwargs),
+                    self._draw_event_sender())),
+                lambda: installed_renderer() or self.figure._get_renderer())
+        _write_bytes(printed[0], filename_or_obj, fmt)
 
     def _send_draw_event(self):
         """Emit the ``draw_event`` of each draw that printed the figure

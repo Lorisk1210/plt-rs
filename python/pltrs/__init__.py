@@ -153,6 +153,15 @@ _PYTHON_PARAMS = {"backend": rcsetup._auto_backend_sentinel}
 #: The rcParams pltrs (Rust) keeps (matplotlib's, without pltrs (Rust)'s own).
 _NATIVE_KEYS = frozenset(_rcsetup.keys())
 
+
+def _kept_in_python(key):
+    """Whether pltrs keeps the rcParam *key* in Python: those of
+    `_PYTHON_PARAMS`, and those a program adds to ``rcParams.validate``
+    (matplotlib-scalebar's ``scalebar.*``), which pltrs (Rust) knows
+    nothing of."""
+    return key in _PYTHON_PARAMS or (
+        key not in _NATIVE_KEYS and not (isinstance(key, str) and key.startswith("pltrs.")))
+
 #: rcParams whose matplotlib validators warn about a valid value (``toolbar
 #: = 'toolmanager'``): they run on assignment, as every validator does, but
 #: not on reading (they choose among keywords, which pltrs (Rust) keeps in
@@ -222,7 +231,7 @@ class RcParams(MutableMapping, dict):
 
     def _has(self, key):
         """Whether *key* is in this mapping."""
-        if key in _PYTHON_PARAMS:
+        if _kept_in_python(key):
             return key in self._python
         if self._keys is None:
             return key in _NATIVE_KEYS
@@ -230,7 +239,7 @@ class RcParams(MutableMapping, dict):
 
     def _set(self, key, val):
         """Set *key* without the deprecation checks (matplotlib's ``_set``)."""
-        if key in _PYTHON_PARAMS:
+        if _kept_in_python(key):
             self._python[key] = val
             return
         if key == "path.effects":
@@ -269,7 +278,7 @@ class RcParams(MutableMapping, dict):
 
     def _get(self, key):
         """Get *key* without the deprecation checks (matplotlib's ``_get``)."""
-        if self._store is not None or key in _PYTHON_PARAMS:
+        if self._store is not None or _kept_in_python(key):
             return self._get_uncached(key)
         # The current parameters: a value read before holds until they change.
         generation = _rcsetup.generation()
@@ -286,7 +295,7 @@ class RcParams(MutableMapping, dict):
         if not self._has(key):
             # matplotlib's dict lookup: the error names the key alone.
             raise KeyError(key)
-        if key in _PYTHON_PARAMS:
+        if _kept_in_python(key):
             return self._python[key]
         validator = self.validate.get(key)
         if validator is None:
@@ -368,7 +377,7 @@ class RcParams(MutableMapping, dict):
 
     def _update_from(self, other, keys):
         """Copy *keys* of the `RcParams` *other* into this one."""
-        native = [key for key in keys if key not in _PYTHON_PARAMS]
+        native = [key for key in keys if not _kept_in_python(key)]
         _rcsetup.update_from(self._store, other._store, native)
         if self._keys is not None:
             self._keys.update(native)
@@ -377,7 +386,7 @@ class RcParams(MutableMapping, dict):
             if key in other._given:
                 self._given[key] = other._given[key]
         for key in keys:
-            if key in _PYTHON_PARAMS:
+            if _kept_in_python(key):
                 self._python[key] = other._get(key)
 
     def __or__(self, other):
@@ -422,7 +431,7 @@ class RcParams(MutableMapping, dict):
         """Copy this RcParams instance."""
         params = RcParams.__new__(RcParams)
         params._store = _rcsetup.copy(self._store)
-        params._keys = set(self) - _PYTHON_PARAMS.keys()
+        params._keys = {key for key in self if not _kept_in_python(key)}
         params._python = dict(self._python)
         params._given = dict(self._given)
         return params
@@ -609,6 +618,10 @@ def rc_context(rc=None, fname=None):
     """
     saved = _rcsetup.copy(None)
     given = dict(rcParams._given)
+    # The parameters programs added, which matplotlib restores too (not the
+    # backend, which it leaves as chosen).
+    added = {key: value for key, value in rcParams._python.items()
+             if key not in _PYTHON_PARAMS}
     try:
         if fname:
             rc_file(fname)
@@ -618,6 +631,7 @@ def rc_context(rc=None, fname=None):
     finally:
         _rcsetup.replace(saved)
         rcParams._given = given
+        rcParams._python.update(added)
 
 
 def _local_path(fname):

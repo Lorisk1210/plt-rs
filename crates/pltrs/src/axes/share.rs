@@ -4,8 +4,8 @@ use crate::artist::ArtistId;
 use crate::ticker::AxisName;
 
 /// Disjoint groups of axes (matplotlib's `cbook.Grouper`): joining only
-/// ever merges groups, and an axes leaves its group only when it is
-/// removed from the figure.
+/// ever merges groups, and an axes leaves its group when it is removed
+/// from the figure or a program takes it out (`Grouper.remove`).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Grouper {
     groups: Vec<Vec<ArtistId>>,
@@ -74,6 +74,12 @@ impl ShareGroups {
     /// either, share it.
     pub(crate) fn join(&mut self, name: AxisName, a: ArtistId, b: ArtistId) {
         self.axis(name).join(a, b);
+    }
+
+    /// Takes `axes` out of the group sharing axis `name`, dissolving it if
+    /// a single member is left (matplotlib's `Grouper.remove`).
+    pub(crate) fn leave(&mut self, name: AxisName, axes: ArtistId) {
+        self.axis(name).remove(axes);
     }
 
     /// The axes sharing axis `name` with `axes`, `axes` included.
@@ -145,6 +151,19 @@ mod tests {
         assert_eq!(groups.siblings(AxisName::Y, id[0]), [id[0], id[2]]);
         groups.remove(id[2]);
         assert_eq!(groups.siblings(AxisName::Y, id[0]), [id[0]]);
+    }
+
+    #[test]
+    fn leaving_one_axis_keeps_the_other() {
+        let id = ids(3);
+        let mut groups = ShareGroups::default();
+        groups.join(AxisName::X, id[0], id[1]);
+        groups.join(AxisName::Y, id[0], id[1]);
+        groups.join(AxisName::X, id[1], id[2]);
+        groups.leave(AxisName::X, id[1]);
+        assert_eq!(groups.siblings(AxisName::X, id[0]), [id[0], id[2]]);
+        assert_eq!(groups.siblings(AxisName::X, id[1]), [id[1]]);
+        assert_eq!(groups.siblings(AxisName::Y, id[1]), [id[0], id[1]]);
     }
 
     #[test]

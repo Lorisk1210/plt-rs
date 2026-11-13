@@ -1,14 +1,15 @@
 //! The baselines of the libraries' image comparisons whose own are for
 //! another version of matplotlib (plotnine's are 3.10's images, astropy's
 //! hashes of 3.8's, nilearn's the oldest matplotlib's it supports,
-//! mplfinance's, mpl-scatter-density's and yellowbrick's older images) or
-//! that its source tree lacks (missingno's), which `cargo xtask ecosystem
+//! mplfinance's, mpl-scatter-density's, yellowbrick's,
+//! matplotlib-label-lines' and `MetPy`'s older images) or that its source
+//! tree lacks (missingno's, ultraplot's, mplhep's), which `cargo xtask ecosystem
 //! setup` makes under real matplotlib 3.11.2, in the library's reference
 //! venv, from the pinned versions alone, so that every machine makes the
 //! same: `target/ecosystem/baselines/<library>/images`, never committed.
 //!
 //! * pytest-mpl's (astropy's, nilearn's, mpl-scatter-density's,
-//!   missingno's): one run of the library's tests with
+//!   missingno's and the add-ons'): one run of the library's tests with
 //!   `--mpl-generate-path`, which saves each figure test's image instead
 //!   of comparing it; the suite's runs compare with them
 //!   (`--mpl-baseline-path`, or the directory the tests name, made a link

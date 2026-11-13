@@ -851,6 +851,12 @@ class Colorbar:
             return self.ax.yaxis
         return self.ax.xaxis
 
+    def _short_axis(self):
+        """Return the short axis"""
+        if self.orientation == 'vertical':
+            return self.ax.xaxis
+        return self.ax.yaxis
+
     @property
     def locator(self):
         """Major tick `.Locator` for the colorbar."""

@@ -512,6 +512,43 @@ class Collection(mcolorizer.ColorizingArtist):
                            operator.attrgetter("is_affine"))
         self._offset_transform = offset_transform
 
+    def _prepare_points(self):
+        # Helper for drawing and hit testing, which exporters call
+        # (matplotlib 3.11.2's, under the Matplotlib License).
+
+        transform = self.get_transform()
+        offset_trf = self.get_offset_transform()
+        offsets = self.get_offsets()
+        paths = self.get_paths()
+
+        if self.have_units():
+            paths = []
+            for path in self.get_paths():
+                vertices = path.vertices
+                xs, ys = vertices[:, 0], vertices[:, 1]
+                xs = self.convert_xunits(xs)
+                ys = self.convert_yunits(ys)
+                paths.append(Path(np.column_stack([xs, ys]), path.codes))
+            xs = self.convert_xunits(offsets[:, 0])
+            ys = self.convert_yunits(offsets[:, 1])
+            offsets = np.ma.column_stack([xs, ys])
+
+        if not transform.is_affine:
+            paths = [transform.transform_path_non_affine(path)
+                     for path in paths]
+            transform = transform.get_affine()
+        if not offset_trf.is_affine:
+            offsets = offset_trf.transform_non_affine(offsets)
+            # This might have changed an ndarray into a masked array.
+            offset_trf = offset_trf.get_affine()
+
+        if isinstance(offsets, np.ma.MaskedArray):
+            offsets = offsets.filled(np.nan)
+            # Changing from a masked array to nan-filled ndarray
+            # is probably most efficient at this point.
+
+        return transform, offset_trf, offsets, paths
+
     def _get(self, name):
         """The native property *name*."""
         return _collections.get(self._native, name)
@@ -555,7 +592,10 @@ class Collection(mcolorizer.ColorizingArtist):
             _collections.set_paths(self._native, list(paths))
         self._kept_paths = (_collections.get_paths(self._native), paths)
 
-    _paths = property(get_paths, doc="The paths of the items.")
+    # matplotlib's attribute, which subclasses of the program's set
+    # themselves (its base `set_paths` refuses).
+    _paths = property(get_paths, lambda self, paths: Collection.set_paths(self, paths),
+                      doc="The paths of the items.")
 
     def set_paths(self, paths):
         self.__dict__.pop("_unit_paths", None)

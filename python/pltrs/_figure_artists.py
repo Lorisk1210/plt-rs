@@ -26,9 +26,12 @@ class DrawnList(list):
     """A list of artists *figure* draws: those put in it are drawn, those
     taken out no longer."""
 
-    def __init__(self, figure, artists=()):
+    def __init__(self, figure, artists=(), *, texts=False):
         super().__init__(artists)
         self._figure = figure
+        #: Whether the list is the figure's texts, which lists the texts
+        #: put in it there rather than among its artists.
+        self._texts = texts
 
     def _put(self, artists):
         """Have the figure draw *artists* as they are; return them."""
@@ -37,6 +40,9 @@ class DrawnList(list):
             if not artist.is_transform_set():
                 artist.set_transform(IdentityTransform())
             artist._add_to_figure(self._figure, False)
+            if self._texts:
+                from ._native import figure as _figure
+                _figure.list_among_texts(self._figure._native, artist._native)
         return artists
 
     @staticmethod
@@ -119,4 +125,4 @@ def replace(current, artists):
     current._take([artist for artist in current if id(artist) not in kept])
     known = {id(artist) for artist in current}
     current._put([artist for artist in artists if id(artist) not in known])
-    return DrawnList(current._figure, artists)
+    return DrawnList(current._figure, artists, texts=current._texts)

@@ -276,6 +276,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         elif new_axes is not None:
             self.__dict__.pop("_axes_unset", None)
         self._axes = new_axes
+        self._axes_given(new_axes)
+
+    def _axes_given(self, axes):
+        """Take the Axes *axes* (or None) the program set as the artist's
+        (`axes`): subclasses whose coordinates read it hand it on."""
 
     def _loose_axes(self):
         """The Axes of the artist on no figure: the one it was given."""

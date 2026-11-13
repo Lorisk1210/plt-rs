@@ -58,6 +58,8 @@ class Module:
         self.package = name if is_package else name.rpartition(".")[0]
         self.bindings: dict[str, str] = {}
         self.classes: dict[str, ast.ClassDef] = {}
+        #: The module's source, as `private_census.py` reads it again.
+        self.tree = tree
         for node in tree.body:
             self._bind(node)
 

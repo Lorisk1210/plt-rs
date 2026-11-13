@@ -315,6 +315,14 @@ fn set_extent(image: DataImage, value: (f64, f64, f64, f64)) -> PyResult<()> {
     Ok(())
 }
 
+/// Sets the extent of an Axes image as a program assigns its `_extent`
+/// (`None`: its pixels centred on their indices), the axes' limits left as
+/// they are.
+fn assign_extent(image: AxesImage, value: Option<(f64, f64, f64, f64)>) -> PyResult<()> {
+    image.assign_extent(value.map(extent));
+    Ok(())
+}
+
 /// The interpolation's name.
 fn get_interpolation(image: AnyImage) -> PyResult<&'static str> {
     Ok(image.interpolation().name())
@@ -513,6 +521,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("autoscale_on", autoscale_on)?;
     module.add("get_extent", get_extent)?;
     module.add("set_extent", set_extent)?;
+    module.add("assign_extent", assign_extent)?;
     module.add("get_interpolation", get_interpolation)?;
     module.add("set_interpolation", set_interpolation)?;
     module.add("get_interpolation_stage", get_interpolation_stage)?;

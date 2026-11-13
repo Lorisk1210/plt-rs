@@ -1095,6 +1095,16 @@ class Colormap:
         new_cm._lut[:, 3] = alpha
         return new_cm
 
+    def __getattr__(self, name):
+        # matplotlib's lookup table, which its draws make (`_init`) and
+        # programs read (``cmap._lut``): made when first read, pltrs (Rust)
+        # drawing without it.
+        if name == "_lut" and "_isinit" in self.__dict__ and not self._isinit:
+            self._init()
+            return self._lut
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}",
+                             name=name, obj=self)
+
     def _init(self):
         """Generate the lookup table, ``self._lut``."""
         raise NotImplementedError("Abstract class only")

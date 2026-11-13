@@ -8,7 +8,7 @@ use pltrs::axes::{Axes, AxisName, TickLevel};
 use pltrs::figure::Figure;
 use pltrs::gridspec::GridSpec;
 use pltrs::layout::failures::{ErrorClass, Failures};
-use pltrs::layout::{LayoutEngine, TightLayout, TightLayoutError};
+use pltrs::layout::{Aligned, LayoutEngine, TightLayout, TightLayoutError};
 use pltrs::text::{HAlign, Text, TextDrawError};
 use pltrs_core::Bbox;
 
@@ -164,6 +164,30 @@ fn align(figure: Figure, axes: Option<Vec<Axes>>, which: String) -> PyResult<()>
     Ok(())
 }
 
+/// What `which` names among the texts a figure aligns: matplotlib's keys
+/// of `_align_label_groups`.
+fn aligned_texts(which: &str) -> PyResult<Aligned> {
+    match which {
+        "x" => Ok(Aligned::Labels(AxisName::X)),
+        "y" => Ok(Aligned::Labels(AxisName::Y)),
+        "title" => Ok(Aligned::Titles),
+        _ => Err(PyErr::key_error(which.to_owned())),
+    }
+}
+
+/// Aligns the texts `which` ("x", "y" or "title") of the axes `a` and `b`
+/// (`_align_label_groups[which].join(a, b)`).
+fn join_aligned(figure: Figure, which: String, a: Axes, b: Axes) -> PyResult<()> {
+    figure.join_aligned(aligned_texts(&which)?, &a, &b);
+    Ok(())
+}
+
+/// The axes whose texts `which` align with those of `axes`, `axes`
+/// included (`_align_label_groups[which].get_siblings(axes)`).
+fn aligned_with(figure: Figure, which: String, axes: Axes) -> PyResult<Vec<Axes>> {
+    Ok(figure.aligned_with(aligned_texts(&which)?, &axes))
+}
+
 /// The figure's title, x label and y label, those it has (`_suptitle`,
 /// `_supxlabel`, `_supylabel`).
 fn super_texts(figure: Figure) -> PyResult<(Option<Text>, Option<Text>, Option<Text>)> {
@@ -258,6 +282,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("grid_tight_layout", grid_tight_layout)?;
     module.add("tight_layout_params", tight_layout_params)?;
     module.add("align", align)?;
+    module.add("join_aligned", join_aligned)?;
+    module.add("aligned_with", aligned_with)?;
     module.add("super_texts", super_texts)?;
     module.add("place_super_text", place_super_text)?;
     module.add("autofmt_xdate", autofmt_xdate)?;

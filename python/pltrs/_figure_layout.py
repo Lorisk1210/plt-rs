@@ -51,6 +51,13 @@ def _axes_natives(axs):
 class FigureBaseLayout:
     """The figure-wide texts and the alignment of a figure or subfigure."""
 
+    @property
+    def _align_label_groups(self):
+        # matplotlib's groups of Axes whose x labels, y labels and titles
+        # align (a `.cbook.Grouper` each), which programs join Axes into.
+        from ._aligned_labels import groups
+        return groups(self)
+
     def _suplabels(self, t, kind, kwargs):
         """
         Add a centered %(name)s to the figure.

@@ -24,6 +24,15 @@ _foreign_children = _lazy_imports.module(globals(), "._foreign_children")
 class ChildrenMixin:
     """The lists of the children of `~.axes.Axes`, and its containers."""
 
+    def _set_artist_props(self, a):
+        """Set the boilerplate props for artists added to Axes."""
+        # matplotlib 3.11.2's, under the Matplotlib License (the Axes'
+        # ``_mouseover_set`` follows its artists by itself).
+        a.set_figure(self.get_figure(root=False))
+        if not a.is_transform_set():
+            a.set_transform(self.transData)
+        a.axes = self
+
     @property
     def collections(self):
         return ArtistList._of("collections", lambda: [

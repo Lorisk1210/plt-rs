@@ -31,7 +31,7 @@ from ._navigation import NavigationMixin
 from ._projection import ProjectionMixin
 from . import _sharing
 from ._sharing import SharedGroups
-from ._prop_cycles import PropCycleMixin
+from ._prop_cycles import PropCycleMixin, _PropCycle, _process_plot_var_args  # noqa: F401  (matplotlib's)
 from ._ticks import TicksMixin, _axis_method_wrapper
 from ._units import UnitsMixin
 from ..transforms import Bbox
@@ -639,7 +639,39 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         _values.remember(self, "prop_cycle", given)
         self._cycles_set(given)
 
-    def _make_twin_axes(self, shared, axes_class, delta_zorder, kwargs):
+    def _make_twin_axes(self, *args, delta_zorder=0.0, **kwargs):
+        """Make a twinx Axes of self. This is used for twinx and twiny."""
+        # matplotlib's, which programs call (proplot): the twin `twinx` or
+        # `twiny` makes for the axis the keywords share, else the Axes
+        # `.Figure.add_subplot` makes at the place of this one, as a twin.
+        if 'sharex' in kwargs and 'sharey' in kwargs:
+            if kwargs["sharex"] is not self and kwargs["sharey"] is not self:
+                raise ValueError("Twinned Axes may share only one axis")
+        shared = next((name for name in "xy" if kwargs.get(f"share{name}") is self), None)
+        if shared is not None and not args:
+            rest = {key: value for key, value in kwargs.items() if key != f"share{shared}"}
+            twin = self._twin_sharing(shared, rest.pop("axes_class", None), delta_zorder, rest)
+            # As matplotlib's leaves it, before `twinx` or `twiny` moves its
+            # other axis to the far side and hides the shared one (only the
+            # background of the bottom-most twin shows either way).
+            other, side = (twin.yaxis, "left") if shared == "x" else (twin.xaxis, "bottom")
+            other.set_ticks_position(side)
+            other.set_label_position(side)
+            if shared == "x":
+                other.set_offset_position(side)
+            twin._axis_map[shared].set_visible(True)
+            return twin
+        fig = self.get_figure(root=False)
+        spec = self.get_subplotspec()
+        twin = (fig.add_subplot(spec, *args, **kwargs) if spec is not None
+                else fig.add_axes(self.get_position(True), *args, **kwargs))
+        self.set_adjustable('datalim')
+        twin.set_adjustable('datalim')
+        twin.set_zorder(self.get_zorder() + delta_zorder)
+        self._twinned_axes.join(self, twin)
+        return twin
+
+    def _twin_sharing(self, shared, axes_class, delta_zorder, kwargs):
         """
         Make a twin of the Axes sharing the axis *shared* (``"x"`` or
         ``"y"``), drawn *delta_zorder* above it: pltrs (Rust)'s own, or for
@@ -732,7 +764,7 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         For those who are 'picking' artists while using twinx, pick
         events are only called for the artists in the top-most Axes.
         """
-        return self._make_twin_axes("x", axes_class, delta_zorder, kwargs)
+        return self._twin_sharing("x", axes_class, delta_zorder, kwargs)
 
     def twiny(self, axes_class=None, *, delta_zorder=0.0, **kwargs):
         """
@@ -776,7 +808,7 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         For those who are 'picking' artists while using twiny, pick
         events are only called for the artists in the top-most Axes.
         """
-        return self._make_twin_axes("y", axes_class, delta_zorder, kwargs)
+        return self._twin_sharing("y", axes_class, delta_zorder, kwargs)
 
     def set_zorder(self, level):
         super().set_zorder(level)

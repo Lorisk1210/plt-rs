@@ -440,6 +440,13 @@ impl AxesImage {
         self
     }
 
+    /// Moves the image to cover `extent`, or back to its pixels centred on
+    /// their indices for `None`, leaving the axes' limits as they are (a
+    /// program assigning matplotlib's `_extent`).
+    pub fn assign_extent(&self, extent: Option<Extent>) -> &Self {
+        self.update(|image| image.extent = extent)
+    }
+
     /// `(rows, columns)` of the image array.
     pub fn shape(&self) -> (usize, usize) {
         self.read(|image| image.core.data.shape())
@@ -783,6 +790,25 @@ mod tests {
         image.set_filterrad(2.5).expect("a positive radius");
         assert!(!image.filternorm() && image.resample());
         assert_eq!(image.interpolation_stage(), InterpolationStage::Rgba);
+    }
+
+    #[test]
+    fn an_assigned_extent_leaves_the_limits() {
+        let ax = Figure::new().subplot();
+        let image = ax
+            .imshow(Grid::filled(2, 3, 1.0), ImshowOptions::default())
+            .unwrap();
+        let (centred, limits) = (image.extent(), ax.xlim());
+        let moved = Extent {
+            left: 0.0,
+            right: 1.0,
+            bottom: 0.0,
+            top: 1.0,
+        };
+        image.assign_extent(Some(moved));
+        assert_eq!((image.extent(), ax.xlim()), (moved, limits));
+        image.assign_extent(None);
+        assert_eq!(image.extent(), centred);
     }
 
     #[test]

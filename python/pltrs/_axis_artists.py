@@ -347,10 +347,17 @@ class Tick(Artist):
             return
         parts = (self.label1, self.label2, self.tick1line, self.tick2line,
                  self.gridline)
+        kept = self.__dict__.get("_labelrotation")
         (loc, self._size, self._width, self._base_pad, self._tickdir,
          self._labelrotation) = _axis.sync_tick(
             axis.axes._native, axis.axis_name, not self._major, self._index,
             tuple(part._native for part in parts))
+        if kept is not None and tuple(kept) == self._labelrotation:
+            # The angle as given, as matplotlib keeps it.
+            self._labelrotation = kept
+        elif self._labelrotation[1] == 0:
+            # matplotlib's tick is made with the int ``0``.
+            self._labelrotation = (self._labelrotation[0], 0)
         # matplotlib's update_position gives the tick and its labels its
         # location as the numpy float of the locator's array; a tick never
         # placed sits at the int 0 it was made at.

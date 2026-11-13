@@ -445,6 +445,22 @@ class Patch(Artist):
         edge = self.get_edgecolor()
         return edge if tuple(edge) == tuple(native) else native
 
+    @property
+    def _hatch_color(self):
+        # matplotlib's field, which exporters read: 'edge' while the hatch
+        # takes the edge colour, else the colour given as RGBA.
+        given = self.__dict__.get("_given_values", {}).get("hatchcolor")
+        if given is None:
+            given = _rcParams()["hatch.color"]
+        return 'edge' if cbook._str_equal(given, 'edge') else self.get_hatchcolor()
+
+    @_hatch_color.setter
+    def _hatch_color(self, color):
+        # Assigned as matplotlib's field is ('edge' or an RGBA colour),
+        # without `set_hatchcolor`'s alpha.
+        self._set_native(hatchcolor=color)
+        _values.remember(self, "hatchcolor", color)
+
     def set_hatchcolor(self, color):
         """
         Set the patch hatch color.
@@ -1374,6 +1390,11 @@ class StepPatch(PathPatch):
     def orientation(self, orientation):
         # matplotlib's ``_update_path`` reads it when the data are set.
         self._given_orientation = orientation
+
+    # matplotlib's fields of the data, which programs read (legendkit).
+    _values = property(lambda self: self.get_data().values)
+    _edges = property(lambda self: self.get_data().edges)
+    _baseline = property(lambda self: self.get_data().baseline)
 
     def get_data(self):
         """Get `.StepPatch` values, edges and baseline as namedtuple."""
@@ -3753,6 +3774,12 @@ class ConnectionPatch(FancyArrowPatch):
     """A patch that connects two points (possibly in different Axes)."""
 
     _instance_attributes = ("xy1", "xy2", "coords1", "coords2")
+
+    # matplotlib's fields of a `FancyArrowPatch`, which its connection
+    # patch keeps as its constructor sets them: it draws between its own
+    # points (``xy1``, ``xy2``).
+    _posA_posB = property(lambda self: [(0, 0), (1, 1)])
+    _path_original = property(lambda self: None)
 
     def __str__(self):
         return "ConnectionPatch((%g, %g), (%g, %g))" % \

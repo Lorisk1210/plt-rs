@@ -22,7 +22,7 @@ from operator import attrgetter
 import numpy as np
 
 from . import _api, _artist_effects, _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
-from . import _live_transforms, _program_classes, _pybind, _python_drawing, _unusable, _values
+from . import _live_transforms, _mirrors, _program_classes, _pybind, _python_drawing, _unusable, _values
 from . import _transform_trees
 from ._artist_callbacks import CallbacksMixin
 from ._artist_children import ChildrenSearchMixin
@@ -296,16 +296,27 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             given = self._given_transform
         if given is not None:
             return given
+        # matplotlib's makes the identity its ``_transform`` here.
+        self.__dict__["_transform_made"] = True
         return _live_transforms.of_artist(
             self, _transforms.get_transform(self._native))
 
     @property
     def _transform(self):
         """The transform the artist has: the one it was given, or the one
-        an axes or a figure gave it when it was added; None before it has
-        one (matplotlib's ``_transform``, which a patch, say, composes
-        with a transform of its own)."""
-        return Artist.get_transform(self) if self.is_transform_set() else None
+        an axes or a figure gave it when it was added, or the identity once
+        `get_transform` made it; None before (matplotlib's ``_transform``,
+        which a patch, say, composes with a transform of its own). Read as
+        `Artist.get_transform` gives it (a tick's line its mirror's), not
+        a patch's composed one."""
+        if not (self.is_transform_set() or "_transform_made" in self.__dict__):
+            return None
+        mirroring = _mirrors.mirroring(self)
+        if mirroring is not None:
+            transform = mirroring.transform(self)
+            if transform is not _mirrors.OWN:
+                return transform
+        return Artist.get_transform(self)
 
     def set_transform(self, t):
         """
@@ -478,6 +489,16 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         if self._kept_only:
             return self.__dict__.get("_kept_alpha")
         return _values.given(self, "alpha", _artist.get_alpha(self._native))
+
+    @_alpha.setter
+    def _alpha(self, alpha):
+        # Assigned as matplotlib's field is (legendkit): without the checks
+        # and the callbacks of `set_alpha`, drawn from the next draw.
+        if self._kept_only:
+            self._kept_alpha = alpha
+        else:
+            _artist.set_alpha(self._native, None if alpha is None else float(alpha))
+            _values.remember(self, "alpha", alpha)
 
     def _set_alpha_for_array(self, alpha):
         """

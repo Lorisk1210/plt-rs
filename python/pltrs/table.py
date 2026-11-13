@@ -792,6 +792,8 @@ class Table(Artist):
         self._native = _table.new(ax._native, loc, _extents(bbox))
         super().__init__()
         self._axes = ax
+        # matplotlib's location, by its code (``_loc``).
+        self._loc = self.codes[loc]
         self._edges = None
         self._cells = _Cells(self)
         self._kept_cells = {}
@@ -987,6 +989,14 @@ class Table(Artist):
         # The size given to every cell stays until the table places them.
         self._fontsize_given_at = self._placements
         self.stale = True
+
+    def _offset(self, ox, oy):
+        """Move all the artists by ox, oy (axes coords)."""
+        # matplotlib 3.11.2's, under the Matplotlib License.
+        for c in self.get_celld().values():
+            x, y = c.get_x(), c.get_y()
+            c.set_x(x + ox)
+            c.set_y(y + oy)
 
     def get_celld(self):
         r"""
@@ -1209,6 +1219,7 @@ def table(ax,
         (_loc_name(loc), _extents(bbox), _edges_of(edges),
          None if fontsize is None else float(fontsize)))
     table = _handles.wrap(native, Table, ax.figure)
+    table._loc = Table.codes[_loc_name(loc)]
     table._keep_bbox(bbox)
     # matplotlib's ``table`` adds the table with ``add_table``.
     _artist_clipping.take_parent_defaults(table, ax)

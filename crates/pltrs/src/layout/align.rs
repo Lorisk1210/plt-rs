@@ -12,9 +12,10 @@ use crate::axes::{Axes, AxesState, Grouper};
 use crate::figure::Figure;
 use crate::ticker::AxisName;
 
-/// What a figure lines up across its subplots.
+/// What a figure lines up across its subplots (the keys of matplotlib's
+/// `_align_label_groups`: `"x"`, `"y"` and `"title"`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Aligned {
+pub enum Aligned {
     /// The labels of the x or the y axis.
     Labels(AxisName),
     /// The titles.
@@ -149,6 +150,47 @@ impl Figure {
         }
         state.stale = true;
         self
+    }
+
+    /// Aligns the `aligned` texts of `a` and `b`, and of every axes
+    /// aligned with either, for every later draw, whatever grid they are in
+    /// (matplotlib's `_align_label_groups[...].join(a, b)`).
+    ///
+    /// ```
+    /// use pltrs::layout::Aligned;
+    /// use pltrs::prelude::*;
+    /// use pltrs::ticker::AxisName;
+    /// let fig = Figure::new();
+    /// let axs = fig.subplots(2, 1)?;
+    /// let x = Aligned::Labels(AxisName::X);
+    /// fig.join_aligned(x, &axs[(0, 0)], &axs[(1, 0)]);
+    /// assert_eq!(fig.aligned_with(x, &axs[(0, 0)]).len(), 2);
+    /// # Ok::<(), pltrs::gridspec::GridSpecError>(())
+    /// ```
+    pub fn join_aligned(&self, aligned: Aligned, a: &Axes, b: &Axes) -> &Self {
+        let frame = self.raw().id();
+        let mut state = self.raw().figure_state().borrow_mut();
+        state
+            .layout
+            .label_groups
+            .join(frame, aligned, a.id(), b.id());
+        state.stale = true;
+        self
+    }
+
+    /// The axes whose `aligned` texts align with those of `axes` in this
+    /// figure, `axes` included (matplotlib's
+    /// `_align_label_groups[...].get_siblings(axes)`).
+    #[must_use]
+    pub fn aligned_with(&self, aligned: Aligned, axes: &Axes) -> Vec<Axes> {
+        let ids = self
+            .raw()
+            .figure_state()
+            .borrow()
+            .layout
+            .label_groups
+            .siblings(self.raw().id(), aligned, axes.id());
+        axes.in_same_figure(ids)
     }
 
     /// The ids of `axes`, or of every axes of the figure.

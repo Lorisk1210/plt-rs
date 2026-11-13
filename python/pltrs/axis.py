@@ -2226,6 +2226,12 @@ class Axis(DrawnWith, Artist):
         _values.remember(self, "labelpad", pad)
         _unusable.drop(self.axes, f"{self.axis_name}axis labelpad")
 
+    @property
+    def _autolabelpos(self):
+        # matplotlib's flag: whether the label is placed beside the tick
+        # labels, until `set_label_coords` places it.
+        return "_label_transform" not in self.__dict__
+
     def set_label_coords(self, x, y, transform=None):
         """
         Set the coordinates of the label.
@@ -2957,29 +2963,46 @@ class YAxis(_AxisOfAxes):
 
 
 
-def _matplotlib_method(name):
+def _matplotlib_method(name, parameters):
     """matplotlib's private method *name* of an axis, which the package's
     classes have no use for themselves: a class of the program's calls it
-    on a held axis (``super()._copy_tick_props(src, dest)``)."""
+    on a held axis (``super()._copy_tick_props(src, dest)``). Its
+    signature is matplotlib's, that of *parameters* (a function taking
+    them), which ``inspect`` reads through ``__wrapped__``."""
     def method(self, *args, **kwargs):
         return _held_axis.function(self, name)(self, *args, **kwargs)
     method.__name__ = name
+    method.__wrapped__ = parameters
     return method
 
 
-for _name in ("_get_shared_axes", "_get_axis_name", "_set_scale",
-              "_nan_out_of_scale_range", "_reset_major_tick_kw",
-              "_reset_minor_tick_kw", "_set_artist_props", "_get_ticklabel_bboxes",
-              "_copy_tick_props", "_set_tick_locations", "_get_tick_boxes_siblings",
-              "_update_label_position", "_update_offset_text_position",
-              "_get_ticks_position"):
-    setattr(Axis, _name, _matplotlib_method(_name))
+# matplotlib's private methods of every axis, and their parameters.
+_AXIS_METHODS = {
+    "_get_shared_axes": lambda self: None,
+    "_get_axis_name": lambda self: None,
+    "_set_scale": lambda self, value, **kwargs: None,
+    "_nan_out_of_scale_range": lambda self, data: None,
+    "_reset_major_tick_kw": lambda self: None,
+    "_reset_minor_tick_kw": lambda self: None,
+    "_set_artist_props": lambda self, a: None,
+    "_get_ticklabel_bboxes": lambda self, ticks, renderer: None,
+    "_copy_tick_props": lambda self, src, dest: None,
+    "_set_tick_locations": lambda self, ticks, *, minor=False: None,
+    "_get_tick_boxes_siblings": lambda self, renderer: None,
+    "_update_label_position": lambda self, renderer: None,
+    "_update_offset_text_position": lambda self, bboxes, bboxes2: None,
+    "_get_ticks_position": lambda self: None,
+}
+# ... and those `XAxis` and `YAxis` define again.
+_XY_METHODS = ("_init", "_update_label_position", "_update_offset_text_position")
+for _name, _parameters in _AXIS_METHODS.items():
+    setattr(Axis, _name, _matplotlib_method(_name, _parameters))
     getattr(Axis, _name).__qualname__ = f"Axis.{_name}"
 for _class in (XAxis, YAxis):
-    for _name in ("_init", "_update_label_position", "_update_offset_text_position"):
-        setattr(_class, _name, _matplotlib_method(_name))
+    for _name in _XY_METHODS:
+        setattr(_class, _name, _matplotlib_method(_name, _AXIS_METHODS.get(_name, lambda self: None)))
         getattr(_class, _name).__qualname__ = f"{_class.__name__}.{_name}"
-del _name, _class
+del _name, _class, _parameters
 
 cbook._set_module(__name__, Tick, XTick, YTick)
 # What matplotlib's `Axis` and `Tick` inherit from `Artist`, which pltrs'

@@ -595,6 +595,11 @@ class Legend(Artist):
                 and colors.is_color_like(labelcolor)):
             # One colour, as the cycle of one that gives it to every label.
             labelcolor = [colors.to_rgba(labelcolor)]
+        # pltrs (Rust) makes the legend with the numbers of a tuple; a box
+        # (`.BboxBase`) anchors it once it is made, as `set_bbox_to_anchor`
+        # does, which matplotlib's constructor calls for either.
+        anchor_box = bbox_to_anchor if isinstance(bbox_to_anchor, BboxBase) else None
+        anchor = None if anchor_box is not None else bbox_to_anchor
         kwargs = dict(
             # Entries of fewer than two points show one marker.
             loc=loc, numpoints=max(1, int(self.numpoints)),
@@ -612,8 +617,8 @@ class Legend(Artist):
             fancybox=fancybox, shadow=shadow,
             title=title, title_fontsize=title_fontsize,
             framealpha=framealpha, edgecolor=edgecolor, facecolor=facecolor,
-            linewidth=linewidth, bbox_to_anchor=bbox_to_anchor,
-            bbox_transform=(None if bbox_to_anchor is None
+            linewidth=linewidth, bbox_to_anchor=anchor,
+            bbox_transform=(None if anchor is None
                             else _live_transforms.given_to_native(bbox_transform)),
             frameon=frameon, alignment=alignment)
         self._ncols = ncols
@@ -632,6 +637,8 @@ class Legend(Artist):
         elif own_axes or not self.isaxes:
             _artist.remove(native)
         made.adopt(self)
+        if anchor_box is not None:
+            self.set_bbox_to_anchor(anchor_box, bbox_transform)
         _legend_checks.keep_borderaxespad(self, borderaxespad)
         if takes_from_program(type(self), "set_loc"):
             # matplotlib's constructor places the legend through it.

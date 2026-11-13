@@ -329,3 +329,15 @@ hostile/table_cell_1$ | ^exception\[draw\]: missing OverflowError$ @ ^line 481$ 
 # with AVX-512, and its long sums round otherwise; pltrs does not follow
 # them by processor (python/DESIGN.md, "Processor levels").
 images_contours_and_fields/tricontour_smooth_delaunay$ | ^value\[refine_field\]: array values$ @ ^95:0\[1\]$ | the min_E interpolation of the example's random points (flat triangles among them) solves an ill-conditioned system, whose result moves by the tolerance under matplotlib itself between OpenBLAS's kernels: with numpy at X86_V3 its minimum is -8.772904476 on the SkylakeX kernels and -8.772913748 on the Haswell ones (1.06e-6 apart), where pltrs gives -8.772904663; clean with AVX-512
+
+# A callback of the program's that clears its Axes, or removes the Axes'
+# text, while those Axes are drawn. matplotlib's draw goes on with the
+# artists it listed before the callback ran and fails on the text the
+# callback took out of the figure: Text._get_layout reads
+# self.get_figure(root=True).dpi (text.py, line 437) of a text without a
+# figure. pltrs (Rust) draws the artists the Axes still hold. The failure
+# is this draw's alone: every value the programs read afterwards and the
+# next draw and print are the same. The error is an accident of the order
+# in which matplotlib's draw lists and reads its artists, not one a program
+# is told to expect.
+generated/reentry/(agg_filter|artist-draw|colormap-call|formatter|locator-call|locator-tick_values|norm-call|path_effect|scale-transform|scale-transform-set_xscale|transform-non_affine)--(clear|remove)$ | ^exception\[draw\]: missing AttributeError$ | matplotlib draws a text the callback removed from the figure during this draw and fails reading its figure's dpi; pltrs draws what the Axes still hold

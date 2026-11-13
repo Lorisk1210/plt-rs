@@ -70,11 +70,9 @@ def warned(call):
         for message in [warning.message for warning in caught] + logged.messages))
 
 
-def here(counts):
-    """*counts*, of Linux' numpy, as this system's numpy counts: without
-    the warnings of matrix products where it warns of none
-    (`build_facts.PRODUCTS_WARN`)."""
-    return {message: counts[message] for message in build_facts.as_numpy_warns(counts)}
+#: Counts recorded with Linux' numpy, as this system's numpy counts them
+#: (`build_facts.PRODUCTS_WARN`).
+here = build_facts.as_numpy_counts
 
 
 def plotted():

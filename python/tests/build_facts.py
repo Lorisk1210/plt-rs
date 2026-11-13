@@ -49,3 +49,10 @@ def as_numpy_warns(messages):
     those of matrix products where numpy's products warn of nothing."""
     return [message for message in messages
             if PRODUCTS_WARN or not message.endswith((" in dot", " in matmul"))]
+
+
+def as_numpy_counts(counts):
+    """*counts* (how often each warning came, as Linux' numpy issues
+    them), as this system's numpy counts them: without the warnings of
+    matrix products where its products warn of nothing."""
+    return {message: counts[message] for message in as_numpy_warns(counts)}

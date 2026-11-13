@@ -1296,8 +1296,9 @@ class Collection(mcolorizer.ColorizingArtist):
             if self._maps_variates():
                 self._map_variates()
             return
-        _collections.set_array(
-            self._native, np.ma.filled(self._A.astype(float), np.nan).ravel())
+        _collections.set_mapped_array(
+            self._native, np.ma.filled(self._A.astype(float), np.nan).ravel(),
+            self.cmap)
         _collections.set_mapping(self._native, self.cmap, self._colorizer.norm,
                                  self._handing_norm())
 

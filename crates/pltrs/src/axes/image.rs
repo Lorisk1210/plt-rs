@@ -1,6 +1,7 @@
 //! Showing images in an axes: `imshow`, `matshow`, images on
 //! non-uniform grids and images stretched over boxes.
 
+use std::any::Any;
 use std::rc::Rc;
 
 use pltrs_core::{Bbox, Path, Point};
@@ -12,7 +13,8 @@ use crate::colors::{ColorizerOptions, impl_colorize};
 use crate::image::{
     AxesImage, AxesImageArtist, BboxImage, BboxImageArtist, BboxImageOptions, CoreSettings, Extent,
     ImageAlpha, ImageCore, ImageData, ImageError, Interpolation, InterpolationStage,
-    NonUniformImage, NonUniformImageArtist, NonUniformInterpolation, Origin, Region,
+    NonUniformImage, NonUniformImageArtist, NonUniformInterpolation, Origin, PcolorImageArtist,
+    Region,
 };
 use crate::rc::Aspect;
 use crate::spines::SpineSide;
@@ -89,6 +91,32 @@ impl Axes {
             .into_iter()
             .map(AxesImage::from_raw)
             .collect()
+    }
+
+    /// The images of the axes placed in data coordinates, of every kind
+    /// ([`AxesImage`], [`PcolorImage`](crate::image::PcolorImage),
+    /// [`NonUniformImage`]), in the order they were added: matplotlib's
+    /// `ax.images`, which lists `AxesImage` and its subclasses.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::axes::{MeshCoords, PcolorFast, PcolorfastOptions};
+    /// use pltrs::numeric::Grid;
+    /// let ax = Figure::new().subplot();
+    /// let c = Grid::from_fn(2, 2, |r, c| (r + c) as f64);
+    /// let edges = (MeshCoords::from([0.0, 1.0, 4.0]), MeshCoords::from([0.0, 1.0, 4.0]));
+    /// let drawn = ax.pcolorfast(Some(edges), c, PcolorfastOptions::default())?;
+    /// assert!(matches!(drawn, PcolorFast::PcolorImage(_)));
+    /// assert_eq!((ax.images().len(), ax.data_images().len()), (0, 1));
+    /// # Ok::<(), pltrs::image::ImageError>(())
+    /// ```
+    pub fn data_images(&self) -> Vec<RawHandle> {
+        self.children_where(|artist| {
+            let artist = artist as &dyn Any;
+            artist.is::<AxesImageArtist>()
+                || artist.is::<PcolorImageArtist>()
+                || artist.is::<NonUniformImageArtist>()
+        })
     }
 
     /// Shows `data` as an image on a regular grid (matplotlib's `imshow`):

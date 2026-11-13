@@ -100,6 +100,27 @@ pub struct BarOptions {
     /// Error bars: drawn when `xerr` or `yerr` is set; `ecolor` defaults
     /// to `pltrs.ink` (black) and `capsize` to `errorbar.capsize`.
     pub errors: ErrorbarOptions,
+    /// Whether the extents (the thicknesses, the values and the error
+    /// sizes) are axis numbers already, converted through what they extend
+    /// from by the caller (pltrs (Python) runs matplotlib's `_convert_dx`
+    /// on the values as given): they are then taken as they are, not added
+    /// to the converted positions again, which would round them (a width
+    /// of 0.8 days from a date becoming `0.7999999999992724`).
+    ///
+    /// ```
+    /// use pltrs::axes::BarOptions;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let width = |extents_converted| {
+    ///     let options = BarOptions { extents_converted, ..BarOptions::default() };
+    ///     let bars = ax.bar([10957.0], [1.0], options)?;
+    ///     Ok::<_, pltrs::axes::PlotError>(bars.patches[0].shape().width)
+    /// };
+    /// assert_eq!(width(false)?, 0.7999999999992724, "through the position");
+    /// assert_eq!(width(true)?, 0.8);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub extents_converted: bool,
 }
 
 impl Default for BarOptions {
@@ -118,6 +139,7 @@ impl Default for BarOptions {
             tick_labels: Vec::new(),
             log: false,
             errors: ErrorbarOptions::default(),
+            extents_converted: false,
         }
     }
 }
@@ -406,12 +428,23 @@ impl Axes {
         {
             value_axis.update_units(values.clone());
         }
-        let across = |err: &ErrorSize| {
-            err.converted(|deltas| position_axis.convert_dx(deltas, positions, &starts))
+        let converted = options.extents_converted;
+        let across_dx = |deltas: &AxisDeltas| {
+            if converted {
+                position_axis.convert_deltas(deltas)
+            } else {
+                position_axis.convert_dx(deltas, positions, &starts)
+            }
         };
-        let along = |err: &ErrorSize| {
-            err.converted(|deltas| value_axis.convert_dx(deltas, &options.base, &bases))
+        let along_dx = |deltas: &AxisDeltas| {
+            if converted {
+                value_axis.convert_deltas(deltas)
+            } else {
+                value_axis.convert_dx(deltas, &options.base, &bases)
+            }
         };
+        let across = |err: &ErrorSize| err.converted(across_dx);
+        let along = |err: &ErrorSize| err.converted(along_dx);
         let errors = &options.errors;
         let (xerr, yerr) = match orientation {
             Orientation::Vertical => (
@@ -424,8 +457,8 @@ impl Axes {
             ),
         };
         let numbers = BarNumbers {
-            thickness: position_axis.convert_dx(&options.thickness, positions, &starts),
-            values: value_axis.convert_dx(values, &options.base, &bases),
+            thickness: across_dx(&options.thickness),
+            values: along_dx(values),
             starts,
             bases,
         };

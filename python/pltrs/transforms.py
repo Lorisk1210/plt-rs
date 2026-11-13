@@ -902,9 +902,12 @@ class Bbox(BboxBase):
             self._points, tuple(self._minpos), ignore,
             np.asarray(path.vertices, float).reshape((-1, 2)), (updatex, updatey))
         if np.any(points != self._points) or np.any(minpos != self._minpos):
-            self.invalidate()
+            # The points first (matplotlib invalidates first): what follows
+            # the box, pltrs (Rust)'s data limits of an Axes' ``dataLim``
+            # (`._transform_trees`), reads them when it is invalidated.
             self._points[:] = points
             self._minpos[:] = minpos
+            self.invalidate()
 
     def update_from_data_x(self, x, ignore=None):
         """

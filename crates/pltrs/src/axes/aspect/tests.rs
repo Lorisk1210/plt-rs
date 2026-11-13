@@ -217,6 +217,32 @@ fn axes_locators_place_the_axes_before_its_aspect() {
 }
 
 #[test]
+fn positions_programs_locate_child_axes_at_are_in_figure_fractions() {
+    // ultraplot's colorbar axes: a child covering its host, placed by a
+    // locator of the program's computing the host's box in figure
+    // fractions; and a child placed elsewhere.
+    let fig = Figure::new();
+    let host = fig
+        .add_axes([0.1, 0.1, 0.8, 0.2])
+        .expect("a valid rectangle");
+    for bounds in [[0.1, 0.1, 0.8, 0.2], [0.2, 0.15, 0.4, 0.1]] {
+        let child = fig.removed_axes(bounds).expect("a valid rectangle");
+        host.add_child_axes(&child).expect("added");
+        let [x, y, width, height] = bounds;
+        child.set_axes_locator(Some(AxesLocatorFn::at(Some(Bbox::from_bounds(
+            x, y, width, height,
+        )))));
+        let (px, py, pwidth, pheight) = child.position().bounds();
+        for (placed, given) in [(px, x), (py, y), (pwidth, width), (pheight, height)] {
+            assert!(
+                (placed - given).abs() < 1e-12,
+                "{bounds:?}: {placed} != {given}"
+            );
+        }
+    }
+}
+
+#[test]
 fn datalim_collapsing_the_view_warns_as_set_xbound_does() {
     // An infinite box aspect asks for an x view of no width: matplotlib's
     // `set_xbound` warns about the identical limits before the locator

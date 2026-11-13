@@ -354,11 +354,15 @@ class ErrorbarMixin:
         widths = (None if np.ndim(elinewidth) == 0 and isinstance(elinewidth, (Real, NoneType))
                   else elinewidth)
         thickness = None if isinstance(capthick, (Real, NoneType)) else capthick
+        # Several colours (one per bar, holoviews' colour ops) go to the bar
+        # collections, as matplotlib's ``eb_lines_style`` gives them.
+        colors = (None if ecolor is None or refused is not None
+                  or mcolors.is_color_like(ecolor) else ecolor)
         native, data_line, caplines, barcols = _plotting.errorbar(
             self._native, (xconv, yconv),
             (bounds.get("x"), bounds.get("y")),
             fmt, line_kwargs(kwargs),
-            (None if refused is not None else ecolor,
+            (None if refused is not None or colors is not None else ecolor,
              None if widths is not None else elinewidth, elinestyle, capsize,
              None if thickness is not None else capthick, bool(barsabove)),
             tuple(flags), everymask.tolist())
@@ -366,6 +370,9 @@ class ErrorbarMixin:
         if widths is not None:
             for barcol in barcols:
                 barcol.set_linewidth(widths)
+        if colors is not None:
+            for barcol in barcols:
+                barcol.set_color(colors)
         caplines = wrap_all(self, caplines, mlines.Line2D)
         data_line = wrap(self, data_line, mlines.Line2D)
         if data_line is not None:
@@ -382,7 +389,11 @@ class ErrorbarMixin:
             cap_color = (ecolor if ecolor is not None
                          else data_line.get_color() if data_line is not None
                          else kwargs.get("color", "C0"))
-            _values.remember(capline, "markeredgecolor", cap_color)
+            if colors is not None:
+                # Kept, and refused where the caps are drawn.
+                capline.set_markeredgecolor(colors)
+            else:
+                _values.remember(capline, "markeredgecolor", cap_color)
             if thickness is not None:
                 capline.set_markeredgewidth(thickness)
         container = ErrorbarContainer(

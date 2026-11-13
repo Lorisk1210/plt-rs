@@ -836,7 +836,10 @@ class Text(Artist):
         Return the horizontal alignment as a string.  Will be one of
         'left', 'center' or 'right'.
         """
-        return _text.get_horizontalalignment(self._native)
+        # The very object given (a `str` subclass of the program's,
+        # mplcursors' marked defaults), as matplotlib keeps it.
+        return _values.given(self, "horizontalalignment",
+                             _text.get_horizontalalignment(self._native))
 
     def get_unitless_position(self):
         """Return the (x, y) unitless position of the text."""
@@ -861,7 +864,8 @@ class Text(Artist):
         Return the vertical alignment as a string.  Will be one of
         'top', 'center', 'bottom', 'baseline' or 'center_baseline'.
         """
-        return _text.get_verticalalignment(self._native)
+        return _values.given(self, "verticalalignment",
+                             _text.get_verticalalignment(self._native))
 
     def get_window_extent(self, renderer=None, dpi=None):
         """
@@ -1018,6 +1022,7 @@ class Text(Artist):
         """
         _api.check_in_list(['center', 'right', 'left'], align=align)
         _text.set_horizontalalignment(self._native, align)
+        _values.remember(self, "horizontalalignment", align)
 
     def set_multialignment(self, align):
         """
@@ -1320,6 +1325,7 @@ class Text(Artist):
             ['top', 'bottom', 'center', 'baseline', 'center_baseline'],
             align=align)
         _text.set_verticalalignment(self._native, align)
+        _values.remember(self, "verticalalignment", align)
 
     def set_text(self, s):
         r"""

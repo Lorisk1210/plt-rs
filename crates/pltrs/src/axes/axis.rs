@@ -419,6 +419,7 @@ impl AxisState {
                     AxisName::X => rc.xaxis_labellocation.into(),
                     AxisName::Y => rc.yaxis_labellocation.into(),
                 },
+                along: None,
                 halign: None,
                 multialign: None,
                 visible: true,

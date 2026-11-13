@@ -137,6 +137,11 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
         }
         .run(&baselines::comparing(library)?, &targets)?;
         times.push((library.title, started.elapsed().as_secs()));
+        // A run of every file of the library (by patterns or without) has
+        // the whole suite: what was recorded for files no longer in it goes.
+        if ran_files.len() == files.len() {
+            merged.forget_files_gone(library.tests, files);
+        }
         merged.merge(run, &ran_files);
     }
     let mut versions = Vec::new();

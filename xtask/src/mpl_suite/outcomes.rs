@@ -160,6 +160,23 @@ impl Outcomes {
         self.collection_errors.extend(run.collection_errors);
     }
 
+    /// Forgets what was recorded for the test files under `suite` (test
+    /// directories and files of a suite run in full) that are not among
+    /// `files`, the suite's files now: ids of files gone from it, or of
+    /// files a run of another tree found (a file left in a site by hand),
+    /// which no later run would replace.
+    pub(crate) fn forget_files_gone(&mut self, suite: &[&str], files: &[String]) {
+        let gone = |file: &str| {
+            suite
+                .iter()
+                .any(|top| file == *top || file.starts_with(&format!("{top}/")))
+                && !files.iter().any(|kept| kept == file)
+        };
+        self.tests.retain(|id, _| !gone(file_of(id)));
+        self.reasons.retain(|id, _| !gone(file_of(id)));
+        self.collection_errors.retain(|file, _| !gone(file));
+    }
+
     /// Whether the run has a test of, or a collection error for, `file`.
     fn covers_file(&self, file: &str) -> bool {
         let prefix = format!("{file}::");
@@ -322,6 +339,31 @@ mod tests {
         assert_eq!(all.tests["f.py::a"], Outcome::Passed);
         assert_eq!(all.tests["g.py::b"], Outcome::Passed);
         assert!(all.collection_errors.is_empty(), "h.py ran and collected");
+    }
+
+    #[test]
+    fn a_full_run_forgets_the_files_gone_from_its_suite() {
+        let mut all = Outcomes::default();
+        for id in [
+            "lib/tests/test_a.py::t",
+            "lib/tests/plots/test_left_by_hand.py::t",
+            "lib/testsuite/test_c.py::t",
+            "other/tests/test_d.py::t",
+        ] {
+            all.tests.insert(id.into(), Outcome::Passed);
+        }
+        all.collection_errors
+            .insert("lib/tests/test_gone.py".into(), "ImportError".into());
+        all.forget_files_gone(&["lib/tests"], &["lib/tests/test_a.py".to_owned()]);
+        assert_eq!(
+            all.tests.keys().collect::<Vec<_>>(),
+            [
+                "lib/tests/test_a.py::t",
+                "lib/testsuite/test_c.py::t",
+                "other/tests/test_d.py::t"
+            ]
+        );
+        assert!(all.collection_errors.is_empty());
     }
 
     #[test]

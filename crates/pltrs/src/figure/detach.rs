@@ -93,6 +93,18 @@ impl FigureState {
             || (self.detached.get(id)).is_some_and(|artist| artist.base().parent.is_none())
     }
 
+    /// Whether artist `id` is a copy of an artist
+    /// ([`RawHandle::detached_copy`](crate::artist::RawHandle::detached_copy)):
+    /// kept apart from the tree, owned by an artist that does not hold it
+    /// among its children.
+    fn is_loose_copy(&self, id: ArtistId) -> bool {
+        self.detached
+            .get(id)
+            .and_then(|artist| artist.base().parent)
+            .and_then(|owner| self.artist(owner))
+            .is_some_and(|owner| !owner.children().contains(&id))
+    }
+
     /// Inserts `artist` as a child of the container `parent` (a figure
     /// frame or an axes). An artist made in a removed artist is removed
     /// with it, together with the artists it owns.
@@ -161,17 +173,17 @@ impl FigureState {
         }
     }
 
-    /// Adds artist `id`, removed from the figure, back as a child of the
-    /// container `parent` with the artists it owns: into the figure when
-    /// `parent` is in it, else into the removed artist `parent`. The
-    /// artist goes last among the children, so it is drawn above those of
-    /// equal z-order.
+    /// Adds artist `id`, removed from the figure (or a copy of one of its
+    /// artists), back as a child of the container `parent` with the
+    /// artists it owns: into the figure when `parent` is in it, else into
+    /// the removed artist `parent`. The artist goes last among the
+    /// children, so it is drawn above those of equal z-order.
     pub(crate) fn attach_artist(
         &mut self,
         parent: ArtistId,
         id: ArtistId,
     ) -> Result<(), AttachError> {
-        if !self.is_removed(id) {
+        if !self.is_removed(id) && !self.is_loose_copy(id) {
             return Err(if self.detached.contains(id) {
                 AttachError::OwnedByRemoved
             } else {
@@ -382,6 +394,24 @@ mod tests {
             crate::rc::params(),
         )));
         assert!(fig.state().is_removed(removed));
+    }
+
+    #[test]
+    fn copies_of_artists_are_attached_as_removed_artists_are() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let line = ax.plot([0.0, 1.0], [1.0, 0.0]).unwrap();
+        let copy = line.raw().detached_copy();
+        assert!(!children(&fig, ax.id()).contains(&copy.id()), "not drawn");
+        fig.state_mut().attach_artist(ax.id(), copy.id()).unwrap();
+        let held = children(&fig, ax.id());
+        assert!(held.contains(&copy.id()) && held.contains(&line.id()));
+        assert!(fig.state().is_attached(copy.id()));
+        assert_eq!(
+            fig.state_mut().attach_artist(ax.id(), copy.id()),
+            Err(AttachError::NotRemoved),
+            "a child of its Axes now"
+        );
     }
 
     #[test]

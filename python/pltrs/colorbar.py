@@ -616,6 +616,11 @@ class Colorbar:
             # matplotlib's locator of the ticks given, which keeps them as
             # given (integers stay).
             self.locator = ticker.FixedLocator(ticks, nbins=len(ticks))
+        if isinstance(format, ticker.Formatter):
+            # matplotlib sets a formatter given on the long axis, which
+            # formats its ticks through it (``format_ticks``: a
+            # `.ScalarFormatter` labels nothing called tick by tick).
+            self.formatter = format
         self._keep_tickers()
         mappable.colorbar = self
         mappable.colorbar_cid = mappable.callbacks.connect(

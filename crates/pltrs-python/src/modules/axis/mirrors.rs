@@ -578,7 +578,7 @@ fn sync_axis_label(owner: AxisOwner, name: String, text: Text) -> PyResult<()> {
     };
     // Along the axis in axes fractions, across it in display pixels where
     // the axis' last layout placed it (0 before), or at its coordinates.
-    let along = axis.label_loc().fraction();
+    let along = axis.label_along();
     let placed = axis.label_placed();
     let position = axis.label_coords().unwrap_or(match axis.name() {
         AxisName::X => Point::new(along, placed.map_or(0.0, |anchor| anchor.y)),
@@ -619,8 +619,16 @@ fn push_axis_label(owner: AxisOwner, name: String, text: Text) -> PyResult<()> {
         AxisName::X => position.x,
         AxisName::Y => position.y,
     };
-    if let Some(loc) = label_loc(along).filter(|&loc| loc != axis.label_loc()) {
-        axis.set_label_loc(loc);
+    // At another of matplotlib's `loc`s, the label takes it; anywhere
+    // else, it keeps its `loc` and sits there.
+    match label_loc(along) {
+        Some(loc) if loc != axis.label_loc() => {
+            axis.set_label_loc(loc);
+        }
+        _ if along.total_cmp(&axis.label_along()).is_ne() => {
+            axis.set_label_along(along);
+        }
+        _ => {}
     }
     if let Some(label) = own(text.text(), &axis.label_text()) {
         axis.set_label_text(label);

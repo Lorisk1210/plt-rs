@@ -8,7 +8,7 @@ added by `~.axes._base._AxesBase` (``add_line``, ``add_patch``,
 """
 
 from .. import _handles, cbook
-from .. import collections as mcoll, image as mimage
+from .. import collections as mcoll
 from .. import table as mtable
 from .._native import axes as _axes, image as _native_image, plotting as _plotting
 from .._native import table as _table, text as _text
@@ -33,9 +33,10 @@ class ChildrenMixin:
 
     @property
     def images(self):
-        return ArtistList._of("images", lambda: _handles.wrap_all(
-            _native_image.get_images(self._native), mimage.AxesImage,
-            self.figure))
+        # `AxesImage` and its subclasses (`PcolorImage`, `NonUniformImage`).
+        return ArtistList._of("images", lambda: [
+            _handles.wrap_any(native, self._figure)
+            for native in _native_image.get_images(self._native)])
 
     @property
     def lines(self):
@@ -76,7 +77,11 @@ class ChildrenMixin:
         if legend is current:
             return
         if legend is None:
-            current.remove()
+            # matplotlib's attribute only forgets the legend: neither the
+            # `remove` of the program's class nor the legend's removal
+            # method runs, which may set this attribute themselves
+            # (ultraplot's, `Axes.legend`'s).
+            current._take_out_of_figure()
             return
         from .._native import legend as _legend
         if not _legend.set_axes_legend(self._native, legend._native):

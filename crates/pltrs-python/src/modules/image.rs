@@ -256,8 +256,8 @@ fn autoscale_on(axes: Axes) -> PyResult<(bool, bool)> {
 }
 
 /// The images of `axes`, in the order they were added.
-fn get_images(axes: Axes) -> PyResult<Vec<AxesImage>> {
-    Ok(axes.images())
+fn get_images(axes: Axes) -> PyResult<Vec<RawHandle>> {
+    Ok(axes.data_images())
 }
 
 /// The images of an axes in data coordinates, which have an extent

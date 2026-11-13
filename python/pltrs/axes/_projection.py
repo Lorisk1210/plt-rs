@@ -18,7 +18,7 @@ class ProjectionMixin:
         as matplotlib's ``add_child_axes`` sets it; the one it was set to
         since (None once it was removed)."""
         if "_axes" in self.__dict__:
-            return self._axes
+            return self.__dict__["_axes"]
         return self.__dict__.get("_child_of", self)
 
     @axes.setter
@@ -27,7 +27,23 @@ class ProjectionMixin:
         if new_axes is not None and current is not None and new_axes is not current:
             raise ValueError("Can not reset the Axes. You are probably trying to reuse "
                              "an artist in more than one Axes which is not supported")
-        self._axes = new_axes
+        self.__dict__["_axes"] = new_axes
+
+    @property
+    def _axes(self):
+        """matplotlib's attribute behind `axes` (the Axes itself, or the
+        Axes a child Axes is a child of), which a class of the program's
+        forwarding the names it lacks to another Axes (ultraplot's
+        containers) reads of itself too."""
+        return self.axes
+
+    @_axes.setter
+    def _axes(self, value):
+        self.__dict__["_axes"] = value
+
+    @_axes.deleter
+    def _axes(self):
+        self.__dict__.pop("_axes", None)
 
     def _gen_axes_spines(self, locations=None, offset=0.0, units='inches'):
         """

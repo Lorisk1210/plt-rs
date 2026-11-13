@@ -8,7 +8,7 @@ classes include. pltrs (Rust) lays the figures out (``pltrs::layout``).
 
 import numpy as np
 
-from . import _api, _docstring, _handles, _lazy_imports, rcParams
+from . import _api, _docstring, _handles, _lazy_imports, cbook, rcParams
 from ._native import figure as _figure, figure_layout as _figure_layout
 from ._native import rcsetup as _rcsetup
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
@@ -25,6 +25,18 @@ _SUPER_TEXTS = {
     "title": (_figure.suptitle, True),
     "xlabel": (_figure.supxlabel, True),
     "ylabel": (_figure.supylabel, False),
+}
+
+#: matplotlib's attribute holding each figure-wide text, and what its
+#: `_suplabels` gives a text a program put there: the position (x, y), the
+#: alignments, the rotation and the rcParams of the font's size and weight.
+_PROGRAM_SUPER_TEXTS = {
+    "title": ("_suptitle", (0.5, 0.98), "center", "top", 0,
+              "figure.titlesize", "figure.titleweight"),
+    "xlabel": ("_supxlabel", (0.5, 0.01), "center", "bottom", 0,
+               "figure.labelsize", "figure.labelweight"),
+    "ylabel": ("_supylabel", (0.02, 0.5), "left", "center", "vertical",
+               "figure.labelsize", "figure.labelweight"),
 }
 
 
@@ -83,6 +95,8 @@ default: %(va)s
         # "ylabel") showing *t*, as matplotlib's does: its defaults come
         # back, *x* and *y* place it, and the layout engine places it across
         # its edge unless that coordinate is given.
+        if self._program_super_text(kind) is not None:
+            return self._update_program_super_text(t, kind, kwargs)
         x = kwargs.pop('x', None)
         y = kwargs.pop('y', None)
         make, across_is_y = _SUPER_TEXTS[kind]
@@ -134,6 +148,36 @@ default: %(va)s
         matplotlib's attribute then is (`clear` forgets it)."""
         self.__dict__.setdefault("_super_texts_given", {})[index] = text
 
+    def _program_super_text(self, kind):
+        """The text a program put in the attribute of the figure-wide text
+        *kind* (`_given_super_text`), if any."""
+        index = list(_SUPER_TEXTS).index(kind)
+        return self.__dict__.get("_super_texts_given", {}).get(index)
+
+    def _update_program_super_text(self, t, kind, kwargs):
+        """matplotlib's `_suplabels` on the text a program put in the
+        attribute of the figure-wide text *kind*."""
+        _, (x0, y0), ha, va, rotation, size, weight = _PROGRAM_SUPER_TEXTS[kind]
+        x = kwargs.pop('x', None)
+        y = kwargs.pop('y', None)
+        autopos = (x if kind == "ylabel" else y) is None
+        x = x0 if x is None else x
+        y = y0 if y is None else y
+        kwargs = cbook.normalize_kwargs(kwargs, Text)
+        kwargs.setdefault('horizontalalignment', ha)
+        kwargs.setdefault('verticalalignment', va)
+        kwargs.setdefault('rotation', rotation)
+        if 'fontproperties' not in kwargs:
+            kwargs.setdefault('fontsize', rcParams[size])
+            kwargs.setdefault('fontweight', rcParams[weight])
+        text = self._program_super_text(kind)
+        text.set_text(t)
+        text.set_position((x, y))
+        text.set(**kwargs)
+        text._autopos = autopos
+        self.stale = True
+        return text
+
     _suptitle = property(lambda self: self._super_text(0),
                          lambda self, text: self._given_super_text(0, text),
                          doc="The figure title, or None.")
@@ -146,15 +190,24 @@ default: %(va)s
 
     def get_suptitle(self):
         """Return the suptitle as string or an empty string if not set."""
-        return _figure.super_texts(self._native)[0]
+        return self._super_text_string(0)
 
     def get_supxlabel(self):
         """Return the supxlabel as string or an empty string if not set."""
-        return _figure.super_texts(self._native)[1]
+        return self._super_text_string(1)
 
     def get_supylabel(self):
         """Return the supylabel as string or an empty string if not set."""
-        return _figure.super_texts(self._native)[2]
+        return self._super_text_string(2)
+
+    def _super_text_string(self, index):
+        """The string of the figure-wide text *index* (title, xlabel,
+        ylabel): of the text the program put there, else pltrs (Rust)'s;
+        an empty string for none."""
+        held = self.__dict__.get("_super_texts_given", {})
+        if index in held:
+            return "" if held[index] is None else held[index].get_text()
+        return _figure.super_texts(self._native)[index]
 
     def align_xlabels(self, axs=None):
         """

@@ -1074,13 +1074,21 @@ class Legend(Artist):
         if anchor is None:
             return self.parent.bbox
         bounds, native = anchor
-        given = self.__dict__.get("_bbox_to_anchor")
+        given = self.__dict__.get("_anchored")
         if given is not None and given[1] == bounds:
             return given[0]
         bbox = TransformedBbox(Bbox.from_bounds(*bounds),
                                _live_transforms.from_native(self.figure, native))
-        self._bbox_to_anchor = (bbox, bounds)
+        self._anchored = (bbox, bounds)
         return bbox
+
+    @property
+    def _bbox_to_anchor(self):
+        # matplotlib's attribute: the box the legend is anchored to, None
+        # for its parent's (which exporters read).
+        if _legend.get_bbox_to_anchor(self._native) is None:
+            return None
+        return self.get_bbox_to_anchor()
 
     def set_bbox_to_anchor(self, bbox, transform=None):
         """
@@ -1103,7 +1111,7 @@ class Legend(Artist):
             will use a transform to the bounding box of the parent.
         """
         if bbox is None:
-            self.__dict__.pop("_bbox_to_anchor", None)
+            self.__dict__.pop("_anchored", None)
             _legend.set_bbox_to_anchor(self._native, None, None)
             return
         elif not isinstance(bbox, BboxBase):
@@ -1141,7 +1149,7 @@ class Legend(Artist):
         bounds = tuple(map(float, bbox.bounds))
         _legend.set_bbox_to_anchor(self._native, bounds,
                                    _live_transforms.to_native(transform))
-        self._bbox_to_anchor = (anchored, bounds)
+        self._anchored = (anchored, bounds)
 
 
 def _get_legend_handles(axs, legend_handler_map=None):

@@ -2503,9 +2503,11 @@ def _native_norm(norm):
     None, of *shape*, unless it is None), ``normalize_scalar(value)`` (a
     value handed over alone),
     ``autoscale_none(values, mask, shape)``, ``inverse(values)``,
-    ``set_limits(vmin, vmax)`` and ``state()``; and ``scale``, the name and
+    ``set_limits(vmin, vmax)`` and ``state()``; ``scale``, the name and
     options of pltrs (Rust)'s scale matching the scale the norm is made
-    from (``norm._scale``), if any. They take and give plain arrays, the
+    from (``norm._scale``), if any; and ``boundary``, the boundaries,
+    colour count and extension of a norm deriving from `BoundaryNorm`.
+    They take and give plain arrays, the
     mask apart. pltrs (Rust) calls them while it draws, when the norm's
     changes must not reach its mappables (which pltrs (Rust) is drawing),
     so they change the norm without its callbacks.
@@ -2549,10 +2551,23 @@ def _native_norm(norm):
         return norm.vmin, norm.vmax, bool(norm.clip)
 
     scale = getattr(norm, "_scale", None)
+    # A norm deriving from BoundaryNorm, which matplotlib's colorbar shows by
+    # its bins (``isinstance(norm, BoundaryNorm)``), never inverting it. A
+    # class of the program's may not have run BoundaryNorm's constructor
+    # (ultraplot's ``DiscreteNorm``), whose colour count and extensions it
+    # then lacks: as many colours as bins, and those the colorbar reads
+    # (``getattr(norm, 'extend')`` where it has one).
+    boundary = None
+    if isinstance(norm, BoundaryNorm):
+        boundaries = list(map(float, norm.boundaries))
+        boundary = (boundaries,
+                    int(getattr(norm, "Ncmap", len(boundaries) + 1)),
+                    str(getattr(norm, "extend", "neither")))
     return {"normalize": normalize, "normalize_scalar": normalize_scalar,
             "autoscale_none": autoscale_none, "inverse": inverse,
             "set_limits": set_limits, "state": state,
-            "scale": None if scale is None else _native_scale_of(scale)}
+            "scale": None if scale is None else _native_scale_of(scale),
+            "boundary": boundary}
 
 
 _register("native_norm", _native_norm)

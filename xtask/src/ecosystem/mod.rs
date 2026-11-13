@@ -3,7 +3,12 @@
 //! name: pandas, seaborn, xarray, networkx, scikit-learn, statsmodels,
 //! geopandas, plotnine, shap, lifelines, yellowbrick, astropy, cartopy,
 //! sympy, nilearn, arviz, scanpy, mne, mplfinance, matplotlib-venn,
-//! pytest-mpl, mpl-scatter-density and missingno (`libraries`).
+//! pytest-mpl, mpl-scatter-density and missingno, and the libraries
+//! building on matplotlib's parts: mpld3, matplot2tikz, mplcursors,
+//! mpl-interactions, matplotlib-scalebar, matplotlib-label-lines,
+//! ultraplot, mplhep, holoviews, mpltern, windrose, python-ternary,
+//! pycirclize, statannotations, `UpSetPlot`, pingouin, optuna, mlxtend,
+//! `MetPy`, squarify and `SciencePlots` (`libraries`).
 //!
 //! * `ecosystem setup` makes the ecosystem's venvs with uv (`venvs`), downloads
 //!   the libraries' source trees (`setup`) and the data their tests read

@@ -73,6 +73,13 @@ class _TwinnedAxes:
         """Return whether *a* and *b* are members of the same set."""
         return a.figure is b.figure and b in self.get_siblings(a)
 
+    def join(self, a, *args):
+        """
+        Join given arguments into the same set.  Accepts one or more arguments.
+        """
+        for b in args:
+            _navigation.join_twins(a._native, b._native)
+
 
 class NavigationMixin:
     """The navigation methods of `~.axes.Axes`."""

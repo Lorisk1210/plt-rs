@@ -80,6 +80,14 @@ def _get_dash_patterns(styles):
     return patterns
 
 
+def _same_dashes(a, b):
+    """Whether the dash patterns ``(offset, dashes)`` *a* and *b* hold the
+    same numbers."""
+    if a[1] is None or b[1] is None:
+        return a[1] is b[1] and a[0] == b[0]
+    return a[0] == b[0] and list(map(float, a[1])) == list(map(float, b[1]))
+
+
 def _get_inverse_dash_pattern(offset, dashes):
     """Return the inverse of the given dash pattern, for filling the gaps."""
     # Define the inverse pattern by moving the last gap to the start of the
@@ -249,8 +257,11 @@ def _same_number(value, native):
 def _remember_given(line, props):
     """Remember what *line* reads back of its properties *props*, given
     by any of their names (``mew``)."""
-    _values.remember_all(line, cbook.normalize_kwargs(props, Line2D),
-                         _GIVEN_COLORS + _GIVEN_NUMBERS)
+    props = cbook.normalize_kwargs(props, Line2D)
+    _values.remember_all(line, props, _GIVEN_COLORS + _GIVEN_NUMBERS)
+    if isinstance(props.get("linestyle"), tuple):
+        # The pattern as matplotlib keeps it (`_unscaled_dash_pattern`).
+        line._given_dash_pattern = _get_dash_pattern(props["linestyle"])
 
 
 @_docstring.interpd
@@ -693,6 +704,19 @@ class Line2D(Artist):
         """
         return self._get("drawstyle")
 
+    # matplotlib's attributes, which exporters read: the draw style, and
+    # the dash pattern of the line style before the line width scales it.
+    _drawstyle = property(get_drawstyle)
+    @property
+    def _unscaled_dash_pattern(self):
+        native = _get_dash_pattern(self._get("dash_pattern"))
+        given = self.__dict__.get("_given_dash_pattern")
+        # The style as given, offset and sequence (a tuple or a list) of
+        # the very numbers, while pltrs (Rust) draws it.
+        if given is not None and _same_dashes(given, native):
+            return given
+        return native
+
     def set_drawstyle(self, drawstyle):
         """
         Set the drawstyle of the plot.
@@ -835,6 +859,9 @@ class Line2D(Artist):
         self.__dict__.pop("_named_dashed", None)
         _unusable.drop(self, "dashes")
         self._set_native(linestyle=ls)
+        # The pattern as matplotlib keeps it, of the style given
+        # (`_unscaled_dash_pattern`).
+        self._given_dash_pattern = _get_dash_pattern(ls)
 
     def _keeps_dashes(self, dashes):
         """Keep the dash list *dashes* if pltrs (Rust) cannot hold it (no

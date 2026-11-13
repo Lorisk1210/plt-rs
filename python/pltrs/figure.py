@@ -46,21 +46,28 @@ from ._artist_staleness import _stale_figure_callback  # noqa: F401
 _figure_artists = _lazy_imports.module(globals(), "._figure_artists")
 _foreign_children = _lazy_imports.module(globals(), ".axes._foreign_children")
 _layout_checks = _lazy_imports.module(globals(), "._layout_checks")
+_figure_draws = _lazy_imports.module(globals(), "._figure_draws")
 
 _log = logging.getLogger(__name__)
 
 
 def _native_maker(projection_class):
     """
-    How the native axes of a new *projection_class* is made: by the class'
-    own ``_make_native``; by its constructor for a subclass of `.Axes`
-    with a constructor of its own, which matplotlib calls with the
-    keywords of ``add_subplot``; else None, for pltrs (Rust)'s axes of the
-    projection.
+    How the native axes of a new *projection_class* is made: by its
+    constructor for a subclass of `.Axes` with a constructor of the
+    program's, which matplotlib calls with the keywords of
+    ``add_subplot``; by the class' own ``_make_native``; by its
+    constructor for any other subclass with a constructor of its own;
+    else None, for pltrs (Rust)'s axes of the projection.
     """
     if not callable(projection_class):
         # matplotlib calls it to make the Axes (a program's *axes_class*).
         raise TypeError(f"'{type(projection_class).__name__}' object is not callable")
+    if (isinstance(projection_class, type) and issubclass(projection_class, Axes)
+            and takes_from_program(projection_class, "__init__")):
+        # A constructor of the program's (ultraplot's polar and 3-D Axes),
+        # which matplotlib calls with the keywords whatever the class.
+        return projection_class._constructed_native
     make = getattr(projection_class, "_make_native", None)
     if (make is None and projection_class.name == "rectilinear"
             and projection_class.__init__ is not Axes.__init__):
@@ -236,7 +243,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         """The `.Text` instances added to the (sub)figure itself, in a list
         drawing those put in it (see `._figure_artists`)."""
         return _figure_artists.DrawnList(
-            self, _handles.wrap_all(_figure.texts(self._native), Text, self))
+            self, _handles.wrap_all(_figure.texts(self._native), Text, self), texts=True)
 
     @texts.setter
     def texts(self, texts):
@@ -636,9 +643,8 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         ax = self._new_axes(native, projection_class, pkw)
         # The spec given, as matplotlib's Axes keeps it (``_subplotspec``).
         ax._place_on(subplotspec)
-        if takes_from_program(type(subplotspec.get_gridspec()), "get_grid_positions"):
-            # Where the grid's class of the program's puts the cells, as
-            # matplotlib's Axes places itself on its spec.
+        if _gridspec_kept.placed_by_program(subplotspec):
+            # Where the program's code puts it, as matplotlib's Axes asks.
             ax._set_position(subplotspec.get_position(self))
         return ax
 
@@ -1600,6 +1606,12 @@ class Figure(FigureLayout, FigureImagesMixin, RootFigureMixin, FigureBase):
 
     def draw(self, renderer):
         # docstring inherited
+        native = _figure_draws.take(self)
+        if native is not None:
+            # A canvas drawing the figure through its class' own draw
+            # (`._figure_draws`): pltrs (Rust) draws it here.
+            native()
+            return
         super().draw(renderer)
 
     def clear(self, keep_observers=False):

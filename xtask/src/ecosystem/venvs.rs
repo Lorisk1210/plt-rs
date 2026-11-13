@@ -7,7 +7,9 @@
 //! and `reference-venv`, pinned by `python/requirements-ecosystem-<library>.txt`
 //! and made the same way: matplotlib excluded from the pltrs side,
 //! `requirements-ecosystem-reference.txt` added to the reference side.
-//! uv links their packages from its cache, so they cost little disk and a
+//! A group of libraries kept apart from the shared venvs (the add-ons
+//! building on matplotlib's parts) shares two the same way, named after
+//! the group. uv links their packages from its cache, so they cost little disk and a
 //! short setup, and every pltrs venv imports pltrs (Python) from the
 //! source tree, one extension for all.
 
@@ -29,6 +31,7 @@ pub(super) fn requirements(library: &Library) -> String {
     match library.venvs {
         Venvs::Shared => SHARED.to_owned(),
         Venvs::Own => format!("requirements-ecosystem-{}.txt", library.name),
+        Venvs::Group(group) => format!("requirements-ecosystem-{group}.txt"),
     }
 }
 
@@ -37,6 +40,7 @@ pub(super) fn venv(library: &Library, mode: Mode) -> PathBuf {
     let dir = match library.venvs {
         Venvs::Shared => super::ecosystem_dir(),
         Venvs::Own => super::ecosystem_dir().join("venvs").join(library.name),
+        Venvs::Group(group) => super::ecosystem_dir().join("venvs").join(group),
     };
     match mode {
         Mode::Pltrs => dir.join("venv"),
@@ -93,6 +97,15 @@ mod tests {
         assert_eq!(
             venv(&lifelines, Mode::Reference),
             super::super::ecosystem_dir().join("venvs/lifelines/reference-venv")
+        );
+        let mplcursors = named("mplcursors");
+        assert_eq!(
+            requirements(&mplcursors),
+            "requirements-ecosystem-addons.txt"
+        );
+        assert_eq!(
+            venv(&mplcursors, Mode::Pltrs),
+            super::super::ecosystem_dir().join("venvs/addons/venv")
         );
     }
 }

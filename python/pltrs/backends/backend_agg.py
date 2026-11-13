@@ -375,7 +375,11 @@ class FigureCanvasAgg(FigureCanvasBase):
         self.renderer.clear()
         with self._wait_cursor():
             with self.renderer._drawing():
-                _backends.draw(self.figure._native)
+                # Through the figure's class' own draw, if it has one.
+                from .. import _figure_draws
+                _figure_draws.draw(self.figure,
+                                   lambda: _backends.draw(self.figure._native),
+                                   lambda: self.renderer)
             DrawEvent("draw_event", self, self.renderer)._process()
             # A GUI class may be need to update a window using this draw, so
             # don't forget to call the superclass.

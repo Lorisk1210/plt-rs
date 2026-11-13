@@ -1157,13 +1157,52 @@ class Axis(DrawnWith, Artist):
 
     @_scale.setter
     def _scale(self, scale):
-        # matplotlib's attribute, which programs assign (ultraplot gives an
-        # axis the scale object of the axis it shares): the scale object
-        # itself where the kind stays, else the scale set.
-        if scale.name == self.get_scale():
-            self._given_scale = scale
+        # matplotlib's ``_scale`` is the attribute `_set_axes_scale` sets,
+        # which programs set themselves (ultraplot's dual and shared
+        # axes): the axis has the scale from then on, its tick helpers
+        # and their default flags left as they were.
+        helpers = self._tick_helpers()
+        defaults = [(minor, kind, self._default(minor, kind))
+                    for minor in (False, True) for kind in ("locator", "formatter")]
+        self._given_scale = scale
+        self._install_scale(scale)
+        self._restore_tick_helpers(helpers)
+        for minor, kind, default in defaults:
+            self._set_default(minor, kind, default)
+
+    def _tick_helpers(self):
+        """The major and minor locators and formatters, in the order
+        `_restore_tick_helpers` takes them."""
+        return (self.get_major_locator(), self.get_minor_locator(),
+                self.get_major_formatter(), self.get_minor_formatter())
+
+    def _restore_tick_helpers(self, helpers):
+        """Give the axis the tick helpers *helpers* (`_tick_helpers`)."""
+        for setter, helper in zip(
+                (self.set_major_locator, self.set_minor_locator,
+                 self.set_major_formatter, self.set_minor_formatter), helpers):
+            setter(helper)
+
+    def _install_scale(self, scale):
+        """Have pltrs (Rust) draw the axis with the scale object *scale*;
+        return whether it is a scale of the program's, whose transform
+        pltrs (Rust) calls."""
+        native = _native_scale_of(scale)
+        if native is None:
+            calls = _scale_calls.ScaleCalls(scale, scale.get_transform())
+            # pltrs (Rust) hands the transforms arrays, as matplotlib does.
+            _native_scale.set_python_scale(
+                *self._args(), scale.name, (calls.forward, calls.inverse),
+                lambda vmin, vmax, minpos: tuple(
+                    map(float, scale.limit_range_for_scale(vmin, vmax, minpos))))
         else:
-            self._set_axes_scale(scale)
+            _native_scale.set_scale(*self._args(), *native)
+        if native is None or scale.name in ("function", "functionlog"):
+            # The scale's transform is the program's: matplotlib's tick
+            # updates call it.
+            from . import _tick_updates
+            _tick_updates.install(self.axes.figure)
+        return native is None
 
     def _set_axes_scale(self, value, **kwargs):
         """
@@ -1191,32 +1230,14 @@ class Axis(DrawnWith, Artist):
             # Given before pltrs (Rust) changes the scale: the transform
             # trees it brings up to date after the change read it.
             axis._given_scale = scale
-        native = _native_scale_of(scale)
-        if native is None:
-            calls = _scale_calls.ScaleCalls(scale, scale.get_transform())
-            # The scale installs its tick helpers itself, as matplotlib's
-            # do; one of the program's may keep the axis' (seaborn's
-            # categorical scale keeps the category locator).
-            helpers = (self.get_major_locator(), self.get_minor_locator(),
-                       self.get_major_formatter(), self.get_minor_formatter())
-            # pltrs (Rust) hands the transforms arrays, as matplotlib does.
-            _native_scale.set_python_scale(
-                *self._args(), scale.name, (calls.forward, calls.inverse),
-                lambda vmin, vmax, minpos: tuple(
-                    map(float, scale.limit_range_for_scale(vmin, vmax, minpos))))
-            for setter, helper in zip(
-                    (self.set_major_locator, self.set_minor_locator,
-                     self.set_major_formatter, self.set_minor_formatter), helpers):
-                setter(helper)
+        # The scale installs its tick helpers itself, as matplotlib's do;
+        # one of the program's may keep the axis' (seaborn's categorical
+        # scale keeps the category locator).
+        helpers = self._tick_helpers()
+        if self._install_scale(scale):
+            self._restore_tick_helpers(helpers)
             scale.set_default_locators_and_formatters(self)
             _axis.mark_default_helpers(*self._args())
-        else:
-            _native_scale.set_scale(*self._args(), *native)
-        if native is None or scale.name in ("function", "functionlog"):
-            # The scale's transform is the program's: matplotlib's tick
-            # updates call it.
-            from . import _tick_updates
-            _tick_updates.install(self.axes.figure)
         for axis in shared:
             axis.axes._update_transScale()
 
@@ -1863,6 +1884,18 @@ class Axis(DrawnWith, Artist):
         # The ticks are drawn with their axis, as a unit, so that their
         # zorder only orders them among themselves: it is kept, not drawn.
         native = {k: v for k, v in kwtrans.items() if k != 'zorder'}
+        if native.get('tickdir', '') is None:
+            # No direction: the rcParam's, as matplotlib's ticks take it
+            # (`Tick._set_tickdir`), named after the tick's ``__name__``,
+            # which the class' own name hides on the class itself.
+            tick_name = next((cls.__dict__['__name__']
+                              for cls in type.mro(self._tick_class or XTick)
+                              if '__name__' in cls.__dict__), 'xtick')
+            native['tickdir'] = self._rc(f"{tick_name}.direction")
+        if 'labelsize' in native and native['labelsize'] is None:
+            # No size: the labels' `set_fontsize(None)`, which takes
+            # rcParams['font.size'] as it is now.
+            native['labelsize'] = self._rc('font.size')
         if 'grid_path_effects' in native:
             native['grid_path_effects'] = [
                 effect._native_spec() for effect in native['grid_path_effects']]

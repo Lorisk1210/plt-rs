@@ -70,6 +70,51 @@ impl Axes {
         self.share_id(name, other.raw())
     }
 
+    /// Puts this axes in the group of axes sharing axis `name` with
+    /// `other`, an axes of either kind, without taking over its tick
+    /// helpers, limits or scale (matplotlib's `_shared_axes[name].join`,
+    /// which programs call to share limits alone): setting the limits of
+    /// one sets those of the group, and autoscaling takes the data of all.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::ticker::AxisName;
+    /// let fig = Figure::new();
+    /// let (a, b) = (fig.add_subplot(2, 1, 1)?, fig.add_subplot(2, 1, 2)?);
+    /// a.set_xlim(0.0, 5.0)?;
+    /// b.join_sharing(AxisName::X, &a.clone().into())?;
+    /// assert_eq!(b.xlim(), (0.0, 1.0), "the limits are not taken over");
+    /// a.set_xlim(1.0, 2.0)?;
+    /// assert_eq!(b.xlim(), (1.0, 2.0));
+    /// assert_eq!(b.shared_from(AxisName::X), None);
+    /// b.leave_sharing(AxisName::X);
+    /// assert_eq!(b.sharing(AxisName::X).len(), 1);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`PlotError::ForeignAxes`] when `other` belongs to another figure.
+    pub fn join_sharing(&self, name: AxisName, other: &SharedAxes) -> Result<&Self, PlotError> {
+        let figure = self.raw.figure_state();
+        if !Rc::ptr_eq(figure, other.raw().figure_state()) {
+            return Err(PlotError::ForeignAxes);
+        }
+        let mut state = figure.borrow_mut();
+        state.shared.join(name, self.id(), other.raw().id());
+        state.stale = true;
+        Ok(self)
+    }
+
+    /// Takes this axes out of the group sharing axis `name`, which keeps
+    /// the others (matplotlib's `_shared_axes[name].remove`).
+    pub fn leave_sharing(&self, name: AxisName) -> &Self {
+        let mut state = self.raw.figure_state().borrow_mut();
+        state.shared.leave(name, self.id());
+        state.stale = true;
+        self
+    }
+
     /// The axes of either kind sharing axis `name` with this one, this one
     /// included (matplotlib's `get_shared_x_axes().get_siblings(ax)`;
     /// [`Axes::shared_axes`] lists the 2-D ones).

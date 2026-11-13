@@ -291,6 +291,13 @@ fn set_annotation_clip(text: Text, clip: Option<bool>) -> PyResult<()> {
     Ok(())
 }
 
+/// Gives the annotation the axes whose coordinates it takes while no axes
+/// holds it (`ann.axes = ax`; `Annotation::set_coordinate_axes`).
+fn set_coordinate_axes(text: Text, axes: Option<Axes>) -> PyResult<()> {
+    annotation(&text)?.set_coordinate_axes(axes.as_ref());
+    Ok(())
+}
+
 /// Whether the annotation draws an arrow to its point.
 fn has_arrow(text: Text) -> PyResult<bool> {
     Ok(annotation(&text)?.has_arrow())
@@ -345,6 +352,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_textcoords", set_textcoords)?;
     module.add("get_annotation_clip", get_annotation_clip)?;
     module.add("set_annotation_clip", set_annotation_clip)?;
+    module.add("set_coordinate_axes", set_coordinate_axes)?;
     module.add("has_arrow", has_arrow)?;
     module.add("arrow_patch", arrow_patch)?;
     module.add("restyle_arrow", restyle_arrow)?;

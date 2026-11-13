@@ -40,6 +40,10 @@ pub(crate) struct FigureFrame {
     pub(crate) relative_extent: Bbox,
     /// Owned artists in insertion order (axes included).
     pub(crate) children: Vec<ArtistId>,
+    /// The texts among the children given to `add_artist`, which the
+    /// figure lists among its artists rather than its texts (matplotlib's
+    /// figure keeps the two lists apart).
+    pub(crate) texts_as_artists: Vec<ArtistId>,
     /// Margins and spacing of subplot grids in this frame.
     pub(crate) subplot_params: SubplotParams,
     /// The figure title and super-labels, once created.
@@ -60,6 +64,7 @@ pltrs_core::archive_struct!(FigureFrame {
     patch_sketch,
     relative_extent,
     children,
+    texts_as_artists,
     subplot_params,
     super_texts,
     subplot_spec,
@@ -129,6 +134,7 @@ impl FigureFrame {
             patch_gid: None,
             relative_extent,
             children: Vec::new(),
+            texts_as_artists: Vec::new(),
             subplot_params,
             super_texts: SuperTexts::default(),
             subplot_spec: None,

@@ -13,19 +13,22 @@
 //! * the source trees of the libraries at the versions their lists pin, in
 //!   `target/refs/<name>-dl/<name>-<version>`: their sdists, or the
 //!   source archives of the releases' tags where the sdists ship no
-//!   tests (mplfinance, matplotlib-venn, arviz-plots, mne), with the files
+//!   tests (mplfinance, matplotlib-venn, arviz-plots, mne, windrose,
+//!   `UpSetPlot`, mlxtend), with the files
 //!   of the release's source tree their suites read that the sdists leave
 //!   out (pandas' iris data, geopandas' maps, lifelines' conftest), which
 //!   `python/ecosystem/fetch.py`
 //!   downloads (from `PyPI`, and from the repository at the release's
 //!   tag) when they are missing, checking their SHA-256;
 //! * the data the libraries' tests read that is in neither (cartopy's
-//!   Natural Earth maps, shap's, yellowbrick's and scanpy's datasets),
+//!   Natural Earth maps, shap's, yellowbrick's, scanpy's and `MetPy`'s
+//!   datasets),
 //!   checked by SHA-256 (`data`);
 //! * the baselines of the image comparisons whose own are for another
 //!   version of matplotlib (plotnine's, astropy's, mplfinance's,
-//!   nilearn's, mpl-scatter-density's, yellowbrick's) or missing
-//!   (missingno's), made in the reference venv (`baselines`).
+//!   nilearn's, mpl-scatter-density's, yellowbrick's,
+//!   matplotlib-label-lines' and `MetPy`'s) or missing (missingno's,
+//!   ultraplot's and mplhep's), made in the reference venv (`baselines`).
 
 use std::fs;
 use std::path::{Path, PathBuf};

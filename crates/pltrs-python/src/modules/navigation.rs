@@ -78,6 +78,12 @@ fn twins(axes: Axes) -> PyResult<Vec<Axes>> {
     Ok(axes.twins())
 }
 
+/// Counts `other` among the twins of `axes` (`_twinned_axes.join`).
+fn join_twins(axes: Axes, other: Axes) -> PyResult<()> {
+    axes.join_twins(&other);
+    Ok(())
+}
+
 /// Whether the pan/zoom tool works on the axes (`can_pan`).
 fn can_pan(axes: Axes) -> PyResult<bool> {
     Ok(axes.can_pan())
@@ -242,6 +248,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
         set_forward_navigation_events,
     )?;
     module.add("twins", twins)?;
+    module.add("join_twins", join_twins)?;
     module.add("can_pan", can_pan)?;
     module.add("can_zoom", can_zoom)?;
     module.add("start_pan", start_pan)?;

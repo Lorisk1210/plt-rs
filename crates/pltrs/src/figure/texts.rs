@@ -106,6 +106,30 @@ impl Figure {
         Text::from_raw(RawHandle::new(Rc::clone(&self.state), id))
     }
 
+    /// Lists `text`, a text of this figure added as an artist
+    /// ([`Figure::adopt_artist`]), among the figure's texts rather than its
+    /// artists, as matplotlib's figure lists a text put in its `texts`
+    /// (`fig.texts.append(text)`).
+    ///
+    /// ```
+    /// use pltrs::artist::{ArtistHandle, TypedHandle};
+    /// use pltrs::prelude::*;
+    /// use pltrs::text::Text;
+    /// let fig = Figure::new();
+    /// let note = Text::loose(0.5, 0.5, "note");
+    /// let note = Text::from_raw_handle(&fig.adopt_artist(note.raw(), false)?).unwrap();
+    /// fig.list_among_texts(&note);
+    /// assert_eq!(fig.texts(), [note]);
+    /// assert!(fig.artists().is_empty());
+    /// # Ok::<(), pltrs::artist::AttachError>(())
+    /// ```
+    pub fn list_among_texts(&self, text: &Text) -> &Self {
+        self.root.with_mut::<FigureFrame, _>(|frame| {
+            frame.texts_as_artists.retain(|&id| id != text.id());
+        });
+        self
+    }
+
     /// The texts placed in this figure (or subfigure) itself, the title
     /// and super-labels included, in the order they were made
     /// (matplotlib's `Figure.texts`).
@@ -123,13 +147,13 @@ impl Figure {
     /// assert_eq!(fig.suptitle_text(), "");
     /// ```
     pub fn texts(&self) -> Vec<Text> {
-        let children = self
-            .root
-            .with::<FigureFrame, _>(|frame| frame.children.clone());
+        let (children, added) = self.root.with::<FigureFrame, _>(|frame| {
+            (frame.children.clone(), frame.texts_as_artists.clone())
+        });
         let state = self.state.borrow();
         children
             .into_iter()
-            .filter(|&id| state.artist_as::<TextArtist>(id).is_some())
+            .filter(|&id| state.artist_as::<TextArtist>(id).is_some() && !added.contains(&id))
             .map(|id| Text::from_raw(RawHandle::new(Rc::clone(&self.state), id)))
             .collect()
     }

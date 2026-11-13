@@ -87,6 +87,52 @@ class _CellLook(_mirrors.Mirroring):
 
 
 @_mirrors.pushing
+class _Cells(dict):
+    """
+    The cells of a table by position (matplotlib's ``Table._cells``), which
+    programs read and iterate: a `.Cell` stands for each cell pltrs (Rust)
+    holds once it is looked up (``table[row, col]``), and all of them once
+    the mapping is iterated or measured, as matplotlib's holds them all.
+    """
+
+    def __init__(self, table):
+        super().__init__()
+        self._table = table
+
+    def __missing__(self, position):
+        return self._table[position]
+
+    def _complete(self):
+        """Look every cell of the table up."""
+        for key in _table.cell_keys(self._table._native):
+            if not dict.__contains__(self, key):
+                self._table[key]
+
+    def __iter__(self):
+        self._complete()
+        return super().__iter__()
+
+    def __len__(self):
+        self._complete()
+        return super().__len__()
+
+    def __contains__(self, position):
+        self._complete()
+        return super().__contains__(position)
+
+    def keys(self):
+        self._complete()
+        return super().keys()
+
+    def values(self):
+        self._complete()
+        return super().values()
+
+    def items(self):
+        self._complete()
+        return super().items()
+
+
 class Cell(DrawnWith, Rectangle):
     """
     A cell is a `.Rectangle` with some associated `.Text`.
@@ -317,6 +363,10 @@ substring of 'BRTL'
         else:
             text._native = native
         return text
+
+    # matplotlib's attribute holding the cell's text, which programs reach
+    # (mlxtend colours it).
+    _text = property(get_text)
 
     def set_fontsize(self, size):
         """Set the text fontsize."""
@@ -740,7 +790,7 @@ class Table(Artist):
         super().__init__()
         self._axes = ax
         self._edges = None
-        self._cells = {}
+        self._cells = _Cells(self)
         self._kept_cells = {}
         self._keep_bbox(bbox)
         self._internal_update(kwargs)
@@ -749,7 +799,7 @@ class Table(Artist):
     def _from_native(cls, native, figure):
         table = super()._from_native(native, figure)
         table._edges = None
-        table._cells = {}
+        table._cells = _Cells(table)
         table._kept_cells = {}
         return table
 

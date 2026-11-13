@@ -251,6 +251,13 @@ fn super_texts(figure: Figure) -> PyResult<(String, String, String)> {
     ))
 }
 
+/// Lists `text`, added to the figure as an artist, among its texts
+/// (`fig.texts.append(text)`; `Figure::list_among_texts`).
+fn list_among_texts(figure: Figure, text: Text) -> PyResult<()> {
+    figure.list_among_texts(&text);
+    Ok(())
+}
+
 /// The texts added to the figure itself (`fig.texts`).
 fn texts(figure: Figure) -> PyResult<Vec<Text>> {
     Ok(figure.texts())
@@ -511,6 +518,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("supylabel", supylabel)?;
     module.add("super_texts", super_texts)?;
     module.add("texts", texts)?;
+    module.add("list_among_texts", list_among_texts)?;
     module.add("artists", artists)
 }
 

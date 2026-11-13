@@ -28,6 +28,7 @@ import numpy as np
 
 from . import rcParams
 from ._native import gridspec as _gridspec
+from ._program_classes import takes_from_program
 
 #: The margin and spacing names of a grid and of subplot parameters.
 KEYS = ("left", "bottom", "right", "top", "wspace", "hspace")
@@ -163,15 +164,29 @@ def check_positions(axes, figure=None):
     """Place each of *axes* on its subplot spec, in *figure* (else its own
     figure), as matplotlib places them when subplot parameters change
     (``ax._set_position(ax.get_subplotspec().get_position(fig))``), for
-    its errors, where the spec's grid is placed in Python (`in_python`);
+    its errors, where the spec's grid is placed in Python (`in_python`),
+    and to where the program's code places it (`placed_by_program`);
     pltrs (Rust) places the others."""
     for ax in axes:
         spec = ax.get_subplotspec()
         if spec is None:
             continue
         fig = ax.get_figure(root=False) if figure is None else figure
-        if in_python(spec.get_gridspec(), fig):
+        if placed_by_program(spec):
+            ax._set_position(spec.get_position(fig))
+        elif in_python(spec.get_gridspec(), fig):
             spec.get_position(fig)
+
+
+def placed_by_program(subplotspec):
+    """Whether the program's code places what is added on *subplotspec*:
+    its class' `~.SubplotSpec.get_position`, or its grid's
+    `~.GridSpecBase.get_grid_positions`, which matplotlib's `.Axes` asks
+    for its position when it gets its spec and when subplot parameters
+    change; pltrs (Rust) places the others."""
+    return (takes_from_program(type(subplotspec), "get_position")
+            or takes_from_program(type(subplotspec.get_gridspec()),
+                                  "get_grid_positions"))
 
 
 def subfigure_bounds(spec):

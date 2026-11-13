@@ -98,6 +98,20 @@ fn share(axes: Axes, name: String, other: SharedAxes) -> PyResult<()> {
     Ok(())
 }
 
+/// Puts `axes` in the group sharing axis `name` with `other`, sharing
+/// its limits alone (`_shared_axes[name].join(axes, other)`).
+fn join_shared(axes: Axes, name: String, other: SharedAxes) -> PyResult<()> {
+    axes.join_sharing(axis_name(&name)?, &other)?;
+    Ok(())
+}
+
+/// Takes `axes` out of the group sharing axis `name`
+/// (`_shared_axes[name].remove(axes)`).
+fn leave_shared(axes: Axes, name: String) -> PyResult<()> {
+    axes.leave_sharing(axis_name(&name)?);
+    Ok(())
+}
+
 /// The axes, of either kind, whose axis `name` `axes` shares (`_sharex`,
 /// `_sharey`).
 fn shared_from(axes: Axes, name: String) -> PyResult<Option<SharedAxes>> {
@@ -196,6 +210,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("located_position", located_position)?;
     module.add("set_position", set_position)?;
     module.add("share", share)?;
+    module.add("join_shared", join_shared)?;
+    module.add("leave_shared", leave_shared)?;
     module.add("shared_from", shared_from)?;
     module.add("shared", shared)?;
     module.add("label_outer", label_outer)?;

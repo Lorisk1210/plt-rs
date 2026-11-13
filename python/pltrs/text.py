@@ -229,13 +229,18 @@ def _measured_by_given(renderer, artist):
 
 
 class _TextFont(_mirrors.Mirroring):
-    """The font of *text*, which its `.FontProperties` object stands for."""
+    """The font of *text*, which its `.FontProperties` object stands for.
+    The text is held weakly: the mirrorings of font properties are kept
+    in a module-level table (`._mirrors.attach_apart`) until the object
+    goes, which the text keeps."""
 
     def __init__(self, text):
-        self.text = text
+        self._text_ref = weakref.ref(text)
 
     def push(self, fontproperties):
-        _text.set_fontproperties(self.text._native, FontManager._props(fontproperties))
+        text = self._text_ref()
+        if text is not None:
+            _text.set_fontproperties(text._native, FontManager._props(fontproperties))
 
 
 def _rotation_degrees(s):
@@ -1332,6 +1337,17 @@ class Text(Artist):
     # matplotlib's attribute holding the string, which programs read
     # (plotnine's layout skips texts without one).
     _text = property(get_text, set_text, doc="The text string.")
+    # matplotlib's attributes holding the position as given and the
+    # alignment of the lines (None until set), which exporters read.
+    _x = property(lambda self: self.get_position()[0],
+                  lambda self, x: self.set_x(x), doc="The x of the position.")
+    _y = property(lambda self: self.get_position()[1],
+                  lambda self, y: self.set_y(y), doc="The y of the position.")
+    _multialignment = property(
+        lambda self: _text.get_multialignment(self._native),
+        lambda self, align: self.set_multialignment(align),
+        doc="The alignment of the lines, None when it follows the "
+            "horizontal alignment.")
 
     def _preprocess_math(self, s):
         """
@@ -2154,6 +2170,12 @@ or callable, default: value of *xycoords*
 
     anncoords = property(get_anncoords, set_anncoords, doc="""
         The coordinate system to use for `.Annotation.xyann`.""")
+
+    def _axes_given(self, axes):
+        # The Axes whose coordinates the annotation takes while no Axes
+        # holds it (mplcursors moves its annotations to the figure).
+        _annotation.set_coordinate_axes(
+            self._native, getattr(axes, "_native", None))
 
     def _set_native_annotation_clip(self, b):
         """Give pltrs (Rust)'s annotation the clipping behavior *b*."""

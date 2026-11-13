@@ -8,10 +8,14 @@
 //! where its own are another version's.
 //!
 //! The libraries are listed by what they are for: data analysis and
-//! machine learning (`analysis`), the sciences (`science`), and plotting
-//! itself (`plotting`).
+//! machine learning (`analysis`), the sciences (`science`), plotting
+//! itself (`plotting`), the add-ons building on matplotlib's parts
+//! (`addons`) and the charts of other fields drawn with it (`charts`),
+//! these last two in venvs of their own.
 
+mod addons;
 mod analysis;
+mod charts;
 mod plotting;
 mod science;
 
@@ -92,6 +96,10 @@ pub(super) enum Venvs {
     /// Two of its own, pinned by `python/requirements-ecosystem-<name>.txt`:
     /// its pins clash with the shared ones.
     Own,
+    /// Two shared by a group of libraries, named here, pinned by
+    /// `python/requirements-ecosystem-<group>.txt`: libraries kept apart
+    /// from the shared venvs, whose unpinned dependencies they would move.
+    Group(&'static str),
 }
 
 /// Where a library's source tree comes from.
@@ -223,6 +231,8 @@ pub(super) fn all() -> impl Iterator<Item = Library> {
         analysis::LIBRARIES.as_slice(),
         science::LIBRARIES.as_slice(),
         plotting::LIBRARIES.as_slice(),
+        addons::LIBRARIES.as_slice(),
+        charts::LIBRARIES.as_slice(),
     ]
     .into_iter()
     .flatten()
@@ -248,6 +258,16 @@ mod tests {
         names.sort_unstable();
         names.dedup();
         assert_eq!(names.len(), count);
+    }
+
+    #[test]
+    fn libraries_say_what_they_are() {
+        for library in all() {
+            assert!(!library.name.is_empty(), "{library:?}");
+            assert!(!library.package.is_empty(), "{}", library.name);
+            assert!(!library.tests.is_empty(), "{}", library.name);
+            assert!(!library.title.is_empty(), "{}", library.name);
+        }
     }
 
     #[test]

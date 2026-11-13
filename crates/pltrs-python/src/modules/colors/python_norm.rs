@@ -5,13 +5,14 @@
 //! The package registers `native_norm(norm)` (in `colors.py`), which gives
 //! the callables pltrs (Rust) calls, working on plain arrays: `normalize`,
 //! `normalize_scalar`, `autoscale_none`, `inverse` and `set_limits`, and
-//! `state` and `scale`, read once. Their exceptions raise from the native
-//! call that drew, as those of every callback do.
+//! `state`, `scale` and `boundary`, read once. Their exceptions raise from
+//! the native call that drew, as those of every callback do.
 
-use pltrs::colors::{ArrayForm, Norm, NormError, NormKind, Normalized};
+use pltrs::colors::{ArrayForm, BoundaryNorm, Norm, NormError, NormKind, Normalized};
 use pltrs::scale::{ScaleOptions, scale_factory};
 
 use super::super::scale::scale_options;
+use super::mapping::extend;
 use crate::binding::prelude::*;
 use crate::binding::{dict_value, lookup};
 
@@ -26,6 +27,10 @@ pub(crate) struct PythonNorm {
     /// The scale the norm is made from (matplotlib's `norm._scale`), by
     /// name and options, when pltrs (Rust) has one of its kind.
     scale: Option<(String, ScaleOptions)>,
+    /// The bins of a norm deriving from matplotlib's `BoundaryNorm`, which
+    /// colorbars show as matplotlib's `isinstance` checks do (its
+    /// boundaries, never its inverse); `None` for any other norm.
+    boundary: Option<BoundaryNorm>,
     hooks: Hooks,
 }
 
@@ -60,12 +65,20 @@ impl PythonNorm {
             Some((name, kwargs)) => Some((name, scale_options(&kwargs)?)),
             None => None,
         };
+        // Bins pltrs (Rust) refuses (more than colours) show as any norm's.
+        let boundary = match hook("boundary")?.extract::<Option<(Vec<f64>, usize, String)>>()? {
+            Some((boundaries, ncolors, name)) => {
+                BoundaryNorm::new(boundaries, ncolors, extend(&name)?).ok()
+            }
+            None => None,
+        };
         Ok(Self {
             object: norm.clone().unbind(),
             vmin,
             vmax,
             clip,
             scale,
+            boundary,
             hooks: Hooks {
                 normalize: hook("normalize")?.extract()?,
                 normalize_scalar: hook("normalize_scalar")?.extract()?,
@@ -171,9 +184,13 @@ impl Norm for PythonNorm {
         self.autoscale_none_as(data, Some(shape.to_vec()));
     }
 
-    /// The norm made from a scale of pltrs (Rust)'s kind is shown on that
-    /// scale (matplotlib's colorbar takes `norm._scale`).
+    /// A norm deriving from `BoundaryNorm` is shown by its bins; one made
+    /// from a scale of pltrs (Rust)'s kind on that scale (matplotlib's
+    /// colorbar takes `norm._scale`).
     fn kind(&self) -> NormKind<'_> {
+        if let Some(boundary) = &self.boundary {
+            return NormKind::Boundary(boundary);
+        }
         let scale = self.scale.as_ref();
         scale
             .and_then(|(name, options)| scale_factory(name.as_str(), options.clone()).ok())
@@ -251,7 +268,10 @@ def hooks(norm):
     def state():
         return norm.vmin, norm.vmax, norm.clip
     return {'normalize': print, 'normalize_scalar': print, 'autoscale_none': print,
-            'inverse': print, 'set_limits': set_limits, 'state': state, 'scale': None}
+            'inverse': print, 'set_limits': set_limits, 'state': state, 'scale': None,
+            'boundary': getattr(norm, 'bins', None)}
+class Bins(Half):
+    bins = ([0.0, 0.5, 2.0], 2, 'neither')
 ";
 
     #[test]
@@ -274,6 +294,15 @@ def hooks(norm):
             assert_eq!(vmax, 4.0, "the Python norm follows");
             let multi = eval(py, "class Two:\n    n_components = 2", "Two()");
             assert!(multi.extract::<Box<dyn Norm>>().is_err());
+            assert!(matches!(norm.kind(), NormKind::Other));
+            let bins: Box<dyn Norm> = eval(py, LIMITS, "Bins()").extract().unwrap();
+            let NormKind::Boundary(boundary) = bins.kind() else {
+                panic!("a norm of bins shows as one");
+            };
+            assert_eq!(
+                (boundary.boundaries(), boundary.ncolors()),
+                (&[0.0, 0.5, 2.0][..], 2)
+            );
         });
     }
 }

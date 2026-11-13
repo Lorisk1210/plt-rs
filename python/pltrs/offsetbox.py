@@ -221,9 +221,12 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         super().set_figure(fig)
         if fig is not None:
             # The box and those inside it have the figure, as matplotlib's
-            # gives it them.
+            # gives it them, down to the texts of text areas, which measure
+            # with its dpi (a box a program makes and draws in its own
+            # `draw`, matplotlib-scalebar's).
             for box in self._boxes():
                 box.__dict__.pop("_joined_late", None)
+                box._figure_given = fig
 
     @Artist.axes.setter
     def axes(self, ax):
@@ -1306,7 +1309,8 @@ class TextArea(_FollowsLayout, OffsetBox):
         # measures it, as it lays the area out).
         laid_out = self._laid_out_bbox(renderer)
         if laid_out is None and (
-                (self._area_text.get_figure(root=True) is None and self._drawer() is None)
+                (self._area_text.get_figure(root=True) is None and self._drawer() is None
+                 and "_figure_given" not in self.__dict__)
                 or self.__dict__.get("_joined_late")):
             # matplotlib measures the text at the dpi of the area's figure (a
             # box of a tree has its owner's, unless it joined the tree late,
@@ -1689,9 +1693,10 @@ class AnchoredOffsetbox(OffsetBox):
             renderer.points_to_pixels(self.prop.get_size_in_points())
         owner = self.__dict__.get("_tree_owner", self)
         owner._sync_tree()
-        if owner._tree_unusable():
+        if owner._tree_unusable() or (owner is self and "_tree_handle" not in self.__dict__):
             # matplotlib's measure, failing where matplotlib's does on what
-            # pltrs (Rust) cannot take.
+            # pltrs (Rust) cannot take, and of a box added nowhere (one a
+            # program makes and draws in its own `draw`).
             return OffsetBox.get_window_extent(self, renderer)
         self.get_child()._measure_program_boxes(renderer)
         if self._synced_node() is not None:

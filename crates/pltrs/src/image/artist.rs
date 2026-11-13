@@ -126,9 +126,16 @@ impl AxesImageArtist {
             bottom,
             top,
         } = extent;
-        Some(Bbox::from_points(
-            [(left, bottom), (right, bottom), (left, top), (right, top)]
-                .map(|(x, y)| resolved.transform_point(Point::new(x, y))),
+        // The corners as matplotlib's `TransformedBbox` bounds them: a
+        // transform that is not finite leaves a box at NaN, which
+        // intersects nothing, so that nothing of the image is made.
+        let enclosing = Bbox::from_extents(left, bottom, right, top)
+            .mapped_enclosing(|corner| resolved.transform_point(corner));
+        Some(Bbox::from_extents(
+            enclosing.xmin(),
+            enclosing.ymin(),
+            enclosing.xmax(),
+            enclosing.ymax(),
         ))
     }
 
@@ -728,6 +735,26 @@ mod tests {
     use crate::figure::Figure;
     use crate::numeric::Grid;
     use crate::patches::{Circle, Rectangle, RotationPoint};
+
+    #[test]
+    fn an_image_through_a_transform_that_is_not_finite_is_not_made() {
+        // Beyond 1 the logit scale maps the view onto one point: the data
+        // transform is at NaN, and so is the box of the image, which
+        // matplotlib then finds outside whatever clips it.
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_axis_off();
+        let empty = fig.to_png().expect("drawn");
+        let image = ax
+            .imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())
+            .unwrap();
+        ax.set_ylim(0.5, 11.0).expect("limits");
+        ax.set_yscale("logit").expect("a scale");
+        for clipped in [true, false] {
+            image.set_clip_on(clipped);
+            assert_eq!(fig.to_png().expect("drawn"), empty, "clipped: {clipped}");
+        }
+    }
 
     #[test]
     fn resampling_settings_read_back_and_reject_radii_at_most_zero() {

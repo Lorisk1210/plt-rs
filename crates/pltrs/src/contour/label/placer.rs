@@ -83,7 +83,6 @@ impl<'s> Placer<'s> {
     /// A placer labelling `set` as `setup` says, in the axes' current
     /// geometry.
     pub(super) fn new(set: &'s ContourSet, setup: &'s LabelSetup) -> Result<Self, ContourError> {
-        // The geometry first: it brings the view limits up to date.
         let geometry = LabelGeometry::of(set, setup.rightside_up)?;
         let data_to_display = {
             let figure = set.axes().raw().figure_state().borrow();
@@ -120,9 +119,13 @@ impl<'s> Placer<'s> {
 
     /// The rotation of the label of `cut` and its line cut around it: by
     /// `splitter`, else by pltrs.
-    fn split(&self, cut: &LabelCut<'_>, splitter: Option<&mut LabelSplitter<'_>>) -> (f64, Path) {
+    fn split(
+        &self,
+        cut: &LabelCut<'_>,
+        splitter: Option<&mut LabelSplitter<'_>>,
+    ) -> Result<(f64, Path), ContourError> {
         match splitter {
-            Some(split) => split(*cut),
+            Some(split) => Ok(split(*cut)),
             None => split_path(&self.geometry, cut),
         }
     }
@@ -176,7 +179,7 @@ impl<'s> Placer<'s> {
                     width: label.width,
                     spacing,
                 };
-                let (rotation, cut) = self.split(&request, splitter.as_deref_mut());
+                let (rotation, cut) = self.split(&request, splitter.as_deref_mut())?;
                 self.add(&label, at, rotation);
                 additions.push(if inline { cut } else { subpath });
             }
@@ -216,7 +219,7 @@ impl<'s> Placer<'s> {
             width: label.width,
             spacing,
         };
-        let (rotation, cut) = self.split(&request, splitter);
+        let (rotation, cut) = self.split(&request, splitter)?;
         let text = self.add(label, closest.point, rotation);
         if inline {
             paths[label.index] = cut;

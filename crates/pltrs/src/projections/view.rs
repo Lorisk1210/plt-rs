@@ -5,7 +5,7 @@ use pltrs_core::Bbox;
 
 use crate::axes::axis::AxisState;
 use crate::ticker::AxisName;
-use crate::transforms::{ResolvedTransform, Step, bbox_to_unit};
+use crate::transforms::{ResolvedTransform, Step, bbox_transform_from};
 
 /// The view limits and scales of an axes, which the transforms of a
 /// [`Projection`](super::Projection) are built from.
@@ -57,11 +57,15 @@ impl<'a> ProjectionView<'a> {
     }
 
     /// The data → axes-fraction transform of rectilinear axes with these
-    /// limits and scales (matplotlib's `transScale + transLimits`).
+    /// limits and scales (matplotlib's `transScale + transLimits`). A
+    /// view its scale maps onto one point (limits outside the scale's
+    /// domain) gives infinite coefficients, as matplotlib's, which leave
+    /// no coordinate of the axes' data transform finite: nothing placed
+    /// through it is drawn.
     pub fn rectilinear(&self) -> ResolvedTransform {
         let (x0, x1) = scaled_interval(self.xaxis, self.limits.interval_x());
         let (y0, y1) = scaled_interval(self.yaxis, self.limits.interval_y());
-        let to_unit = bbox_to_unit(&Bbox::from_extents(x0, y0, x1, y1));
+        let to_unit = bbox_transform_from(&Bbox::from_extents(x0, y0, x1, y1));
         let (x_map, y_map) = (self.xaxis.map().cloned(), self.yaxis.map().cloned());
         if x_map.is_none() && y_map.is_none() {
             ResolvedTransform::affine(to_unit)

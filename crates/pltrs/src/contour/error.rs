@@ -94,6 +94,9 @@ pub enum ContourError {
         /// How many vertices the line has.
         vertices: usize,
     },
+    /// The line of a label has no finite length on the canvas, so there
+    /// are no vertices to cut it at around the label.
+    LabelCutAtNan,
     /// There is no label to remove: none at the index given, or none at
     /// all (`None`).
     NoLabel(Option<usize>),
@@ -199,6 +202,7 @@ impl fmt::Display for ContourError {
                 f,
                 "index {index} is out of bounds for a line of {vertices} vertices"
             ),
+            Self::LabelCutAtNan => f.write_str("cannot convert float NaN to integer"),
             Self::NoLabel(Some(index)) => write!(f, "the contour set has no label {index}"),
             Self::NoLabel(None) => f.write_str("the contour set has no labels"),
             Self::ForeignLabel => {

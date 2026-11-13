@@ -101,6 +101,19 @@ class _AxisPart(_mirrors.Mirroring):
     def refresh(self, artist):
         self.owner._refresh(artist)
 
+    def alone(self, artist):
+        # pltrs (Rust) draws the part with its axis, where the axis puts
+        # it; matplotlib's artist draws what it was last given, wherever
+        # it is drawn: an artist made like it, for that draw.
+        if isinstance(artist, Line2D):
+            alone = Line2D(*artist.get_data(orig=True))
+        else:
+            alone = Text(*artist.get_position(), artist.get_text())
+        alone.update_from(artist)
+        alone.set_transform(artist.get_transform())
+        alone.set_figure(artist.get_figure(root=False))
+        return alone
+
     def figure(self, artist, root=False):
         return _axis_of(self.owner).get_figure(root=root)
 

@@ -112,9 +112,10 @@ impl ContourSet {
             .unwrap_or_else(|| self.axes.trans_data())
     }
 
-    /// [`ContourSet::transform`] resolved in the axes' current view.
+    /// [`ContourSet::transform`] resolved in the axes' view as it is:
+    /// autoscaling asked for since the set was made waits, as matplotlib
+    /// places labels without applying it.
     pub(crate) fn display_transform(&self) -> Result<ResolvedTransform, ContourError> {
-        self.axes.unstale_view();
         let figure = self.axes.raw().figure_state().borrow();
         Ok(self.transform().resolve(&*figure)?)
     }

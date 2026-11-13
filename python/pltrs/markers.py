@@ -372,6 +372,17 @@ class MarkerStyle:
 
 # What matplotlib's module also has from its imports, which programs
 # import from it.
+
+
+def _check_rc(key):
+    """Fail as matplotlib's artist fails to take the marker of the rcParam
+    *key* when that names no marker: matplotlib's validator of the rcParam
+    takes any string, and its `MarkerStyle` refuses it."""
+    from . import rcParams
+    if key in rcParams._refused:
+        MarkerStyle(rcParams[key])
+
+
 from . import cbook  # noqa: E402, F401
 from .transforms import IdentityTransform  # noqa: E402, F401
 mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

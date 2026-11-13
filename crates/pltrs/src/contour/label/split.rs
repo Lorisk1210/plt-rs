@@ -80,7 +80,7 @@ impl ContourSet {
             });
         }
         let geometry = LabelGeometry::of(self, setup.rightside_up)?;
-        Ok(split_path(&geometry, &cut))
+        split_path(&geometry, &cut)
     }
 }
 
@@ -90,7 +90,14 @@ impl ContourSet {
 /// pixels on each side. A closed loop is opened at the label. The angle
 /// comes from the points half a label width before and after the label,
 /// measured along the line.
-pub(super) fn split_path(geometry: &LabelGeometry, cut: &LabelCut<'_>) -> (f64, Path) {
+///
+/// A line with no finite length on the canvas (through a transform that
+/// is not finite) has no vertices to cut at: matplotlib fails on them
+/// (`math.floor` of NaN), which is [`ContourError::LabelCutAtNan`].
+pub(super) fn split_path(
+    geometry: &LabelGeometry,
+    cut: &LabelCut<'_>,
+) -> Result<(f64, Path), ContourError> {
     let LabelCut {
         path,
         index,
@@ -167,6 +174,9 @@ pub(super) fn split_path(geometry: &LabelGeometry, cut: &LabelCut<'_>) -> (f64, 
     let bounds = Some((-1.0, -1.0));
     let i0 = interp(targets[0], &cpls, &positions, bounds).floor();
     let i1 = interp(targets[1], &cpls, &positions, bounds).ceil();
+    if i0.is_nan() || i1.is_nan() {
+        return Err(ContourError::LabelCutAtNan);
+    }
     let (cx, cy) = (xs(&component), ys(&component));
     let ([x0, x1], [y0, y1]) = (
         targets.map(|t| interp(t, &cpls, &cx, None)),
@@ -185,7 +195,7 @@ pub(super) fn split_path(geometry: &LabelGeometry, cut: &LabelCut<'_>) -> (f64, 
     out_xys.extend_from_slice(&xys[stop..]);
     out_codes.extend_from_slice(&codes[stop..]);
     let path = Path::new(out_xys, out_codes).expect("every piece starts with a MOVETO");
-    (angle, path)
+    Ok((angle, path))
 }
 
 /// A vertex index from numpy's interpolation, `None` for the -1 marker.
@@ -269,12 +279,29 @@ mod tests {
         let (angle, cut) = split_path(
             &identity(),
             &cut(&path, 5, Point::new(5.0, 0.0), (4.0, 1.0)),
-        );
+        )
+        .unwrap();
         assert_eq!(angle, 0.0);
         let parts = cut.subpaths();
         assert_eq!(parts.len(), 2);
         assert_eq!(parts[0].vertices().last(), Some(&Point::new(2.0, 0.0)));
         assert_eq!(parts[1].vertices()[0], Point::new(8.0, 0.0));
+    }
+
+    #[test]
+    fn a_line_at_nan_on_the_canvas_cannot_be_cut() {
+        let points: Vec<Point> = (0..11).map(|i| Point::new(f64::from(i), 0.0)).collect();
+        let path = Path::polyline(points);
+        let off_canvas = LabelGeometry {
+            to_display: ResolvedTransform::affine(
+                pltrs_core::Affine2D::identity().scale(f64::NAN, 1.0),
+            ),
+            ..identity()
+        };
+        let cut = cut(&path, 5, Point::new(5.0, 0.0), (4.0, 1.0));
+        let err = split_path(&off_canvas, &cut).unwrap_err();
+        assert!(matches!(err, ContourError::LabelCutAtNan));
+        assert_eq!(err.to_string(), "cannot convert float NaN to integer");
     }
 
     #[test]
@@ -289,7 +316,8 @@ mod tests {
         let (angle, cut) = split_path(
             &identity(),
             &cut(&square, 1, Point::new(0.0, 10.0), (4.0, 0.0)),
-        );
+        )
+        .unwrap();
         assert!((angle - 45.0).abs() < 1e-12 || (angle + 45.0).abs() < 1e-12);
         let parts = cut.subpaths();
         assert_eq!(parts.len(), 1);

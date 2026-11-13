@@ -85,6 +85,12 @@ class Mirroring:
         `._artist_clipping`), or `OWN`."""
         return OWN
 
+    def alone(self, artist):
+        """An artist of its own that draws the part as matplotlib's artist
+        draws itself where something else than its owner draws it (an Axes
+        listing it among its children), or `OWN`: the mirror's own draw."""
+        return OWN
+
     def refresh(self, artist):
         """Give the mirror *artist* what drawing the part changed since
         it was filled, before one of its ``_refreshed_getters`` reads it

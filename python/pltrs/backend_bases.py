@@ -35,6 +35,7 @@ import numpy as np
 from . import _api, _docstring, _transform_trees, backend_tools as tools, cbook, colors, transforms
 from . import _print_targets
 from . import _val_or_rc, rcParams
+from ._program_classes import takes_from_program
 from ._enums import JoinStyle, CapStyle
 from .colors import to_rgba
 from ._pylab_helpers import Gcf
@@ -2308,6 +2309,13 @@ class FigureCanvasBase:
             # renderer of the print (`._figure_draws`).
             from . import _figure_draws
             from ._python_drawing import installed_renderer
+            if (self._print_options.get("predrawn")
+                    and takes_from_program(type(self.figure), "draw")):
+                # matplotlib's draw before the print (the layout, the tight
+                # box), whose drawing the print draws over.
+                _figure_draws.draw(
+                    self.figure, lambda: None,
+                    lambda: installed_renderer() or self.figure._get_renderer())
             _figure_draws.draw(
                 self.figure,
                 lambda: printed.append(_backends.print_figure(

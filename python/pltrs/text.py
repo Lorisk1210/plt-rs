@@ -9,6 +9,7 @@ aliases and validation, and its keyword handling.
 from collections.abc import Sequence
 import contextlib
 import datetime
+import functools
 import errno
 from numbers import Real
 import os
@@ -43,6 +44,18 @@ _INIT_PROPERTIES = (
     "verticalalignment", "horizontalalignment", "multialignment", "rotation",
     "transform_rotates_text", "linespacing", "rotation_mode", "antialiased",
 )
+
+#: The explicit keywords `Text` keeps as attributes, through no setter.
+_INIT_ATTRIBUTES = ("multialignment", "transform_rotates_text")
+
+
+@functools.cache
+def _overridden_setters(cls):
+    """The properties among the text and the explicit keywords of `Text`
+    whose setter the class *cls* takes from the program."""
+    return frozenset(name for name in ("text", *_INIT_PROPERTIES)
+                     if _program_classes.takes_from_program(cls, f"set_{name}"))
+
 
 #: What ``None`` stands for in the explicit keywords of `Text`: an rcParam
 #: (by name), or a value.
@@ -335,7 +348,7 @@ class Text(Artist):
         self._native = _text.new(0.0, 0.0, "" if text is None else str(text))
         super().__init__()
         _place(self, (x, y))
-        self._init_properties(kwargs)
+        self._init_properties(kwargs, text)
 
     def _convert_units_for(self, axes):
         # A coordinate in units converts once the text joins *axes*, as
@@ -370,16 +383,24 @@ class Text(Artist):
         std_x = x - bb.x0
         return (np.abs(size_accum - std_x)).argmin()
 
-    def _init_properties(self, kwargs):
+    def _init_properties(self, kwargs, text=None):
         """
         Apply the keywords a new text was made with, as ``Text.__init__``
         does: its explicit keywords first, in matplotlib's order, then the
-        other properties through `update`.
+        other properties through `update`. The setters a class of the
+        program's overrides are called whether given or not, the string
+        *text* given to ``set_text`` first, as matplotlib's constructor calls
+        them all.
         """
         kwargs = dict(kwargs)
+        overridden = _overridden_setters(type(self))
+        if "text" in overridden:
+            self.set_text(text)
         for name in _INIT_PROPERTIES:
             if name not in kwargs:
-                continue
+                if name not in overridden or name in _INIT_ATTRIBUTES:
+                    continue
+                kwargs[name] = Text.__init__.__kwdefaults__[name]
             value = kwargs.pop(name)
             if value is None and name in _INIT_DEFAULTS:
                 kind, default = _INIT_DEFAULTS[name]
@@ -2225,7 +2246,6 @@ _docstring.interpd.register(Annotation=Annotation.__init__.__doc__)
 
 # What matplotlib's module also has from its imports, which programs
 # import from it.
-import functools  # noqa: E402, F401
 import itertools  # noqa: E402, F401
 import logging  # noqa: E402, F401
 import math  # noqa: E402, F401

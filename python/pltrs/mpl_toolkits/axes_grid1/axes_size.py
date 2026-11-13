@@ -23,11 +23,54 @@ size made of what pltrs (Rust) cannot take is described as `.Unusable`
 
 from numbers import Real
 
+import contextlib
+import threading
+
 from pltrs import _api, _named
 from pltrs.artist import Artist
 from pltrs.axes import Axes
 from pltrs._offsetbox_trees import Unusable, number
 from pltrs._program_classes import takes_from_program
+
+
+class _Describing(threading.local):
+    """The figure whose divider's sizes are being described
+    (`describing_for`)."""
+
+    figure = None
+
+
+_describing = _Describing()
+
+
+@contextlib.contextmanager
+def describing_for(figure):
+    """While the sizes of a divider of *figure* are described: a size of
+    the program's is asked with the renderer of *figure* (`_ProgramSize`)."""
+    saved, _describing.figure = _describing.figure, figure
+    try:
+        yield
+    finally:
+        _describing.figure = saved
+
+
+class _ProgramSize:
+    """A size of the program's as pltrs (Rust) asks it: its ``get_size``
+    called with the renderer matplotlib's divider hands it (that of the
+    print running, else the one the canvas of *figure* drew with last)."""
+
+    def __init__(self, size, figure):
+        self._size = size
+        self._figure = figure
+
+    def get_size(self, _renderer):
+        from pltrs._python_drawing import made_renderer
+        renderer = made_renderer()
+        if renderer is None and self._figure is not None:
+            # The canvas' renderer as it stands: the figure is being laid
+            # out, and cannot be asked for one.
+            renderer = vars(self._figure.canvas).get("renderer")
+        return self._size.get_size(renderer)
 
 
 def _described(size):
@@ -36,7 +79,7 @@ def _described(size):
     program defines is evaluated through it, whatever class it derives
     from (mplhep's ``RemainderFixed`` derives from `Scaled`)."""
     if takes_from_program(type(size), "get_size"):
-        return ("python", size)
+        return ("python", _ProgramSize(size, _describing.figure))
     describe = getattr(type(size), "_to_native", None)
     if describe is None:
         raise Unusable

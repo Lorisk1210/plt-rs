@@ -10,13 +10,20 @@ import warnings
 
 import numpy as np
 
-from ... import _api, _handles, cbook, collections as mcoll, lines as mlines
+from ... import _api, _handles, _lazy_imports, cbook, collections as mcoll, lines as mlines
 from ..._native import plotting as _plotting
+
+_program_adds = _lazy_imports.module(globals(), ".._program_adds")
 
 
 def wrap(axes, native, cls):
-    """The object of class *cls* for the artist *native* of *axes*' figure."""
-    return _handles.wrap(native, cls, axes._figure)
+    """The object of class *cls* for the artist *native* of *axes*' figure,
+    which a plotting method just made: handed to the ``add_*`` method of
+    *axes*' class of the program's that matplotlib adds it with
+    (`.._program_adds`)."""
+    artist = _handles.wrap(native, cls, axes._figure)
+    _program_adds.announce(axes, artist)
+    return artist
 
 
 def wrap_all(axes, natives, cls):

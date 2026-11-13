@@ -14,6 +14,7 @@ ax.transData``). A transform pltrs (Rust) has that no Python object stands
 for (a map of a projection's) comes back as a `LiveTransform`.
 """
 
+import functools
 import weakref
 
 import numpy as np
@@ -159,28 +160,48 @@ def follow_given(artist):
         _transforms.set_transform(artist._native, to_native(given))
 
 
-def _description(t):
-    """The nested tuples describing *t* to pltrs (Rust)."""
+def _description(t, by_matrix=False):
+    """The nested tuples describing *t* to pltrs (Rust); *by_matrix* for a
+    part of a composition matplotlib maps through its matrix
+    (``get_matrix``), whatever methods its class gives for points."""
     live = getattr(t, "_live", None)
     if live is not None:  # A transform pltrs (Rust) has.
         return ("native", live)
     if t is None or isinstance(t, IdentityTransform):
         return ("display",)
     if isinstance(t, TransformWrapper):
-        return _description(t._child)
+        return _description(t._child, by_matrix)
     if isinstance(t, (CompositeGenericTransform, CompositeAffine2D)):
-        return ("composite", _description(t._a), _description(t._b))
+        # matplotlib maps points through the first part's methods only
+        # where a non-affine second part follows it; an affine part
+        # otherwise goes into the composition's matrix.
+        first_by_matrix = by_matrix or isinstance(t, CompositeAffine2D) or (
+            _maps_points_itself(type(t._a)) and t._b.is_affine)
+        return ("composite", _description(t._a, first_by_matrix), _description(t._b, True))
     if isinstance(t, (BlendedGenericTransform, BlendedAffine2D)):
-        return ("blended", _description(t._x), _description(t._y))
+        return ("blended", _description(t._x, True), _description(t._y, True))
     if isinstance(t, ScaledTranslation):
         dx, dy = t._t
         return ("translation", float(dx), float(dy),
-                _description(t._scale_trans))
+                _description(t._scale_trans, True))
     if isinstance(t, AffineDeltaTransform):
-        return ("affine_delta", _description(t._base_transform))
-    if isinstance(t, Affine2DBase) or t.is_affine:
+        return ("affine_delta", _description(t._base_transform, by_matrix))
+    if (isinstance(t, Affine2DBase) or t.is_affine) and (
+            by_matrix or not _maps_points_itself(type(t))):
         return ("affine", np.asarray(t.get_matrix(), dtype=float))
     return ("python", _ProgramMap(t))
+
+
+@functools.cache
+def _maps_points_itself(cls):
+    """Whether the affine class *cls* maps points through a method of the
+    program's (``transform_affine``, ``transform``, ``transform_point``),
+    which matplotlib's code calls wherever it maps points through the
+    transform: pltrs (Rust) then maps through it (`_ProgramMap`), not
+    through its matrix."""
+    from ._program_classes import takes_from_program
+    return any(takes_from_program(cls, name)
+               for name in ("transform_affine", "transform", "transform_point"))
 
 
 class _ProgramMap:
@@ -214,6 +235,13 @@ class _ProgramMap:
         affine part, as matplotlib's composite transforms map points
         through a non-affine transform they start with."""
         points = np.asarray(values, dtype=float)
+        if self._transform.is_affine:
+            # An affine class mapping points itself (`_maps_points_itself`):
+            # through its ``transform``, a point as the pair it is, as
+            # matplotlib's text places itself.
+            mapped = np.asarray(self._transform.transform(values if points.ndim == 1 else points),
+                                dtype=float)
+            return tuple(mapped) if points.ndim == 1 else mapped
         mapped = self._transform.transform_non_affine(points.reshape(-1, 2))
         affine = self._transform.get_affine()
         if not isinstance(affine, IdentityTransform):
@@ -232,7 +260,13 @@ class _ProgramMap:
         artist was given or handed out with that content, if one lives, is
         mapped itself, anew, as matplotlib's collections and patches map
         their own at every draw (programs keep what they computed by path:
-        cartopy's projections), and not kept."""
+        cartopy's projections), and not kept. An affine transform maps
+        paths through its matrix, as matplotlib draws them (its renderers
+        take ``get_affine()``), whatever methods its class gives for
+        points."""
+        if self._transform.is_affine:
+            matrix = Affine2D(self._transform.get_affine().get_matrix())
+            return matrix.transform_path(Path(vertices, codes, _interpolation_steps=steps))
         held = _owned_paths.held(vertices, codes, steps)
         if held is not None:
             return self._transform.transform_path(held)
@@ -245,7 +279,10 @@ class _ProgramMap:
     def transform_outline(self, vertices, codes, steps=1):
         """The outline of a patch, of *vertices* and *codes* (with *steps*
         interpolation steps), through the transform, mapped anew as
-        matplotlib's ``Patch.draw`` maps it at every draw."""
+        matplotlib's ``Patch.draw`` maps it at every draw (an affine
+        one through its matrix, see `transform_path`)."""
+        if self._transform.is_affine:
+            return self.transform_path(vertices, codes, steps)
         path = Path(vertices, codes, _interpolation_steps=steps)
         return self._transform.transform_path(path)
 

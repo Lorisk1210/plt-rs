@@ -99,6 +99,19 @@ def forget(owner, figure):
         _followed[figure].pop(owner, None)
 
 
+def _first_layout_of_print(figure):
+    """Whether this layout of *figure* is the first of the print running,
+    or no print runs: matplotlib lays a figure printed with a layout engine
+    or cut to its tight box out in the draw before the print, and prints it
+    with the engine turned off."""
+    options = getattr(figure.canvas, "_print_options", None)
+    if not options or not options.get("predrawn"):
+        return True
+    first = not options.get("engine_ran")
+    options["engine_ran"] = True
+    return first
+
+
 def _locate(figure):
     """Autoscale the Axes of classes of the program's that autoscale
     themselves, run the layout engine of the program's of *figure*, then
@@ -107,7 +120,8 @@ def _locate(figure):
         ax._unstale_viewLim()
     engine = figure.get_layout_engine()
     if figure.axes and engine is not None and (
-            engine._executes_in_python() or engine._lays_out_kept_grids(figure)):
+            engine._executes_in_python() or engine._lays_out_kept_grids(figure)) and (
+            _first_layout_of_print(figure)):
         try:
             engine.execute(figure)
         except ValueError:

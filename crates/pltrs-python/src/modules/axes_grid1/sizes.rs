@@ -3,9 +3,10 @@
 
 use pltrs::artist::{ArtistHandle, RawHandle};
 use pltrs::axes::Axes;
-use pltrs::axes_grid1::{Size, SizeAspect, SizeFn};
+use pltrs::axes_grid1::{Size, SizeAspect};
 use pltrs::spines::SpineSide;
 
+use super::super::archive::program_size;
 use crate::binding::prelude::*;
 
 /// A [`Size`] from its description: `("fixed", inches)`, `("scaled",
@@ -61,12 +62,7 @@ impl FromPy<'_> for PySize {
             }
             "python" => {
                 let (_, size): (String, Bound<'_>) = object.extract()?;
-                let get_size: Callback = size.getattr("get_size")?.extract()?;
-                Size::Program(SizeFn::new(move || {
-                    get_size
-                        .call::<(f64, f64)>((None::<f64>,))
-                        .unwrap_or((0.0, 0.0))
-                }))
+                Size::Program(program_size(&size.getattr("get_size")?)?)
             }
             _ => return Err(PyErr::type_error(format!("unknown size {tag:?}"))),
         };

@@ -128,8 +128,9 @@ class Divider:
             return
         try:
             position = self._native_rectangle()
-            horizontal = _native_sizes(self._horizontal)
-            vertical = _native_sizes(self._vertical)
+            with Size.describing_for(self._fig):
+                horizontal = _native_sizes(self._horizontal)
+                vertical = _native_sizes(self._vertical)
             for cell in self.__dict__.get("_placed", {}).values():
                 self._check_cell(cell, horizontal, vertical)
         except Unusable:
@@ -410,7 +411,8 @@ class Divider:
         else:  # 'top'
             self._vertical.append(size)
         try:
-            described = Size._described(size)
+            with Size.describing_for(self._fig):
+                described = Size._described(size)
         except Unusable:
             # A stand-in keeps the native divider's cells in step; the axes
             # are placed by their locators meanwhile (see `_sync`).

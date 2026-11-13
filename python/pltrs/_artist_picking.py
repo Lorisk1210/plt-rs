@@ -16,6 +16,7 @@ from numbers import Number
 import numpy as np
 
 from ._native import artist as _artist
+from ._program_classes import takes_from_program
 
 #: The logger of the `.artist` module, which matplotlib's warns with.
 _log = logging.getLogger(__name__.rpartition(".")[0] + ".artist")
@@ -51,6 +52,35 @@ def contains_untested(artist, mouseevent):
     """
     _log.warning("%r needs 'contains' method", artist.__class__.__name__)
     return False, {}
+
+
+def _pick_program_children(artist, listed, mouseevent):
+    """Pick the children *artist*'s class of the program's gives it
+    (``get_children``, which matplotlib's ``pick`` goes through) that are
+    not among the artists *listed* for the pick already."""
+    if not takes_from_program(type(artist), "get_children"):
+        return
+    for child in artist.get_children():
+        if not any(child is other for other in listed):
+            _pick_as_matplotlib(child, mouseevent)
+
+
+def _pick_as_matplotlib(artist, mouseevent):
+    """matplotlib's ``Artist.pick`` of *artist*, which pltrs (Rust) holds no
+    tree of (a child only its parent's class gives): hit-test it if it is
+    pickable, then its children."""
+    from .backend_bases import PickEvent
+    if artist.pickable():
+        picker = artist.get_picker()
+        if callable(picker):
+            inside, prop = picker(artist, mouseevent)
+        else:
+            inside, prop = artist.contains(mouseevent)
+        if inside:
+            PickEvent("pick_event", artist.get_figure(root=True).canvas, mouseevent, artist,
+                      **prop)._process()
+    for child in artist.get_children():
+        _pick_as_matplotlib(child, mouseevent)
 
 
 @functools.cache
@@ -166,7 +196,8 @@ class PickingMixin:
         order = _artist.pick_order(
             self._native, None if inaxes is None else inaxes._native, asking)
         artists = [figure._artists.get(_artist.id(native)) for native in order]
-        for artist in [*artists, *_pickable_axis_parts(self, figure, inaxes)]:
+        listed = [*artists, *_pickable_axis_parts(self, figure, inaxes)]
+        for artist in listed:
             if artist is None:
                 # Picked natively, the artist has no object to report.
                 continue
@@ -178,6 +209,7 @@ class PickingMixin:
             if inside:
                 PickEvent("pick_event", figure.canvas, mouseevent, artist,
                           **prop)._process()
+            _pick_program_children(artist, listed, mouseevent)
 
     def set_picker(self, picker):
         """

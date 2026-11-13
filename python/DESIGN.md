@@ -2109,8 +2109,39 @@ it asks:
   (``PyScale``), which a pickle of the figure holds; unpickled, pltrs asks
   ``scale._program_scale`` for its functions again.
 
-`python/tests/test_gen5.py` checks each with a subclass of the kind the
-libraries write; ``cargo xtask diff --generated overrides`` runs the
+* **Adding.** A class overriding an ``add_*`` method (``add_line``,
+  ``add_patch``, ``add_collection``, ``add_image``, ``_add_text``,
+  ``add_table``) is called with each artist the plotting methods make,
+  with matplotlib's ``autolim`` (`.axes._program_adds`); the package's
+  method it reaches adds nothing more, and an override that does not
+  reach it leaves the artist out of the Axes, as matplotlib does.
+* **Constructors' setters.** `.Text`'s constructor calls the class'
+  ``set_text`` and the setters of its explicit keywords it overrides,
+  given or not; `.Legend`'s calls its ``set_loc``.
+* **Picking** goes through the children a class gives (``get_children``),
+  which pltrs (Rust) holds no tree of, as matplotlib's ``Artist.pick``.
+* **Prints.** A figure class's ``draw`` also runs in the draw matplotlib
+  makes before a print laid out by an engine or cut to its tight box; a
+  layout engine of the program's runs once per such print.
+* **Affine transforms** whose class gives its own ``transform_affine``,
+  ``transform`` or ``transform_point`` map points through them where
+  matplotlib maps a point through the transform alone (a text placed by
+  it): `._live_transforms` hands such a transform over as a map pltrs
+  (Rust) calls back, which draws paths through its matrix, as
+  matplotlib's renderers do; within a composition matplotlib maps through
+  the matrix, and so does pltrs. Its ``get_matrix`` is read where the
+  transform is handed over (and again where a text is measured,
+  `follow_given`), not at every draw.
+* **Axis transforms** a projection of the program's gives
+  (``get_xaxis_transform``) are taken anew at each clear, as the ticks
+  matplotlib's clear makes take them (not at each draw: matplotlib's ticks
+  keep theirs, and new ticks copy those of the first).
+* **axes_grid1 sizes** of the program's are asked with the renderer of the
+  print, else the one the canvas drew with last, and pickle as their
+  ``get_size``.
+
+`python/tests/test_gen5.py` and `test_gen6.py` check each with a subclass
+of the kind the libraries write; ``cargo xtask diff --generated overrides`` runs the
 family (``spec/diff/generators/overrides*.py``).
 
 ### pyplot's state

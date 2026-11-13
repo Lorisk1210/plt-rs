@@ -38,8 +38,8 @@ import textwrap
 from typing import Any, Iterator
 
 from . import common
-from .overrides_changes import ATTRIBUTES, CHANGES, SHOWS
-from .overrides_scenes import IMPORTS, SCENES, member_steps
+from .overrides_changes import ATTRIBUTES, CHANGES, LATER, SHOWS
+from .overrides_scenes import ADDING, IMPORTS, SCENES, member_steps
 
 CENSUS = pathlib.Path(__file__).resolve().parent.parent / "overrides_census.json"
 
@@ -74,8 +74,11 @@ DISTINCT: dict[str, str] = {
         ("inverse", "autoscale_None", "process_value", "vmin", "vmax", "scaled", "_changed", "_ensure_inited"),
         "matplotlib's colour mapping and colorbar ask the norm through cascades of callbacks"),
     **dict.fromkeys(
+        ("transform", "transform_affine"),
+        "matplotlib maps a text's point through it at every draw and measure, and its prints draw twice"),
+    **dict.fromkeys(
         ("_get_unit", "_get_interval", "viewlim_to_dt", "_create_rrule", "convert", "get_geometry",
-         "get_grid_positions", "get_subplot_params"),
+         "get_grid_positions", "get_subplot_params", "get_size"),
         "matplotlib's code recomputes it wherever it needs it"),
 }
 
@@ -284,14 +287,15 @@ def _with_takes(steps: tuple[str, ...] | list[str], cls: str, member: str) -> li
     return statements
 
 
-def _program(cls: str, member: str, body: str, changed: bool) -> list[str]:
+def _program(cls: str, member: str, body: str, changed: bool, later: tuple[str, ...] = ()) -> list[str]:
     scene = SCENES[cls]
     base, _ = _program_base(cls)
     statements = [*SETUP, *scene.imports, f'exec("""\n{_classes(cls, base, body)}""")',
                   *_with_takes((*scene.make, "event = MouseEvent('button_press_event', fig.canvas, 150, 100)"),
                                cls, member)]
     if changed:
-        return statements + _with_takes(("fig.canvas.draw()", *SHOWS,
+        return statements + _with_takes(("fig.canvas.draw()", *later, *(("fig.canvas.draw()",) if later else ()),
+                                          *SHOWS,
                                           "fig.savefig(io.BytesIO(), format='png', bbox_inches='tight')", *SHOWS),
                                          cls, member)
     life = ("fig.canvas.draw()", "fig.canvas.draw()", scene.prop, "fig.canvas.draw()", *scene.steps,
@@ -355,7 +359,15 @@ def programs() -> Iterator[tuple[str, list[str]]]:
             yield f"{name}-changed", _program(cls, member, CHANGES[cls, member], changed=True)
         elif (cls, member) in ATTRIBUTES:
             yield f"{name}-changed", _program(cls, member, f"{member} = {ATTRIBUTES[cls, member]}\n", changed=True)
+        if (cls, member) in LATER:
+            later_body, steps = LATER[cls, member]
+            yield f"{name}-changed-later", _program(cls, member, later_body, changed=True, later=steps)
     for cls in SCENES:
         _, base = _program_base(cls)
-        for member in self_called(cls, base, taken[cls])[:SELF_CALLED]:
+        members = self_called(cls, base, taken[cls])[:SELF_CALLED]
+        if SCENES[cls].kind == "axes" and cls.endswith(".Axes"):
+            # The rest of the ``add_*`` family, which libraries override to
+            # register what is plotted.
+            members += [name for name in ADDING if name not in taken[cls] and name not in members]
+        for member in members:
             yield f"{_short(cls)}-{member}", _program(cls, member, _override(member, "method", base), changed=False)

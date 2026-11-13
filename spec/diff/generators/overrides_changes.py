@@ -76,6 +76,10 @@ CHANGES: dict[tuple[str, str], str] = {
     ("matplotlib.ticker.ScalarFormatter", "get_offset"): (
         "def get_offset(self):\n    return 'offset ' + call('get_offset', super().get_offset)\n"),
     ("matplotlib.transforms.Transform", "transform_non_affine"): _TRANSFORM,
+    **{(cls, "transform_affine"): (
+        "def transform_affine(self, values):\n"
+        "    return np.asarray(call('transform_affine', super().transform_affine, (values,))) + [0, 15]\n")
+       for cls in ("matplotlib.transforms.Affine2DBase", "matplotlib.transforms.Affine2D")},
     ("matplotlib.transforms.Affine2DBase", "get_matrix"): _MATRIX,
     ("matplotlib.transforms.Affine2D", "get_matrix"): _MATRIX,
     ("matplotlib.colors.Normalize", "__call__"): _NORM,
@@ -181,4 +185,19 @@ ATTRIBUTES: dict[tuple[str, str], str] = {
     ("matplotlib.transforms.Transform", "has_inverse"): "False",
     ("matplotlib.layout_engine.LayoutEngine", "_adjust_compatible"): "False",
     ("matplotlib.layout_engine.LayoutEngine", "_colorbar_gridspec"): "False",
+}
+
+#: (matplotlib's class, member) -> an override whose result depends on
+#: state of the object, and the steps changing that state between two
+#: draws: a ``-changed-later`` variant checks that what the figure shows
+#: follows (matplotlib's ticks take the axis transforms anew when a clear
+#: makes them).
+LATER: dict[tuple[str, str], tuple[str, tuple[str, ...]]] = {
+    ("matplotlib.axes.Axes", f"get_{name}axis_transform"): (
+        f"shift = 0.0\n"
+        f"def get_{name}axis_transform(self, which='grid'):\n"
+        f"    return call('get_{name}axis_transform', super().get_{name}axis_transform, (which,)) + "
+        f"transforms.Affine2D().translate(self.shift, self.shift)\n",
+        ("ax.shift = 12.0", "ax.cla()", "ax.plot(x, y)"))
+    for name in "xy"
 }

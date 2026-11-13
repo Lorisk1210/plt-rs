@@ -445,13 +445,8 @@ fn get_array(collection: Collection) -> PyResult<Option<NdArray>> {
 fn set_array(collection: Collection, values: Option<NdArray>) -> PyResult<()> {
     match values {
         Some(values) => {
-            let values = values
-                .into_vec()?
-                .into_iter()
-                .map(|value| value.is_finite().then_some(value))
-                .collect();
             collection
-                .set_array(values)
+                .set_array(masked(values)?)
                 .map_err(|err| PyErr::value_error(err.to_string()))?;
         }
         None => {
@@ -459,6 +454,26 @@ fn set_array(collection: Collection, values: Option<NdArray>) -> PyResult<()> {
         }
     }
     Ok(())
+}
+
+/// Maps `values` (`NaN` masked) to colours, through `cmap` if the
+/// collection maps none yet: the colormap of its colorizer, which
+/// matplotlib resolves (`image.cmap` by default) in the registry the
+/// program may have replaced (ultraplot's).
+fn set_mapped_array(collection: Collection, values: NdArray, cmap: Colormap) -> PyResult<()> {
+    collection
+        .set_array_mapped_by(masked(values)?, cmap)
+        .map_err(|err| PyErr::value_error(err.to_string()))?;
+    Ok(())
+}
+
+/// `values` with the values that are not finite masked.
+fn masked(values: NdArray) -> PyResult<Vec<Option<f64>>> {
+    Ok(values
+        .into_vec()?
+        .into_iter()
+        .map(|value| value.is_finite().then_some(value))
+        .collect())
 }
 
 /// The colour limits of the mapping.
@@ -612,6 +627,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_sizes", set_sizes)?;
     module.add("get_array", get_array)?;
     module.add("set_array", set_array)?;
+    module.add("set_mapped_array", set_mapped_array)?;
     module.add("get_clim", get_clim)?;
     module.add("get_cmap", get_cmap)?;
     module.add("set_mapping", set_mapping)?;

@@ -12,7 +12,7 @@ use super::{
 };
 use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
 use crate::colorizer::{self, MappingChange, change_mapping};
-use crate::colors::{Color, Colormap, Norm, ScalarMappable, colormaps};
+use crate::colors::{Color, Colormap, ColormapError, Norm, ScalarMappable, colormaps};
 use crate::lines::LineStyle;
 use crate::transforms::Transform;
 
@@ -402,6 +402,43 @@ impl Collection {
     /// cells (or, Gouraud-shaded, its vertices), or when it maps no colours
     /// yet and `image.cmap` names no colormap.
     pub fn set_array(&self, values: Vec<Option<f64>>) -> Result<&Self, ArrayError> {
+        self.map_values(values, || colormaps::get(&crate::rc::params().image_cmap))
+    }
+
+    /// Maps `values` to colours as [`set_array`](Self::set_array) does,
+    /// with `cmap` instead of `image.cmap` if the collection maps none yet:
+    /// the colormap a program resolved itself (pltrs (Python)'s, looked up
+    /// in a registry the program may have put in place of matplotlib's).
+    ///
+    /// ```
+    /// use pltrs::colors::Colormap;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let dots = ax.scatter(vec![1.0, 2.0], vec![3.0, 4.0])?;
+    /// dots.set_array_mapped_by(vec![Some(0.0), Some(1.0)], Colormap::listed("ends", vec!["k", "w"])?)?;
+    /// assert_eq!(dots.cmap().map(|cmap| cmap.name().to_owned()), Some("ends".to_owned()));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the collection is a quad mesh and the values do not match its
+    /// cells (or, Gouraud-shaded, its vertices).
+    pub fn set_array_mapped_by(
+        &self,
+        values: Vec<Option<f64>>,
+        cmap: Colormap,
+    ) -> Result<&Self, ArrayError> {
+        self.map_values(values, || Ok(cmap))
+    }
+
+    /// Maps `values` with the collection's mapping, or with a linear norm
+    /// and the colormap `first_cmap` gives if it maps none yet.
+    fn map_values(
+        &self,
+        values: Vec<Option<f64>>,
+        first_cmap: impl FnOnce() -> Result<Colormap, ColormapError>,
+    ) -> Result<&Self, ArrayError> {
         let expected = self
             .raw
             .with::<CollectionArtist, _>(CollectionArtist::mesh_value_count);
@@ -421,7 +458,7 @@ impl Collection {
                 .or_else(|| c.parked_mappable.clone())
         }) {
             Some(mappable) => mappable,
-            None => ScalarMappable::new(colormaps::get(&crate::rc::params().image_cmap)?),
+            None => ScalarMappable::new(first_cmap()?),
         };
         Ok(self.set_mapping(ColorMapping { values, mappable }))
     }

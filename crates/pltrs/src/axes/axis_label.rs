@@ -39,6 +39,10 @@ pub(crate) struct AxisLabel {
     pub(crate) side: SpineSide,
     /// Where along the axis the label sits.
     pub(crate) loc: LabelLoc,
+    /// A place along the axis in axes fractions instead of that of `loc`,
+    /// keeping its alignment (matplotlib's `label.set_x` of an x axis,
+    /// `set_y` of a y axis), until `loc` is set again.
+    pub(crate) along: Option<f64>,
     /// The alignment along the axis instead of the one that comes with
     /// `loc` (matplotlib's `ha`).
     pub(crate) halign: Option<HAlign>,
@@ -72,6 +76,7 @@ pltrs_core::archive_struct!(AxisLabel {
     pad,
     side,
     loc,
+    along,
     halign,
     multialign,
     visible,
@@ -96,6 +101,12 @@ impl AxisLabel {
     pub(crate) fn move_to(&mut self, side: SpineSide) {
         self.side = side;
         self.valign = None;
+    }
+
+    /// Where along the axis the label sits, as a fraction of its length:
+    /// the place set, else that of `loc`.
+    pub(crate) fn along(&self) -> f64 {
+        self.along.unwrap_or(self.loc.fraction())
     }
 
     /// The alignment along the axis, the text's horizontal alignment
@@ -289,6 +300,7 @@ impl Axis {
         let loc = loc.into();
         self.update(|axis| {
             axis.label.loc = loc;
+            axis.label.along = None;
             axis.label.halign = None;
         });
         self
@@ -297,6 +309,33 @@ impl Axis {
     /// Where along the axis its label sits.
     pub fn label_loc(&self) -> LabelLoc {
         self.read(|axis| axis.label.loc)
+    }
+
+    /// Places the axis label at `fraction` of the axis' length, keeping
+    /// its alignment (matplotlib's `label.set_x(fraction)` of an x axis,
+    /// `set_y` of a y axis), until the next [`Axis::set_label_loc`].
+    ///
+    /// ```
+    /// use pltrs::axes::LabelLoc;
+    /// use pltrs::prelude::*;
+    /// use pltrs::text::HAlign;
+    /// let ax = Figure::new().subplot();
+    /// ax.xaxis().set_label_loc(LabelLoc::End).set_label_along(0.9);
+    /// assert_eq!(ax.xaxis().label_along(), 0.9);
+    /// assert_eq!(ax.xaxis().label_halign(), HAlign::Right);
+    /// ax.xaxis().set_label_loc(LabelLoc::Center);
+    /// assert_eq!(ax.xaxis().label_along(), 0.5);
+    /// ```
+    pub fn set_label_along(&self, fraction: f64) -> &Self {
+        self.update(|axis| axis.label.along = Some(fraction));
+        self
+    }
+
+    /// Where along the axis its label sits, as a fraction of the axis'
+    /// length: the place [`Axis::set_label_along`] set, else that of its
+    /// [`LabelLoc`].
+    pub fn label_along(&self) -> f64 {
+        self.read(|axis| axis.label.along())
     }
 
     /// Aligns the axis label along its axis independently of where it sits
@@ -596,6 +635,31 @@ mod tests {
         yaxis.set_label_loc(LabelLoc::Start);
         assert_eq!(yaxis.label_halign(), HAlign::Left);
         assert_eq!(ax.xaxis().label_halign(), HAlign::Center);
+    }
+
+    #[test]
+    fn labels_sit_anywhere_along_their_axis_keeping_their_alignment() {
+        // matplotlib 3.11: in a 4 x 3 in figure at 100 dpi, an x label at
+        // loc "right" moved to x = 0.7 ends at 267 px (its axes spans 50
+        // to 360), a y label at loc "bottom" moved to y = 0.25 starts at
+        // 90.75 px (33 to 264).
+        let fig = Figure::with_size(4.0, 3.0, 100.0);
+        let ax = fig.subplot();
+        ax.plot([0.0, 1.0], [0.0, 1.0]).expect("a line");
+        ax.set_xlabel("time");
+        ax.set_ylabel("depth");
+        ax.xaxis().set_label_loc(LabelLoc::End).set_label_along(0.7);
+        ax.yaxis()
+            .set_label_loc(LabelLoc::Start)
+            .set_label_along(0.25);
+        fig.to_png().expect("drawn");
+        let x = ax.xaxis().label_extent().expect("drawn").x1();
+        let y = ax.yaxis().label_extent().expect("drawn").y0();
+        assert!((x - 267.0).abs() < 1e-9, "{x}");
+        assert!((y - 90.75).abs() < 1e-9, "{y}");
+        assert_eq!(ax.xaxis().label_halign(), HAlign::Right);
+        ax.xaxis().set_label_loc(LabelLoc::Center);
+        assert_eq!(ax.xaxis().label_along(), 0.5, "the next loc places it");
     }
 
     #[test]

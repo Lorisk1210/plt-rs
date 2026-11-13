@@ -34,7 +34,8 @@ pltrs_core::archive_enum!(SizeAspect {
 /// A size the program computes (matplotlib's `axes_size` classes of the
 /// program's, asked `get_size`): a function returning the `(relative,
 /// absolute)` parts, called at every layout. It runs inside the layout
-/// pass, so it is `Send` and cannot use the figure's handles. Clones share
+/// pass, which lends it the figure as laid out so far, so that it may
+/// read it through the figure's handles as matplotlib's do. Clones share
 /// the function; a figure with one is archived only if the function has
 /// an origin ([`SizeFn::with_origin`]).
 #[derive(Clone)]
@@ -157,7 +158,9 @@ impl Size {
             Self::MaxWidth(artists) => (0.0, max_extent(fig, artists, Bbox::width)),
             Self::MaxHeight(artists) => (0.0, max_extent(fig, artists, Bbox::height)),
             Self::AxesDecorations(axes, side) => (0.0, decorations_extent(fig, axes, *side)),
-            Self::Program(size) => size.parts(),
+            // Lent the figure, which matplotlib's sizes read (mplhep's
+            // `RemainderFixed` asks its divider the axes' position).
+            Self::Program(size) => fig.lend(|_| size.parts()).unwrap_or_else(|| size.parts()),
         }
     }
 }
@@ -297,6 +300,30 @@ mod tests {
         assert_eq!(program.clone().times(2.0).evaluate(&mut state), (1.0, 0.5));
         assert_eq!(program, program.clone(), "clones share the function");
         assert_ne!(program, Size::Program(SizeFn::new(|| (0.5, 0.25))));
+    }
+
+    #[test]
+    fn program_sizes_read_the_figure_a_layout_works_on() {
+        thread_local! {
+            static AXES: std::cell::RefCell<Option<crate::axes::Axes>> =
+                const { std::cell::RefCell::new(None) };
+        }
+        let fig = Figure::new();
+        let ax = fig
+            .add_axes([0.1, 0.2, 0.5, 0.4])
+            .expect("a valid rectangle");
+        AXES.set(Some(ax.clone()));
+        // The axes' width in figure fractions, read through its handle.
+        let program = Size::Program(SizeFn::new(|| {
+            AXES.with_borrow(|ax| {
+                let ax = ax.as_ref().expect("the axes is set");
+                (ax.original_position().width(), 0.0)
+            })
+        }));
+        let cell = std::rc::Rc::clone(fig.state_cell());
+        let (relative, _) = cell.work_on(|state| program.evaluate(state));
+        assert!((relative - 0.5).abs() < 1e-12, "{relative}");
+        AXES.set(None);
     }
 
     #[test]

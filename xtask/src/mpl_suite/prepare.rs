@@ -132,11 +132,14 @@ pub(super) fn test_files(site: &Path) -> Result<Vec<String>, String> {
 }
 
 /// Copies a test package from the sdist to `dest` unless the copy is
-/// already there.
+/// already there, and only it: a copy holding Python files the sdist
+/// lacks (a file left there by hand, which pytest would collect) is made
+/// again.
 pub(crate) fn copy_tests(from: &Path, dest: &Path) -> Result<(), String> {
     let stamp = dest.join(STAMP);
     let source = from.display().to_string();
-    if fs::read_to_string(&stamp).is_ok_and(|copied| copied == source) {
+    if fs::read_to_string(&stamp).is_ok_and(|copied| copied == source) && !holds_strays(from, dest)
+    {
         return Ok(());
     }
     remove(dest)?;
@@ -243,6 +246,24 @@ pub(crate) fn remove(path: &Path) -> Result<(), String> {
 
 /// Copies the directory `source` into `dest`, recursively, leaving out
 /// byte-code caches.
+/// Whether `dest`, a copy of `source`, holds a Python file (outside the
+/// byte-code caches) that `source` does not.
+fn holds_strays(source: &Path, dest: &Path) -> bool {
+    let Ok(entries) = fs::read_dir(dest) else {
+        return false;
+    };
+    entries.filter_map(Result::ok).any(|entry| {
+        let (name, path) = (entry.file_name(), entry.path());
+        if name == "__pycache__" {
+            false
+        } else if path.is_dir() {
+            holds_strays(&source.join(&name), &path)
+        } else {
+            path.extension().is_some_and(|ext| ext == "py") && !source.join(&name).is_file()
+        }
+    })
+}
+
 fn copy_dir(source: &Path, dest: &Path) -> Result<(), String> {
     fs::create_dir_all(dest).map_err(|err| format!("{}: {err}", dest.display()))?;
     let entries = fs::read_dir(source).map_err(|err| format!("{}: {err}", source.display()))?;
@@ -258,4 +279,31 @@ fn copy_dir(source: &Path, dest: &Path) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn copies_holding_files_of_their_own_are_made_again() {
+        let dir = std::env::temp_dir().join(format!("mpl-suite-copies-{}", std::process::id()));
+        let (source, dest) = (dir.join("source"), dir.join("dest"));
+        fs::create_dir_all(source.join("plots")).unwrap();
+        fs::write(source.join("plots/test_a.py"), "").unwrap();
+        copy_tests(&source, &dest).unwrap();
+        fs::create_dir_all(dest.join("plots/__pycache__")).unwrap();
+        fs::write(dest.join("plots/__pycache__/test_a.pyc"), "").unwrap();
+        fs::write(dest.join("plots/result.png"), "").unwrap();
+        assert!(
+            !holds_strays(&source, &dest),
+            "caches and outputs are no strays"
+        );
+        fs::write(dest.join("plots/test_debug.py"), "").unwrap();
+        assert!(holds_strays(&source, &dest));
+        copy_tests(&source, &dest).unwrap();
+        assert!(!dest.join("plots/test_debug.py").exists());
+        assert!(dest.join("plots/test_a.py").is_file());
+        fs::remove_dir_all(dir).unwrap();
+    }
 }

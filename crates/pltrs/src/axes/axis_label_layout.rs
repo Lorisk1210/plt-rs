@@ -104,8 +104,8 @@ impl AxisPainter<'_> {
             (AxisName::Y, false) => bounds.x0() - pad,
         };
         Some(match self.name {
-            AxisName::X => Point::new(extent.x0() + label.loc.fraction() * extent.width(), beyond),
-            AxisName::Y => Point::new(beyond, extent.y0() + label.loc.fraction() * extent.height()),
+            AxisName::X => Point::new(extent.x0() + label.along() * extent.width(), beyond),
+            AxisName::Y => Point::new(beyond, extent.y0() + label.along() * extent.height()),
         })
     }
 

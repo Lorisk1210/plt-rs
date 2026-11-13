@@ -81,6 +81,8 @@ pub(super) fn bar(
             barsabove,
             ..ErrorbarOptions::default()
         },
+        // The Python side converted them as matplotlib does.
+        extents_converted: true,
         ..defaults
     };
     let (x, height) = (x.into_vec()?, height.into_vec()?);

@@ -6,7 +6,7 @@ What layout engines measure of an Axes (matplotlib's
 import numpy as np
 
 from .. import _unusable
-from .._native import figure_layout as _figure_layout
+from .._native import figure_layout as _figure_layout, insets as _insets
 from ..text import _measured_by_given
 from ..transforms import Bbox
 
@@ -100,12 +100,22 @@ class LayoutMixin:
         # matplotlib calls the Axes' locator first: one that is an artist
         # (axes_grid1's anchored locators) takes the Axes as its own, and
         # refuses a second one (a parasite calling its host's).
-        called = getattr(self.get_axes_locator(), "_called_with", None)
+        locator = self.get_axes_locator()
+        called = getattr(locator, "_called_with", None)
         if called is not None and call_axes_locator:
             called(self)
-        if call_axes_locator:
-            from . import _program_locators
-            _program_locators.place_to_measure(self, renderer)
+        elif (locator and called is None
+                and getattr(locator, "_place", None) is None):
+            # A locator of the program's, which pltrs (Rust) only follows
+            # in a draw (`._program_locators`): the Axes is measured where
+            # it places it now, as matplotlib applies it first, or (not
+            # called) at its original position, until the next draw.
+            if call_axes_locator:
+                self._locate_by_program(
+                    renderer if renderer is not None
+                    else self.get_figure(root=True)._get_renderer())
+            else:
+                _insets.set_located_position(self._native, None)
         self._place_titles_by_program(renderer)
         self._first_measuring_steps(renderer)
         with _measured_by_given(renderer, self):

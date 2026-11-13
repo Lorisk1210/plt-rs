@@ -88,7 +88,7 @@ impl Axes {
     /// drawing the bands of a hatched filled contour set but its first,
     /// which stands for the set (matplotlib's set is one collection,
     /// drawing its bands one by one).
-    fn children_where(&self, keep: impl Fn(&dyn Artist) -> bool) -> Vec<RawHandle> {
+    pub(super) fn children_where(&self, keep: impl Fn(&dyn Artist) -> bool) -> Vec<RawHandle> {
         let figure = self.raw().figure_state();
         let state = figure.borrow();
         let (children, spines) = self.raw().with::<AxesState, _>(|axes| {

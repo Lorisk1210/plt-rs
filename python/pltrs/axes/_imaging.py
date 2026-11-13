@@ -307,5 +307,4 @@ class ImagingMixin:
         im.set_alpha(alpha)
         im.set_url(url)
         im._made_with(kwargs)
-        self._sci(im)
         return im

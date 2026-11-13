@@ -30,6 +30,12 @@ _METHODS = (
 )
 
 
+def _image_of_matrix(ret):
+    """What `.Axes.spy` returned when it is an image, not markers."""
+    from .colorizer import _ColorizerInterface
+    return ret if isinstance(ret, _ColorizerInterface) else None
+
+
 #: The colour-mapped artist of what a plotting method returns, by method
 #: name: pyplot makes it the current image (matplotlib's ``sci`` calls in
 #: ``boilerplate.py``).
@@ -46,7 +52,9 @@ _MAPPABLES = {
     "contourf": lambda ret: ret if ret._A is not None else None,
     "tricontour": lambda ret: ret if ret._A is not None else None,
     "tricontourf": lambda ret: ret if ret._A is not None else None,
+    "spy": _image_of_matrix,
 }
+
 
 
 #: The module the pyplot functions are pyplot's.

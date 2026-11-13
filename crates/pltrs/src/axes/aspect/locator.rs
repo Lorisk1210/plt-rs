@@ -106,6 +106,14 @@ impl AxesLocatorFn {
         Self(Locate::At(position))
     }
 
+    /// Whether the locator places its axes at a position given in its
+    /// figure's fractions ([`AxesLocatorFn::at`] with a position, what a
+    /// locator of the program's computed), rather than relative to the
+    /// position the axes was given.
+    pub(crate) fn places_in_figure(&self) -> bool {
+        matches!(self.0, Locate::At(Some(_)))
+    }
+
     /// Where the locator places an axes given `original`.
     pub fn locate(&self, original: Bbox) -> Bbox {
         match &self.0 {

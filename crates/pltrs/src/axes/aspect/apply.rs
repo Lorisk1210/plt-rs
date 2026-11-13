@@ -4,7 +4,7 @@
 
 use pltrs_core::Bbox;
 
-use super::{Adjustable, AspectError};
+use super::{Adjustable, AspectError, AxesLocatorFn};
 use crate::artist::{Artist, ArtistId, DrawError, DrawErrorKind};
 use crate::axes::AxesState;
 use crate::figure::{FigureState, host_to_figure};
@@ -52,6 +52,20 @@ pub(crate) enum Placement {
     /// At a position the program gives, in figure fractions
     /// (matplotlib's `apply_aspect(position)`).
     Given(Bbox),
+}
+
+impl Placement {
+    /// Whether the position it places an axes at is in the figure's
+    /// fractions, also for an axes placed in a host (whose own position
+    /// is in the host's): one the program gives, or its locator computed
+    /// (`custom`, the axes' locator).
+    fn in_figure(self, custom: Option<&AxesLocatorFn>) -> bool {
+        match self {
+            Self::Given(_) => true,
+            Self::Located => custom.is_some_and(AxesLocatorFn::places_in_figure),
+            Self::Original => false,
+        }
+    }
 }
 
 /// What applying the aspect of an axes computes with, as bits (so that
@@ -197,6 +211,7 @@ impl FigureState {
         let original = state.position;
         let settings = state.aspect;
         let custom = state.axes_locator.clone();
+        let in_figure = placement.in_figure(custom.as_ref());
         let located = match (placement, custom) {
             (Placement::Located, Some(locator)) => locator.locate(original),
             (Placement::Located, None) => {
@@ -230,16 +245,15 @@ impl FigureState {
         // them there before it applies the aspect; axes covering their host
         // stay in its fractions.
         let hosted = parent
-            .filter(|&p| original != Bbox::UNIT && self.store.get_as::<AxesState>(p).is_some())
+            .filter(|&p| {
+                (original != Bbox::UNIT || in_figure) && self.store.get_as::<AxesState>(p).is_some()
+            })
             .and_then(|p| {
                 let (host, figure) = (self.axes_bbox(p)?, self.figure_bbox_of(p)?);
                 Some(((host, figure), host_to_figure(&host, &figure)?))
             });
         let (located, frame) = match hosted {
-            // A position the program gives is in figure fractions already.
-            Some(((_, figure), _)) if matches!(placement, Placement::Given(_)) => {
-                (located, Some(figure))
-            }
+            Some(((_, figure), _)) if in_figure => (located, Some(figure)),
             Some(((_, figure), to_figure)) => (located.transformed(&to_figure), Some(figure)),
             None => (
                 located,

@@ -870,6 +870,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             # Made by its owner as a part of itself (an Axes' title), or only
             # given its figure (`set_figure`), it has no removal method.
             raise NotImplementedError('cannot remove artist')
+        self._take_out_of_figure()
+
+    def _take_out_of_figure(self):
+        """Take the artist out of its figure, as pltrs (Rust) holds it,
+        whatever removal method it has."""
         # Decoupled first: the end of the native removal brings the
         # artist's trees up to date, which reads it.
         self._decouple(removed=True)

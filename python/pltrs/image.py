@@ -286,7 +286,16 @@ class _ImageBase(mcolorizer.ColorizingArtist):
     @property
     def origin(self):
         """Where the [0, 0] index of the array is: 'upper' or 'lower'."""
-        return _native_image.get_origin(self._native)
+        return _values.given(self, "origin", _native_image.get_origin(self._native),
+                             same=lambda given, native: (given == "upper") == (native == "upper"))
+
+    @origin.setter
+    def origin(self, origin):
+        # matplotlib checks the origin only when the image is made; its
+        # draws, ``get_extent`` and ``get_cursor_data`` read the one
+        # assigned, drawing as 'upper' only that.
+        _values.remember(self, "origin", origin)
+        _native_image.set_origin(self._native, "upper" if origin == "upper" else "lower")
 
     def get_size(self):
         """Return the size of the image as tuple (numrows, numcols)."""

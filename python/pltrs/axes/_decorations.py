@@ -52,7 +52,14 @@ class DecorationsMixin:
     @property
     def axison(self):
         """Whether the patch, spines and axes are drawn."""
-        return _axes_base.get_axis_on(self._native)
+        return _values.given_flag(self, "axison", _axes_base.get_axis_on(self._native))
+
+    @axison.setter
+    def axison(self, axison):
+        # matplotlib's draws and measures read its truth (as
+        # `set_axis_off` sets it).
+        _values.remember(self, "axison", axison)
+        _axes_base.set_axis_on(self._native, bool(axison))
 
     def set_axis_off(self):
         """

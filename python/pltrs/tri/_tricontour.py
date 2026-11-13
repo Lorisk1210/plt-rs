@@ -2,7 +2,7 @@
 Contours on triangular grids (matplotlib's ``tri._tricontour``).
 """
 
-from .. import _docstring, _lazy_imports
+from .. import _docstring, _lazy_imports, _values
 from ..contour import ContourSet, _ContourGenerator
 
 _contour_arguments = _lazy_imports.module(globals(), ".._contour_arguments")
@@ -38,12 +38,12 @@ class TriContourSet(ContourSet):
             ax._tricontour(filled, args, kwargs, made=self)
 
     # matplotlib's triangular contours keep the extremes as Python floats.
-    @property
+    @_values.assignable
     def zmin(self):
         """The smallest value of the data."""
         return float(super().zmin)
 
-    @property
+    @_values.assignable
     def zmax(self):
         """The largest value of the data."""
         return float(super().zmax)

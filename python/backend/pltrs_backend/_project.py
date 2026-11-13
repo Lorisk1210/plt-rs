@@ -142,21 +142,30 @@ class Project:
 
     def checked_sources(self):
         """
-        The modules of pltrs' package as the alias installs them for type
-        checkers, under matplotlib's name (``matplotlib/units.py``), as
-        ``(archive path, file)`` pairs: a checker reads a module without a
-        stub from its source and looks for the source of one with a stub
-        (the alias' stubs are matplotlib's, ``python/alias/matplotlib``),
-        and pltrs' modules import each other relatively, so that they name
-        the package they lie in. All but ``__init__.py`` and the toolkits,
-        which the alias has of its own. Python never imports them: the
-        alias loads pltrs' files (``_pltrs_matplotlib_alias``).
+        The sources beside the alias' stubs, as ``(archive path, file)``
+        pairs, and its toolkits' modules: for each stub of ``python/alias/matplotlib`` (matplotlib's,
+        and those of matplotlib's modules without one, which
+        ``python/tools/matplotlib_stubs.py`` writes), pltrs' module under
+        matplotlib's name (``matplotlib/units.py``), as type checkers look
+        for a stub's source (pyright warns of a stub without one, and
+        shows its docstrings). Not the package's ``__init__.py``, which is
+        the alias' own. Python never imports them: the alias loads pltrs'
+        files (``_pltrs_matplotlib_alias``).
         """
+        stubs = self.root / "python" / "alias" / "matplotlib"
         package = self.root / "python" / "pltrs"
-        return [(f"matplotlib/{path.relative_to(package).as_posix()}", path)
-                for path in sorted(package.rglob("*.py"))
-                if _is_source(path) and path.relative_to(package).parts[0] != "mpl_toolkits"
-                and path != package / "__init__.py"]
+        found = []
+        for stub in sorted(stubs.rglob("*.pyi")):
+            source = package / stub.relative_to(stubs).with_suffix(".py")
+            if source.is_file() and source != package / "__init__.py":
+                found.append((f"matplotlib/{source.relative_to(package).as_posix()}", source))
+        # matplotlib's toolkits are untyped, which pyright reads the code
+        # of: pltrs' modules of them, but for the packages' ``__init__``
+        # (the alias' loaders, whose stubs are matplotlib's code).
+        found.extend((path.relative_to(package).as_posix(), path)
+                     for path in sorted((package / "mpl_toolkits").rglob("*.py"))
+                     if _is_source(path) and path.name != "__init__.py")
+        return found
 
     def data_files(self):
         """

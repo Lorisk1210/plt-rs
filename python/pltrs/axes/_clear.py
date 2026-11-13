@@ -195,6 +195,12 @@ class ClearMixin:
         self._hear_limit_changes()
         return registry
 
+    @callbacks.setter
+    def callbacks(self, registry):
+        # The registry told of limit changes is the one the attribute holds
+        # then (`_notify`), as matplotlib's axes tell theirs.
+        self.__dict__["_limit_callbacks"] = registry
+
     def _hear_limit_changes(self):
         """Have pltrs (Rust) tell the Axes' ``callbacks`` of the changes of
         its view limits (once, until the Axes is cleared). The registry is

@@ -2637,10 +2637,25 @@ a re-export, and a package's relative imports in its `__init__` for
 importing those submodules), so each distribution has its own copy:
 `python/pltrs/**/*.pyi` import pltrs' modules for matplotlib's, and
 `python/alias/matplotlib/**/*.pyi` are matplotlib's as it installs them.
-The alias also installs pltrs' modules under `matplotlib/` for type
-checkers alone (`Project.checked_sources`: a module without a stub is read
-from its source, and pltrs' relative imports name the package they lie
-in); Python never imports them, as the alias loads pltrs' files. matplotlib
+The alias also has stubs of matplotlib's modules without one (`units`,
+`dates`, the backends: matplotlib's code without function bodies, but for
+what methods assign on their instance), and installs beside each stub
+pltrs' module under matplotlib's name, as checkers look for a stub's
+source (pyright warns of one without, and shows its docstrings), and
+pltrs' toolkit modules beside its toolkits' loaders, whose
+`__init__.pyi` are matplotlib's code (`Project.checked_sources`); Python
+never imports them, as the alias loads pltrs' files. pltrs' own toolkits,
+which its `py.typed` covers, have stubs of a module `__getattr__` alone:
+every name `Any`, as mypy takes matplotlib's untyped toolkits (pyright,
+which reads an untyped package's code, then sees less of them).
+
+Instance attributes matplotlib's code keeps plainly (`Wedge.r`,
+`ContourSet.zmin`) and pltrs (Rust) holds are properties with a setter
+with matplotlib's effect: to pltrs (Rust) where matplotlib's draws read
+the attribute (`RegularPolygon.xy`, `Arc.theta1`, `AxesImage.origin`,
+`axison`), kept on the object (`_values.assign`) where only a later method
+reads it (a `Wedge`'s fields at its next setter, a `StepPatch`'s
+orientation at `set_data`) or none (a contour set's extremes). matplotlib
 types `pyplot` inline, which pltrs' `pyplot.py` (wrappers made from source
 text) does not: `pyplot.pyi` is matplotlib's module without docstrings and
 function bodies, with every public name it binds in `__all__`, as mypy

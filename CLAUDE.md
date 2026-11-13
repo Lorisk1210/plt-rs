@@ -150,8 +150,9 @@ must reproduce them.
   matplotlib's, in the source, with its `_docstring` machinery.
 * Type information: pltrs ships matplotlib's `py.typed` and stubs
   (`python/pltrs/**/*.pyi` importing pltrs' modules,
-  `python/alias/matplotlib/**/*.pyi` as matplotlib's, and a `pyplot.pyi`
-  of its inline types), written by `python/tools/matplotlib_stubs.py`
+  `python/alias/matplotlib/**/*.pyi` as matplotlib's with stubs of its
+  stubless modules, a `pyplot.pyi` of its inline types, and untyped
+  stubs for `pltrs.mpl_toolkits`), written by `python/tools/matplotlib_stubs.py`
   (`--check` after a new matplotlib), never by hand.
   `cargo xtask diff --types [PATTERN...] [--failures] [--strict]` runs
   `mypy.stubtest` with matplotlib's allowlists against matplotlib and

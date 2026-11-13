@@ -97,7 +97,7 @@ def is_program_geo(cls):
     `.LambertAxes` with a transform, grids and a ``cla`` of its own) or
     from `.GeoAxes` itself."""
     from . import geo
-    return issubclass(cls, geo.GeoAxes) and cls not in geo.OWN_CLASSES
+    return issubclass(cls, geo.GeoAxes) and cls not in geo._OWN_CLASSES
 
 
 def native_name(cls):

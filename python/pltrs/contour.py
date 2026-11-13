@@ -1524,8 +1524,6 @@ def _contour_args(fn, args, kwargs):
             x, y, levels)
 
 
-__all__ = ["ContourLabeler", "ContourSet", "QuadContourSet"]
-
 
 # What matplotlib's module also has from its imports, which programs
 # import from it.

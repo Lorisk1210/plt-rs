@@ -1,6 +1,6 @@
 //! `cargo xtask diff [--gallery] [--generated] [--corpus [NAME...]] [PATTERN...]
 //! [--failures] [--reduce] [--baseline REPORT] [--jobs N] [--no-build]
-//! [--coverage | --docs [--strict]]`: the differential tester of pltrs
+//! [--coverage | --docs [--strict] | --types [--strict]]`: the differential tester of pltrs
 //! (Python) against matplotlib.
 //!
 //! Programs run under real matplotlib (the reference venv) and under pltrs
@@ -54,6 +54,19 @@
 //! `target/diff/docs.md` and `docs.json`. A PATTERN keeps the callables
 //! and names whose keys (`module:Owner.name`) contain it, `--failures`
 //! prints every difference and `--strict` fails while any remains.
+//!
+//! `--types` holds matplotlib's type stubs, which pltrs ships
+//! (`python/pltrs/*.pyi`), against pltrs (Python) at run time
+//! (`spec/diff/stubs.py`): `mypy.stubtest` with matplotlib's allowlists,
+//! first against real matplotlib (its own errors), then against pltrs; each
+//! error of the second the first does not have is a difference from
+//! matplotlib's public API as its stubs describe it, written by kind and
+//! module to `target/diff/types.md` and `types.json`. Its venvs,
+//! `target/diff/venvs/types-pltrs` and `types-reference`, hold mypy as
+//! matplotlib's CI has it (`python/requirements-types.txt`); the command
+//! makes them or brings them up to that list first. A PATTERN keeps the
+//! errors whose names contain it, `--failures` prints every one and
+//! `--strict` fails on any not in `spec/diff/types-allowlist.txt`.
 
 use std::env;
 use std::path::PathBuf;
@@ -74,8 +87,11 @@ const CORPUS: &str = "corpus";
 /// The pinned list of the corpora's venvs, in `python/`.
 const CORPUS_REQUIREMENTS: &str = "requirements-corpora.txt";
 
-/// What the corpora's reference venv adds to [`CORPUS_REQUIREMENTS`]: real
-/// matplotlib 3.11.2, as the ecosystem's reference venvs hold it.
+/// The pinned list of the venvs of `--types`, in `python/`.
+const TYPES_REQUIREMENTS: &str = "requirements-types.txt";
+
+/// What the reference venvs of the corpora and of `--types` add to their
+/// lists: real matplotlib 3.11.2, as the ecosystem's reference venvs hold it.
 const MATPLOTLIB_REQUIREMENTS: &str = "requirements-ecosystem-reference.txt";
 
 /// The flags passed on to the script as they are, each with its value.
@@ -94,19 +110,28 @@ enum Mode {
     /// matplotlib's callables' signatures, docstrings and names, and its
     /// modules' public names, in pltrs.
     Docs,
+    /// matplotlib's type stubs against pltrs (Python) at run time.
+    Types,
 }
 
 impl Mode {
     /// The mode `args` choose.
     fn of(args: &[String]) -> Result<Self, String> {
-        let flag = |name: &str| args.iter().any(|arg| arg == name);
-        match (flag("--coverage"), flag("--docs")) {
-            (true, true) => {
-                Err("--coverage and --docs measure different things; give one".to_owned())
+        let modes = [
+            ("--coverage", Self::Coverage),
+            ("--docs", Self::Docs),
+            ("--types", Self::Types),
+        ];
+        let given: Vec<_> = modes
+            .iter()
+            .filter(|(flag, _)| args.iter().any(|arg| arg == flag))
+            .collect();
+        match given[..] {
+            [] => Ok(Self::Programs),
+            [&(_, mode)] => Ok(mode),
+            _ => {
+                Err("--coverage, --docs and --types measure different things; give one".to_owned())
             }
-            (true, false) => Ok(Self::Coverage),
-            (false, true) => Ok(Self::Docs),
-            (false, false) => Ok(Self::Programs),
         }
     }
 
@@ -116,12 +141,13 @@ impl Mode {
             Self::Programs => "driver.py",
             Self::Coverage => "coverage.py",
             Self::Docs => "docs.py",
+            Self::Types => "stubs.py",
         }
     }
 
     /// Whether the mode runs programs (and takes the suites).
     fn runs_programs(self) -> bool {
-        self != Self::Docs
+        matches!(self, Self::Programs | Self::Coverage)
     }
 
     /// Whether the mode runs pltrs (Python), which needs the extension.
@@ -158,7 +184,7 @@ fn run_diff(args: &[String]) -> Result<(), String> {
     while let Some(arg) = rest.next() {
         match arg.as_str() {
             "--no-build" => build = false,
-            "--coverage" | "--docs" => {}
+            "--coverage" | "--docs" | "--types" => {}
             flag if SUITES.iter().any(|&(name, _)| name == flag) => {
                 suites.push(flag);
             }
@@ -176,10 +202,6 @@ fn run_diff(args: &[String]) -> Result<(), String> {
         }
     }
     if mode.runs_programs() {
-        let sdist = env::var_os("MPL_SDIST").map_or_else(
-            || root.join("target/refs/matplotlib-dl/matplotlib-3.11.2"),
-            PathBuf::from,
-        );
         let suite = suite_of(&suites)?;
         corpus = suite == CORPUS;
         if corpus && mode == Mode::Coverage {
@@ -190,15 +212,26 @@ fn run_diff(args: &[String]) -> Result<(), String> {
         }
         script
             .arg("--gallery")
-            .arg(sdist.join("galleries"))
+            .arg(sdist().join("galleries"))
             .args(["--suite", suite]);
     } else if !suites.is_empty() {
-        return Err("--docs takes no suite: it compares callables, not programs".to_owned());
+        return Err(
+            "--docs and --types take no suite: they compare the API, not programs".to_owned(),
+        );
     }
     if build {
         crate::python::build(crate::python::Profile::Release)?;
     }
-    if corpus {
+    if mode == Mode::Types {
+        let (pltrs, reference) = types_venvs()?;
+        script
+            .arg("--sdist")
+            .arg(sdist())
+            .arg("--pltrs-python")
+            .arg(pltrs)
+            .arg("--mpl-python")
+            .arg(reference);
+    } else if corpus {
         let (pltrs, reference) = corpus_venvs()?;
         script
             .arg("--pltrs-python")
@@ -221,6 +254,27 @@ fn corpus_venvs() -> Result<(PathBuf, PathBuf), String> {
         &venvs.join("pltrs"),
         &venvs.join("reference"),
         &[CORPUS_REQUIREMENTS],
+        MATPLOTLIB_REQUIREMENTS,
+    )
+}
+
+/// matplotlib's source tree: `MPL_SDIST`, else the one `cargo xtask
+/// mpl-suite` unpacks.
+fn sdist() -> PathBuf {
+    env::var_os("MPL_SDIST").map_or_else(
+        || crate::python::root().join("target/refs/matplotlib-dl/matplotlib-3.11.2"),
+        PathBuf::from,
+    )
+}
+
+/// The venvs of `--types`, made or brought up to their pinned list first:
+/// the interpreters of the pltrs side and of the reference side.
+fn types_venvs() -> Result<(PathBuf, PathBuf), String> {
+    let venvs = crate::python::root().join("target/diff/venvs");
+    crate::python::make_venv_pair(
+        &venvs.join("types-pltrs"),
+        &venvs.join("types-reference"),
+        &[TYPES_REQUIREMENTS],
         MATPLOTLIB_REQUIREMENTS,
     )
 }
@@ -268,6 +322,10 @@ mod tests {
         assert_eq!(Mode::of(&args(&["--coverage"])), Ok(Mode::Coverage));
         assert_eq!(Mode::of(&args(&["colors", "--docs"])), Ok(Mode::Docs));
         assert!(Mode::of(&args(&["--docs", "--coverage"])).is_err());
+        assert!(Mode::of(&args(&["--types", "--docs"])).is_err());
+        assert_eq!(Mode::of(&args(&["--types", "--strict"])), Ok(Mode::Types));
+        assert!(Mode::Types.runs_pltrs() && !Mode::Types.runs_programs());
+        assert_eq!(Mode::Types.script(), "stubs.py");
         assert!(Mode::Docs.runs_pltrs() && !Mode::Docs.runs_programs());
         assert!(Mode::Coverage.runs_programs() && !Mode::Coverage.runs_pltrs());
         assert_eq!(Mode::Docs.script(), "docs.py");

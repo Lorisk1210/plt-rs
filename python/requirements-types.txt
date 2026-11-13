@@ -1,0 +1,19 @@
+# The venvs of `cargo xtask diff --types` (spec/diff/stubs.py), made by it:
+# mypy, as matplotlib's CI checks its stubs with it (`mypy.stubtest`, the
+# `typing` group of its pyproject.toml), with the stub packages that group
+# names and what importing pltrs or matplotlib needs (pytest for their
+# `testing` modules). `target/diff/venvs/types-pltrs` gets this list with
+# matplotlib excluded from the resolution; `target/diff/venvs/types-reference`
+# adds requirements-ecosystem-reference.txt (real matplotlib 3.11.2) to it.
+mypy==2.4.1
+typing-extensions==4.16.0
+pandas-stubs==3.1.0.261029
+types-pillow==10.2.0.20240822
+types-python-dateutil==2.9.0.20261104
+types-psutil==7.2.2.20261111
+numpy==2.5.4
+pillow==12.3.0
+cycler==0.12.1
+python-dateutil==2.9.0.post0
+contourpy==1.4.0
+pytest==9.1.1

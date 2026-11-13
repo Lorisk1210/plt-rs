@@ -348,9 +348,6 @@ class FT2Image:
         self._buffer[min(y0, height):min(y1 + 1, height),
                      min(x0, width):min(x1 + 1, width)] = 255
 
-    def __array__(self, dtype=None, copy=None):
-        return self._buffer if dtype is None else self._buffer.astype(dtype)
-
     def __buffer__(self, flags, /):
         """Return a buffer object that exposes the underlying memory of the object."""
         return memoryview(self._buffer)

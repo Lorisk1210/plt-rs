@@ -35,12 +35,12 @@ _LINEAR_PATHS = {
 
 
 #: Whether the spines' transforms are read rather than asked for
-#: (`transforms_read`).
+#: (`_transforms_read`).
 _reading = False
 
 
 @contextlib.contextmanager
-def transforms_read():
+def _transforms_read():
     """
     Read the transforms of spines as they are: within the block a spine's
     transform does not set its position, so that nothing is placed and no

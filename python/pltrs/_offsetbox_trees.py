@@ -110,18 +110,23 @@ def children(box):
         raise Unusable from None
 
 
-class TreeSetting:
+class TreeSetting(property):
     """A setting of a box (a packer's ``sep``, a drawing area's ``width``)
     which the tree holding the box is handed again with once it is set,
-    as matplotlib reads it again whenever it draws the box."""
+    as matplotlib reads it again whenever it draws the box: a property
+    that reads and writes the box's attribute, as type checkers take
+    matplotlib's attribute (``pad: float``)."""
+
+    def __init__(self):
+        super().__init__(self._read, self._write)
 
     def __set_name__(self, owner, name):
         self._name = "_" + name
 
-    def __get__(self, box, cls=None):
-        return self if box is None else box.__dict__[self._name]
+    def _read(self, box):
+        return box.__dict__[self._name]
 
-    def __set__(self, box, value):
+    def _write(self, box, value):
         box.__dict__[self._name] = value
         box._changed()
 

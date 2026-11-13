@@ -14,12 +14,14 @@ files, and platform tags the extension inside really earns).
 built by pip, with cargo), and checks the installed package rather than
 the source tree (which must be there, as a checkout is):
 
-* the package imports from the venv, and pltrs' smoke tests
+* the package imports from the venv, is typed (``py.typed`` and
+  matplotlib's stubs beside its modules, `TYPED`), and pltrs' smoke tests
   (``python/tests``, run in place with only their own directory on
   ``sys.path``, as some read data from the tree) pass;
 * then, with the ``matplotlib`` distribution among the archives
   installed too, a program written for matplotlib (``drop_in.py``) runs
-  unchanged on pltrs and writes its figures.
+  unchanged on pltrs and writes its figures, and ``matplotlib`` is typed
+  as well (the alias carries what type checkers read of pltrs).
 
 ``--lowest`` installs the lowest versions the requirements allow first
 (their ``>=`` bounds), so that the bounds are known to work. The venvs,
@@ -42,6 +44,9 @@ ROOT = HERE.parents[1]
 sys.path.insert(0, str(ROOT / "python" / "backend"))
 
 from pltrs_backend import _audit, _core_metadata  # noqa: E402
+
+#: Files of a typed installed package, below it: PEP 561's marker and stubs.
+TYPED = ("py.typed", "__init__.pyi", "pyplot.pyi", "figure.pyi", "axes/_axes.pyi")
 
 #: The first bytes of each figure the drop-in program writes.
 DROP_IN_FIGURES = {
@@ -84,6 +89,17 @@ def venv_python(venv):
     return venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
+def check_typed(interpreter, package, work, environment):
+    """Fails unless the installed *package* (a name) has the files of
+    `TYPED`, as found by the venv's *interpreter*."""
+    run([interpreter, "-c", "import importlib.util, pathlib, sys; "
+         f"spec = importlib.util.find_spec({package!r}); "
+         "base = pathlib.Path(spec.submodule_search_locations[0]); "
+         f"missing = [n for n in {TYPED!r} if not (base / n).is_file()]; "
+         "assert base.is_relative_to(sys.prefix) and not missing, (base, missing); "
+         f"print({package!r}, 'is typed')"], work, environment)
+
+
 def install_check(dists, python, lowest, work):
     """Installs *dists* into a fresh venv of *python* in *work* and runs
     the checks of the module's description."""
@@ -111,12 +127,14 @@ def install_check(dists, python, lowest, work):
     run([interpreter, "-c", "import pltrs, sys; "
          "assert pltrs.__file__.startswith(sys.prefix), pltrs.__file__; "
          "print('pltrs', pltrs.__version__, 'from', pltrs.__file__)"], work, environment)
+    check_typed(interpreter, "pltrs", work, environment)
     # The tests run where they are, for the data some read from the tree,
     # with python/tests alone on sys.path: pltrs comes from the venv.
     run([interpreter, "-m", "pytest", "-q", "-p", "no:cacheprovider",
          f"--basetemp={work / 'pytest-tmp'}", ROOT / "python" / "tests"], work, environment)
     if aliases:
         run([*pip, *pltrs, *aliases], work, environment)
+        check_typed(interpreter, "matplotlib", work, environment)
         drawn = work / "drop-in"
         drawn.mkdir()
         run([interpreter, "-c", "import matplotlib.pyplot, pltrs.pyplot; "

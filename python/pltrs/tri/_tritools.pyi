@@ -1,0 +1,16 @@
+# The type stub of matplotlib.tri._tritools: matplotlib 3.11.2's, under the
+# Matplotlib License, importing pltrs' modules for matplotlib's
+# (python/tools/matplotlib_stubs.py).
+
+from pltrs.tri import Triangulation
+
+import numpy as np
+
+class TriAnalyzer:
+    def __init__(self, triangulation: Triangulation) -> None: ...
+    @property
+    def scale_factors(self) -> tuple[float, float]: ...
+    def circle_ratios(self, rescale: bool = ...) -> np.ndarray: ...
+    def get_flat_tri_mask(
+        self, min_circle_ratio: float = ..., rescale: bool = ...
+    ) -> np.ndarray: ...

@@ -210,7 +210,7 @@ class Path:
         return pth
 
     #: The native artist's getter and setter of the interpolation steps,
-    #: for the path an artist draws (`drawn_path`); None for any other.
+    #: for the path an artist draws (`_drawn_path_of`); None for any other.
     _steps_of = None
 
     @property
@@ -1094,7 +1094,7 @@ def get_path_collection_extents(
     return Bbox.from_extents(*extents, minpos=minpos)
 
 
-def drawn_path(artist, vertices, codes, steps):
+def _drawn_path_of(artist, vertices, codes, steps):
     """
     The `Path` *artist* draws (`.Line2D.get_path`, `.Patch.get_path`): the
     same object while its vertices and codes stay, whose

@@ -1,0 +1,63 @@
+# Differences between matplotlib's type stubs and pltrs (Python) at run time
+# that are intended, each with the reason it is:
+# `<name regex> | <message regex> | why`. `cargo xtask diff --types`
+# (`spec/diff/stubs.py`) matches the name (`matplotlib.module.Owner.name`)
+# and stubtest's message, lists the matches as intended, and `--strict` does
+# not count them. Anything else is a difference to fix.
+
+# Instance attributes built lazily. The class holds a non-data descriptor
+# (`_transform_trees.TreeAttribute`) that builds the figure's or the Axes'
+# transform trees on the first read and then steps aside: the value lives in
+# the instance's `__dict__`, as matplotlib's does, and is read and assigned
+# there. Only a read off the class itself shows the descriptor.
+^matplotlib\.(figure\.(Figure|SubFigure)\.(bbox|bbox_inches|bbox_relative|dpi_scale_trans|figbbox|transFigure|transSubfigure)|axes\._base\._AxesBase\.(bbox|dataLim|transAxes|transData|transLimits|transScale))$ | ^variable differs from runtime type matplotlib\._transform_trees\.TreeAttribute$ | instance attribute built on first read by a descriptor that then steps aside (the value is in the instance's __dict__)
+^matplotlib\.projections\.geo\.GeoAxes\.(transAffine|transProjection)$ | ^is not present in stub$ | instance attribute built on first read by a descriptor that then steps aside (the value is in the instance's __dict__)
+
+# matplotlib binds these by importing them from its private modules (`_cm`,
+# `_cm_listed`, `_cm_multivar`, `_cm_bivar`), which stubtest passes over;
+# pltrs computes them in `cm` from pltrs (Rust)'s definitions. The names and
+# values are the same (`cargo xtask diff --docs` compares module values).
+^matplotlib\.cm\.(datad|cmaps_listed|multivar_cmaps|bivar_cmaps)$ | ^is not present in stub$ | matplotlib imports these tables from private modules; pltrs builds the same tables in cm itself
+# matplotlib binds packaging's `parse`; pltrs's function calls it, importing
+# packaging on the first call only (the import cost of `import matplotlib`).
+^matplotlib\.parse_version$ | ^is not present in stub$ | packaging's parse, imported on the first call rather than at import
+
+# matplotlib's FT2Font and FT2Image are C++ (pybind11): stubtest cannot read
+# their signatures, so where matplotlib's stub differs from its own run time
+# it passes unseen. pltrs has the run time's signatures: those of the
+# signature lines pybind11 writes (`load_glyph(self, glyph_index, flags=...)`,
+# `__init__(self, filename, hinting_factor=None, *, ...)`, which `cargo xtask
+# diff --docs` compares) and of the bindings in `src/ft2font_wrapper.cpp`
+# (`draw_glyph_to_bitmap`'s and `draw_glyphs_to_bitmap`'s `antialiased`
+# after `py::kw_only()`); and the buffer protocol both classes have
+# (`__release_buffer__`, a C slot in matplotlib).
+^matplotlib\.ft2font\.FT2Font\.(__init__|load_glyph|draw_glyphs?_to_bitmap)$ | ^is inconsistent, stub (does not have parameter "hinting_factor"|parameter "antialiased" is not keyword-only|parameter "glyphindex" differs from runtime parameter "glyph_index")$ | matplotlib's C++ run time has this signature, which its stub misdescribes and stubtest cannot read there
+^matplotlib\.ft2font\.(FT2Font|FT2Image)\.__release_buffer__$ | ^is not present in stub$ | matplotlib's classes have it too, as a C slot stubtest passes over
+
+# A spine binds its native spine in `__new__`, before the constructor of a
+# program's subclass reads it (cartopy's `GeoSpine`). Constructing,
+# subclassing and pickling a spine behave as matplotlib's, whose `__new__` is
+# object's.
+^matplotlib\.spines\.Spine\.__new__$ | ^is inconsistent, (stub does not have parameter "(axes|spine_type|path)"|stub parameter "cls" differs from runtime parameter "self")$ | binds the native spine before a program's subclass constructor reads it; construction behaves as matplotlib's
+
+# pltrs's RcParams mirrors pltrs (Rust)'s parameters: copying makes an
+# RcParams of the same items, as `copy` makes of matplotlib's through
+# `__reduce_ex__`.
+^matplotlib\.RcParams\.__(deep)?copy__$ | ^is not present in stub$ | copies are RcParams of the same items, as copy makes of matplotlib's
+
+# matplotlib's instance attribute, which pltrs keeps in pltrs (Rust) and
+# reads and assigns through a property: reading and assigning it behave as
+# matplotlib's.
+^matplotlib\.axis\.Axis\.label_position$ | ^is not present in stub$ | an instance attribute in matplotlib; a property with a setter here, read and assigned alike
+^matplotlib\.quiver\.QuiverKey\.vector$ | ^is not present in stub$ | an instance attribute in matplotlib; a property with a setter here, read and assigned alike
+
+# Class-level defaults of what matplotlib sets on each instance, with the
+# value matplotlib's instances read: the offset text's side (`_init`), the
+# patches clipping an arrow (None for the arrows pltrs (Rust) makes itself,
+# an annotation's, whose constructor does not run), the minor divisions
+# (`_tick_state.ticked`, recording what draws ticked), and the axis name of
+# an Axis class of a program's that names none (held axes, `_held_axis`).
+^matplotlib\.axis\.(XAxis|YAxis)\.offset_text_position$ | ^is not present in stub$ | class default of the value matplotlib sets on each instance
+^matplotlib\.patches\.FancyArrowPatch\.patch[AB]$ | ^variable differs from runtime type None$ | class default None for arrows pltrs (Rust) makes without the constructor; instances read what matplotlib's do
+^matplotlib\.ticker\.AutoMinorLocator\.ndivs$ | ^variable differs from runtime type None$ | the instance's value kept by a descriptor recording what draws ticked; instances read what matplotlib's do
+^matplotlib\.axis\.Axis\.axis_name$ | ^is not present in stub$ | class default None for Axis classes of programs that name no axis; matplotlib's own classes all name theirs

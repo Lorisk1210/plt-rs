@@ -148,6 +148,19 @@ must reproduce them.
   module-level name (re-exports, constants, modules as attributes) by type
   and value, per module (`target/diff/docs.md`). Docstrings are
   matplotlib's, in the source, with its `_docstring` machinery.
+* Type information: pltrs ships matplotlib's `py.typed` and stubs
+  (`python/pltrs/**/*.pyi` importing pltrs' modules,
+  `python/alias/matplotlib/**/*.pyi` as matplotlib's, and a `pyplot.pyi`
+  of its inline types), written by `python/tools/matplotlib_stubs.py`
+  (`--check` after a new matplotlib), never by hand.
+  `cargo xtask diff --types [PATTERN...] [--failures] [--strict]` runs
+  `mypy.stubtest` with matplotlib's allowlists against matplotlib and
+  against pltrs, in venvs of its own (`python/requirements-types.txt`);
+  each error matplotlib's run lacks is a difference from matplotlib's
+  public API as its stubs describe it (attributes, class variables,
+  properties, kinds of names), by kind and module in
+  `target/diff/types.md`; intended ones go to
+  `spec/diff/types-allowlist.txt`, with the proof.
 * Coverage of matplotlib's own tests: `cargo xtask mpl-tests [--strict]`
   sorts every `def test_*` of `matplotlib/tests` into ported (named or
   cited, with or without `test_`, in `spec/reference` or

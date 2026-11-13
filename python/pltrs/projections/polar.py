@@ -434,7 +434,7 @@ class ThetaTick(XTick):
         try:
             super()._apply_params(**kwargs)
         finally:
-            if self.axis is not None:
+            if self._tick_axis is not None:
                 self._keep_unusable_pad()
 
     def _padded(self):

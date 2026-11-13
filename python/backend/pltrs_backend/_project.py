@@ -118,7 +118,10 @@ class Project:
         """
         The files the distribution installs, as ``(archive path, file)``
         pairs, sorted: pltrs' package without byte code or a built
-        extension, or the alias' modules.
+        extension (its stubs and ``py.typed`` included), or the alias'
+        modules (with matplotlib's stubs and ``py.typed``) and the sources
+        type checkers read of pltrs under matplotlib's name
+        (`checked_sources`).
         """
         if self.name == "pltrs":
             base = self.root / "python"
@@ -133,8 +136,27 @@ class Project:
             found.extend(
                 (path.relative_to(base).as_posix(), path)
                 for path in files if path.is_file() and _is_source(path))
+        if self.name == "matplotlib":
+            found.extend(self.checked_sources())
         return sorted(found)
 
+    def checked_sources(self):
+        """
+        The modules of pltrs' package as the alias installs them for type
+        checkers, under matplotlib's name (``matplotlib/units.py``), as
+        ``(archive path, file)`` pairs: a checker reads a module without a
+        stub from its source and looks for the source of one with a stub
+        (the alias' stubs are matplotlib's, ``python/alias/matplotlib``),
+        and pltrs' modules import each other relatively, so that they name
+        the package they lie in. All but ``__init__.py`` and the toolkits,
+        which the alias has of its own. Python never imports them: the
+        alias loads pltrs' files (``_pltrs_matplotlib_alias``).
+        """
+        package = self.root / "python" / "pltrs"
+        return [(f"matplotlib/{path.relative_to(package).as_posix()}", path)
+                for path in sorted(package.rglob("*.py"))
+                if _is_source(path) and path.relative_to(package).parts[0] != "mpl_toolkits"
+                and path != package / "__init__.py"]
 
     def data_files(self):
         """

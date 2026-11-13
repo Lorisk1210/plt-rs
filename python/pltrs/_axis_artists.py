@@ -44,6 +44,12 @@ def _val_or_rc(val, *keys):
     return None
 
 
+def _axis_of(owner):
+    """The `.Axis` of the owner of an axis' part (a `Tick` or an
+    `_AxisText`), None for a tick made alone."""
+    return owner._tick_axis if isinstance(owner, Tick) else owner.axis
+
+
 class _AxisPart(_mirrors.Mirroring):
     """A part of an axis a mirror stands for: a tick's line or label, the
     axis label or the offset text, read back by *owner* (a `Tick` or an
@@ -96,7 +102,7 @@ class _AxisPart(_mirrors.Mirroring):
         self.owner._refresh(artist)
 
     def figure(self, artist, root=False):
-        return self.owner.axis.get_figure(root=root)
+        return _axis_of(self.owner).get_figure(root=root)
 
     def transform(self, artist):
         # A transform given to the part is its own.
@@ -120,7 +126,7 @@ class _AxisPart(_mirrors.Mirroring):
         of the Axes' patch for the gridline of a tick of an axis; `OWN` for
         the other parts."""
         owner = self.owner
-        if getattr(owner, "gridline", None) is not artist or owner.axis is None:
+        if getattr(owner, "gridline", None) is not artist or _axis_of(owner) is None:
             return _mirrors.OWN
         return clip(artist, owner.axes)
 
@@ -305,7 +311,7 @@ class Tick(Artist):
         return tick
 
     @property
-    def axis(self):
+    def _tick_axis(self):
         """The `.Axis` the tick belongs to, None for one made alone."""
         return self.__dict__.get("_axis")
 
@@ -315,7 +321,7 @@ class Tick(Artist):
         axes = self.axes
         if axes is None:
             return super()._get_figure(root)
-        if self.axis is None:
+        if self._tick_axis is None:
             # A tick made by its constructor keeps the figure it joined
             # then, also once its Axes left it, as matplotlib's does.
             return axes._home_figure(root)
@@ -323,7 +329,7 @@ class Tick(Artist):
 
     def _sync(self):
         """Fill the parts of a tick of an axis from the axis."""
-        axis = self.axis
+        axis = self._tick_axis
         if axis is None:
             return
         parts = (self.label1, self.label2, self.tick1line, self.tick2line,
@@ -375,7 +381,7 @@ class Tick(Artist):
         its labels that location and the formatter's text and its lines
         that location, all else they have staying.
         """
-        axis = self.axis
+        axis = self._tick_axis
         if axis is None:
             return
         drawn = _artist.draw_count(axis.axes._native)
@@ -405,7 +411,7 @@ class Tick(Artist):
         text and the location of the last draw), placed by the transforms
         the axis gave them, in the figure of its Axes.
         """
-        axis = self.axis
+        axis = self._tick_axis
         if axis is None:
             return
         self._follow_draw()
@@ -414,7 +420,7 @@ class Tick(Artist):
         for part in self.get_children():
             # The transform the tick was made with: taking it now asks
             # nothing of the spines (`.Spine._ensure_position_is_set`).
-            with spines.transforms_read():
+            with spines._transforms_read():
                 transform = self._transform_of(part)
             del part._mirror
             part.set_transform(transform)
@@ -424,7 +430,7 @@ class Tick(Artist):
 
     def _push(self, part):
         """Read *part*, changed, back into the axis."""
-        axis = self.axis
+        axis = self._tick_axis
         args = (axis.axes._native, axis.axis_name, not self._major,
                 self._index)
         if part is self.label1 or part is self.label2:
@@ -465,14 +471,14 @@ class Tick(Artist):
     def get_clip_box(self):
         """Return the clipbox: that of the Axes' patch for a tick of an
         axis, as matplotlib's Axes clip their axes (`.Axis.get_clip_box`)."""
-        if "_clipbox" in self.__dict__ or self.axis is None:
+        if "_clipbox" in self.__dict__ or self._tick_axis is None:
             return super().get_clip_box()
         return _artist_clipping.patch_clip_box(self, self.axes)
 
     def get_clip_path(self):
         """Return the clip path: that of the Axes' patch for a tick of an
         axis, as matplotlib's Axes clip their axes (`.Axis.get_clip_path`)."""
-        if "_clippath" in self.__dict__ or self.axis is None:
+        if "_clippath" in self.__dict__ or self._tick_axis is None:
             return super().get_clip_path()
         return _artist_clipping.patch_clip_path(self, self.axes)
 
@@ -480,7 +486,7 @@ class Tick(Artist):
         """The display box of the label *part* as drawn, if it is."""
         if part is not self.label1 and part is not self.label2:
             return None
-        axis = self.axis
+        axis = self._tick_axis
         return _axis.tick_label_extent(axis.axes._native, axis.axis_name,
                                        not self._major, self._index,
                                        part is self.label2)
@@ -527,12 +533,12 @@ class Tick(Artist):
     def _gid_args(self):
         """The native axes, axis name, level and index of a tick of an
         axis."""
-        axis = self.axis
+        axis = self._tick_axis
         return axis.axes._native, axis.axis_name, not self._major, self._index
 
     def get_gid(self):
         """Return the group id of the tick."""
-        if self.axis is None:
+        if self._tick_axis is None:
             return super().get_gid()
         return _axis.get_tick_gid(*self._gid_args())
 
@@ -545,7 +551,7 @@ class Tick(Artist):
         ----------
         gid : str
         """
-        if self.axis is None:
+        if self._tick_axis is None:
             super().set_gid(gid)
         else:
             _axis.set_tick_gid(*self._gid_args(),
@@ -554,7 +560,7 @@ class Tick(Artist):
     def _drawn_by_its_axis(self):
         """Whether pltrs (Rust) draws the tick with the 2-D axis it is a
         tick of."""
-        axis = self.axis
+        axis = self._tick_axis
         return axis is not None and axis.axes.name != "3d"
 
     def set_visible(self, b):
@@ -581,7 +587,7 @@ class Tick(Artist):
         # axis.
         if self.get_visible():
             _unusable.check(self)
-        if self.get_visible() and self.axis is None:
+        if self.get_visible() and self._tick_axis is None:
             renderer.open_group(self.__name__, gid=self.get_gid())
             for artist in [self.gridline, self.tick1line, self.tick2line,
                            self.label1, self.label2]:
@@ -607,7 +613,7 @@ class Tick(Artist):
         val : float
         """
         self._apply_params(pad=val)
-        axis = self.axis
+        axis = self._tick_axis
         if axis is not None:
             _axis.push_tick_pad(axis.axes._native, axis.axis_name,
                                 not self._major, self._index, float(val))
@@ -683,7 +689,7 @@ class Tick(Artist):
             # matplotlib places the labels at the new pad (its
             # ``_get_text1_transform``), failing on a pad it cannot add.
             self._pad  # noqa: B018
-            if self.axis is None:
+            if self._tick_axis is None:
                 # A tick made alone holds its labels' transforms itself.
                 self.label1.set_transform(self._get_text1_transform()[0])
                 self.label2.set_transform(self._get_text2_transform()[0])

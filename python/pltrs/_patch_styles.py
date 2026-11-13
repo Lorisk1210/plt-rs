@@ -435,6 +435,23 @@ class ArrowStyle(_Style):
         done by the FancyArrowPatch class.
         """
 
+        # matplotlib's, as it is.
+        @staticmethod
+        def ensure_quadratic_bezier(path):
+            """
+            Some ArrowStyle classes only works with a simple quadratic
+            Bézier curve (created with `.ConnectionStyle.Arc3` or
+            `.ConnectionStyle.Angle3`). This static method checks if the
+            provided path is a simple quadratic Bézier curve and returns its
+            control points if true.
+            """
+            segments = list(path.iter_segments())
+            if (len(segments) != 2 or segments[0][1] != Path.MOVETO or
+                    segments[1][1] != Path.CURVE3):
+                raise ValueError(
+                    "'path' is not a valid quadratic Bezier curve")
+            return [*segments[0][0], *segments[1][0]]
+
         def transmute(self, path, mutation_size, linewidth):
             """
             The transmute method is the very core of the ArrowStyle class and
@@ -509,16 +526,17 @@ for _name, _arrow, _params in [
              else ArrowStyle._Curve)
     # The curves with heads take the parameters of matplotlib's `_Curve`.
     _owner = "_Curve" if _params is _CURVE else _name
+    # matplotlib's curves name their ends in ``arrow``; its other styles do not.
+    _ends = {"arrow": _arrow} if _base is ArrowStyle._Curve else {}
     _style = type(_name, (_base, _described(_name, f"ArrowStyle.{_owner}", **_params)),
-                  {"_spec_name": _arrow, "arrow": _arrow,
-                   "__qualname__": f"ArrowStyle.{_name}"})
+                  {"_spec_name": _arrow, **_ends, "__qualname__": f"ArrowStyle.{_name}"})
     if _base is ArrowStyle._Base:
         _qualnames.own_method(_style, "transmute", _arrow_paths)
     _style_docs.document(_style, ArrowStyle)
     setattr(ArrowStyle, _name, _register_style(ArrowStyle._style_list, _style,
                                                name=_arrow))
 _register_tables(ArrowStyle)
-del _name, _arrow, _params, _base, _style
+del _name, _arrow, _params, _base, _style, _ends
 
 
 class _PlainRoute:

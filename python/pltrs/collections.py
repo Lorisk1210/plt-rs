@@ -780,8 +780,6 @@ class Collection(mcolorizer.ColorizingArtist):
         _collections.set_pickradius(self._native, float(pickradius))
         _values.remember(self, "pickradius", pickradius)
 
-    pickradius = property(get_pickradius, set_pickradius)
-
     @allow_rasterization
     def draw(self, renderer):
         # docstring inherited

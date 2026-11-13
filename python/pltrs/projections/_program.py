@@ -69,6 +69,7 @@ from ..transforms import (Affine2DBase, CompositeAffine2D,
                           CompositeGenericTransform, IdentityTransform,
                           TransformWrapper, TransformedPath)
 
+_geo = _lazy_imports.module(globals(), ".geo", "_geo")
 _owned_paths = _lazy_imports.module(globals(), ".._owned_paths")
 
 #: The projections pltrs (Rust) has: its own Axes are made with them.
@@ -96,8 +97,7 @@ def is_program_geo(cls):
     geographic Axes classes (mplstereonet's ``StereonetAxes``, a
     `.LambertAxes` with a transform, grids and a ``cla`` of its own) or
     from `.GeoAxes` itself."""
-    from . import geo
-    return issubclass(cls, geo.GeoAxes) and cls not in geo._OWN_CLASSES
+    return issubclass(cls, _geo.GeoAxes) and cls not in _geo._OWN_CLASSES
 
 
 def native_name(cls):

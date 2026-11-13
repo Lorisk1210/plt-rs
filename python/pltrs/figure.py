@@ -48,6 +48,7 @@ _figure_artists = _lazy_imports.module(globals(), "._figure_artists")
 _foreign_children = _lazy_imports.module(globals(), ".axes._foreign_children")
 _layout_checks = _lazy_imports.module(globals(), "._layout_checks")
 _figure_draws = _lazy_imports.module(globals(), "._figure_draws")
+_program = _lazy_imports.module(globals(), ".projections._program")
 
 _log = logging.getLogger(__name__)
 
@@ -78,7 +79,6 @@ def _native_maker(projection_class):
     if make is None and _constructed(projection_class):
         make = projection_class._constructed_native
     if make is None:
-        from .projections import _program
         if _program.is_program_class(projection_class):
             make = (projection_class._constructed_native
                     if projection_class.__init__ is not Axes.__init__
@@ -96,7 +96,6 @@ def _constructed(projection_class):
     rectilinear or polar class of the program's overriding what
     matplotlib's ``Axes.__init__`` calls (`_CONSTRUCTION_CALLS`), which
     matplotlib calls with the arguments of ``add_subplot``."""
-    from .projections import _program
     return (_program.native_name(projection_class) in ("rectilinear", "polar")
             and any(takes_from_program(projection_class, name) for name in _CONSTRUCTION_CALLS))
 

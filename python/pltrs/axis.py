@@ -29,6 +29,7 @@ from .text import _measured_by_given
 
 _empty_conversions = _lazy_imports.module(globals(), "._empty_conversions")
 _held_axis = _lazy_imports.module(globals(), "._held_axis")
+_sharing = _lazy_imports.module(globals(), ".axes._sharing")
 _numpy_values = _lazy_imports.module(globals(), "._numpy_values")
 
 #: The number of segments of a gridline curved by its projection (polar
@@ -567,7 +568,6 @@ class Axis(DrawnWith, Artist):
         the chain holds the same `Ticker` objects."""
         if self.axis_name is None:
             return
-        from .axes import _sharing
         root, seen = self.axes, {id(self.axes)}
         # An Axes may share with itself (``subplot_mosaic`` shares the first
         # with the first, as matplotlib's does).

@@ -16,6 +16,7 @@ import ast
 import json
 import pathlib
 import re
+import statistics
 import tomllib
 
 import pytest
@@ -147,6 +148,57 @@ def _alias_version():
     return f"{matplotlib}+pltrs.{pltrs}"
 
 
+def _benchmarks():
+    """The benchmark report ``cargo xtask bench --report`` writes from
+    ``benchmarks/results.json``."""
+    return (ROOT / "benchmarks/README.md").read_text(encoding="utf-8")
+
+
+def _benchmark_summary(claim, run):
+    """The typical speed-up of *claim* (0 for pltrs (Python), 1 for pltrs
+    (Rust)) in *run* (``"warm"`` or ``"cold"``), as the report's summary
+    tables give it (``4.3×``)."""
+    rows = re.findall(r"^\| \*\*all workloads\*\* \| \d+ \| [^|]+ \| ([\d.]+×) faster "
+                      r"\| [^|]+ \| ([\d.]+×) faster \|$", _benchmarks(), re.MULTILINE)
+    assert len(rows) == 2, "the report's two summary tables"
+    return rows[claim][0 if run == "warm" else 1]
+
+
+def _benchmark_match(pattern):
+    """What the report says in the group of *pattern*."""
+    found = re.search(pattern, _benchmarks())
+    assert found, f"benchmarks/README.md no longer says {pattern!r}"
+    return found.group(1)
+
+
+def _benchmark_compared():
+    """How many workloads the report's summary tables compare with
+    matplotlib."""
+    rows = re.findall(r"^\| \*\*all workloads\*\* \| (\d+) \|", _benchmarks(), re.MULTILINE)
+    assert len(set(rows)) == 1, "the report's two summary tables compare the same workloads"
+    return rows[0]
+
+
+def _benchmark_memory_above():
+    """By how much the cold runs of pltrs (Python) peak above
+    matplotlib's, by the medians of ``benchmarks/results.json``: how many
+    of the workloads do, and the largest excess in MiB."""
+    results = json.loads((ROOT / "benchmarks/results.json").read_text(encoding="utf-8"))
+    excesses = []
+    for workload in results["workloads"]:
+        cold = workload.get("cold") or {}
+        peaks = [cold.get(name, {}).get("peak_kib") for name in ("pltrs-python", "matplotlib")]
+        if all(peaks):
+            excesses.append(statistics.median(peaks[0]) - statistics.median(peaks[1]))
+    return str(sum(excess > 0 for excess in excesses)), f"{max(excesses) / 1024:.1f} MiB"
+
+
+def _benchmark_thin_results():
+    """The results under 1.5× the report lists."""
+    table = _benchmarks().split("### Where the margins are thin", 1)[1].split("\n## ", 1)[0]
+    return str(len(re.findall(r"^\| `", table, re.MULTILINE)))
+
+
 #: Facts whose text the README gives as it is.
 EXACT = {
     "mpl-suite.all-passing": lambda: _all_reference_passing("spec/mpl-suite"),
@@ -162,6 +214,25 @@ EXACT = {
     "python.minimum": _minimum_python,
     "python.dependencies": _dependencies,
     "alias.version": _alias_version,
+    "bench.workloads": lambda: _benchmark_match(r"times matplotlib [\d.]+ against both faces "
+                                                r"of pltrs on (\d+) workloads"),
+    "bench.date": lambda: _benchmark_match(r"measured on (\S+) at commit"),
+    "bench.commit": lambda: _benchmark_match(r"at commit `([^`]+)`"),
+    "bench.python.warm": lambda: _benchmark_summary(0, "warm"),
+    "bench.python.cold": lambda: _benchmark_summary(0, "cold"),
+    "bench.rust.warm": lambda: _benchmark_summary(1, "warm"),
+    "bench.rust.cold": lambda: _benchmark_summary(1, "cold"),
+    "bench.python.memory": lambda: _benchmark_match(
+        r"A cold run of pltrs \(Python\) typically peaks at ([\d.]+) times"),
+    "bench.python.memory.range": lambda: _benchmark_match(
+        r"A cold run of pltrs \(Python\) typically peaks at [\d.]+ times[^.]*?"
+        r"and at ([\d.]+ to [\d.]+) times over all"),
+    "bench.python.memory.above": lambda: _benchmark_memory_above()[0],
+    "bench.python.memory.excess": lambda: _benchmark_memory_above()[1],
+    "bench.compared": _benchmark_compared,
+    "bench.import.matplotlib": lambda: _benchmark_match(r"imports `matplotlib.pyplot` takes (\d+ ms)"),
+    "bench.import.pltrs": lambda: _benchmark_match(r"imports `pltrs.pyplot` takes (\d+ ms)"),
+    "bench.thin": _benchmark_thin_results,
 }
 
 #: Facts the README rounds ("about 48,500 probes"), as numbers.

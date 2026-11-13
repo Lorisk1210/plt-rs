@@ -66,12 +66,13 @@ fn same_work(out: &mut String, results: &Results) {
          * **PNG compression.** Both libraries compress at zlib's default level 6 and pick \
          each row's filter adaptively (the smallest sum of absolute differences). \
          matplotlib saves PNG through Pillow {pillow}, whose zlib is zlib-ng {zlib_ng}. \
-         zlib-ng's level 6 is faster than zlib's and compresses a little less. pltrs' \
-         encoder works as zlib does, so its files are a few percent smaller and cost it \
-         more time. The tables give the size of every document.\n\
+         pltrs' DEFLATE is a port of zlib-ng 2.3.3's compressor, and pltrs filters and \
+         chunks the rows as Pillow does, so the same pixels compress to the same bytes. \
+         The tables give the size of every document.\n\
          * **PDF compression.** Streams are compressed at `pdf.compression` 6 on every \
-         side, by Python's zlib {python_zlib} in matplotlib and by pltrs' own DEFLATE, \
-         which works as zlib does (hash chains, lazy matching).\n\
+         side, by Python's zlib {python_zlib} in matplotlib and by pltrs' DEFLATE, \
+         zlib-ng's, which is a little faster than zlib's and compresses a little \
+         differently.\n\
          * **Paths.** Simplification and snapping keep their defaults on every side. The \
          `output/lissajous_1e5_*` workloads turn `path.simplify` off on every side, so \
          that each of the 10⁵ segments reaches the document.\n\

@@ -86,7 +86,30 @@ def _plain_grid(gridspec):
         if attributes["_kept_params"]:
             return False
         values += _gridspec.overrides(gridspec._native)
+    return _all_plain(values)
+
+
+def _all_plain(values):
+    """Whether every one of *values* is `_plain`: told at once for None
+    and for floats and ints numpy holds as int64 with a finite sum (a NaN
+    or an infinity makes the sum none), value by value otherwise. A figure
+    checks its grid's ratios at every subplot it adds."""
+    if set(map(type, values)) <= _PLAIN_OR_NONE:
+        numbers = [value for value in values if value is not None]
+        try:
+            if not numbers or (math.isfinite(math.fsum(numbers))
+                               and -_INT64 <= min(numbers) and max(numbers) < _INT64):
+                return True
+        except (OverflowError, ValueError):
+            pass
     return all(map(_plain, values))
+
+
+#: Where numpy's int64 ends: larger ints are objects to `np.isfinite`.
+_INT64 = 2**63
+
+#: The types of values `_all_plain` answers for at once.
+_PLAIN_OR_NONE = frozenset({float, int, type(None)})
 
 
 def in_python(gridspec, figure):

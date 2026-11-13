@@ -145,9 +145,11 @@ def attach(artist, again=False):
         _drawing.set_painter(artist._native, None, False, False)
 
 
+@functools.cache
 def _measures(cls):
     """Whether the class *cls* measures its artists itself (its
-    ``get_window_extent`` or ``get_tightbbox`` is the program's)."""
+    ``get_window_extent`` or ``get_tightbbox`` is the program's; kept per
+    class, as `.takes_from_program` keeps its answers)."""
     return any(takes_from_program(cls, name)
                for name in ("get_window_extent", "get_tightbbox"))
 

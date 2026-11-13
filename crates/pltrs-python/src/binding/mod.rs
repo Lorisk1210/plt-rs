@@ -19,7 +19,9 @@
 //!   laying out or drawing, applied once it is done;
 //! * [`deferred`] — work Python leaves to the next native call;
 //! * [`Watched`] — attributes of the package a program may replace, read
-//!   where pltrs (Rust) needs to know whether they are.
+//!   where pltrs (Rust) needs to know whether they are;
+//! * the extension's allocator (Linux): the system's, with transparent
+//!   huge pages asked for large blocks.
 //!
 //! This is the only module besides [`crate::ffi`] with `unsafe` code;
 //! every block says why it is sound. The matplotlib modules
@@ -30,6 +32,8 @@
 )]
 
 mod after_call;
+#[cfg(target_os = "linux")]
+mod allocator;
 mod blocking;
 mod buffer;
 mod callback;

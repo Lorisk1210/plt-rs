@@ -41,6 +41,8 @@
 
 mod buffer;
 mod errors;
+#[cfg(target_os = "linux")]
+mod memory;
 mod object;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod pthread;
@@ -52,6 +54,8 @@ mod windows;
 
 pub(crate) use buffer::*;
 pub(crate) use errors::*;
+#[cfg(target_os = "linux")]
+pub(crate) use memory::*;
 pub(crate) use object::*;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(crate) use pthread::*;

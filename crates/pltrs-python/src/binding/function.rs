@@ -30,7 +30,7 @@
 use std::ffi::{CStr, CString, c_void};
 
 use super::convert::{FromPy, IntoPy};
-use super::error::{ExceptionKind, PyErr, PyResult};
+use super::error::{PyErr, PyResult};
 use super::gil::{Python, entry, gil_held};
 use super::object::Bound;
 use super::{deferred, home, reentrant, stack, threads};
@@ -261,12 +261,7 @@ fn native_of<'a>(capsule: &'a Bound<'_>) -> PyResult<&'a NativeFunction> {
 /// thread's stack left raises `RecursionError` ([`stack`]).
 pub(super) fn call_nested<'py>(capsule: &Bound<'py>, args: &[Bound<'py>]) -> PyResult<Bound<'py>> {
     let py = capsule.py();
-    if stack::nearly_full() {
-        return Err(PyErr::new(
-            ExceptionKind::RecursionError,
-            "maximum recursion depth exceeded: the thread's stack is nearly full",
-        ));
-    }
+    stack::check()?;
     match try_nested(capsule, args)? {
         Ok(result) => result,
         Err(_) if native_of(capsule)?.returns_nothing => {

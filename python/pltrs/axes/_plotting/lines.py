@@ -473,6 +473,8 @@ class LinesMixin:
             else:
                 props.pop("label", None)
             data = converted_line_data(self, x, y)
+            if not fmt and "marker" not in props:
+                mlines._check_rc_marker("lines.marker")
             try:
                 native = _plotting.plot(self._native, *data, fmt, mlines._native_kwargs(props),
                                         (bool(scalex), bool(scaley)))

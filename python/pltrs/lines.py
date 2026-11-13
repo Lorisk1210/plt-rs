@@ -21,6 +21,7 @@ from ._native import artist as _artist, lines as _lines
 from ._program_classes import takes_from_program
 from .artist import Artist, _check_alpha
 from .cbook import ls_mapper, ls_mapper_r, STEP_LOOKUP_MAP  # noqa: F401
+from .markers import _check_rc as _check_rc_marker
 from .markers import (  # noqa: F401  (matplotlib re-exports these here)
     CARETLEFT, CARETRIGHT, CARETUP, CARETDOWN,
     CARETLEFTBASE, CARETRIGHTBASE, CARETUPBASE, CARETDOWNBASE,
@@ -407,6 +408,8 @@ class Line2D(Artist):
         props = {k: v for k, v in props.items() if v is not None}
         if marker is not None:
             props["marker"] = marker
+        else:
+            _check_rc_marker("lines.marker")
         self._check_made(linestyle, drawstyle, fillstyle, pickradius)
         # Marker colours that are no colours the line keeps (see
         # `_set_marker_color`).

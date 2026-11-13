@@ -713,7 +713,9 @@ class PolarAxes(PolarTrees, Axes):
             thetamin, thetamax = np.rad2deg(self._realViewLim.intervalx)
             if thetamin > thetamax:
                 thetamin, thetamax = thetamax, thetamin
-            rmin, rmax = ((self._realViewLim.intervaly - self.get_rorigin()) *
+            rscale_tr = self.yaxis.get_transform()
+            rmin, rmax = ((rscale_tr.transform(self._realViewLim.intervaly) -
+                           rscale_tr.transform(self.get_rorigin())) *
                           self.get_rsign())
             center = self.transWedge.transform((0.5, 0.5))
             edge, _ = self.transWedge.transform((1, 0))

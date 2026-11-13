@@ -637,6 +637,32 @@ mod tests {
     }
 
     #[test]
+    fn a_view_its_scale_maps_onto_one_point_places_its_texts_at_nan() {
+        // Beyond 1 the logit scale maps the view onto one point: the data
+        // transform is not finite, as matplotlib's, whose tick labels are
+        // then measured at NaN, and the label and offset text of the
+        // other axis beyond them.
+        let fig = Figure::with_size(4.0, 3.0, 100.0);
+        let ax = fig.subplot();
+        ax.scatter(vec![1e6, 1e6 + 1.0], [0.25, 0.75])
+            .expect("a scatter");
+        ax.set_xlabel("x");
+        ax.set_ylim(0.5, 11.0).expect("limits");
+        ax.set_yscale("logit").expect("a scale");
+        let empty = fig.to_png().expect("drawn");
+        let data = fig.resolve_transform(&ax.trans_data()).expect("resolved");
+        let at = data.transform_point(Point::new(1e6, 0.75));
+        assert!(at.x.is_nan() && at.y.is_nan(), "{at:?}");
+        let x = ax.xaxis();
+        assert_eq!(x.kept_offset_text(), "+1e6");
+        assert!(x.offset_text_placed().is_some_and(|at| at.y.is_nan()));
+        assert!(x.label_placed().is_some_and(|at| at.y.is_nan()));
+        // Nothing of the axes but its patch is drawn.
+        ax.set_axis_off();
+        assert_eq!(fig.to_png().expect("drawn"), empty);
+    }
+
+    #[test]
     fn label_weight_changes_only_that_axis_label() {
         let ax = Figure::new().subplot();
         ax.yaxis().set_label_weight(FontWeight::BOLD);

@@ -469,14 +469,27 @@ class Line3D(lines.Line2D):
     def set_data(self, *args):
         # docstring inherited; the 2-D data, which the next draw replaces
         # with the projection of the 3-D data, as matplotlib's draw sets it.
-        super().set_data(*args)
+        before = self.__dict__.get('_data_set_at')
         self._data_set_at = _artist.draw_count(self._native)
+        try:
+            super().set_data(*args)
+        except RuntimeError:
+            self._data_set_at = before
+            raise
 
     def _numbers(self):
         # docstring inherited; a line lifted in a 3-D axes keeps the numbers
-        # of its projection: matplotlib converts the 2-D data of none.
+        # of its projection, but for 2-D data it was given since its last
+        # draw: matplotlib measures the line by them until the next draw
+        # projects it again. Its draws convert no 2-D data, so data that
+        # converts to no numbers leaves the projection.
         if _lifted(self) is None:
             return super()._numbers()
+        if self.__dict__.get('_data_set_at') == _artist.draw_count(self._native):
+            try:
+                return super()._numbers()
+            except (TypeError, ValueError):
+                pass
         return _lines.get_xdata(self._native), _lines.get_ydata(self._native)
 
     def recache_always(self):

@@ -5,7 +5,9 @@
 use pltrs_core::{Bbox, Point};
 use pltrs_text::{BlockStyle, HAlign, RotationMode, VAlign};
 
-use super::axis_layout::{AxisPainter, PlacedText, place_text_measured, rc_with_effects};
+use super::axis_layout::{
+    AxisPainter, PlacedText, measured_at_nan, place_text_measured, rc_with_effects,
+};
 use crate::artist::{FigureReader, LayoutContext};
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
@@ -94,23 +96,16 @@ impl AxisPainter<'_> {
             .filter(|(first, _)| *first != high)
             .map(|(_, b)| *b);
         let bounds = boxes.fold(edge, |acc, b| acc.union(&b));
+        let beyond = match (self.name, high) {
+            _ if measured_at_nan(label_boxes, high) => f64::NAN,
+            (AxisName::X, true) => bounds.y1() + pad,
+            (AxisName::X, false) => bounds.y0() - pad,
+            (AxisName::Y, true) => bounds.x1() + pad,
+            (AxisName::Y, false) => bounds.x0() - pad,
+        };
         Some(match self.name {
-            AxisName::X => Point::new(
-                extent.x0() + label.loc.fraction() * extent.width(),
-                if high {
-                    bounds.y1() + pad
-                } else {
-                    bounds.y0() - pad
-                },
-            ),
-            AxisName::Y => Point::new(
-                if high {
-                    bounds.x1() + pad
-                } else {
-                    bounds.x0() - pad
-                },
-                extent.y0() + label.loc.fraction() * extent.height(),
-            ),
+            AxisName::X => Point::new(extent.x0() + label.loc.fraction() * extent.width(), beyond),
+            AxisName::Y => Point::new(beyond, extent.y0() + label.loc.fraction() * extent.height()),
         })
     }
 
@@ -156,7 +151,10 @@ impl AxisPainter<'_> {
         Some(match self.name {
             AxisName::X => {
                 let side_boxes = label_boxes.iter().filter(|(first, _)| *first != high);
-                let (y, valign) = if high {
+                let (y, valign) = if measured_at_nan(label_boxes, high) {
+                    let valign = if high { VAlign::Bottom } else { VAlign::Top };
+                    (f64::NAN, valign)
+                } else if high {
                     let top = side_boxes
                         .map(|(_, b)| b.y1())
                         .fold(f64::NEG_INFINITY, f64::max);

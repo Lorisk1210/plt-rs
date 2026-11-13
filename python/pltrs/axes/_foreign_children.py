@@ -26,7 +26,7 @@ draw does (`check_drawable`); an artist is drawn by a stand-in in the Axes
 
 from operator import attrgetter
 
-from .. import _python_drawing
+from .. import _mirrors, _python_drawing
 from .._native import artist as _artist, mplot3d as _mplot3d
 from ..artist import Artist
 
@@ -46,7 +46,10 @@ class _Drawing(Artist):
         self.set_zorder(drawn.get_zorder())
 
     def draw(self, renderer):
-        self._drawn.draw(renderer)
+        # A part pltrs (Rust) draws with its owner (a tick's label) is
+        # drawn here as the artist matplotlib has.
+        alone = _mirrors.ask(self._drawn, "alone")
+        (self._drawn if alone is _mirrors.OWN else alone).draw(renderer)
 
     def _take_out(self, drawn):
         """The removal method of the artist drawn: it is no longer listed

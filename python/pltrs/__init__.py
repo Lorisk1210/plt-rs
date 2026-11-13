@@ -243,6 +243,10 @@ class RcParams(MutableMapping, dict):
 
     validate = rcsetup._validators
 
+    #: The keys holding a value matplotlib's validator takes and pltrs
+    #: (Rust) refused (see `_set`).
+    _refused = frozenset()
+
     def __init__(self, *args, **kwargs):
         self._store = _rcsetup.copy(_MATPLOTLIB_DEFAULTS)
         self._keys = set()
@@ -285,7 +289,19 @@ class RcParams(MutableMapping, dict):
             # takes from Python but not as rc text (``legend.labelcolor``).
             _rcsetup.set_color(self._store, key, self.validate[key](val))
         else:
-            _rcsetup.set(self._store, key, rcsetup._rc_value(val))
+            try:
+                _rcsetup.set(self._store, key, rcsetup._rc_value(val))
+            except ValueError:
+                if self.validate.get(key) is not rcsetup._validate_marker:
+                    raise
+                # A marker pltrs (Rust) does not know, which matplotlib's
+                # validator takes as any string: read back as given, while
+                # pltrs (Rust) keeps the marker it had, and failing where
+                # a line is made with it (`.markers._check_rc`).
+                self._refused = self._refused | {key}
+            else:
+                if key in self._refused:
+                    self._refused = self._refused - {key}
         self._given[key] = (val, _rcsetup.text(self._store, key))
         if self._keys is not None:
             self._keys.add(key)

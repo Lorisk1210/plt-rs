@@ -528,6 +528,15 @@ failing on one of another figure before anything else (`add_held`).
 (`_axes_unset`), and `_recouple` undoes all of these as an add method
 takes the artist back.
 
+A stand-in draws through the artist's own `draw`, which draws nothing
+for a *mirror* (a tick's label or line, an axis label, an offset text:
+pltrs (Rust) draws those with their axis). matplotlib's artist draws what
+it was last given wherever it is drawn, so the stand-in asks the part
+for an artist of its own made like it for that draw
+(`Mirroring.alone`: the mirror's text or data and properties, the
+transform its axis gives it, its figure): an Axes listing the tick label
+of another figure's axis shows it where that axis' transforms put it.
+
 ### Removed and cleared parts measured where they were
 
 matplotlib's `remove`, `delaxes` and `clear` only take an artist out of
@@ -633,6 +642,24 @@ kept, so `ax.transData is ax.transData` and `line.get_transform() is
 ax.transData`, and the trees compose, invert, freeze, invalidate and
 pickle (they are made anew when read back) as matplotlib's do.
 
+What pltrs (Rust) draws agrees with those trees where they are not
+finite. A view its scale maps onto one point (a logit axis with limits
+beyond 1, a function scale whose inverse is NaN over the margin) gives
+`transLimits` an infinite scale, and matplotlib's matrix products leave
+no entry of `transData` finite: nothing placed in data coordinates is
+drawn, neither axis shows ticks, and the Axes keeps its patch, its
+title and what is placed in axes fractions. pltrs (Rust) builds the same
+matrices (`ProjectionView::rectilinear`, `bbox_transform_from`). The
+tick labels matplotlib then measures at NaN put the union of their boxes
+at NaN, and with it the axis label and the offset text beyond them
+(`AxisTexts::unplaced_labels`, `measured_at_nan`). An image's box is
+then at NaN too (the corners bounded as `TransformedBbox` bounds them),
+which intersects no clip box, so that no image is made, clipped or not.
+Contour labels on a
+line that is at NaN on the canvas fail as matplotlib's (`math.floor` of
+the NaN numpy's `interp` gives: `numeric::interp` searches as numpy
+does, `ContourError::LabelCutAtNan`).
+
 The leaves of the trees are pltrs (Rust)'s values
 (`Figure::tree_leaves`): an Axes' position after the aspect, its
 original position, its view and data limits and scales, a subfigure's
@@ -659,7 +686,10 @@ yet, and the positions a layout engine has not set yet. What matplotlib
 brings up to date brings pltrs (Rust)'s state up to date at the same
 moments: reading the limits (`viewLim`) autoscales, `get_position()`
 applies the aspect (`Axes::apply_aspect`, which leaves the layout engine
-to the next draw), contour sets and stream plots autoscale when made, and
+to the next draw), contour sets and stream plots autoscale when made (in
+pltrs (Rust), `Axes::contour`, which asks for the view again as
+matplotlib's `Axes.contour` does: labelling the set places its labels in
+that view and applies nothing that is pending), and
 a draw lays the whole figure out. `canvas.inaxes` and
 `Axes.contains_point` test the axes where it is now, as matplotlib's
 patch test does. A removed axes keeps its transforms, at its last
@@ -1329,6 +1359,14 @@ unprojected and undrawn, and projects no line of a draw ending at a
 collection; `do_3d_projection` raises it, and runs the same computations
 through the projection of the last draw (`M`), failing as matplotlib's
 does before the first draw.
+
+A `Line3D` holds two kinds of data, as matplotlib's: its 3-D data, and
+the 2-D data of `Line2D`, which each draw replaces with the projection.
+2-D data the program sets (`set_xdata`, `set_data`) are what the line is
+measured by until the next draw (`get_path`, `get_bbox`, extents):
+`Line3D._numbers` hands them to pltrs (Rust) while they are newer than
+the last draw (`_data_set_at`). matplotlib's draws convert no 2-D data,
+so data that converts to no numbers leaves the projection in place.
 
 An artist a figure holds without matplotlib's giving it the figure (a
 child an `AuxTransformBox` takes once it is in a figure, whose
@@ -2266,6 +2304,16 @@ source of truth; the validators are not run on assignment. pltrs takes
 `cycler` from the `cycler` package, as matplotlib does (`rcsetup`
 returns its `Cycler` objects).
 
+A value matplotlib's validator takes and pltrs (Rust)'s type cannot
+hold is kept in Python and read back as given, while pltrs (Rust) keeps
+what it had: the marker rcParams (`lines.marker`, `scatter.marker`,
+`boxplot.*.marker`), whose validator takes any string
+(`RcParams._refused`). matplotlib fails where an artist takes the
+marker, with `MarkerStyle`'s error: `Line2D()` and `plot` without a
+marker check it (`markers._check_rc`, one set lookup); the Axes
+matplotlib can no longer make then (its ticks are such lines) are still
+made here.
+
 Style sheets are matplotlib's `style` package over pltrs (Rust)'s
 bundled sheets (`_native.rcsetup.bundled_styles`): `style.library` maps
 names to `RcParams`, user sheets are read from `USER_LIBRARY_PATHS`
@@ -2313,6 +2361,12 @@ shaping or drawing: its tables are read then, but its glyph programs
 and the tables pltrs draws without (bitmaps, variations) only when asked
 for, as FreeType reads a file through matplotlib's file stream. A large
 CJK font so costs the memory of the glyphs drawn, not that of its file.
+
+A character no font of the chain has (with `font.enable_last_resort`
+off; the last resort font maps every one) is laid out and drawn as the
+first font's missing glyph, but not measured: `FT2Font.set_text` passes
+over it, so a line's width, height and descent leave it out
+(`FontChain::layout`).
 
 ### Grids, layout engines, legends
 

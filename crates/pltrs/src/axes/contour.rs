@@ -210,8 +210,9 @@ impl Axes {
     }
 
     /// Computes the contour set and adds its collection, extending the
-    /// data limits to the grid and autoscaling tightly onto it; the set is
-    /// added with `autolim=False`, so `relim` leaves it out.
+    /// data limits to the grid and autoscaling tightly onto it, at once
+    /// and again at the next layout; the set is added with
+    /// `autolim=False`, so `relim` leaves it out.
     fn add_contour_set<G: Generator>(
         &self,
         filled: bool,
@@ -236,6 +237,14 @@ impl Axes {
             &DataUpdate::default(),
         );
         self.raw().with_mut::<AxesState, _>(|a| a.tight = true);
+        // matplotlib's set autoscales the view when it is made
+        // (`autoscale_view(tight=True)`): its labels are placed in that
+        // view, whatever asks for autoscaling afterwards. The view then
+        // waits for the next layout again, as after matplotlib's
+        // `Axes.contour`.
+        self.unstale_view();
+        self.raw()
+            .with_mut::<AxesState, _>(|a| a.request_autoscale(true, true));
         Ok(ContourSet::from_raw(self.clone(), set))
     }
 }
@@ -247,6 +256,7 @@ mod tests {
     use super::*;
     use crate::figure::Figure;
     use crate::numeric::Grid;
+    use crate::text::Text;
     use crate::transforms::{PointMap, Transform};
 
     /// A non-affine shift of the plane (a map of the program's, as
@@ -294,6 +304,33 @@ mod tests {
         let z = Grid::from_fn(3, 4, |r, c| (r + c) as f64);
         ax.contourf(&QuadField::new(z), options).unwrap();
         assert_eq!((ax.xlim(), ax.ylim()), ((0.0, 30.0), (0.0, 20.0)));
+    }
+
+    #[test]
+    fn a_set_autoscales_when_made_and_its_labels_leave_the_view_waiting() {
+        let labelled = |widened: bool| {
+            let ax = Figure::new().subplot();
+            let z = Grid::from_fn(3, 4, |r, c| (r + c) as f64);
+            let cs = ax
+                .contour(&QuadField::new(z), ContourOptions::default())
+                .unwrap();
+            assert_eq!(ax.stale_autoscale(), (true, true), "asked for again");
+            if widened {
+                // A line asks for a view ten times as wide.
+                ax.plot(vec![0.0, 30.0], vec![0.0, 20.0]).unwrap();
+            }
+            let labels = cs.clabel(crate::contour::ClabelOptions::default()).unwrap();
+            assert_eq!(ax.stale_autoscale(), (true, true), "labelling applies none");
+            let places: Vec<_> = labels.iter().map(Text::position).collect();
+            (places, ax.xlim())
+        };
+        // The labels are placed in the view the set was made in.
+        let (alone, view) = labelled(false);
+        assert_eq!(view, (0.0, 3.0));
+        let (beside_a_line, view) = labelled(true);
+        assert_eq!(view, (0.0, 31.5), "up to the sticky edge of the set");
+        assert!(alone.len() > 1, "{alone:?}");
+        assert_eq!(alone, beside_a_line);
     }
 
     #[test]

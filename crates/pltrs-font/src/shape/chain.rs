@@ -47,7 +47,9 @@ pub struct LaidOutGlyph {
 pub struct TextLayout {
     /// Placed glyphs in visual order.
     pub glyphs: Vec<LaidOutGlyph>,
-    /// Total advance (matplotlib's text width).
+    /// Total advance (matplotlib's text width), without the glyphs no
+    /// face of the chain has: matplotlib measures a line without them,
+    /// width, height, descent and left edge.
     pub width: i32,
     /// Height of the union of glyph control boxes (and the origin).
     pub height: i32,
@@ -237,10 +239,28 @@ impl<'a> FontChain<'a> {
         };
         let mut bbox: Option<Rect> = None;
         let mut pen = 0i32;
+        // The advances of the glyphs no face has: `FT2Font.set_text`
+        // passes over them, so the extents it measures leave them out,
+        // though the glyphs are laid out (and drawn) where they stand.
+        let mut passed_over = 0i32;
         for (face_index, glyph) in shape_text(&text, &self.faces, &assignment, options, &scaler) {
             // Positions saturate rather than overflow for absurdly long or
             // large text (FreeType's pen is 64-bit).
             let (x, y) = (pen.saturating_add(glyph.x_offset), glyph.y_offset);
+            layout.glyphs.push(LaidOutGlyph {
+                face: face_index,
+                glyph_id: glyph.glyph_id,
+                cluster: glyph.cluster,
+                x,
+                y,
+                x_advance: glyph.x_advance,
+            });
+            pen = pen.saturating_add(glyph.x_advance);
+            if glyph.glyph_id == GlyphId::NOTDEF {
+                passed_over = passed_over.saturating_add(glyph.x_advance);
+                continue;
+            }
+            let x = x.saturating_sub(passed_over);
             let cbox = match &hinted[face_index] {
                 Some(hinted) => hinted.control_box(glyph.glyph_id)?,
                 None => sizes[face_index].glyph_cbox(&self.faces[face_index], glyph.glyph_id)?,
@@ -252,18 +272,9 @@ impl<'a> FontChain<'a> {
                 y_max: r.y_max.saturating_add(y),
             });
             bbox = Some(bbox.map_or(cbox, |b| union(b, cbox)));
-            layout.glyphs.push(LaidOutGlyph {
-                face: face_index,
-                glyph_id: glyph.glyph_id,
-                cluster: glyph.cluster,
-                x,
-                y,
-                x_advance: glyph.x_advance,
-            });
-            pen = pen.saturating_add(glyph.x_advance);
         }
         let bbox = bbox.unwrap_or_default();
-        layout.width = pen;
+        layout.width = pen.saturating_sub(passed_over);
         layout.height = bbox.height();
         layout.descent = -bbox.y_min;
         layout.x_min = bbox.x_min;
@@ -317,5 +328,47 @@ fn union(a: Rect, b: Rect) -> Rect {
         y_min: a.y_min.min(b.y_min),
         x_max: a.x_max.max(b.x_max),
         y_max: a.y_max.max(b.y_max),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bundled_font_data;
+
+    #[test]
+    fn glyphs_no_face_has_are_laid_out_but_not_measured() {
+        // matplotlib's `FT2Font.set_text` passes over them (as it does
+        // with `font.enable_last_resort` off).
+        let data = bundled_font_data("DejaVuSans.ttf").expect("bundled");
+        let chain = FontChain::new(vec![Face::parse(data, 0).expect("a font")]);
+        let lay_out = |text: &str| {
+            chain
+                .layout(text, 10.0, 100.0, &ShapeOptions::default(), Hinting::None)
+                .expect("laid out")
+        };
+        let (without, with) = (
+            lay_out("glyph j"),
+            lay_out("gl\u{6f22}yph \u{6f22}j\u{6f22}"),
+        );
+        let missing: Vec<_> = (with.glyphs.iter())
+            .filter(|glyph| glyph.glyph_id == GlyphId::NOTDEF)
+            .collect();
+        assert_eq!(missing.len(), 3);
+        assert!(missing.iter().all(|glyph| glyph.x_advance > 0));
+        assert_eq!(
+            (with.width, with.height, with.descent, with.x_min),
+            (
+                without.width,
+                without.height,
+                without.descent,
+                without.x_min
+            )
+        );
+        // The glyphs after them stand beyond their advances: the `j`,
+        // before the last missing one, beyond two.
+        let j =
+            |layout: &TextLayout, from_end: usize| layout.glyphs[layout.glyphs.len() - from_end].x;
+        assert_eq!(j(&with, 2) - j(&without, 1), 2 * missing[0].x_advance);
     }
 }

@@ -153,6 +153,11 @@ pub(crate) struct AxisTexts {
     /// whether it is on the first side: matplotlib counts them as empty
     /// boxes there when it places the axis label and the offset text.
     pub(crate) empty_label_anchors: Vec<(bool, Point)>,
+    /// Whether each shown tick label whose anchor is not finite is on the
+    /// first side (the transform of its axes is not finite: a view its
+    /// scale maps onto one point): matplotlib measures them at NaN, which
+    /// is where it then puts the axis label and the offset text.
+    pub(crate) unplaced_labels: Vec<bool>,
     /// Texts that could not be laid out.
     pub(crate) problems: Vec<TextProblem>,
 }
@@ -274,6 +279,12 @@ impl<'a> AxisPainter<'a> {
                 else {
                     continue;
                 };
+                if !placement.anchor.is_finite() {
+                    if style.label_in_layout {
+                        texts.unplaced_labels.push(first_side);
+                    }
+                    continue;
+                }
                 if tick.label.is_empty() {
                     if style.label_in_layout {
                         texts
@@ -297,8 +308,8 @@ impl<'a> AxisPainter<'a> {
 
     /// The style and placement of the label of `tick` on its first or
     /// second side, `(minor, index)` naming the tick among those the
-    /// locator places; `None` when that side shows no label or the anchor
-    /// is not finite.
+    /// locator places, its anchor finite or not; `None` when that side
+    /// shows no label or its projection places none.
     fn labelled(
         &self,
         cx: &mut impl FigureReader,
@@ -338,7 +349,7 @@ impl<'a> AxisPainter<'a> {
         program_calls::quietly(|| {
             let (style, placement) =
                 self.labelled(&mut layout, tick, (minor, index), first_side)?;
-            (!tick.label.is_empty())
+            (!tick.label.is_empty() && placement.anchor.is_finite())
                 .then(|| lay_out_tick_label(&mut layout, tick, &style, &placement, rc))
         })
     }
@@ -386,8 +397,8 @@ impl<'a> AxisPainter<'a> {
         point_on_axis(self.name, loc, across)
     }
 
-    /// Where the label of `tick` on its first or second side goes,
-    /// unless its anchor is not finite.
+    /// Where the label of `tick` on its first or second side goes: its
+    /// anchor is not finite where the transform of the axes is not.
     fn label_placement(
         &self,
         cx: &mut impl FigureReader,
@@ -420,7 +431,7 @@ impl<'a> AxisPainter<'a> {
                 style.label_rotation_mode,
             )
         };
-        anchor.is_finite().then_some(LabelPlacement {
+        Some(LabelPlacement {
             anchor,
             align,
             rotation,
@@ -663,18 +674,32 @@ pub(crate) fn tick_label_alignment(
     }
 }
 
+/// The boxes of the tick labels in the layout, each with whether it is on
+/// the first side: those of the labels laid out, empty ones at the anchors
+/// of the labels without text, and boxes at NaN for the labels whose
+/// anchor is not finite (see [`measured_at_nan`]).
 fn label_boxes(texts: &AxisTexts) -> Vec<(bool, Bbox)> {
     let empty = texts
         .empty_label_anchors
         .iter()
         .map(|&(first, at)| (first, Bbox::from_bounds(at.x, at.y, 0.0, 0.0)));
+    let unplaced = (texts.unplaced_labels.iter())
+        .map(|&first| (first, Bbox::from_bounds(f64::NAN, f64::NAN, 0.0, 0.0)));
     texts
         .tick_labels
         .iter()
         .filter(|label| label.in_layout)
         .map(|label| (label.first_side, label.text.bbox()))
         .chain(empty)
+        .chain(unplaced)
         .collect()
+}
+
+/// Whether a tick label on the high (or low) side among `boxes` is
+/// measured at NaN: the union matplotlib takes of the boxes is then at
+/// NaN, and so is what it places beyond them.
+pub(super) fn measured_at_nan(boxes: &[(bool, Bbox)], high: bool) -> bool {
+    (boxes.iter()).any(|(first, bbox)| *first != high && bbox.x0().is_nan())
 }
 
 /// `text` laid out at `dpi` with `font` and `block`, typeset as

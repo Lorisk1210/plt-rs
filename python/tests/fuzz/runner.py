@@ -65,6 +65,19 @@ WORKER_TASKS = 20
 #: where the system cannot cap it.
 WATCH_INTERVAL = 0.5
 
+#: The seeds whose programs met a bug once, run before the others in every
+#: run (from any *first*), so that a bug coming back is met at any scale:
+#: 22, a formatter saving its own figure (the native stack overflowed).
+FAILED_SEEDS = (22,)
+
+#: The soft stack limit, in KiB, the workers run under where the system
+#: sets one (``ulimit -s``): below every platform's main-thread stack
+#: (Windows' 2 MB), so that a recursion through native code meets the end
+#: of the stack in any build. Seed 22 overflowed Linux's 8 MiB only in the
+#: optimised build, whose frames are larger, not in the development build
+#: the smoke tests run.
+WORKER_STACK_KIB = 1024
+
 #: The lines a worker runs at its start.
 BOOT = (f"import sys; sys.path.insert(0, {str(TESTS)!r}); "
         "from fuzz import worker; worker.main()")
@@ -107,8 +120,13 @@ class Worker:
         environment = {**os.environ, **variables}
         environment["PYTHONPATH"] = os.pathsep.join(
             [str(PLTRS_HOME), environment.get("PYTHONPATH", "")])
+        command = [program, "-c", BOOT]
+        if os.name == "posix":
+            # The shell sets the limit and becomes the interpreter.
+            command = ["/bin/sh", "-c",
+                       f'ulimit -s {WORKER_STACK_KIB} 2>/dev/null; exec "$0" "$@"', *command]
         self.process = subprocess.Popen(
-            [program, "-c", BOOT], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, encoding="utf-8", errors="replace", cwd=directory,
             env=environment)
         # The interpreter running the worker, once it tells: on Windows, a
@@ -267,14 +285,19 @@ def reduce(bug, directory):
 
 
 def run(scale=1, replay=None, jobs=4, reduce_bugs=True, directory=None, first=0):
-    """Runs ``24 × scale`` programs from seed *first* on (or the one of
-    seed *replay*) on *jobs* workers; returns the distinct bugs met, each
+    """Runs the programs of `FAILED_SEEDS`, then ``24 × scale`` programs
+    from seed *first* on (or the one of seed *replay* only) on *jobs*
+    workers; returns the distinct bugs met, each
     reduced and written to ``failures/`` under *directory*."""
     directory = pathlib.Path(directory or TESTS.parents[1] / "target" / "python-fuzz")
     (directory / "failures").mkdir(parents=True, exist_ok=True)
     programs = corpus.load(directory)
     steps = 100
-    seeds = [int(replay)] if replay is not None else list(range(first, first + 24 * scale))
+    if replay is not None:
+        seeds = [int(replay)]
+    else:
+        seeds = [*FAILED_SEEDS, *(seed for seed in range(first, first + 24 * scale)
+                                  if seed not in FAILED_SEEDS)]
     shares = [seeds[i::jobs] for i in range(jobs)]
     with ThreadPoolExecutor(jobs) as pool:
         found = [bug for bugs in pool.map(lambda share: _run_seeds(share, steps, programs,

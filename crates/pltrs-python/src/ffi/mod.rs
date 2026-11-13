@@ -42,6 +42,8 @@
 mod buffer;
 mod errors;
 mod object;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod pthread;
 mod runtime;
 mod types;
 mod values;
@@ -51,6 +53,8 @@ mod windows;
 pub(crate) use buffer::*;
 pub(crate) use errors::*;
 pub(crate) use object::*;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub(crate) use pthread::*;
 pub(crate) use runtime::*;
 pub(crate) use types::*;
 pub(crate) use values::*;

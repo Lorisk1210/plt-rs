@@ -22,6 +22,7 @@ use crate::lines::LineArtist;
 use crate::spines::SpineArtist;
 use crate::table::{Table, TableArtist};
 use crate::text::{Text, TextArtist};
+use crate::transforms::NoFigure;
 
 /// How a new child changes the data limits and autoscaling.
 #[derive(Clone, Debug, Default)]
@@ -321,6 +322,33 @@ impl Axes {
         handle
     }
 
+    /// [`adopt_collection`](Self::adopt_collection) measuring the
+    /// collection once it is a child ([`limit_points_of`](Self::limit_points_of)).
+    pub(crate) fn adopt_measured_collection(&self, artist: impl Artist) -> RawHandle {
+        self.adopt_collection_measured_by(artist, |adopted| {
+            DataUpdate::autoscaled(self.limit_points_of(adopted))
+        })
+    }
+
+    /// [`adopt_collection`](Self::adopt_collection) with the update
+    /// `measure` makes of the collection once it is a child, as
+    /// matplotlib's `add_collection` measures it: code of the program's
+    /// its transforms run meanwhile finds it among the children (and the
+    /// figure free: the collection is shared, not borrowed).
+    pub(crate) fn adopt_collection_measured_by(
+        &self,
+        artist: impl Artist,
+        measure: impl FnOnce(&dyn Artist) -> DataUpdate,
+    ) -> RawHandle {
+        let handle = self.adopt_in_autoscale(artist, &DataUpdate::default());
+        self.unstale_view();
+        let adopted = self.raw().figure_state().borrow().store.shared(handle.id());
+        if let Some(adopted) = adopted {
+            self.update_data(&measure(&*adopted));
+        }
+        handle
+    }
+
     /// Recomputes the data limits from the lines, patches, images and
     /// collections of the axes, leaving hidden ones out when
     /// `visible_only` (matplotlib's `relim`). The view follows at the next
@@ -348,13 +376,18 @@ impl Axes {
     pub fn relim(&self, visible_only: bool) -> &Self {
         let axes = self.id();
         let figure = self.raw().figure_state();
-        let mut state = figure.borrow_mut();
-        let children = state
-            .artist_as::<AxesState>(axes)
-            .map(|a| a.children.clone())
-            .unwrap_or_default();
+        // Each child shared, not borrowed from the figure: measuring one may
+        // run the program's code (a transform of its own), which may read
+        // and change the figure meanwhile. The children are read anew at
+        // each step, as matplotlib's loop over the list `_children` sees
+        // a child added meanwhile.
+        let child = |index: usize| {
+            let state = figure.borrow();
+            let id = *state.artist_as::<AxesState>(axes)?.children.get(index)?;
+            Some(state.store.shared(id))
+        };
         let mut limits = DataLimits::NULL;
-        for artist in children.into_iter().filter_map(|id| state.artist(id)) {
+        for artist in (0..).map_while(child).flatten() {
             let base = artist.base();
             if !base.in_autoscale || (visible_only && !base.visible) {
                 continue;
@@ -362,12 +395,12 @@ impl Axes {
             if let Some(LimitPoints {
                 points,
                 directions: (x, y),
-            }) = artist.limit_points(axes, &*state)
+            }) = self.limit_points_of(&*artist)
             {
                 limits.update_from_points(&points, x, y);
             }
         }
-        if let Some(axes) = state.artist_as_mut::<AxesState>(axes) {
+        if let Some(axes) = figure.borrow_mut().artist_as_mut::<AxesState>(axes) {
             axes.next_data = if limits.bbox == Bbox::NULL {
                 NextData::Replaces
             } else {
@@ -376,6 +409,19 @@ impl Axes {
             axes.data_lim = limits;
         }
         self
+    }
+
+    /// The points `artist` adds to the data limits of this axes
+    /// ([`Artist::limit_points`]), measured with the figure free where
+    /// that runs the program's code ([`LimitPoints::run_program`]), else
+    /// with the figure as it is (for what is measured in display space).
+    pub(crate) fn limit_points_of(&self, artist: &dyn Artist) -> Option<LimitPoints> {
+        let axes = self.id();
+        if LimitPoints::run_program(artist, axes) {
+            artist.limit_points(axes, &NoFigure)
+        } else {
+            artist.limit_points(axes, &*self.raw().figure_state().borrow())
+        }
     }
 
     /// Extends the data limits to include `points` in x when `updatex` and
@@ -518,18 +564,49 @@ mod tests {
     use crate::artist::{ArtistHandle, RawHandle};
     use crate::axes::{
         Axes, BoxArtist, BoxProps, BoxplotOptions, BxpOptions, EventplotOptions,
-        FillBetweenOptions, HexbinOptions, ImshowOptions, Mesh, PcolorOptions,
+        FillBetweenOptions, HexbinOptions, ImshowOptions, Mesh, PcolorOptions, TitleLocation,
     };
     use crate::contour::{ContourOptions, QuadField};
     use crate::figure::Figure;
     use crate::lines::{AxLineThrough, LineProps};
     use crate::numeric::Grid;
     use crate::patches::{PatchProps, Rectangle};
+    use crate::transforms::{PointMap, Transform};
 
     /// The data limits as `(x0, y0, x1, y1)`.
     fn limits(ax: &Axes) -> (f64, f64, f64, f64) {
         let bbox = ax.data_lim().bbox;
         (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())
+    }
+
+    /// A transform of the program's titling its axes as it maps.
+    #[derive(Debug)]
+    struct Titling(Axes);
+
+    impl PointMap for Titling {
+        fn forward(&self, point: Point) -> Point {
+            self.0.set_title("mapped");
+            point
+        }
+
+        fn inverse(&self, point: Point) -> Point {
+            point
+        }
+
+        fn calls_program(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn a_transform_of_the_program_changes_the_figure_while_limits_are_measured() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let line = ax.plot([0.0, 1.0], [0.0, 2.0]).unwrap();
+        line.set_transform(Transform::custom(Titling(ax.clone())).then(ax.trans_data()));
+        ax.relim(false);
+        assert_eq!(ax.title(TitleLocation::Center), "mapped");
+        assert_eq!(limits(&ax), (0.0, 0.0, 1.0, 2.0));
     }
 
     /// A unit square at `(x, y)`.

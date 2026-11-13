@@ -272,6 +272,15 @@ class ImagingMixin:
         if aspect is not None and not cbook._str_equal(aspect, 'equal'):
             # As matplotlib's `set_aspect` takes it.
             aspect = _checked_aspect(aspect)
+        # matplotlib sets the aspect of the Axes before it gives the image
+        # its data and scales the norm (whose code of the program's may
+        # measure the Axes).
+        transform = kwargs.get('transform')
+        if aspect is None and not (
+                transform is not None and not transform.contains_branch(self.transData)):
+            aspect = _rc('image.aspect')
+        if aspect is not None:
+            self.set_aspect(aspect)
         A = mimage._ImageBase._normalize_image_array(X)
         colorizer._scale_norm(norm, vmin, vmax, A)
         spec = {

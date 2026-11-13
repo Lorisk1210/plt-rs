@@ -3,7 +3,7 @@
 use super::children::DataUpdate;
 use super::prop_cycles::CycleState;
 use super::{Axes, PropCycle};
-use crate::artist::{Artist, ArtistHandle};
+use crate::artist::Artist;
 use crate::colors::Color;
 use crate::patches::{FancyArrow, IntoPatchShape, Patch, PatchArtist, PatchProps};
 
@@ -38,9 +38,7 @@ impl Axes {
         }
         // matplotlib's add_patch extends the data limits without
         // autoscaling the view.
-        let update = DataUpdate::extending(
-            patch.limit_points(self.id(), &*self.raw().figure_state().borrow()),
-        );
+        let update = DataUpdate::extending(self.limit_points_of(&patch));
         Patch::from_raw(self.adopt_in_autoscale(patch, &update))
     }
 

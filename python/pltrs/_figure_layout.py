@@ -458,6 +458,12 @@ default: %(va)s
             containing the bounding box (in figure inches).
         """
         if bbox_extra_artists is None:
+            # matplotlib's Axes.get_tightbbox calls a locator of the
+            # program's first, placing its Axes.
+            from .axes import _program_locators
+            for ax in self.axes:
+                if ax.get_visible():
+                    _program_locators.place_to_measure(ax, renderer)
             # pltrs (Rust) unites the boxes of the figure's artists, axes
             # and subfigures, in pixels, measuring with the renderer's
             # text metrics cache.

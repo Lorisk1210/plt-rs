@@ -103,6 +103,9 @@ class LayoutMixin:
         called = getattr(self.get_axes_locator(), "_called_with", None)
         if called is not None and call_axes_locator:
             called(self)
+        if call_axes_locator:
+            from . import _program_locators
+            _program_locators.place_to_measure(self, renderer)
         self._place_titles_by_program(renderer)
         self._first_measuring_steps(renderer)
         with _measured_by_given(renderer, self):

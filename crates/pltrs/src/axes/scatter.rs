@@ -7,7 +7,7 @@ use pltrs_core::Point;
 use super::children::DataUpdate;
 use super::data_coords::data_offsets;
 use super::{Axes, AxesState, PlotError};
-use crate::artist::{Artist, ArtistHandle};
+use crate::artist::{Artist, ArtistHandle, downcast_ref};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, ColorMapping, EdgeColors};
 use crate::colors::{Alpha, Color, ColorizerOptions, impl_colorize};
 use crate::markers::{FillStyle, MarkerStyle};
@@ -205,11 +205,17 @@ impl Axes {
         let transform = options
             .offset_transform
             .unwrap_or_else(|| self.trans_data());
-        let update = DataUpdate::data(
-            data_offsets(&transform, self.id(), &collection.offsets).unwrap_or_default(),
-        );
-        collection.offset_transform = Some(transform);
-        let handle = Collection::from_raw(self.adopt_collection(collection, &update));
+        collection.offset_transform = Some(transform.clone());
+        let handle =
+            Collection::from_raw(self.adopt_collection_measured_by(collection, |adopted| {
+                let offsets =
+                    downcast_ref::<CollectionArtist>(adopted).map(|c| c.offsets.as_slice());
+                DataUpdate::data(
+                    offsets
+                        .and_then(|offsets| data_offsets(&transform, self.id(), offsets))
+                        .unwrap_or_default(),
+                )
+            }));
         if let Some(mapping) = mapping {
             handle.set_scaled_mapping(mapping, None);
         }

@@ -472,9 +472,7 @@ impl Axes {
             .base_mut()
             .transform
             .get_or_insert_with(|| self.trans_data());
-        let update = DataUpdate::extending(
-            patch.limit_points(self.id(), &*self.raw().figure_state().borrow()),
-        );
+        let update = DataUpdate::extending(self.limit_points_of(&patch));
         Patch::from_raw(self.adopt_in_autoscale(patch, &update))
     }
 

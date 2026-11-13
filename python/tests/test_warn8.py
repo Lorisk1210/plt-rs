@@ -18,12 +18,17 @@ import warnings
 import numpy as np
 import pytest
 
+import build_facts
 import pltrs
 import pltrs.patches as mpatches
 import pltrs.pyplot as plt
 
 INF = float("inf")
 NAN = float("nan")
+
+#: Counts recorded with Linux' numpy, as this system's numpy counts them
+#: (`build_facts.PRODUCTS_WARN`).
+here = build_facts.as_numpy_counts
 
 DOT = "invalid value encountered in dot"
 MULTIPLY = "invalid value encountered in scalar multiply"
@@ -113,55 +118,55 @@ def saved(fig, **kwargs):
 
 def test_a_tight_box_computes_the_nodes_a_draw_would():
     fig, ax = flat()
-    assert warned(ax.get_tightbbox) == {**FIRST, DOT: 6}
+    assert warned(ax.get_tightbbox) == here({**FIRST, DOT: 6})
     assert warned(ax.get_tightbbox) == {}, "kept"
     # The line's path is all that is left to the draw.
-    assert warned(fig.canvas.draw) == {DOT: 2}
+    assert warned(fig.canvas.draw) == here({DOT: 2})
 
 
 def test_tight_boxes_measure_the_tick_labels_each_time():
     fig, ax = padded()
-    assert warned(ax.get_tightbbox) == {DOT: 10}
-    assert warned(lambda: ax.get_tightbbox(for_layout_only=True)) == {DOT: 10}
-    assert warned(fig.get_tightbbox) == {DOT: 10}
-    assert warned(ax.yaxis.get_tightbbox) == {DOT: 10}
+    assert warned(ax.get_tightbbox) == here({DOT: 10})
+    assert warned(lambda: ax.get_tightbbox(for_layout_only=True)) == here({DOT: 10})
+    assert warned(fig.get_tightbbox) == here({DOT: 10})
+    assert warned(ax.yaxis.get_tightbbox) == here({DOT: 10})
     assert warned(ax.xaxis.get_tightbbox) == {}
-    assert warned(fig.canvas.draw) == {DOT: 15}
+    assert warned(fig.canvas.draw) == here({DOT: 15})
 
 
 def test_tight_prints_draw_measure_and_draw():
     fig, _ = padded()
-    assert warned(saved(fig, format="png", bbox_inches="tight")) == {DOT: 40}
-    assert warned(saved(fig, format="svg", bbox_inches="tight")) == {DOT: 40}
+    assert warned(saved(fig, format="png", bbox_inches="tight")) == here({DOT: 40})
+    assert warned(saved(fig, format="svg", bbox_inches="tight")) == here({DOT: 40})
 
 
 def test_layout_engines_measure_every_axes_twice():
     fig, _ = padded()
-    assert warned(fig.tight_layout) == {DOT: 10}, "once without a rectangle"
+    assert warned(fig.tight_layout) == here({DOT: 10}), "once without a rectangle"
     for engine in ("tight", "constrained"):
         fig, _ = padded()
         fig.set_layout_engine(engine)
-        assert warned(fig.canvas.draw) == {DOT: 35}, engine
-        assert warned(fig.canvas.draw) == {DOT: 35}, engine
+        assert warned(fig.canvas.draw) == here({DOT: 35}), engine
+        assert warned(fig.canvas.draw) == here({DOT: 35}), engine
 
 
 def test_titles_are_placed_past_the_y_axis_measured_again():
     fig, ax = padded()
     ax.set_title("title")
-    assert warned(fig.canvas.draw) == {DOT: 25}
-    assert warned(ax.get_tightbbox) == {DOT: 20}
+    assert warned(fig.canvas.draw) == here({DOT: 25})
+    assert warned(ax.get_tightbbox) == here({DOT: 20})
 
 
 def test_texts_and_legends_asked_for_their_extent():
     fig, ax = flat(lambda ax: ax.legend(["a"]))
     quietly(fig.canvas.draw)
-    assert warned(ax.get_legend().get_window_extent) == {DOT: 2}
-    assert warned(ax.get_legend().get_tightbbox) == {DOT: 2}
+    assert warned(ax.get_legend().get_window_extent) == here({DOT: 2})
+    assert warned(ax.get_legend().get_tightbbox) == here({DOT: 2})
     # A legend placed at the best location stays clear of the texts too.
     fig, ax = flat(lambda ax: (ax.text(1, 2, "text"), ax.legend(["a"])))
     quietly(fig.canvas.draw)
-    assert warned(ax.texts[0].get_window_extent) == {DOT: 2}
-    assert warned(ax.get_legend().get_window_extent) == {DOT: 4}
+    assert warned(ax.texts[0].get_window_extent) == here({DOT: 2})
+    assert warned(ax.get_legend().get_window_extent) == here({DOT: 4})
 
 
 # -- the artists of a wild Axes -------------------------------------------------------------
@@ -183,31 +188,31 @@ def test_texts_and_legends_asked_for_their_extent():
         "text", "text-box", "fill", "errorbar", "mesh", "scatter"])
 def test_artists_evaluate_the_data_transform_as_matplotlibs_draws(add, first, again, measured):
     fig, ax = flat(add)
-    assert warned(fig.canvas.draw) == {**FIRST, DOT: first}
-    assert warned(fig.canvas.draw) == {DOT: again}
-    assert warned(ax.get_tightbbox).get(DOT, 0) == measured
-    assert warned(saved(fig, format="pdf")) == {DOT: first}
+    assert warned(fig.canvas.draw) == here({**FIRST, DOT: first})
+    assert warned(fig.canvas.draw) == here({DOT: again})
+    assert warned(ax.get_tightbbox).get(DOT, 0) == here({DOT: measured}).get(DOT, 0)
+    assert warned(saved(fig, format="pdf")) == here({DOT: first})
 
 
 def test_images_map_their_extent():
     fig, ax = flat(lambda ax: ax.imshow([[1, 2], [3, 4]], clip_on=False))
-    assert warned(fig.canvas.draw) == {**FIRST, DOT: 5}
-    assert warned(fig.canvas.draw) == {DOT: 2}
-    assert warned(ax.get_tightbbox) == {DOT: 1}
+    assert warned(fig.canvas.draw) == here({**FIRST, DOT: 5})
+    assert warned(fig.canvas.draw) == here({DOT: 2})
+    assert warned(ax.get_tightbbox) == here({DOT: 1})
 
 
 # -- figures that were pickled --------------------------------------------------------------
 
 def test_an_unpickled_figure_keeps_what_the_pickled_one_computed():
     fig, _ = flat()
-    assert warned(fig.canvas.draw) == {**FIRST, DOT: 8}
+    assert warned(fig.canvas.draw) == here({**FIRST, DOT: 8})
     loaded = pickle.loads(pickle.dumps(fig))
     # The limits' matrix is kept; what is built on the resolution, which
     # unpickling sets anew, is computed again.
-    assert warned(loaded.canvas.draw) == {DOT: 8}
-    assert warned(loaded.canvas.draw) == {DOT: 2}
+    assert warned(loaded.canvas.draw) == here({DOT: 8})
+    assert warned(loaded.canvas.draw) == here({DOT: 2})
     again = pickle.loads(pickle.dumps(loaded))
-    assert warned(again.axes[0].get_tightbbox) == {DOT: 6}
+    assert warned(again.axes[0].get_tightbbox) == here({DOT: 6})
 
 
 # -- what a draw drew before it failed -----------------------------------------------------
@@ -299,7 +304,7 @@ def test_an_axis_artist_label_an_infinite_distance_away():
     ax = fig.add_subplot(axes_class=axisartist.Axes)
     ax.set_xlabel("x")
     ax.axis["bottom"].label.set_pad(INF)
-    assert warned(fig.canvas.draw) == {DOT: 1}
+    assert warned(fig.canvas.draw) == here({DOT: 1})
     ax.axis["bottom"].label.set_pad(NAN)
     assert warned(fig.canvas.draw) == {}
 

@@ -222,7 +222,7 @@ def test_make_axes_computes_as_matplotlib_and_moves_the_parents_first():
     with pytest.raises(TypeError, match=re.escape(
             "unsupported operand type(s) for -: 'int' and 'str'")):
         colorbar.make_axes(ax, fraction='0.1')
-    with pytest.raises(TypeError, match="cannot use 'list' as a dict key"):
+    with pytest.raises(TypeError, match=re.escape(build_facts.raised(lambda: {}[[]]))):
         colorbar.make_axes(ax, location=[])
     with pytest.raises(ValueError, match=re.escape(
             "all entries in rect must be finite not Bbox(x0=nan, y0=")):

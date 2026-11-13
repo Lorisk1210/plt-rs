@@ -93,7 +93,7 @@ impl TicksState {
     /// scaling the unit marker (`Affine2D().scale`) multiplies the four
     /// zeros of its matrix around the diagonal by it in place, and turning
     /// it for each mark multiplies matrices twice (`np.dot`, which warns
-    /// where numpy's products do: [`PRODUCTS_WARN`](crate::warnings::PRODUCTS_WARN)).
+    /// where numpy's products do: [`products_warn`](crate::warnings::products_warn)).
     pub(crate) fn draw(
         &self,
         ctx: &mut DrawContext<'_>,
@@ -111,7 +111,7 @@ impl TicksState {
         let path = self.path();
         let affine = transform.affine_part();
         for &(loc, angle) in marks {
-            if infinite && crate::warnings::PRODUCTS_WARN {
+            if infinite && crate::warnings::products_warn(crate::warnings::Product::Dot) {
                 for _ in 0..2 {
                     crate::warnings::warn_runtime("invalid value encountered in dot");
                 }

@@ -193,7 +193,7 @@ fn offsets(sizes: &[(f64, f64)], k: f64) -> Vec<f64> {
             exceptions.multiply_add(absolute, 1.0, Some(scaled))
         })
         .collect();
-    if crate::warnings::PRODUCTS_WARN {
+    if crate::warnings::products_warn(crate::warnings::Product::Matmul) {
         exceptions.warn("matmul");
     }
     prefix_sums(lengths.into_iter())
@@ -552,7 +552,7 @@ mod tests {
             crate::warnings::capturing_runtime(|| offsets(sizes, k)).1
         };
         assert_eq!(warned(&[(1.0, 0.5), (2.0, 0.0)], 3.0), [""; 0]);
-        let invalid: &[&str] = if crate::warnings::PRODUCTS_WARN {
+        let invalid: &[&str] = if crate::warnings::products_warn(crate::warnings::Product::Matmul) {
             &["invalid value encountered in matmul"]
         } else {
             &[]

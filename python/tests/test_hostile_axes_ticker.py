@@ -6,6 +6,7 @@ spectra. Each expected value is recorded from matplotlib.
 """
 
 import math
+import re
 import warnings
 
 import numpy as np
@@ -250,7 +251,7 @@ def test_theta_ticks_turn_by_their_location_as_matplotlibs():
     tick = ax.xaxis.get_major_ticks()[0]
     with pytest.raises(TypeError, match="^can't multiply sequence by non-int of type 'numpy.float64'$"):
         tick.update_position('0.5')
-    with pytest.raises(ValueError, match="^expected a finite input, got inf$"):
+    with pytest.raises(ValueError, match=f"^{build_facts.raised(lambda: math.cos(math.inf))}$"):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             tick.update_position(float('inf'))
@@ -302,7 +303,8 @@ def test_streamplot_checks_its_grid_and_arguments_as_matplotlibs():
     x, y, u = np.arange(6), np.arange(5), np.ones((5, 6))
     with pytest.raises(ValueError, match="^'x' values must be equally spaced$"):
         ax.streamplot(np.array([0, 1, 2, 3, 4, np.inf]), y, u, u)
-    with pytest.raises(TypeError, match="The 'out' kwarg is necessary"):
+    message = build_facts.raised(lambda: 30 * np.array(["6.0", "6.0"]))
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
         ax.streamplot(x, y, u, u, density='6.0')
     with pytest.raises(AttributeError, match="^'list' object has no attribute 'shape'$"):
         ax.streamplot(x, y, u.tolist(), u)

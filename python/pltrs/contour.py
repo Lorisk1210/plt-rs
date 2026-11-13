@@ -24,6 +24,7 @@ from .backend_bases import MouseButton
 from .path import Path
 
 _contour_arguments = _lazy_imports.module(globals(), "._contour_arguments")
+_contour_chunks = _lazy_imports.module(globals(), "._contour_chunks")
 _contour_reference = _lazy_imports.module(globals(), "._contour_reference")
 _owned_paths = _lazy_imports.module(globals(), "._owned_paths")
 
@@ -1342,35 +1343,30 @@ class _ContourGenerator:
         self.field = field
         self._matplotlib = None
 
-    def _make_matplotlib(self, chunk_size=None):
+    def _make_matplotlib(self):
         """
-        The contourpy generator matplotlib makes for the field, with the
-        same arguments (contouring in chunks of *chunk_size*, the field's
-        by default), or None where contourpy is not importable. pltrs
-        (Rust) still computes and draws the contours.
+        The contourpy generator matplotlib makes for the field, or None
+        where contourpy is not importable: the generator matplotlib keeps
+        is contourpy's object, which only contourpy can make. pltrs
+        (Rust) computes and draws the contours either way.
         """
         try:
             import contourpy
         except ImportError:
             return None
         field, generation = self.field
-        z, mask = field[:2]
-        x, y, algorithm, corner_mask = _contour.generator_arguments(field, generation)
-        z = ma.masked_invalid(z, copy=False)
-        if mask is not None:
-            z[mask] = ma.masked
+        x, y, z, algorithm, corner_mask = _contour_chunks.generator_arguments(field, generation)
         return contourpy.contour_generator(
             x, y, z, name=algorithm, corner_mask=corner_mask,
             line_type=contourpy.LineType.SeparateCode,
-            fill_type=contourpy.FillType.OuterCode,
-            chunk_size=generation[1] if chunk_size is None else chunk_size)
+            fill_type=contourpy.FillType.OuterCode, chunk_size=generation[1])
 
-    def check_chunks(self, nchunk):
+    def check_chunks(self, nchunk, data):
         """Fail as contourpy fails to make matplotlib's generator for the
-        field in chunks of *nchunk*, which pltrs (Rust) does not hold (no
-        whole number of none or more, see
-        `._contour_arguments.held_chunks`)."""
-        self._make_matplotlib(nchunk)
+        field of the values *data* (as given) in chunks of *nchunk*, which
+        pltrs (Rust) does not hold (no whole number of none or more, see
+        `._contour_arguments.held_chunks`), contourpy installed or not."""
+        _contour_chunks.check(*self.field, nchunk, data)
 
     def _matplotlib_generator(self):
         """matplotlib's generator for the field, made the first time; this

@@ -17,7 +17,7 @@ import datetime
 
 import matplotlib
 
-from probes._dates_tz import make_ops, tzinfo
+from probes._dates_tz import as_zoneinfo, make_ops, tzinfo
 from spec_support import ProbeSet
 
 probes = ProbeSet("dates_tz")
@@ -157,8 +157,14 @@ def test_leap_days_and_year_boundaries():
                 ("HourLocator", {"byhour": [0]}, 4 * DAY)]:
             for center in ["2021-01-01T00:00:00", "2020-02-29T00:00:00"]:
                 for via, view in views(center, span, tz):
-                    probe("dates_tz.locate", locator=locator, params=params,
-                          tz=tz, view=view, via=via)
+                    args = dict(locator=locator, params=params, tz=tz, view=view, via=via)
+                    probe("dates_tz.locate", **args)
+                    if isinstance(tz, str):
+                        # Its twin in zoneinfo's zone, which the smoke tests
+                        # expect where python-dateutil's zones answer as
+                        # zoneinfo's: these views reach past the zone's last
+                        # change, which python-dateutil 2 reads otherwise.
+                        probe("dates_tz.locate", **as_zoneinfo(args))
 
 
 def test_rule_zones():

@@ -8,6 +8,7 @@ recorded from matplotlib.
 """
 
 import io
+import math
 import warnings
 
 import numpy as np
@@ -30,6 +31,8 @@ from pltrs.mpl_toolkits.mplot3d import art3d, axes3d
 from pltrs.path import Path
 from pltrs.projections import polar
 from pltrs.textpath import TextPath
+
+import build_facts
 
 
 @pytest.fixture(autouse=True)
@@ -168,12 +171,15 @@ def test_logit_formatter_keeps_locations_that_are_not_finite():
 def test_max_n_locator_of_fewer_than_one_bin_scales_as_matplotlib():
     with pytest.raises(ZeroDivisionError):
         mticker.MaxNLocator(nbins=0).tick_values(0, 8)
-    with pytest.raises(ValueError, match="expected a positive input, got -8.0"):
+    with pytest.raises(ValueError, match=build_facts.raised(lambda: math.log10(-8.0))):
         mticker.MaxNLocator(nbins=-1).tick_values(0, 8)
 
 
 def test_select_step_sub_compares_in_the_precision_given():
-    assert angle_helper.select_step_sub(np.float32(0.3)) == (2, 10.0)
+    # 0.1 * 3 against a single: in single precision (numpy 2), in double
+    # (numpy 1), where it is the smaller.
+    in_single = bool(3.0 * 0.1 >= np.float32(0.3))
+    assert angle_helper.select_step_sub(np.float32(0.3)) == (2 if in_single else 5, 10.0)
     assert angle_helper.select_step_sub(0.7) == (5, 10.0)
 
 
@@ -243,7 +249,8 @@ def test_get_test_data_steps_as_numpy_does():
     x, y, z = axes3d.get_test_data(float('inf'))
     assert x.shape == (1, 1)
     x, y, z = axes3d.get_test_data(np.float32(0.05))
-    assert x[0, 1] == pytest.approx(-29.500000476837158, abs=1e-12)
+    # numpy's steps in the step's precision (numpy 2) or in double (numpy 1).
+    assert x[0, 1] == pytest.approx(np.arange(-3.0, 3.0, np.float32(0.05))[1] * 10, abs=1e-12)
 
 
 def test_animated_surface_maps_its_array_as_it_is_projected():

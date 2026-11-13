@@ -14,3 +14,10 @@
 # `dviread.fontTools.agl` are the package's modules (python/tests/test_docs4.py
 # checks the getter with a stand-in package).
 ^matplotlib\.(backends\.backend_ps|dviread):fontTools$ | ^names: missing$ | fontTools is not installed in the pltrs venv (pltrs does not require it); both modules import it when first read where it is installed
+
+# backend_webagg imports and serves without Tornado under pltrs, where
+# matplotlib's module raises RuntimeError("The WebAgg backend requires
+# Tornado."): pltrs serves WebAgg with its own server, and no program or
+# library relies on the error (python/DESIGN.md, "WebAgg"). Both venvs hold
+# Tornado, so no difference of the module's names shows here:
+# `backend_webagg.tornado` is Tornado's package, imported when first read.

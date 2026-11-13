@@ -11,6 +11,8 @@ value is recorded from matplotlib.
 """
 
 import io
+import re
+import warnings
 
 import numpy as np
 import pytest
@@ -19,6 +21,8 @@ import pltrs
 import pltrs.pyplot as plt
 from pltrs import patches
 from pltrs.transforms import Affine2D, CompositeGenericTransform
+
+import build_facts
 
 
 @pytest.fixture(autouse=True)
@@ -285,6 +289,19 @@ def test_parts_of_another_figure_keep_it():
 
 # -- layout engines keep what they are set to ---------------------------------
 
+def _refusal_of_an_empty_pad():
+    """What numpy refuses first of matplotlib's constrained layout with an
+    empty array as a pad: the array's truth value (numpy 2), else the box
+    of the pads (numpy 1, which takes the truth value for False)."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        try:
+            bool(np.array([]))
+        except ValueError as error:
+            return str(error)
+    return build_facts.raised(lambda: np.asarray([[0, 0], [0.1, np.array([])]], float))
+
+
 def test_a_constrained_layout_engine_fails_as_it_lays_out():
     fig = plt.figure(layout="constrained")
     ax = fig.add_subplot()
@@ -297,7 +314,7 @@ def test_a_constrained_layout_engine_fails_as_it_lays_out():
     engine.set(h_pad=[])
     fig.canvas.draw()  # matplotlib's draw passes over the layout's ValueError.
     assert ax.get_position().bounds == laid_out
-    with pytest.raises(ValueError, match="The truth value of an empty array is ambiguous"):
+    with pytest.raises(ValueError, match=re.escape(_refusal_of_an_empty_pad())):
         engine.execute(fig)
     engine.set(h_pad=0.04167, w_pad="0.1")
     with pytest.raises(TypeError, match="ufunc 'divide' not supported for the input types"):

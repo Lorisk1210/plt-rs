@@ -8,6 +8,8 @@ matplotlib computes with them, and parasites kept through a clear. Each
 expected value, error and warning is recorded from matplotlib 3.11.2.
 """
 
+import math
+import re
 import warnings
 
 import numpy as np
@@ -54,9 +56,9 @@ def runtime_warnings(call):
 @pytest.mark.parametrize("kwargs, error, message", [
     (dict(facecolors=[]), ValueError,
      "operands could not be broadcast together with shapes (3,1) (0,4) "),
-    (dict(facecolors=[0, 1]), ValueError, "Invalid RGBA argument: np.int64(0)"),
-    (dict(edgecolors=""), ValueError, "np.str_('') is not a valid color value."),
-    (dict(edgecolors="K"), ValueError, "np.str_('K') is not a valid color value."),
+    (dict(facecolors=[0, 1]), ValueError, f"Invalid RGBA argument: {np.int64(0)!r}"),
+    (dict(edgecolors=""), ValueError, f"{np.str_('')!r} is not a valid color value."),
+    (dict(edgecolors="K"), ValueError, f"{np.str_('K')!r} is not a valid color value."),
     (dict(edgecolors=3), TypeError, "object of type 'numpy.int64' has no len()"),
     (dict(edgecolors="none"), ValueError,
      "operands could not be broadcast together with shapes (3,1) (0,4) "),
@@ -114,7 +116,8 @@ def test_errorbar_fails_as_its_arithmetic_fails(kwargs, error, message, left):
 
 def test_errorbar_sizes_that_are_strings_fail_as_numpy_multiplies_them():
     _, ax = axes3d()
-    with pytest.raises(TypeError, match="The 'out' kwarg is necessary"):
+    message = build_facts.raised(lambda: np.array(["0.5"]) * np.array([1]))
+    with pytest.raises(TypeError, match=re.escape(message)):
         ax.errorbar(X, Y, Z, zerr="0.5")
 
 
@@ -336,7 +339,7 @@ def test_sankey_keeps_the_angles_matplotlib_turns():
     angles = [diagram.angles for diagram in sankey.diagrams]
     assert angles == [[0.5, 0.5], [0, 0], [0, 0]]
     assert [type(a) for a in angles[0] + angles[1]] == [float, float, int, int]
-    with pytest.raises(ValueError, match="expected a finite input, got inf"):
+    with pytest.raises(ValueError, match=build_facts.raised(lambda: math.cos(math.inf))):
         sankey.add(rotation=np.inf)
     with pytest.raises(TypeError, match="ufunc 'add' did not contain a loop"):
         sankey.add(labels=[0, 1])

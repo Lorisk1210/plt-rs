@@ -17,6 +17,8 @@ from pltrs import patches as mpatches
 from pltrs import path as mpath
 from pltrs.mpl_toolkits.mplot3d import art3d
 
+import build_facts
+
 ISFINITE = "ufunc 'isfinite' not supported for the input types"
 INHOMOGENEOUS = "setting an array element with a sequence"
 X = np.linspace(0, 2 * np.pi, 7)
@@ -316,7 +318,8 @@ def test_sort_positions_of_no_number_fail_the_draws_of_polygons():
     X2, Y2 = np.meshgrid(np.linspace(-1, 1, 6), np.linspace(-2, 2, 5))
     surface = ax.plot_surface(X2, Y2, np.cos(X2))
     surface.set_sort_zpos("1")
-    with pytest.raises(ValueError, match="^dot not available for this type$"):
+    message = build_facts.raised(lambda: np.dot(np.eye(2), np.array(["1", "1"])))
+    with pytest.raises(ValueError, match=f"^{message}$"):
         fig.canvas.draw()
     surface.set_sort_zpos(np.float32(1))
     fig.canvas.draw()

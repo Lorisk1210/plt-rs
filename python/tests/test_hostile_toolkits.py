@@ -9,6 +9,7 @@ matplotlib.
 """
 
 import io
+import math
 import re
 
 import numpy as np
@@ -25,6 +26,8 @@ from pltrs.mpl_toolkits.axes_grid1 import Divider, ImageGrid, Size, inset_locato
 from pltrs.mpl_toolkits.axes_grid1.axes_divider import SubplotDivider
 from pltrs.mpl_toolkits.axisartist import floating_axes
 from pltrs.mpl_toolkits.axisartist.grid_helper_curvelinear import GridHelperCurveLinear
+
+import build_facts
 
 
 @pytest.fixture(autouse=True)
@@ -295,8 +298,8 @@ def test_a_grid_pads_its_axes_as_given():
     grid = ImageGrid(fig, 111, (2, 2), axes_pad=0.1, cbar_mode="single")
     grid.set_axes_pad("0.2")
     assert grid.get_axes_pad() == ("0", ".")
-    with pytest.raises(TypeError, match="^the resolved dtypes are not compatible with "
-                                        "add.reduce"):
+    message = build_facts.raised(lambda: np.array([["0", "."]], dtype="<U32").sum(0))
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
         drawn(fig)
     grid.set_axes_pad((0.2, 0.3))
     drawn(fig)
@@ -405,7 +408,7 @@ def test_angle_steps_are_computed_as_given():
         angle_helper.select_step(float("nan"), 10, 5)
     with pytest.raises(IndexError, match="^list index out of range$"):
         angle_helper.select_step(0, 1e6, 5)
-    with pytest.raises(ValueError, match="^expected a positive input, got 0.0$"):
+    with pytest.raises(ValueError, match=f"^{build_facts.raised(lambda: math.log10(0.0))}$"):
         angle_helper.LocatorD(5)(0, 0)
     with pytest.raises(ZeroDivisionError, match="^division by zero$"):
         angle_helper.select_step360(0, 180, 0)

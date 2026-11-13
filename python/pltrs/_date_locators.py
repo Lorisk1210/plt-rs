@@ -13,7 +13,9 @@ are ``dateutil``'s, as matplotlib's ``dates`` re-exports them.
 import datetime
 import functools
 import importlib.resources
+import io
 import os
+import struct
 
 from dateutil.relativedelta import relativedelta
 from dateutil.rrule import MO, TU, WE, TH, FR, SA, SU  # noqa: F401  (`.dates` has them)
@@ -90,7 +92,8 @@ def _native_tz(tz):
     if kind[0].partition('.')[0] == 'pytz' and isinstance(zone, str):
         return zone
     filename = getattr(tz, '_filename', None)
-    if kind == ('dateutil.tz.tz', 'tzfile') and isinstance(filename, str):
+    if (kind == ('dateutil.tz.tz', 'tzfile') and isinstance(filename, str)
+            and _dateutil_keeps_offsets()):
         return filename
     if kind in _FIXED_OFFSETS:
         offset = tz.utcoffset(None)
@@ -98,6 +101,23 @@ def _native_tz(tz):
                 and tz.tzname(None) == datetime.timezone(offset).tzname(None)):
             return int(offset.total_seconds())
     return ProgramZone(tz)
+
+
+@functools.cache
+def _dateutil_keeps_offsets():
+    """
+    Whether python-dateutil's ``tzfile`` keeps the offsets from UTC of
+    its file as they are, as pltrs (Rust)'s model of its zones does:
+    python-dateutil 2.7 rounds them to whole minutes (local mean times,
+    such as Berlin's 0:53:28), and its zones are then asked through
+    Python, as the zones of the program's are.
+    """
+    from dateutil.tz import tzfile
+    # A zone file of a single zone 3,601 seconds east of UTC.
+    data = (b'TZif' + bytes(16) + struct.pack('>6l', 0, 0, 0, 0, 1, 4)
+            + struct.pack('>lbb', 3601, 0, 0) + b'LMT\0')
+    offset = tzfile(io.BytesIO(data)).utcoffset(datetime.datetime(2000, 1, 1))
+    return offset == datetime.timedelta(seconds=3601)
 
 
 @functools.cache

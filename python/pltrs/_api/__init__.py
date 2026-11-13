@@ -482,7 +482,7 @@ def warn_external(message, category=None):
 
 # pltrs (Rust) issues its warnings through warn_external, looked up when it
 # warns (so that replacing it, as matplotlib's docstring suggests, works).
-from .._native import register as _register  # noqa: E402
+from .._native import register as _register, warnings as _native_warnings  # noqa: E402
 
 _register("warn_external", lambda message: warn_external(message))
 
@@ -505,3 +505,25 @@ def _numpy_error_mode(message):
 
 
 _register("numpy_error_mode", _numpy_error_mode)
+
+
+def _numpy_products_warn():
+    """
+    Whether numpy warns of the floating-point exceptions of its ``np.dot``
+    and of its ``np.matmul`` (``@``): numpy 2 of both where its BLAS
+    multiplies on the processor (not on Apple's matrix coprocessor),
+    numpy 1 of ``np.matmul`` alone. pltrs (Rust) warns where matplotlib's
+    products do.
+    """
+    import numpy as np
+
+    def warns(product):
+        with np.errstate(all="warn"), warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            product(np.zeros((2, 2)), np.full(2, np.inf))
+        return bool(caught)
+
+    return warns(np.dot), warns(np.matmul)
+
+
+_native_warnings.set_products_warn(*_numpy_products_warn())

@@ -7,7 +7,7 @@ code.
 """
 
 import io
-import sys
+import math
 import warnings
 
 import numpy as np
@@ -17,6 +17,7 @@ import pltrs.pyplot as plt
 from pltrs import (axis, bezier, collections, dates, image, lines, patches,
                    texmanager, ticker, tri)
 
+import build_facts
 from test_smoke import close_figures  # noqa: F401 (autouse: rcdefaults)
 
 
@@ -140,10 +141,7 @@ def test_scalar_formatter_follows_the_draw_and_its_format():
         formatter.format = 'svg'
     with pytest.raises(TypeError, match="not all arguments converted"):
         formatter(1e5)
-    # math.log's message, which Python 3.14 reworded.
-    message = ("expected a positive input, got 0.0" if sys.version_info >= (3, 14)
-               else "math domain error")
-    with pytest.raises(ValueError, match=message):
+    with pytest.raises(ValueError, match=build_facts.raised(lambda: math.log10(0.0))):
         formatter.format_data(-0.0)
     formatter.set_axis('z')
     with pytest.raises(AttributeError, match="'str' object has no attribute 'get_view_interval'"):

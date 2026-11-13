@@ -73,7 +73,7 @@ pub fn dot3(b: &[[f64; 3]; 3], a: &[[f64; 3]; 3]) -> [[f64; 3]; 3] {
 /// (`invalid value encountered in dot` for an infinity multiplied by a
 /// zero or two opposite infinities added, `overflow encountered in dot`),
 /// where numpy's products warn at all
-/// ([`PRODUCTS_WARN`](crate::warnings::PRODUCTS_WARN)): what matplotlib's
+/// ([`products_warn`](crate::warnings::products_warn)): what matplotlib's
 /// composite transforms issue each time they multiply their matrices.
 ///
 /// `OpenBLAS` multiplies two matrices by adding the products of each
@@ -88,7 +88,7 @@ pub fn dot3(b: &[[f64; 3]; 3], a: &[[f64; 3]; 3]) -> [[f64; 3]; 3] {
 /// warn_dot3(&identity, &identity);
 /// ```
 pub fn warn_dot3(b: &[[f64; 3]; 3], a: &[[f64; 3]; 3]) {
-    if !crate::warnings::PRODUCTS_WARN {
+    if !crate::warnings::products_warn(crate::warnings::Product::Dot) {
         return;
     }
     let mut raised = Exceptions::default();
@@ -274,7 +274,7 @@ mod tests {
     fn as_numpy_warns(warnings: &[&str]) -> Vec<String> {
         warnings
             .iter()
-            .filter(|_| crate::warnings::PRODUCTS_WARN)
+            .filter(|_| crate::warnings::products_warn(crate::warnings::Product::Dot))
             .map(|&warning| warning.to_owned())
             .collect()
     }

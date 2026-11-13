@@ -126,6 +126,11 @@ def check_constrained_layout(fig, w_pad, h_pad, params):
     # The constraints of the figure's layout grid (`parent_constraints`).
     rect[0], rect[0] + rect[2], rect[1] + rect[3], rect[1]
     _check_margins(fig, w_pad, h_pad, params)
+    # The pads as a box of the figure (``make_margin_suptitles``): where
+    # numpy takes the truth value of an empty array for False (numpy 1),
+    # pads that are no numbers come this far.
+    from .transforms import Bbox
+    Bbox([[0, 0], [w_pad, h_pad]])
 
 
 def _check_margins(fig, w_pad, h_pad, params):

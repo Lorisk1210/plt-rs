@@ -206,7 +206,7 @@ class ContoursMixin:
                  (origin, None if extent is None else tuple(map(float, extent)))),
                 generation)
             if chunks is None:
-                generator.check_chunks(nchunk)
+                generator.check_chunks(nchunk, args[2] if len(args) > 2 else args[0])
             _contour_arguments.check_grid_transform(kwargs.get("transform"), self)
         _contour_arguments.check_locator(kwargs.get("locator"), levels)
         look = _contour_look(self, kwargs)

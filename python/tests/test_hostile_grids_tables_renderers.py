@@ -10,6 +10,7 @@ they draw. Each expected value and message is recorded from matplotlib.
 """
 
 import io
+import math
 import re
 import warnings
 
@@ -25,6 +26,8 @@ from pltrs.figure import Figure
 from pltrs.ft2font import FT2Font
 from pltrs.path import Path
 from pltrs.transforms import Affine2D, Bbox
+
+import build_facts
 
 INT_PLUS_STR = re.escape("unsupported operand type(s) for +: 'int' and 'str'")
 
@@ -177,7 +180,7 @@ def test_cells_compute_with_their_arguments_as_rectangles_do():
         table.Cell((0, 0), None, 1)
     with pytest.raises(TypeError, match="'int' object is not iterable"):
         table.Cell((0, 0), 1, 1, visible_edges=3)
-    with pytest.raises(TypeError, match="cannot use 'list' as a dict key"):
+    with pytest.raises(TypeError, match=re.escape(build_facts.raised(lambda: {}[[]]))):
         table.Cell((0, 0), 1, 1, visible_edges=['B', 'T'])
     fig, ax = plt.subplots()
     tab = table.table(ax, [['a']])
@@ -280,7 +283,7 @@ def test_agg_renderer_draws_text_glyph_by_glyph():
         renderer.draw_text(gc, 10, 10, 'ab', prop, 0, mtext=0)
     with pytest.raises(TypeError, match=r"^_layout\(\): incompatible"):
         renderer.draw_text(gc, 10, 10, None, prop, 0)
-    with pytest.raises(ValueError, match="expected a finite input, got inf"):
+    with pytest.raises(ValueError, match=build_facts.raised(lambda: math.cos(math.inf))):
         renderer.draw_mathtext(gc, 10, 10, '$x^2$', prop, float('inf'))
     with pytest.warns(RuntimeWarning, match="invalid value encountered in cast"), \
             pytest.raises(ValueError, match="cannot convert float NaN to integer"):
@@ -338,7 +341,7 @@ def test_svg_xml_writer_computes_as_matplotlib_does():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", pltrs.MatplotlibDeprecationWarning)
         writer = backend_svg.XMLWriter(io.StringIO())
-    with pytest.raises(TypeError, match="argument of type 'int' is not a container"):
+    with pytest.raises(TypeError, match=build_facts.raised(lambda: "a" in 1)):
         writer.start('g', attrib={'a': 1})
     writer.data('a')
     writer.data(None)
@@ -365,7 +368,7 @@ def test_svg_renderer_writes_its_size_and_groups_as_matplotlib():
     with pytest.raises(AttributeError, match="'int' object has no attribute 'write'"):
         backend_svg.RendererSVG(4, 3, 3)
     renderer = backend_svg.RendererSVG(4, 3, io.StringIO())
-    with pytest.raises(TypeError, match="argument of type 'int' is not a container"):
+    with pytest.raises(TypeError, match=build_facts.raised(lambda: "a" in 3)):
         renderer.open_group('g', gid=3)
     square = Path([(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)], closed=True)
     renderer.draw_markers(renderer.new_gc(), None, Affine2D(), square, Affine2D())
@@ -378,7 +381,7 @@ def test_pdf_file_methods_take_their_arguments_as_matplotlib():
     renderer = backend_pdf.RendererPdf(pdf, 72, 4, 3)
     with pytest.raises(TypeError, match="a bytes-like object is required, not 'NoneType'"):
         pdf.write(None)
-    with pytest.raises(TypeError, match="cannot use 'list' as a dict key"):
+    with pytest.raises(TypeError, match=re.escape(build_facts.raised(lambda: {}[[]]))):
         pdf.alphaState([0.5, 0.5])
     with pytest.raises(IndexError, match="tuple index out of range"):
         pdf.alphaState((0.5,))

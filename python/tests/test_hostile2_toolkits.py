@@ -8,6 +8,8 @@ built as matplotlib builds them. Each expected value and error is
 recorded from matplotlib 3.11.2.
 """
 
+import math
+
 import numpy as np
 import pytest
 
@@ -18,6 +20,8 @@ from pltrs.mpl_toolkits import axisartist
 from pltrs.mpl_toolkits.axes_grid1 import anchored_artists, axes_size
 from pltrs.mpl_toolkits.axes_grid1 import mpl_axes
 from pltrs.mpl_toolkits.axisartist.axis_artist import LabelBase
+
+import build_facts
 
 
 @pytest.fixture(autouse=True)
@@ -204,12 +208,12 @@ def test_direction_arrows_compose_their_transform_when_made(transform, message):
 @pytest.mark.parametrize("kwargs, error, message", [
     ({"length": "4"}, TypeError, "can't multiply sequence by non-int of type 'float'"),
     ({"length": None}, TypeError, "unsupported operand type(s) for *: 'NoneType' and 'int'"),
-    ({"angle": float("inf")}, ValueError, "expected a finite input, got inf"),
+    ({"angle": float("inf")}, ValueError, build_facts.raised(lambda: math.cos(math.inf))),
     ({"angle": None}, TypeError, "must be real number, not NoneType"),
     ({"color": ""}, ValueError, "Invalid RGBA argument: ''"),
     ({"alpha": -1.5}, ValueError, "alpha (-1.5) is outside 0-1 range"),
     ({"sep_x": None}, TypeError, "unsupported operand type(s) for +: 'float' and 'NoneType'"),
-    ({"text_props": 0}, TypeError, "argument of type 'int' is not a container or iterable"),
+    ({"text_props": 0}, TypeError, build_facts.raised(lambda: "size" in 0)),
     ({"text_props": "x"}, TypeError, "'str' object does not support item assignment"),
 ])
 def test_direction_arrows_fail_as_matplotlibs_are_made(kwargs, error, message):

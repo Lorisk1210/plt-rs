@@ -63,7 +63,7 @@ def test_regular_polygons_keep_what_they_are_given(args, kwargs):
 
 
 @pytest.mark.parametrize("vertices, error, message", [
-    (0, ZeroDivisionError, "division by zero"),
+    (0, ZeroDivisionError, build_facts.raised(lambda: 2 * np.pi / 0)),
     (float('nan'), ValueError, "arange: cannot compute length"),
     ('6', TypeError, "'<=' not supported between instances of 'str' and 'int'"),
 ])
@@ -173,9 +173,14 @@ def test_fancy_arrows_warn_on_what_is_no_number():
         arrow.set_data(x='a')
 
 
+def _corner(xy):
+    """What matplotlib's ``FancyBboxPatch`` does with its corner."""
+    x, y = xy
+
+
 @pytest.mark.parametrize("xy, error, message", [
     ((), ValueError, "not enough values to unpack \\(expected 2, got 0\\)"),
-    ((0.2, 0.3, 0.3), ValueError, "too many values to unpack \\(expected 2, got 3\\)"),
+    ((0.2, 0.3, 0.3), ValueError, re.escape(build_facts.raised(lambda: _corner((1, 2, 3))))),
     (None, TypeError, "cannot unpack non-iterable NoneType object"),
 ])
 def test_fancy_boxes_unpack_their_corner(xy, error, message):
@@ -336,7 +341,7 @@ SEGMENTS = [[[(0, 0), (1, 1), (0, 1)]], [[(0.2, 0.2), (0.5, 0.5)]]]
 
 @pytest.mark.parametrize("ax, message", [
     (None, "'NoneType' object has no attribute 'add_collection'"),
-    (3, "'int' object has no attribute 'stale' and no __dict__ for setting new attributes"),
+    (3, build_facts.raised(lambda: setattr(3, "stale", True))),
 ])
 def test_contour_sets_made_for_no_axes(ax, message):
     with pytest.raises(AttributeError, match=f"^{message}$"):
@@ -497,7 +502,8 @@ def test_regular_collections_make_their_classes_paths(cls, vertices):
 
 
 @pytest.mark.parametrize("cls, numsides, error, message", [
-    (collections.RegularPolyCollection, 0, ZeroDivisionError, "division by zero"),
+    (collections.RegularPolyCollection, 0, ZeroDivisionError,
+     build_facts.raised(lambda: 2 * np.pi / 0)),
     (collections.RegularPolyCollection, float("nan"), ValueError,
      "arange: cannot compute length"),
     (collections.RegularPolyCollection, "4", TypeError,

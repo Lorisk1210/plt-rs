@@ -309,7 +309,9 @@ cargo xtask python wheels      # the sdist and every wheel of this system, into 
 `python/tools/check_dist.py` checks wheels and sdists as an index would
 (file names, `RECORD`, core metadata, licence files, tags), and with
 `--install` installs them into a fresh venv and runs pltrs' smoke tests
-and a matplotlib program there. The CI workflow
+and a matplotlib program there, after installing pltrs alone (with only
+what its metadata requires) to check that it imports and draws as
+matplotlib alone does. The CI workflow
 (`.github/workflows/wheels.yml`) builds and tests the wheels of every
 platform when started by hand or by a version tag, and publishes them;
 [`RELEASING.md`](https://github.com/Lorisk1210/plt-rs/blob/main/RELEASING.md) says how a release is made.

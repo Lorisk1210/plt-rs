@@ -1978,6 +1978,47 @@ mplstereonet` runs three libraries' projections: a ternary Axes with
 three held axes, a Smith chart (an `Axes` subclass with transforms,
 spines, a patch and a grid of its own), and the stereonets.
 
+### Methods of matplotlib's classes that programs override
+
+Libraries subclass matplotlib's classes and override what matplotlib's
+own code calls on ``self`` (a census of about 200 libraries and corpora
+is ``spec/diff/overrides_census.json``, made by
+``spec/diff/overrides_census.py``). pltrs (Rust) does that work natively,
+so each such call is a dispatch: pltrs asks the Python object only when
+its class takes the member from the program
+(`._program_classes.takes_from_program`, one test per class and member,
+cached), and objects of the package's own classes never pay. The places
+it asks:
+
+* **Construction.** An Axes class overriding ``__init__``, ``clear``,
+  ``cla`` or ``grid`` (`.figure._CONSTRUCTION_CALLS`) is made by its
+  constructor, with the positional arguments ``add_subplot`` was given
+  (`.axes._construction.given_arguments`); a clear calls the class'
+  ``grid`` as matplotlib's does. One overriding ``_set_lim_and_transforms``,
+  ``_gen_axes_spines``, ``_init_axis``, ``_gen_axes_patch`` or the axis
+  transforms is a projection of the program's whatever its ``name``
+  (`.projections._program._PROJECTION_HOOKS`); unpickled, it keeps the
+  spines its class made.
+* **Measuring.** An artist whose class measures itself
+  (``get_window_extent``, ``get_tightbbox``) gets a painter, through which
+  pltrs (Rust) measures it for a layout or a tight print, unless matplotlib
+  leaves it out of its Axes' box (clipped to the Axes); an Axes is asked
+  with ``bbox_extra_artists=None``.
+* **Transforms** of the program's map arrays in one call, through their
+  ``transform_non_affine`` and then their affine part, wherever pltrs
+  maps points (``_native.transforms.apply``, a line's extent).
+* **Ticks.** A locator class giving its own ``tick_values`` ticks through
+  it where matplotlib's ``__call__`` does.
+* **Colour mapping.** A norm of the program's is called with its values
+  alone unless pltrs clips.
+* **Scales** of the program's keep their Python object natively
+  (``PyScale``), which a pickle of the figure holds; unpickled, pltrs asks
+  ``scale._program_scale`` for its functions again.
+
+`python/tests/test_gen5.py` checks each with a subclass of the kind the
+libraries write; ``cargo xtask diff --generated overrides`` runs the
+family (``spec/diff/generators/overrides*.py``).
+
 ### pyplot's state
 
 pyplot's figure registry is Python state: `_pylab_helpers.Gcf` maps

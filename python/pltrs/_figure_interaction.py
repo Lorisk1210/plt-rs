@@ -79,7 +79,10 @@ class InteractionMixin:
         -------
             bool, {}
         """
-        return super().contains(mouseevent)
+        if self._different_canvas(mouseevent):
+            return False, {}
+        inside = self.bbox.contains(mouseevent.x, mouseevent.y)
+        return inside, {}
 
 
 class RootFigureMixin:

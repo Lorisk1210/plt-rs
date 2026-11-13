@@ -8,7 +8,7 @@
 mod axis_scale;
 
 pub(super) use axis_scale::options as scale_options;
-pub(super) use axis_scale::python_scale;
+pub(super) use axis_scale::{PyScale, python_scale};
 
 use pltrs::scale::{
     AsinhTransform, LogTransform, LogitTransform, NonPositive, ScaleError, SymmetricalLogTransform,

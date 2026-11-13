@@ -885,7 +885,8 @@ def savefig(fname, **kwargs):
 
 @_copy_docstring_and_deprecators(Axes.plot)
 def plot(*args, scalex=True, scaley=True, data=None, **kwargs):
-    return gca().plot(*args, scalex=scalex, scaley=scaley, data=data, **kwargs)
+    return gca().plot(*args, scalex=scalex, scaley=scaley,
+                      **({"data": data} if data is not None else {}), **kwargs)
 
 
 @_copy_docstring_and_deprecators(Axes.scatter)
@@ -896,8 +897,8 @@ def scatter(x, y, s=None, c=None, marker=None, cmap=None, norm=None,
     ret = gca().scatter(
         x, y, s=s, c=c, marker=marker, cmap=cmap, norm=norm, vmin=vmin,
         vmax=vmax, alpha=alpha, linewidths=linewidths, edgecolors=edgecolors,
-        colorizer=colorizer, plotnonfinite=plotnonfinite, data=data,
-        **kwargs)
+        colorizer=colorizer, plotnonfinite=plotnonfinite,
+        **({"data": data} if data is not None else {}), **kwargs)
     sci(ret)
     return ret
 
@@ -906,7 +907,7 @@ def scatter(x, y, s=None, c=None, marker=None, cmap=None, norm=None,
 def bar(x, height, width=0.8, bottom=None, *, align='center', data=None,
         **kwargs):
     return gca().bar(x, height, width=width, bottom=bottom, align=align,
-                     data=data, **kwargs)
+                     **({"data": data} if data is not None else {}), **kwargs)
 
 
 @_copy_docstring_and_deprecators(Axes.axhline)
@@ -1026,7 +1027,7 @@ def imshow(X, cmap=None, norm=None, *, aspect=None, interpolation=None,
         alpha=alpha, vmin=vmin, vmax=vmax, colorizer=colorizer,
         origin=origin, extent=extent, interpolation_stage=interpolation_stage,
         filternorm=filternorm, filterrad=filterrad, resample=resample,
-        url=url, data=data, **kwargs)
+        url=url, **({"data": data} if data is not None else {}), **kwargs)
 
 
 @_copy_docstring_and_deprecators(_image.imread)

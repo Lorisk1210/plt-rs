@@ -68,6 +68,8 @@ pub(crate) use native::{
     wrap_thread_bound,
 };
 pub(crate) use object::{Bound, Owned};
+#[cfg(test)]
+pub(crate) use registry::register;
 pub(crate) use registry::{lookup, registered_error};
 pub(crate) use watched::Watched;
 

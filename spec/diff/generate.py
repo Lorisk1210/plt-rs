@@ -47,7 +47,11 @@ compared on their own. The generators are the modules of ``generators/``:
 * ``interaction``: figures of every kind driven by events as a user at a
   window drives them: the navigation toolbar, the key bindings, every
   canvas event, the widgets, picking and dragging, blitting and
-  animations.
+  animations;
+* ``overrides``: matplotlib's classes subclassed with one member
+  overridden, as libraries override them (``overrides_census.json``), the
+  override's calls recorded through the object's life, and its result
+  changed.
 
 Programs are written to ``OUT_DIR/<generator>/<name>.py``; the directory
 is emptied first. What the generators' own runs of statements write goes
@@ -70,7 +74,7 @@ matplotlib.use("agg")
 
 from generators import (  # noqa: E402
     api, artists, hostile, interaction, modules, offsetboxes, orders, pickling, plotting, pyplot, randomized,
-    rcparams, rest, three_d, unreached)
+    overrides, rcparams, rest, three_d, unreached)
 
 GENERATORS = {
     "artists": artists.programs,
@@ -88,6 +92,7 @@ GENERATORS = {
     "rcparams": rcparams.programs,
     "pickling": pickling.programs,
     "interaction": interaction.programs,
+    "overrides": overrides.programs,
 }
 
 

@@ -41,7 +41,7 @@ from functools import wraps
 import numpy as np
 
 from . import _api, _docstring
-from ._native import scale as _scale
+from ._native import register as _register, scale as _scale
 from .ticker import (
     NullFormatter, ScalarFormatter, LogFormatterSciNotation, LogitFormatter,
     NullLocator, LogLocator, AutoLocator, AutoMinorLocator,
@@ -1019,6 +1019,30 @@ def scale_factory(scale, axis, **kwargs):
 if scale_factory.__doc__:
     scale_factory.__doc__ = scale_factory.__doc__ % {
         "names": ", ".join(map(repr, get_scale_names()))}
+
+
+def _program_scale(scale, three_d):
+    """
+    How pltrs (Rust) maps through *scale*, a scale of the program's (of an
+    axis of 3-D axes if *three_d*): its name, the forward and inverse
+    functions it calls with arrays, as matplotlib's code maps through the
+    scale's transform (`._scale_calls`; through the transform's and its
+    inverse's ``transform`` on 3-D axes), and its ``limit_range(vmin, vmax,
+    minpos)``. pltrs (Rust) asks for them when the scale is set and when a
+    figure holding it is unpickled.
+    """
+    if three_d:
+        transform = scale.get_transform()
+        functions = (transform.transform, transform.inverted().transform)
+    else:
+        from ._scale_calls import ScaleCalls
+        calls = ScaleCalls(scale, scale.get_transform())
+        functions = (calls.forward, calls.inverse)
+    return scale.name, functions, lambda vmin, vmax, minpos: tuple(
+        map(float, scale.limit_range_for_scale(vmin, vmax, minpos)))
+
+
+_register("program_scale", _program_scale)
 
 
 def register_scale(scale_class):

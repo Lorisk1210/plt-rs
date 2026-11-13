@@ -14,8 +14,8 @@ use pltrs::transforms::AxisMap;
 
 use super::super::archive::func_transform;
 use super::nonpositive;
-use crate::binding::dict_items;
 use crate::binding::prelude::*;
+use crate::binding::{dict_items, lookup};
 
 /// The axis `name` (`"x"` or `"y"`).
 fn axis_name(name: &str) -> PyResult<AxisName> {
@@ -66,12 +66,27 @@ fn set_scale(axes: Axes, name: String, scale: String, kwargs: Owned) -> PyResult
 
 /// A scale of the program's: its name, its transform's map and its range
 /// limits, which pltrs (Rust) asks it for; its tick helpers are those the
-/// Python scale then installs.
+/// Python scale then installs. It keeps the Python scale, which a pickle
+/// of its figure holds in its place.
 #[derive(Debug)]
-struct PyScale {
+pub(crate) struct PyScale {
     name: String,
     map: Rc<FuncTransform>,
     limit_range: Callback,
+    object: Owned,
+    three_d: bool,
+}
+
+impl PyScale {
+    /// The Python scale.
+    pub(crate) fn object(&self) -> &Owned {
+        &self.object
+    }
+
+    /// Whether it scales an axis of 3-D axes.
+    pub(crate) fn three_d(&self) -> bool {
+        self.three_d
+    }
 }
 
 impl Scale for PyScale {
@@ -99,35 +114,29 @@ impl Scale for PyScale {
 }
 
 /// Gives axis `name` of `axes` (and the axes sharing it) the Python scale
-/// called `scale`, mapping through `forward` and `inverse` (called with
-/// arrays) and limiting ranges with `limit_range(vmin, vmax, minpos)`.
-fn set_python_scale(
-    axes: Axes,
-    name: String,
-    scale: String,
-    (forward, inverse): (Owned, Owned),
-    limit_range: Callback,
-) -> PyResult<()> {
-    axes.set_scale(
-        axis_name(&name)?,
-        python_scale(scale, (forward, inverse), limit_range)?,
-    );
+/// `scale` (see [`python_scale`]).
+fn set_python_scale(axes: Axes, name: String, scale: Owned) -> PyResult<()> {
+    let scale = Python::with_gil(|py| python_scale(&scale.bind(py), false))?;
+    axes.set_scale(axis_name(&name)?, scale);
     Ok(())
 }
 
-/// The scale of the program's called `scale`, mapping through `forward`
-/// and `inverse` (called with arrays) and limiting ranges with
-/// `limit_range(vmin, vmax, minpos)`.
-pub(crate) fn python_scale(
-    scale: String,
-    (forward, inverse): (Owned, Owned),
-    limit_range: Callback,
-) -> PyResult<Box<dyn Scale>> {
-    let map = Python::with_gil(|py| func_transform(&forward.bind(py), &inverse.bind(py)))?;
+/// The Python scale `scale` of the program's, of an axis of 3-D axes if
+/// `three_d`: its name, the forward and inverse functions it maps through
+/// (called with arrays) and its range limits
+/// (`limit_range(vmin, vmax, minpos)`), as the registered
+/// `program_scale(scale, three_d)` gives them.
+pub(crate) fn python_scale(scale: &Bound<'_>, three_d: bool) -> PyResult<Box<dyn Scale>> {
+    let py = scale.py();
+    let parts = lookup(py, "program_scale")?.call(&[scale.clone(), three_d.into_py(py)?], &[])?;
+    let (name, (forward, inverse), limit_range): (String, (Bound<'_>, Bound<'_>), Callback) =
+        parts.extract()?;
     Ok(Box::new(PyScale {
-        name: scale,
-        map: Rc::new(map),
+        name,
+        map: Rc::new(func_transform(&forward, &inverse)?),
         limit_range,
+        object: scale.clone().unbind(),
+        three_d,
     }))
 }
 
@@ -140,8 +149,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::binding::new_dict;
     use crate::binding::testing::{eval, with_python};
+    use crate::binding::{new_dict, register};
     use pltrs::figure::Figure;
 
     #[test]
@@ -160,24 +169,17 @@ mod tests {
             kwargs.unbind()
         });
         assert!(set_scale(ax.clone(), "y".into(), "log".into(), unknown).is_err());
-        let (forward, inverse, limit) = with_python(|py| {
-            let object = |expression: &str| eval(py, "", expression).unbind();
-            (
-                object("lambda x: 2 * x"),
-                object("lambda x: x / 2"),
-                eval(py, "", "lambda vmin, vmax, minpos: (vmin, vmax)")
-                    .extract::<Callback>()
-                    .unwrap(),
-            )
+        let scale = with_python(|py| {
+            let hook = eval(
+                py,
+                "",
+                "lambda scale, three_d: ('double', (lambda x: 2 * x, lambda x: x / 2), \
+                 lambda vmin, vmax, minpos: (vmin, vmax))",
+            );
+            register("program_scale".into(), hook.unbind()).unwrap();
+            eval(py, "", "object()").unbind()
         });
-        set_python_scale(
-            ax.clone(),
-            "y".into(),
-            "double".into(),
-            (forward, inverse),
-            limit,
-        )
-        .unwrap();
+        set_python_scale(ax.clone(), "y".into(), scale).unwrap();
         assert_eq!(ax.yscale(), ScaleName::Custom("double".into()));
     }
 }

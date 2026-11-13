@@ -1226,13 +1226,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             native = (None if _native_scale_of(scale) is None
                       else (value, kwargs))
         if native is None:
-            transform = scale.get_transform()
-            inverse = transform.inverted()
-            _mplot3d.set_python_scale(
-                self._native, name, scale.name,
-                (transform.transform, inverse.transform),
-                lambda vmin, vmax, minpos: tuple(
-                    map(float, scale.limit_range_for_scale(vmin, vmax, minpos))))
+            _mplot3d.set_python_scale(self._native, name, scale)
             scale.set_default_locators_and_formatters(axis)
             _axis.mark_default_helpers(self._native, name)
         else:

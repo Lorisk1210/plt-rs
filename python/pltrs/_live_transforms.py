@@ -210,9 +210,15 @@ class _ProgramMap:
         """*values*, a point or an ``(N, 2)`` array of points, through the
         transform, which gets an ``(N, 2)`` array whatever *values* is, as
         matplotlib's code hands it its points (astropy's world transforms
-        take their columns)."""
+        take their columns): through its ``transform_non_affine``, then its
+        affine part, as matplotlib's composite transforms map points
+        through a non-affine transform they start with."""
         points = np.asarray(values, dtype=float)
-        mapped = np.asarray(self._transform.transform(points.reshape(-1, 2)), dtype=float)
+        mapped = self._transform.transform_non_affine(points.reshape(-1, 2))
+        affine = self._transform.get_affine()
+        if not isinstance(affine, IdentityTransform):
+            mapped = affine.transform(mapped)
+        mapped = np.asarray(mapped, dtype=float)
         return tuple(mapped[0]) if points.ndim == 1 else mapped
 
     def inverted(self):

@@ -30,7 +30,6 @@ from .text import _measured_by_given
 _empty_conversions = _lazy_imports.module(globals(), "._empty_conversions")
 _held_axis = _lazy_imports.module(globals(), "._held_axis")
 _numpy_values = _lazy_imports.module(globals(), "._numpy_values")
-_scale_calls = _lazy_imports.module(globals(), "._scale_calls")
 
 __all__ = ["Tick", "XTick", "YTick", "Ticker", "Axis", "XAxis", "YAxis"]
 
@@ -1189,12 +1188,8 @@ class Axis(DrawnWith, Artist):
         pltrs (Rust) calls."""
         native = _native_scale_of(scale)
         if native is None:
-            calls = _scale_calls.ScaleCalls(scale, scale.get_transform())
-            # pltrs (Rust) hands the transforms arrays, as matplotlib does.
-            _native_scale.set_python_scale(
-                *self._args(), scale.name, (calls.forward, calls.inverse),
-                lambda vmin, vmax, minpos: tuple(
-                    map(float, scale.limit_range_for_scale(vmin, vmax, minpos))))
+            # pltrs (Rust) maps through it as `scale._program_scale` says.
+            _native_scale.set_python_scale(*self._args(), scale)
         else:
             _native_scale.set_scale(*self._args(), *native)
         if native is None or scale.name in ("function", "functionlog"):
@@ -2751,7 +2746,9 @@ class _AxisOfAxes(Axis):
         if self._different_canvas(mouseevent):
             return False, {}
         mouseevent.x, mouseevent.y  # noqa: B018
-        return super().contains(mouseevent)
+        inside, details = super().contains(mouseevent)
+        # matplotlib's test compares numpy numbers: a numpy bool.
+        return np.bool_(inside), details
 
     @_interval_method("getter")
     def get_view_interval(self):

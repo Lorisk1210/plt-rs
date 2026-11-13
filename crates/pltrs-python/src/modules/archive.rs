@@ -54,6 +54,7 @@ use super::dates::PyZone;
 use super::drawing::{PythonEffect, PythonPainter};
 use super::path::{PyPath, path_arrays};
 use super::projections::PyProjection;
+use super::scale::{PyScale, python_scale};
 use super::transforms::{PyPointMap, map_values};
 use crate::binding::lookup;
 use crate::binding::prelude::*;
@@ -429,6 +430,7 @@ const ZONE: &str = "python-time-zone";
 const EXTREME_FINDER: &str = "python-extreme-finder";
 const GRID_LOCATOR: &str = "python-grid-locator";
 const GRID_FORMATTER: &str = "python-grid-formatter";
+const SCALE: &str = "python-scale";
 
 /// An exception raised while reading an archive, as an archive error.
 fn read_failure(py: Python<'_>, err: &PyErr) -> ArchiveError {
@@ -486,6 +488,13 @@ impl ProgramKinds for PythonProgram {
             encoder.write_str(PAINTER);
             encoder.write_external(&object_external(&artist));
             return painter.flags().encode(encoder);
+        }
+        if let Some(scale) = value.downcast_ref::<PyScale>() {
+            encoder.write_str(SCALE);
+            encoder.write_external(&object_external(&Python::with_gil(|py| {
+                scale.object().clone_ref(py)
+            })));
+            return scale.three_d().encode(encoder);
         }
         let (tag, object) = if let Some(locator) = value.downcast_ref::<PyLocator>() {
             (LOCATOR, tick_helper(&locator.adapter)?)
@@ -557,6 +566,10 @@ impl ProgramKinds for PythonProgram {
                     Box::new(norm) as Box<dyn Any>
                 }),
                 PAINTER => painter(&object, <(bool, bool)>::decode(decoder)),
+                SCALE => bool::decode(decoder)
+                    .map_err(|error| PyErr::value_error(error.to_string()))
+                    .and_then(|three_d| python_scale(&object, three_d))
+                    .map(|scale| Box::new(scale) as Box<dyn Any>),
                 EFFECT => {
                     let effect: Box<dyn CustomPathEffect> = Box::new(PythonEffect::of(&object));
                     Ok(Box::new(effect))

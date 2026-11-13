@@ -391,6 +391,9 @@ class _Projection:
         #: The transforms of the gridlines and ticks of the axes whose
         #: class gives its own, up to ``transAxes``.
         self.axis_transforms = {}
+        #: How many times the Axes was cleared since: the transforms its
+        #: class gives are taken anew at each clear (`take_anew`).
+        self.clears = 0
         #: A tick of each axis whose class overrides ``Tick.draw``.
         self.probes = {}
         #: A tick of each axis made alone, whose padding the labels take.
@@ -406,6 +409,16 @@ class _Projection:
              "tick_label"], [])
         if not self.polar:
             self._ask_rectilinear(ax, spines)
+
+    def take_anew(self, ax):
+        """Take the transforms of the gridlines and ticks the class of the
+        Axes *ax*, just cleared, gives anew, as the ticks matplotlib's
+        clear makes take them: a class whose transform depends on state
+        the program changed since draws with the new one."""
+        for name in self.axis_transforms:
+            transform = getattr(ax, f"get_{name}axis_transform")(which="grid")
+            self.axis_transforms[name] = _to_axes(ax, transform)
+        self.clears += 1
 
     def _ask_rectilinear(self, ax, spines):
         """Find what the class of the rectilinear Axes *ax* overrides."""
@@ -464,7 +477,7 @@ class _Adapter:
         # A pickle of the figure holds the Axes anyway; the evaluated parts
         # are made anew.
         state = {**self.__dict__, "_axes": self._axes()}
-        del state["_parts"], state["_parts_at"]
+        del state["_parts"], state["_parts_at"], state["_parts_clears"]
         return state
 
     def __setstate__(self, state):
@@ -478,14 +491,19 @@ class _Adapter:
         #: what each was evaluated from and what it gave.
         self._parts = {}
         self._parts_at = limits
+        #: The clears of the Axes the parts were evaluated after.
+        self._parts_clears = None
 
     def _kept(self, key, limits, make):
         """What *make* gives, kept under *key* while the view limits (of
         *limits*, see `_viewing`) stay (*make* gives what it is made from,
         kept alive, and the object)."""
         view, _ = limits
-        if self._parts_at != view:
+        ax = self._axes()
+        clears = None if ax is None else ax._program_projection.clears
+        if self._parts_at != view or self._parts_clears != clears:
             self._forget_parts(view)
+            self._parts_clears = clears
         kept = self._parts.get(key)
         if kept is None:
             kept = self._parts[key] = make()
@@ -668,7 +686,9 @@ def shapes_background(cls):
 
 def cleared(ax):
     """
-    Give the Axes *ax* the background its class' ``_gen_axes_patch`` makes,
+    Take the axis transforms of the class of the Axes *ax*, just cleared,
+    anew (`_Projection.take_anew`), and give it the background its class'
+    ``_gen_axes_patch`` makes,
     as matplotlib's ``clear`` makes one, if the class is a program's that
     overrides it: its outline is the background's shape and clips what the
     Axes draws (matplotlib's ``set_clip_path(self.patch)``: its box for a
@@ -676,6 +696,9 @@ def cleared(ax):
     square or, for polar Axes, a `.Wedge`, which pltrs (Rust) fits to the
     view.
     """
+    projection = ax.__dict__.get("_program_projection")
+    if projection is not None and not projection.polar:
+        projection.take_anew(ax)
     cls = type(ax)
     if not makes_background(cls):
         return

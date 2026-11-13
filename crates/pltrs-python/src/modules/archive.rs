@@ -23,7 +23,7 @@ use std::rc::Rc;
 use pltrs::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ArtistPainter, FigureRef, RawHandle,
 };
-use pltrs::axes_grid1::Divider;
+use pltrs::axes_grid1::{Divider, SizeFn};
 use pltrs::axisartist::grid_finder::{ExtremeFinder, GridFormatter, GridLocator};
 use pltrs::colorbar::Colorbar;
 use pltrs::colors::Norm;
@@ -98,11 +98,15 @@ enum Call {
     /// style of the program's, returning the pieces of the arrow as
     /// `(path, filled)` pairs.
     Arrow,
+    /// `f(renderer)`, an `axes_grid1` size of the program's, returning its
+    /// `(relative, absolute)` parts (called with None: the size knows its
+    /// renderer).
+    Size,
 }
 
 impl Call {
     /// Every way of calling.
-    const ALL: [Self; 8] = [
+    const ALL: [Self; 9] = [
         Self::Ticks,
         Self::Coordinates,
         Self::Values,
@@ -111,6 +115,7 @@ impl Call {
         Self::Connection,
         Self::Route,
         Self::Arrow,
+        Self::Size,
     ];
 
     /// The name of the way of calling, the role of its externals.
@@ -124,6 +129,7 @@ impl Call {
             Self::Connection => "connection-style",
             Self::Route => "connection-route",
             Self::Arrow => "arrow-style",
+            Self::Size => "axes-size",
         }
     }
 
@@ -166,8 +172,35 @@ impl Call {
                 let function: Rc<ArrowFn> = Rc::new(arrow_pieces(callback));
                 (TypeId::of::<Rc<ArrowFn>>(), Box::new(function))
             }
+            Self::Size => {
+                let function: Rc<SizeParts> = Rc::new(size_parts(callback));
+                (TypeId::of::<Rc<SizeParts>>(), Box::new(function))
+            }
         }
     }
+}
+
+/// The function of an `axes_grid1` size of the program's.
+type SizeParts = dyn Fn() -> (f64, f64);
+
+/// `f(None)`, the size's `(relative, absolute)` parts; nothing when it
+/// raised (its exception goes to the native call running).
+fn size_parts(callback: Callback) -> impl Fn() -> (f64, f64) + Send + 'static {
+    move || {
+        callback
+            .call::<(f64, f64)>((None::<f64>,))
+            .unwrap_or((0.0, 0.0))
+    }
+}
+
+/// The `axes_grid1` size of the program's computed by `callable(renderer)`,
+/// archived as the callable.
+pub(crate) fn program_size(callable: &Bound<'_>) -> PyResult<SizeFn> {
+    let callback: Callback = callable.extract()?;
+    Ok(SizeFn::with_origin(
+        size_parts(callback),
+        function_external(callable, Call::Size),
+    ))
 }
 
 /// `f(x0, y0, width, height, mutation_size)`, the box's path; no path when

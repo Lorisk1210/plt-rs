@@ -37,6 +37,7 @@ from ._units import UnitsMixin
 from ..transforms import Bbox
 
 _foreign_children = _lazy_imports.module(globals(), "._foreign_children")
+_program_adds = _lazy_imports.module(globals(), "._program_adds")
 
 
 def _same_block(a, b):
@@ -836,6 +837,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         from ..collections import Collection
         _api.check_isinstance(Collection, collection=collection)
+        if _program_adds.taken(collection):
+            return collection
         figure = collection.get_figure(root=True)
         if figure is not None and figure is not self._figure:
             _foreign_children.add_drawn(self, collection)
@@ -847,6 +850,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         from ..image import AxesImage
         _api.check_isinstance(AxesImage, image=image)
+        if _program_adds.taken(image):
+            return image
         if _foreign_children.add_held(self, image):
             return image
         return image._add_to_axes(self, "image")
@@ -857,6 +862,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         from ..lines import Line2D
         _api.check_isinstance(Line2D, line=line)
+        if _program_adds.taken(line):
+            return line
         if _foreign_children.add_held(self, line):
             return line
         return line._add_to_axes(self, "line")
@@ -867,6 +874,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         from ..patches import Patch
         _api.check_isinstance(Patch, p=p)
+        if _program_adds.taken(p):
+            return p
         if _foreign_children.add_held(self, p):
             return p
         return p._add_to_axes(self, "patch")
@@ -879,6 +888,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         # labels with it): as `add_artist` does, but not clipped to the Axes.
         from ..text import Text
         _api.check_isinstance(Text, txt=txt)
+        if _program_adds.taken(txt):
+            return txt
         if _foreign_children.add_held(self, txt):
             return txt
         return txt._add_to_axes(self, "text")
@@ -889,6 +900,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         from ..table import Table
         _api.check_isinstance(Table, tab=tab)
+        if _program_adds.taken(tab):
+            return tab
         if _foreign_children.add_held(self, tab):
             return tab
         added = tab._add_to_axes(self, "artist")

@@ -34,6 +34,9 @@ from .patches import Patch, Rectangle
 from .path import Path
 from .text import Text
 from .transforms import BboxBase, Bbox, IdentityTransform
+from . import _lazy_imports
+
+_program_adds = _lazy_imports.module(globals(), ".axes._program_adds")
 
 
 class _CellHolder:
@@ -1211,4 +1214,5 @@ def table(ax,
     _artist_clipping.take_parent_defaults(table, ax)
     table.edges = edges
     table._internal_update(kwargs)
+    _program_adds.announce(ax, table)
     return table

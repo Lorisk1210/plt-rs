@@ -16,6 +16,7 @@ import time
 
 import numpy as np
 
+from ._program_classes import takes_from_program
 from . import _docstring
 from . import _api, _handles, _lazy_imports, _live_transforms, _values, colors, rcParams
 from . import _transform_trees, _val_or_rc
@@ -586,6 +587,7 @@ class Legend(Artist):
                 entries.append(self._entry(handle, handler_map))
             kept.append(str(label))
             kept_handles.append(handle)
+        given_loc = loc
         loc = self._validated_loc(loc)
         _legend_checks.check_title(title_fontsize, title_fontproperties)
         _legend_checks.check_labelcolor(labelcolor)
@@ -631,6 +633,9 @@ class Legend(Artist):
             _artist.remove(native)
         made.adopt(self)
         _legend_checks.keep_borderaxespad(self, borderaxespad)
+        if takes_from_program(type(self), "set_loc"):
+            # matplotlib's constructor places the legend through it.
+            self.set_loc(given_loc)
         self._made_handles = made.returned
         self._entry_handles = kept_handles
         _legend_label_colors.remember(self, labelcolor)

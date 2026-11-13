@@ -195,6 +195,15 @@ def installed_renderer():
     return installed[1]
 
 
+def made_renderer():
+    """The renderer a print installed for the program's drawing
+    (`drawing_with`) if it was made already, else None: what code that
+    runs while pltrs (Rust) lays the figure out may take, which cannot
+    make one then."""
+    renderers = _drawing_now.renderers
+    return renderers[-1][1] if renderers else None
+
+
 def drawing_renderer(artist):
     """The renderer matplotlib's draw running now hands *artist*: that of
     the format being saved (`installed_renderer`), else its figure's

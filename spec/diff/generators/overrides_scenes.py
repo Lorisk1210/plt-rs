@@ -167,8 +167,8 @@ class Host(matplotlib.axes.Axes):
 HOSTED = ("fig = plt.figure(figsize=(3, 2))", "ax = fig.add_subplot(axes_class=Host)", "ax.plot(x, y)")
 
 #: Imports the scenes need beyond the generated programs' header.
-IMPORTS = ("from matplotlib import artist, axes, axis, dates, figure, gridspec, image, layout_engine, legend, "
-           "legend_handler, offsetbox, patheffects, projections, spines, units")
+IMPORTS = ("from matplotlib import artist, axes, axis, colorbar, contour, dates, figure, gridspec, image, "
+           "layout_engine, legend, legend_handler, offsetbox, patheffects, projections, spines, units")
 
 DATES = "days = np.arange('2020-01-01', '2020-01-08', dtype='datetime64[D]')"
 
@@ -222,12 +222,17 @@ SCENES: dict[str, Scene] = {
     "matplotlib.projections.LambertAxes": _axes("ax.plot(x / 4 - 0.8, y / 2)", AXES_STEPS[:1] + AXES_STEPS[2:3]),
     "matplotlib.transforms.Transform": _value("Sub()", ("ax.plot(x, y, transform=obj + ax.transData)",),
                                               "ax.lines[0]", "art.set_linewidth(3)", impl=TRANSFORM_IMPL),
-    "matplotlib.transforms.Affine2DBase": _value("Sub()", ("ax.plot(x, y, transform=obj + ax.transData)",),
+    # A line through the transform composed with the data's, and a text
+    # placed by the transform alone (matplotlib maps its point through the
+    # class' ``transform``).
+    "matplotlib.transforms.Affine2DBase": _value("Sub()", ("ax.plot(x, y, transform=obj + ax.transData)",
+                                                           "ax.text(150, 120, 'placed', transform=obj)"),
                                                  "ax.lines[0]", "art.set_linewidth(3)",
                                                  impl="class Impl(transforms.Affine2DBase):\n"
                                                       "    def get_matrix(self):\n"
                                                       "        return np.array([[1, 0, 0], [0, 0.5, 0], [0, 0, 1.0]])\n"),
-    "matplotlib.transforms.Affine2D": _value("Sub().scale(1, 0.5)", ("ax.plot(x, y, transform=obj + ax.transData)",),
+    "matplotlib.transforms.Affine2D": _value("Sub().scale(1, 0.5)", ("ax.plot(x, y, transform=obj + ax.transData)",
+                                                                     "ax.text(150, 120, 'placed', transform=obj)"),
                                              "ax.lines[0]", "art.set_linewidth(3)"),
     "matplotlib.ticker.Locator": _value("Sub()", ("ax.plot(x, y)", "ax.xaxis.set_major_locator(obj)"), "ax.xaxis",
                                         "ax.set_xlim(0, 4)", impl=LOCATOR_IMPL),
@@ -307,6 +312,23 @@ SCENES: dict[str, Scene] = {
         "ax.get_legend()", "art.set_title('title')"),
     "matplotlib.patheffects.AbstractPathEffect": _value("Sub()", ("ax.plot(x, y, path_effects=[obj])",),
                                                         "ax.lines[0]", "art.set_linewidth(3)"),
+    "matplotlib.colorbar.Colorbar": Scene("", (FIGURE, "ax.imshow(z)", "fig.subplots_adjust(right=0.8)",
+                                               "obj = Sub(fig.add_axes((0.85, 0.1, 0.04, 0.8)), ax.images[0])",
+                                               "art = obj.ax"), "obj.set_label('label')", kind="value"),
+    "matplotlib.contour.QuadContourSet": _artist("Sub(ax, np.arange(6), np.arange(5), z, levels=4)",
+                                                 "ax.clabel(obj)", "obj.set_linewidth(2)"),
+    "matplotlib.dates.AutoDateFormatter": _value("Sub(dates.AutoDateLocator())",
+                                                 (DATES, "ax.plot(days, values)",
+                                                  "ax.xaxis.set_major_formatter(obj)"), "ax.xaxis",
+                                                 "ax.set_xlim(days[1], days[5])"),
+    "matplotlib.ticker.FixedFormatter": _value("Sub(['a', 'b', 'c'])",
+                                               ("ax.plot(x, y)", "ax.xaxis.set_major_locator(ticker.FixedLocator([1, 2, 3]))",
+                                                "ax.xaxis.set_major_formatter(obj)"), "ax.xaxis",
+                                               "ax.set_xlim(0, 4)"),
+    "matplotlib.legend_handler.HandlerPathCollection": _value(
+        "Sub()", ("ax.scatter(x, y, label='points')",
+                  "ax.legend(handler_map={collections.PathCollection: obj})"),
+        "ax.get_legend()", "art.set_title('title')"),
     "mpl_toolkits.axes_grid1.axes_size.Scaled": _value(
         "Sub(0.5)", ("make_axes_locatable(ax).append_axes('right', size=obj, pad=0.1)", "ax.plot(x, y)"),
         "ax", "ax.set_xlim(0, 4)", impl="Impl = axes_size.Scaled\n",
@@ -320,9 +342,25 @@ PYPLOT_NAMES = {"set_xlabel": "xlabel", "set_ylabel": "ylabel", "set_xscale": "x
                 "set_ylim": "ylim"}
 
 
+#: The plotting methods matplotlib adds what they make with each ``add_*``
+#: method of the Axes.
+ADDING = {
+    "add_line": ("ax.plot(x, -y)", "ax.axhline(0.5)", "ax.errorbar(x, y, yerr=0.2)"),
+    "add_patch": ("ax.bar([1, 2], [1, 2])", "ax.fill([0, 1, 1], [0, 0, 1])"),
+    "add_collection": ("ax.fill_between(x, y)", "ax.vlines([1, 2], 0, 1)"),
+    "add_image": ("ax.imshow(z)",),
+    "_add_text": ("ax.text(1, 0, 'text')", "ax.annotate('note', (1, 0))"),
+    "add_table": ("ax.table([['a', 'b']])",),
+    "add_container": ("ax.bar([1, 2], [1, 2])", "ax.errorbar(x, y, yerr=0.2)"),
+}
+
+
 def member_steps(cls: str, member: str) -> tuple[str, ...]:
     """Steps reaching ``member`` of an Axes scene the way programs reach
-    it: through pyplot, which calls it on the current Axes."""
+    it: through pyplot, which calls it on the current Axes; for an
+    ``add_*`` method, the plotting methods adding with it."""
+    if SCENES[cls].kind == "axes" and member in ADDING:
+        return ADDING[member]
     if not SCENES[cls].kind == "axes" or member not in plotting.VARIANTS:
         return ()
     import matplotlib.pyplot as plt

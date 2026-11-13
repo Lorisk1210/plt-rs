@@ -10,11 +10,13 @@ from numbers import Real
 import numpy as np
 
 from . import _docstring
-from . import _handles, units as munits
+from . import _handles, _lazy_imports, units as munits
 from ._native import annotation as _annotation, text as _text
 from ._annotation_kept import annotate_arguments, warn_textcoords
 from ._program_classes import takes_from_program
 from .text import Annotation, Text, _is_offset, _place
+
+_program_adds = _lazy_imports.module(globals(), ".axes._program_adds")
 
 
 def _text_kwargs(fontdict, kwargs):
@@ -182,6 +184,7 @@ class AxesText:
         text = _handles.wrap(native, Text, self._figure)
         _place(text, (x, y))
         _init_added(text, _text_kwargs(fontdict, kwargs))
+        _program_adds.announce(self, text)
         return text
 
     @_docstring.interpd
@@ -202,5 +205,6 @@ class AxesText:
         annotation = _handles.wrap(native, Annotation, self._figure)
         annotation._init_annotation((x, y), (tx, ty), xycoords, textcoords, arrowprops,
                                     kwargs)
+        _program_adds.announce(self, annotation)
         return annotation
     annotate.__doc__ = Annotation.__init__.__doc__

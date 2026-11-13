@@ -15,6 +15,9 @@ from .. import image as mimage
 from .._native import image as _native_image
 from .._preprocess import _preprocess_data
 from ._aspect import _checked_aspect
+from .. import _lazy_imports
+
+_program_adds = _lazy_imports.module(globals(), "._program_adds")
 
 
 def _rc(key):
@@ -307,4 +310,5 @@ class ImagingMixin:
         im.set_alpha(alpha)
         im.set_url(url)
         im._made_with(kwargs)
+        _program_adds.announce(self, im)
         return im

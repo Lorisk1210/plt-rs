@@ -78,8 +78,14 @@ def test_a_worker_draws_while_the_main_thread_works():
     rendered = []
 
     def worker():
-        rendered.extend(_png(n, n % 2 == 0) for n in range(6))
-        done.set()
+        # The main thread draws until the worker ends, as it ends: a
+        # failing worker fails the test rather than leaving it drawing.
+        try:
+            rendered.extend(_png(n, n % 2 == 0) for n in range(6))
+        except BaseException as err:
+            rendered.append(err)
+        finally:
+            done.set()
 
     thread = threading.Thread(target=worker)
     thread.start()

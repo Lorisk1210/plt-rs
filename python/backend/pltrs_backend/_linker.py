@@ -13,6 +13,12 @@ How the extension is linked, for Linux wheels that install widely:
   on a musl host (in a musllinux container) the system's ``cc``.
 * Otherwise cargo links it as it is configured to.
 
+The host's own target is never named to cargo (``--target``): cargo then
+gives the crates other metadata, which renames every function of the
+workspace's crates, and the order the x86-64 Linux extension's
+functions are laid out in (``crates/pltrs-python/symbol-order.txt``,
+written from a build for the host) would name none of them.
+
 Zig is the ``ZIG`` program, else ``zig`` on ``PATH``
 (``python/tools/zig.sh install`` puts a pinned release in
 ``~/.local/zig``). It links only the extension (``cargo rustc -- -C
@@ -41,8 +47,8 @@ MUSL_RUSTFLAGS = ("-C", "target-feature=-crt-static", "-C", "link-self-contained
 @dataclasses.dataclass(frozen=True)
 class Link:
     """How cargo builds the extension: the target to pass (None for the
-    host), arguments for rustc's link of the extension itself, and
-    variables to set."""
+    host, named or not), arguments for rustc's link of the extension
+    itself, and variables to set."""
 
     target: str | None
     rustc_args: tuple = ()
@@ -97,16 +103,17 @@ def settings(target, host, glibc, directory):
             raise ValueError(f"pltrs: glibc={glibc!r} is not a glibc version such as 2.17")
         if musl or "linux-gnu" not in (target or host):
             raise ValueError("pltrs: glibc= applies to Linux targets with glibc only")
-    if glibc is None and not musl:
-        return Link(target)
     target = target or host
+    cargo_target = None if target == host else target
+    if glibc is None and not musl:
+        return Link(cargo_target)
     environment = {"CARGO_ENCODED_RUSTFLAGS": _rustflags_with(MUSL_RUSTFLAGS)} if musl else {}
     zig = zig_program()
     if zig:
         shim = _zig_shim(directory, zig, _zig_target(target, glibc))
-        return Link(target, ("-C", f"linker={shim}"), environment)
+        return Link(cargo_target, ("-C", f"linker={shim}"), environment)
     if musl and target == host:
-        return Link(target, ("-C", "linker=cc"), environment)
+        return Link(None, ("-C", "linker=cc"), environment)
     raise RuntimeError(
         f"pltrs: linking for {target} {'against glibc ' + glibc if glibc else 'here'} needs "
         "Zig: python/tools/zig.sh install, then ZIG=$(python/tools/zig.sh path)")

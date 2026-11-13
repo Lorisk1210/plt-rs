@@ -139,6 +139,10 @@ def test_builtin_segments_as_matplotlibs():
                     reason="the order is given to the linker on x86_64 Linux")
 def test_extension_lays_out_functions_in_order():
     tool = runpy.run_path(str(ROOT / "crates/pltrs-python/tools/symbol_order.py"))
+    if not tool["has_symbol_table"](pltrs._native.__file__):
+        # The wheels' extension is stripped (Zig links it so): its order
+        # is checked on an unstripped link of the same build.
+        pytest.skip("the extension has no symbol table to read the order from")
     offsets = {name: offset for offset, _, name in tool["functions"](pltrs._native.__file__)}
     named = [line for line in tool["ORDER"].read_text().splitlines()
              if line and not line.startswith("#")]

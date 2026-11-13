@@ -11,8 +11,10 @@ files, and platform tags the extension inside really earns).
 
 ``--install`` then installs the archives together in a fresh venv of
 ``PY`` (default: this Python), from the archives and PyPI (an sdist is
-built by pip, with cargo), and checks the installed package rather than
-the source tree (which must be there, as a checkout is):
+built by pip, with cargo; of a requirement, pip takes the newest release
+with a wheel for the system, `PIP_INSTALL`), and checks the installed
+package rather than the source tree (which must be there, as a checkout
+is):
 
 * the package imports from the venv, is typed (``py.typed`` and
   matplotlib's stubs beside its modules, `TYPED`), and pltrs' smoke tests
@@ -60,6 +62,14 @@ from pltrs_backend import _audit, _core_metadata  # noqa: E402
 #: Files of a typed installed package, below it: PEP 561's marker and stubs.
 TYPED = ("py.typed", "__init__.pyi", "pyplot.pyi", "figure.pyi", "axes/_axes.pyi")
 
+#: How pip installs here: quietly, and preferring the newest version of
+#: a requirement that has a wheel for this system to a newer one it would
+#: have to build. On an old system the newest releases may have no wheel
+#: (numpy 2.3 and later need glibc 2.28, while manylinux2014 has 2.17 and
+#: GCC 10.2, too old to build numpy 2.5), so without this the check would
+#: fail building them rather than test pltrs.
+PIP_INSTALL = ("install", "--quiet", "--prefer-binary")
+
 #: The first bytes of each figure the drop-in program writes.
 DROP_IN_FIGURES = {
     "figure.png": b"\x89PNG", "figure.pdf": b"%PDF", "figure.svg": b"<?xml",
@@ -101,6 +111,17 @@ def venv_python(venv):
     return venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
+def activated(environment, venv):
+    """*environment* as an activated *venv* has it: the venv's scripts
+    first on ``PATH``, so that a build pip runs there finds the venv's
+    ``python3`` (matplotlib's own, where it has no wheel and is built:
+    on aarch64 with glibc 2.17 or musl, whose systems may have no
+    ``python3`` of their own)."""
+    scripts = venv_python(venv).parent
+    path = os.pathsep.join([str(scripts), environment.get("PATH", os.defpath)])
+    return {**environment, "VIRTUAL_ENV": str(venv), "PATH": path}
+
+
 def check_typed(interpreter, package, work, environment):
     """Fails unless the installed *package* (a name) has the files of
     `TYPED`, as found by the venv's *interpreter*."""
@@ -131,7 +152,8 @@ def bare_tables(python, requirements, package, work, environment):
     venv = work / f"bare-{package}"
     run([python, "-m", "venv", venv], work, environment)
     interpreter = venv_python(venv)
-    run([interpreter, "-m", "pip", "install", "--quiet", *requirements], work, environment)
+    environment = activated(environment, venv)
+    run([interpreter, "-m", "pip", *PIP_INSTALL, *requirements], work, environment)
     tables = venv / "tables.json"
     run([interpreter, "-I", HERE / "bare_imports.py", package, tables], venv, environment)
     return interpreter, json.loads(tables.read_text(encoding="utf-8"))
@@ -223,7 +245,8 @@ def install_check(dists, python, lowest, work):
     venv = work / "venv"
     run([python, "-m", "venv", venv], work, environment)
     interpreter = venv_python(venv)
-    pip = [interpreter, "-m", "pip", "install", "--quiet", *held]
+    environment = activated(environment, venv)
+    pip = [interpreter, "-m", "pip", *PIP_INSTALL, *held]
     run([*pip, *pltrs, "pytest"], work, environment)
     run([interpreter, "-c", "import pltrs, sys; "
          "assert pltrs.__file__.startswith(sys.prefix), pltrs.__file__; "

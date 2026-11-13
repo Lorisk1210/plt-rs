@@ -17,7 +17,7 @@ import pytest
 
 import pltrs
 import pltrs.pyplot as plt
-from pltrs import collections, spines
+from pltrs import collections, font_manager, spines
 
 
 @pytest.fixture(autouse=True)
@@ -195,6 +195,17 @@ def test_polar_logit_axes_refuse_their_minor_ticks():
             call()
 
 
+def light_dejavu_installed():
+    """Whether the system has a DejaVu Sans of the weight ``light`` (200),
+    such as CentOS' ``DejaVuSans-ExtraLight.ttf``: then both libraries find
+    it and log no substitution (matplotlib in the manylinux2014 image)."""
+    light = font_manager._normalize_weight('light')
+    return any(font.name == 'DejaVu Sans' and font.style == 'normal'
+               and font.stretch == 'normal'
+               and font_manager._normalize_weight(font.weight) == light
+               for font in font_manager.fontManager.ttflist)
+
+
 def test_font_lookups_log_as_matplotlib(caplog):
     fig, ax = plt.subplots()
     ax.text(0.5, 0.5, 'light', fontweight='light')
@@ -202,6 +213,7 @@ def test_font_lookups_log_as_matplotlib(caplog):
     with caplog.at_level(logging.WARNING):
         fig.savefig(io.BytesIO(), format='png')
     messages = [record.getMessage() for record in caplog.records]
+    substituted = 0 if light_dejavu_installed() else 1
     assert messages.count('findfont: Failed to find font weight light for '
-                          'DejaVu Sans, now using 400.') == 1
+                          'DejaVu Sans, now using 400.') == substituted
     assert "findfont: Font family 'xkcd' not found." in messages

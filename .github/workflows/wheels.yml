@@ -1,5 +1,6 @@
 # pltrs (Python)'s wheels and sdist: built for Linux (x86_64 and aarch64,
-# manylinux2014 and musllinux_1_2, inside the official containers), macOS
+# manylinux2014 and musllinux_1_2, linked by Zig against glibc 2.17 and musl
+# and tested inside the official containers), macOS
 # (universal2) and Windows (win_amd64; win_arm64 when asked), each installed
 # in a fresh venv on a runner of its platform and smoke-tested there
 # (python/tools/check_dist.py --install), then, for a version tag,
@@ -103,23 +104,33 @@ jobs:
       - name: Install the sdist (pip builds it with cargo) and check it
         run: python python/tools/check_dist.py --install --work "$RUNNER_TEMP/check" dist/*
 
+  # Zig links each wheel against glibc 2.17 or musl on an x86_64 runner,
+  # cross-linking aarch64, as `cargo xtask python wheels` does (RELEASING.md):
+  # the containers' compilers would link GCC's unwinder dynamically
+  # (libgcc_s, which musllinux forbids) and keep the symbol table.
   linux:
     name: Linux ${{ matrix.platform }} ${{ matrix.arch }}
     needs: plan
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.linux) }}
-    env:
-      IMAGE: quay.io/pypa/${{ matrix.platform }}_${{ matrix.arch }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # The container's own C library and compilers build the wheel. They
-      # are too old for the actions' JavaScript, so docker runs them.
-      - name: Build the wheel in the container
-        run: docker run --rm -v "$PWD:/io" -w /io -e CARGO_TERM_COLOR "$IMAGE" sh .github/scripts/container.sh build
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Build the wheel, linked by Zig
+        env:
+          SETTINGS: ${{ matrix.settings }}
+        run: |
+          rustup toolchain install
+          rustup target add ${{ matrix.target }}
+          sh python/tools/zig.sh install
+          export ZIG="$(sh python/tools/zig.sh path)"
+          python -m pip wheel --no-deps --wheel-dir dist $SETTINGS .
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pltrs-${{ matrix.platform }}-${{ matrix.arch }}
@@ -130,7 +141,9 @@ jobs:
     name: Linux ${{ matrix.platform }} ${{ matrix.arch }} tested
     needs: [plan, linux, sdist]
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    # matplotlib has no wheel for aarch64 with glibc 2.17 or musl: the
+    # container builds it from source for the comparison with pltrs alone.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:

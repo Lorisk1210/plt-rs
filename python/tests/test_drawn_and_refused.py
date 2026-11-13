@@ -9,6 +9,7 @@ matplotlib 3.11's.
 
 import io
 import logging
+import math
 import os
 import warnings
 
@@ -128,13 +129,15 @@ def test_axes_str_shows_the_active_position():
 
 def test_asinh_ticks_of_a_narrow_range_far_from_zero():
     ticks = ticker.AsinhLocator(linear_width=1).tick_values(1e12, 1e12 + 3)
-    if np.arcsinh(1e12) == 28.324168296488494:
-        # Rounded correctly (Linux), the lower limit comes back from asinh
-        # space a bit above 1e12: every tick rounds to 1e12, too few.
+    # The decades matplotlib rounds the ticks to, back from asinh space, as
+    # this numpy computes them: its asinh and log decide in the last bit
+    # (macOS' asinh, numpy 1's log put some a decade lower).
+    xs = np.sinh(np.linspace(*np.arcsinh([1e12, 1e12 + 3]), 11))
+    if (np.floor(np.log(xs) / math.log(10)) == 12).all():
+        # Every tick rounds to 1e12, too few: the locator falls back.
         np.testing.assert_array_equal(ticks, np.linspace(1e12, 1e12 + 3, 11))
     else:
-        # One bit lower (macOS' asinh), it comes back below 1e12, whose
-        # tick is rounded a decade down.
+        # A tick rounded a decade down.
         np.testing.assert_array_equal(ticks, [1e11, 1e12])
 
 

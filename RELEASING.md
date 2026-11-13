@@ -47,7 +47,8 @@ branches or pull requests, as every run costs Actions minutes.
    * *Environments*: create `pypi`, with yourself as a *required
      reviewer* and *deployment branches and tags* limited to the tag
      pattern `v*`. The publish job waits for your approval there.
-   * *Actions > Runners*: the aarch64 Linux jobs run on
+   * *Actions > Runners*: the aarch64 Linux wheels are built on an
+     x86_64 runner (Zig cross-links them) and tested on
      `ubuntu-24.04-arm`. If the repository's plan does not offer it,
      set the repository variable `LINUX_ARM64_RUNNER` (*Secrets and
      variables > Actions > Variables*) to a runner label that is
@@ -58,8 +59,9 @@ branches or pull requests, as every run costs Actions minutes.
 5. **Minutes.** A full run costs roughly 6 hours of billed minutes:
    about 75 Linux minutes, 35 Windows minutes (billed twice) and 25
    macOS minutes (billed ten times). The extension's build (fat LTO,
-   one codegen unit) peaks at about 4.3 GB of memory for x86_64 and
-   5.2 GB for aarch64, within a standard runner's 7 GB.
+   one codegen unit) peaks at about 4.8 GB of memory (4.5 GiB) for
+   x86_64 and 6.0 GB (5.6 GiB) for aarch64, within a standard runner's
+   7 GB.
 
 ## Rehearsing
 

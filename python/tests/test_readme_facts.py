@@ -1,0 +1,213 @@
+"""
+The numbers and facts ``README.md`` states, against the files of the tree
+that back them: the committed outcomes of matplotlib's suite, of the
+libraries' suites and of the notebooks, the corpora of the differential
+tester, the spec's goldens, the examples, and the package's metadata.
+
+The README marks each such fact with an HTML comment just before it,
+``<!--fact:NAME-->``, which neither GitHub nor PyPI shows. A fact is
+exact (the text after the marker starts with what the files give) or,
+for round figures the README gives with "about" or "some", approximate
+(within `APPROXIMATE_TOLERANCE` of what the files give). When the files
+change, this test names the sentence to update.
+"""
+
+import ast
+import json
+import pathlib
+import re
+import tomllib
+
+import pytest
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+README = ROOT / "README.md"
+if not (README.is_file() and (ROOT / "spec").is_dir()):
+    pytest.skip("the README and the spec are in the source tree only", allow_module_level=True)
+
+#: How far an approximate figure may be from what the files give.
+APPROXIMATE_TOLERANCE = 0.03
+
+#: A fact marker and the text that follows it, up to the next marker
+#: (in the README with its lines joined).
+MARKER = re.compile(r"<!--fact:([\w.-]+)-->((?:(?!<!--).)*)")
+
+#: The keys of an outcome file that are no library's version.
+OUTCOME_KEYS = {"matplotlib", "counts", "collection_errors", "outcomes"}
+
+
+def _json(path):
+    with open(ROOT / path, encoding="utf-8") as file:
+        return json.load(file)
+
+
+def _passing(outcomes):
+    return {test for test, outcome in outcomes["outcomes"].items() if outcome == "passed"}
+
+
+def _number(value):
+    """*value* as the README writes numbers (``10,191``)."""
+    return f"{value:,}"
+
+
+def _all_reference_passing(directory):
+    """The number of tests passing under matplotlib in *directory*'s
+    outcome files, all of which the README says pass under pltrs."""
+    reference = _passing(_json(f"{directory}/reference.json"))
+    missing = reference - _passing(_json(f"{directory}/pltrs.json"))
+    assert not missing, (
+        f"the README says pltrs passes all {len(reference):,} tests of {directory} that pass "
+        f"under matplotlib, but {len(missing)} do not pass, e.g. {sorted(missing)[:3]}")
+    return _number(len(reference))
+
+
+def _ecosystem():
+    """The libraries of the ecosystem's suites, the tests passing under
+    matplotlib, those of them passing under pltrs, and the libraries
+    (test ids' first directories) some of whose passing tests pltrs fails."""
+    reference = _json("spec/ecosystem/reference.json")
+    pltrs = _json("spec/ecosystem/pltrs.json")
+    libraries = set(reference) - OUTCOME_KEYS
+    assert libraries == set(pltrs) - OUTCOME_KEYS
+    passing = _passing(reference)
+    both = passing & _passing(pltrs)
+    incomplete = {test.split("/")[0] for test in passing - both}
+    return libraries, passing, both, incomplete
+
+
+def _corpora():
+    with open(ROOT / "spec/diff/corpora.toml", "rb") as file:
+        return _number(len(tomllib.load(file)))
+
+
+def _probes():
+    return sum(len(_json(path.relative_to(ROOT))["probes"])
+               for path in (ROOT / "spec/goldens/probes").glob("*.json"))
+
+
+def _figure_cases():
+    return sum(1 for _ in (ROOT / "spec/goldens/figures").rglob("*.json"))
+
+
+def _example_graphs():
+    rust = {path.stem for path in (ROOT / "examples/rust/src/bin").glob("*.rs")}
+    python = {path.stem for path in (ROOT / "examples/python").glob("*.py")} - {"samples"}
+    assert rust == python, "every example is written in Rust and in Python"
+    return _number(len(rust))
+
+
+def _gallery_figures():
+    entry = re.compile(r"\bEntry::(?:figure|animation)\(")
+    return sum(len(entry.findall(path.read_text(encoding="utf-8")))
+               for path in (ROOT / "crates/pltrs/examples/gallery").glob("*.rs"))
+
+
+def _matplotlib_tests():
+    """The tests of matplotlib's suite as ``cargo xtask mpl-tests`` counts
+    them: the ``test_*`` functions of each ``test_*.py`` module and of its
+    module-level classes, from the reference venv's matplotlib."""
+    found = sorted((ROOT / ".venv").glob("lib/python3*/site-packages/matplotlib/tests"))
+    if not found:
+        pytest.skip("matplotlib's tests are in the reference venv (.venv), which is missing")
+    count = 0
+    for module in found[0].glob("test_*.py"):
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+        bodies = [tree.body] + [node.body for node in tree.body if isinstance(node, ast.ClassDef)]
+        count += len({node.name for body in bodies for node in body
+                      if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                      and node.name.startswith("test_")})
+    return _number(count)
+
+
+def _pyproject():
+    with open(ROOT / "pyproject.toml", "rb") as file:
+        return tomllib.load(file)["tool"]["pltrs-backend"]
+
+
+def _minimum_python():
+    requires = _pyproject()["pltrs"]["requires-python"]
+    assert requires.startswith(">="), requires
+    return requires[2:]
+
+
+def _dependencies():
+    """pltrs' dependencies, named as their projects name themselves."""
+    display = {"pillow": "Pillow"}
+    names = [re.split(r"[<>=!~;\[ ]", requirement)[0]
+             for requirement in _pyproject()["pltrs"]["dependencies"]]
+    names = [display.get(name, name) for name in names]
+    return ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def _alias_version():
+    with open(ROOT / "Cargo.toml", "rb") as file:
+        pltrs = tomllib.load(file)["workspace"]["package"]["version"]
+    init = (ROOT / "python/pltrs/__init__.py").read_text(encoding="utf-8")
+    matplotlib = re.search(r'^__version__ = "([^"]+)"$', init, re.MULTILINE).group(1)
+    return f"{matplotlib}+pltrs.{pltrs}"
+
+
+#: Facts whose text the README gives as it is.
+EXACT = {
+    "mpl-suite.all-passing": lambda: _all_reference_passing("spec/mpl-suite"),
+    "notebooks.all-passing": lambda: _all_reference_passing("spec/notebooks"),
+    "ecosystem.libraries": lambda: _number(len(_ecosystem()[0])),
+    "ecosystem.reference-passing": lambda: _number(len(_ecosystem()[1])),
+    "ecosystem.pltrs-passing": lambda: _number(len(_ecosystem()[2])),
+    "ecosystem.complete-libraries":
+        lambda: _number(len(_ecosystem()[0]) - len(_ecosystem()[3])),
+    "corpora": _corpora,
+    "examples.graphs": _example_graphs,
+    "mpl-tests": _matplotlib_tests,
+    "python.minimum": _minimum_python,
+    "python.dependencies": _dependencies,
+    "alias.version": _alias_version,
+}
+
+#: Facts the README rounds ("about 48,500 probes"), as numbers.
+APPROXIMATE = {
+    "spec.probes": _probes,
+    "spec.figure-cases": _figure_cases,
+    "gallery.figures": _gallery_figures,
+}
+
+TEXT = README.read_text(encoding="utf-8")
+MARKED = [(match.group(1), match.group(2))
+          for match in MARKER.finditer(re.sub(r"\s*\n\s*", " ", TEXT))]
+
+
+def test_no_marker_starts_a_line():
+    """A line starting with ``<!--`` would start an HTML block in
+    Markdown, which ends the paragraph and shows the rest of the line as
+    raw HTML."""
+    assert not [line for line in TEXT.splitlines() if line.lstrip().startswith("<!--fact:")]
+
+
+def test_every_fact_is_stated_and_every_marker_known():
+    named = {name for name, _ in MARKED}
+    assert named - EXACT.keys() - APPROXIMATE.keys() == set(), "markers of unknown facts"
+    assert EXACT.keys() | APPROXIMATE.keys() <= named, "facts the README no longer marks"
+
+
+@pytest.mark.parametrize(("name", "text"), MARKED, ids=[name for name, _ in MARKED])
+def test_readme_states_what_the_files_give(name, text):
+    if name in EXACT:
+        expected = EXACT[name]()
+        assert text.lstrip("`").startswith(expected), (
+            f"README.md says {text[:40]!r} after <!--fact:{name}-->; the files give {expected!r}")
+    else:
+        stated = re.match(r"[\d,]+", text)
+        assert stated, f"no number after <!--fact:{name}-->"
+        value = int(stated.group().replace(",", ""))
+        actual = APPROXIMATE[name]()
+        assert abs(value - actual) <= APPROXIMATE_TOLERANCE * actual, (
+            f"README.md says about {value:,} after <!--fact:{name}-->; the files give {actual:,}")
+
+
+def test_the_libraries_the_readme_names_pass_in_full():
+    """The README names pandas and seaborn among the libraries whose
+    suites pltrs passes in full."""
+    _, passing, _, incomplete = _ecosystem()
+    for library in ("pandas", "seaborn"):
+        assert any(test.startswith(f"{library}/") for test in passing)
+        assert library not in incomplete

@@ -11,7 +11,7 @@ The Rust crate (`use pltrs::...`) and the Python package
 (`import pltrs.pyplot as plt`) share the name pltrs, as the crate and the
 package of polars do. Where the language matters, this README says
 pltrs (Rust) or pltrs (Python). The crate is built from crates of its
-own, `pltrs-core` to `pltrs-ui` (see [Crates](#crates)). Bare `plt` stays
+own, `pltrs-core` to `pltrs-ui` (see Crates, below). Bare `plt` stays
 matplotlib's: the name matplotlib users give `pyplot`, which pltrs keeps
 for its own `pyplot` in both languages.
 
@@ -137,8 +137,8 @@ tables and side-by-side examples whose Rust half runs as a doctest.
   typeset by LaTeX as in matplotlib (`latex`, or `latex` with `dvipng`):
   pltrs reads the DVI files, virtual fonts, TFM metrics, font maps and
   Type 1 fonts itself, and draws the glyphs in PNG, PDF and SVG; PGF
-  output hands the text to LaTeX, and PostScript output refuses it, since
-  matplotlib needs `psfrag` and Ghostscript there.
+  output hands the text to LaTeX, and PostScript output has LaTeX place
+  it with `psfrag`, `dvips` and Ghostscript, as matplotlib's does.
 * **Axes and layout**: scales, tickers and formatters, dates and
   categories, shared and twin axes, secondary axes, aspect handling,
   subplot grids, mosaics, subfigures, constrained and tight layout,
@@ -195,7 +195,7 @@ tables and side-by-side examples whose Rust half runs as a doctest.
 
 ## Examples
 
-[`examples/`](examples/README.md) holds twenty common graphs, each
+[`examples/`](https://github.com/Lorisk1210/plt-rs/blob/main/examples/README.md) holds <!--fact:examples.graphs-->20 common graphs, each
 written twice and shown with its image: in Rust with pltrs (Rust), and
 in Python with pltrs (Python) in matplotlib's syntax. Among them are
 line, scatter, bar, area, pie and polar plots, histograms, box and
@@ -206,7 +206,7 @@ compares each Rust image with matplotlib drawing the Python script.
 
 ## Gallery
 
-`crates/pltrs/examples/gallery/` holds over ninety short, commented
+`crates/pltrs/examples/gallery/` holds some <!--fact:gallery.figures-->95 short, commented
 examples grouped like matplotlib's gallery: lines, bars and areas;
 statistics; images and meshes; contours and vector fields; colour; text
 and annotations; layout; dates, categories and units; 3-D; polar,
@@ -250,8 +250,9 @@ PLTRS_LOOK=matplotlib python your_script.py # matplotlib's look
 
 It is a Python package (`python/pltrs`) whose classes keep matplotlib's
 names and signatures, over a native extension written in Rust against
-CPython's stable ABI, without PyO3 or any crate (`crates/pltrs-python`). It
-needs Python 3.12 or later, numpy, cycler, Pillow and python-dateutil.
+CPython's stable ABI, without PyO3 or any crate (`crates/pltrs-python`).
+It needs Python <!--fact:python.minimum-->3.12 or later, and the packages <!--fact:python.dependencies-->numpy, cycler, Pillow, python-dateutil and
+packaging.
 Build it, and run it from the source tree:
 
 ```sh
@@ -264,13 +265,16 @@ cargo xtask mpl-suite           # matplotlib 3.11's own test suite, run against 
 
 ### Installing
 
+From its first release on, pltrs (Python) is on PyPI, with wheels for
+Linux, macOS and Windows (`pip install pltrs`; see `RELEASING.md`).
+
 `pip install .` builds and installs pltrs (Python) from the source tree,
 and `pip wheel .` makes a wheel of it. The build backend is the tree's
 own (`python/backend`, Python's standard library only): it needs no
 package, only Python 3.12+ and cargo (the toolchain
-`rust-toolchain.toml` names). It runs `cargo build --profile extension
--p pltrs-python` (the release profile with fat LTO and one codegen unit,
-as `cargo rustc`, leaving the debug information out) and
+`rust-toolchain.toml` names). It builds the extension with `cargo rustc
+--profile extension -p pltrs-python` (the release profile with fat LTO
+and one codegen unit, leaving the debug information out) and
 packs `python/pltrs` with the library as `pltrs/_native.abi3.so`
 (`_native.pyd` on Windows) into a wheel tagged `cp312-abi3-<platform>`:
 one wheel for CPython 3.12 and every later version. The platform tag is
@@ -308,7 +312,7 @@ cargo xtask python wheels      # the sdist and every wheel of this system, into 
 and a matplotlib program there. The CI workflow
 (`.github/workflows/wheels.yml`) builds and tests the wheels of every
 platform when started by hand or by a version tag, and publishes them;
-[`RELEASING.md`](RELEASING.md) says how a release is made.
+[`RELEASING.md`](https://github.com/Lorisk1210/plt-rs/blob/main/RELEASING.md) says how a release is made.
 
 ### Running pandas, seaborn and other matplotlib code unchanged
 
@@ -327,7 +331,7 @@ pip install pandas seaborn                  # they find matplotlib installed
 ```
 
 Its version is the matplotlib version pltrs implements with pltrs' own
-as a local label (`3.11.2+pltrs.0.1.0`), so what requires matplotlib
+as a local label (<!--fact:alias.version-->`3.11.2+pltrs.0.1.0`), so what requires matplotlib
 (`matplotlib>=3.4`, even `matplotlib==3.11.2`) is satisfied by it and
 pip fetches no real matplotlib. Being named `matplotlib`, it never shares
 `site-packages` with a real matplotlib silently: installing one
@@ -338,40 +342,56 @@ finds installed, or among the wheels given with it (`pip install
 dist/pltrs-*.whl dist/matplotlib-*.whl`).
 
 `cargo xtask ecosystem` runs pandas' plotting (line, bar, hist, box,
-kde, area, scatter, hexbin, pie, the `pandas.plotting` functions) and
+kde, area, scatter, hexbin, pie, the `pandas.plotting` functions),
 seaborn (relplot, displot, catplot, heatmap, clustermap, pairplot,
-lmplot, jointplot, the objects interface) on the source tree's pltrs as
+lmplot, jointplot, the objects interface), and figures of astropy,
+geopandas, networkx and plotnine on the source tree's pltrs as
 matplotlib, and checks each figure against what real matplotlib 3.11.2
 draws for the same code (`python/ecosystem`; `cargo xtask ecosystem
-setup` makes their venv, and the tests skip where pandas or seaborn is
-missing).
+setup` makes the venvs, and the tests skip where a library is missing).
 
-pltrs (Python) is measured three ways:
+pltrs (Python) is measured against matplotlib in these ways:
 
 * **matplotlib 3.11's own test suite**, run unchanged with `matplotlib`
-  aliased to pltrs: it passes all 10,191 tests that pass under real
-  matplotlib on the same machine, with the tools the tests ask for
-  installed: Qt (PyQt6, PySide6, PyQt5), Tk, GTK 3 and 4, wx and Cairo
+  aliased to pltrs: it passes all <!--fact:mpl-suite.all-passing-->10,191
+  tests that pass under real matplotlib on the same machine, with the
+  tools the tests ask for installed: Qt (PyQt6, PySide6, PyQt5), Tk, GTK 3 and 4, wx and Cairo
   with a display for the GUI backends, Inkscape for the SVG image
   comparisons, Ghostscript, TeX with xelatex and pgf, and the fonts the
   tests name (`cargo xtask mpl-suite`; the outcomes per test are in
   `spec/mpl-suite/`).
-* **pandas' and seaborn's own test suites** (pandas 3.1's plotting tests
-  and seaborn 0.13's whole suite, from their sdists), run unchanged with
-  `matplotlib` aliased to pltrs: every one of the 3,874 tests that pass
-  under real matplotlib passes, and every other test ends as it does
-  there (`cargo xtask ecosystem suite`; the outcomes per test are in
-  `spec/ecosystem/`).
+* **The test suites of libraries built on matplotlib**, run unchanged
+  from their sources with `matplotlib` aliased to pltrs: the suites
+  of <!--fact:ecosystem.libraries-->44 libraries, from pandas' plotting
+  tests, seaborn, xarray, scikit-learn, statsmodels and geopandas to
+  add-ons such as mplhep, ultraplot, mpltern and MetPy (`cargo xtask
+  ecosystem suite`). Of the <!--fact:ecosystem.reference-passing-->15,924
+  tests of theirs that pass under real matplotlib, <!--fact:ecosystem.pltrs-passing-->15,693
+  pass under pltrs too: every one in <!--fact:ecosystem.complete-libraries-->37
+  of the libraries, pandas' and seaborn's among them. The outcomes per
+  test are in `spec/ecosystem/`.
+* **Jupyter**: the notebooks of `spec/notebooks` (the inline backend,
+  nbAgg, ipympl's widget, animations, switching backends), executed in a
+  kernel under matplotlib and under pltrs and compared message by
+  message, and the matplotlib tests of IPython, matplotlib-inline and
+  ipympl (`cargo xtask notebooks`): of the tests and comparisons that
+  pass under matplotlib, all <!--fact:notebooks.all-passing-->1,091 pass
+  under pltrs too (`spec/notebooks/`).
 * **A differential tester** (`cargo xtask diff`): it runs matplotlib's
-  gallery and programs generated from its API under both and compares
-  every value, type, exception, warning, printed line and figure. Every
-  gallery image matches matplotlib's.
-* **A fuzzer** (`python/tests/fuzz`): random calls of the public API,
+  gallery, programs generated from its API, and programs users wrote
+  (<!--fact:corpora-->76 corpora of books, courses, cheat sheets and
+  libraries' galleries, fetched at fixed commits:
+  `spec/diff/corpora.toml`) under both, and compares every value, type,
+  exception, warning, printed line and figure. Every image of the
+  gallery programs that run here matches matplotlib's. With `--docs` it
+  compares every public callable's signature and docstring, and every
+  public module-level name, with matplotlib's.
+* **A fuzzer** (`python/tests/fuzz`): random programs of the public API,
   each in its own process, so that a crash, a hang or runaway memory is
   caught. A Python exception is fine; a crash is a bug.
 
 How it is built, and how to extend it, is in
-[`python/DESIGN.md`](python/DESIGN.md).
+[`python/DESIGN.md`](https://github.com/Lorisk1210/plt-rs/blob/main/python/DESIGN.md).
 
 ## Crates
 
@@ -395,18 +415,19 @@ How it is built, and how to extend it, is in
 ```sh
 cargo build --workspace
 cargo test --workspace
-cargo run -p pltrs --example figure_window      # needs an X server
+cargo run -p pltrs --example figure_window      # needs a display (Wayland or X11)
 cargo run -p pltrs --example web_figure         # an animated figure in a browser
 cargo run -p pltrs --example widgets            # sliders and a span selector
 ```
 
 The conformance spec in `spec/` was run against matplotlib 3.11 to
-produce golden values and images: about 41 500 probes of functions and
-artist behaviour, and some 3 400 figures, among them ports of
-matplotlib's own image tests, of every example in its gallery and of
-the figures of its tutorials and user guides. Every one of matplotlib's
-2 939 tests is accounted for: ported, or listed with the reason it
-cannot apply (`cargo xtask mpl-tests --strict`).
+produce golden values and images: about <!--fact:spec.probes-->48,500
+probes of functions and artist behaviour, and some <!--fact:spec.figure-cases-->3,400
+figures, among them ports of matplotlib's own image tests, of every
+example in its gallery and of the figures of its tutorials and user
+guides. Every one of matplotlib's <!--fact:mpl-tests-->2,939 tests is
+accounted for: ported, or listed with the reason it cannot apply
+(`cargo xtask mpl-tests --strict`).
 Every figure matches matplotlib's in its structure and pixels; the
 SVG, PDF, PostScript and PGF documents of all of them can be compared
 with matplotlib's item by item:
@@ -417,7 +438,7 @@ cargo xtask figures                             # figure structure (limits, tick
 cargo test -p pltrs-spec --test figure_pixels   # figure pixels, RMS <= 1.0
 cargo test -p pltrs-spec --test figure_vectors  # SVG/PDF/PS documents, item by item
 cargo xtask render polar/                       # write renderings and diffs to spec/out/
-cargo xtask render polar/rose --vectors         # ... with the case's SVG, PDF and PS
+cargo xtask render polar/bars --vectors         # ... with the case's SVG, PDF and PS
 cargo xtask vectors [PREFIX...]                 # every case's SVG/PDF/PS/PGF against
                                                 # documents matplotlib writes then and there
 cargo xtask mpl-tests --strict                  # matplotlib's tests: ported or not applicable
@@ -426,7 +447,7 @@ cargo xtask mpl-tests --strict                  # matplotlib's tests: ported or 
 The `usetex` cases and probes need TeX on `PATH`; without it they are
 skipped, and each check says so.
 
-[`benchmarks/README.md`](benchmarks/README.md) times 90 figures in
+[`benchmarks/README.md`](https://github.com/Lorisk1210/plt-rs/blob/main/benchmarks/README.md) times 90 figures in
 matplotlib 3.11, in pltrs (Python), running the same scripts with only the
 import changed, and in pltrs (Rust). The figures range in size from a
 single line plot to million-point lines, 4000² images and text-heavy
@@ -471,9 +492,11 @@ submitted for inclusion in pltrs by you, as defined in the Apache-2.0
 licence, shall be dual-licensed as above, without any additional terms
 or conditions.
 
-pltrs ports code from matplotlib, Anti-Grain Geometry, FreeType,
-HarfBuzz, libraqm, Qhull, ContourPy, NumPy and x86-simd-sort, CPython,
-dateutil, fontTools, Pillow, libjpeg-turbo, libtiff and libwebp, and
-bundles fonts (including Inter), colour data and Unicode data. Those
-parts keep their own permissive licences: `THIRD_PARTY.md` lists them,
-and `LICENSES/` holds their notices.
+pltrs ports code from matplotlib, matplotlib-inline and IPython,
+Anti-Grain Geometry, FreeType, HarfBuzz, libraqm, Qhull, ContourPy,
+kiwisolver, NumPy and x86-simd-sort, pocketfft, CPython,
+dateutil, fontTools, Pillow, libjpeg-turbo, libtiff, libwebp, libaom
+and libavif, zlib-ng, auditwheel and Microsoft's STL, and bundles fonts
+(including Inter), colour data, X.Org's keysym tables and Unicode data.
+Those parts keep their own permissive licences: `THIRD_PARTY.md` lists
+them, and `LICENSES/` holds their notices.

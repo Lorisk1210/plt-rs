@@ -21,6 +21,10 @@ import, so they also run under matplotlib once the import names
 (`crates/pltrs/src/style/sheets/pltrs-modern.mplstyle`) and the Inter font,
 so that it draws them in the modern look too.
 
+With `PLTRS_LOOK=matplotlib`, both versions draw in matplotlib's look
+instead, and their images are the ones matplotlib draws from the Python
+scripts with its default settings.
+
 ## Running one example
 
 ```sh

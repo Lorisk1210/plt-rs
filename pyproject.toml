@@ -66,6 +66,7 @@ dependencies = [
     "cycler>=0.10",
     "pillow>=10.1",
     "python-dateutil>=2.7",
+    "packaging>=20.0",
 ]
 
 [tool.pltrs-backend.matplotlib]

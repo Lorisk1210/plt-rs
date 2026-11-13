@@ -11,3 +11,7 @@ __pycache__/
 /python/pltrs/_native.pyd
 /python/pltrs/_native.pyd.new
 result_images/
+
+# What matplotlib's image comparison leaves beside a golden it was given
+# (a reference run that compared instead of recording).
+spec/goldens/**/*-failed-diff.png

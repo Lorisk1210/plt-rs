@@ -86,7 +86,6 @@ class _CellLook(_mirrors.Mirroring):
         _table.restyle_cell(artist._ref(), artist._native)
 
 
-@_mirrors.pushing
 class _Cells(dict):
     """
     The cells of a table by position (matplotlib's ``Table._cells``), which
@@ -133,6 +132,7 @@ class _Cells(dict):
         return super().items()
 
 
+@_mirrors.pushing
 class Cell(DrawnWith, Rectangle):
     """
     A cell is a `.Rectangle` with some associated `.Text`.

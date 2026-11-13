@@ -16,7 +16,6 @@ use crate::contour::ContourSetArtist;
 use crate::figure::attach;
 use crate::legend::LegendArtist;
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape};
-use crate::transforms::NoFigure;
 
 /// Which of matplotlib's `Axes.add_*` methods [`Axes::adopt_artist`]
 /// follows:
@@ -117,10 +116,7 @@ impl Axes {
             base.transform = Some(self.trans_data());
         }
         let handle = if spec.autolim {
-            let update = DataUpdate::autoscaled(
-                artist.limit_points(self.id(), &*self.raw().figure_state().borrow()),
-            );
-            self.adopt_collection(artist, &update)
+            self.adopt_measured_collection(artist)
         } else {
             self.adopt(artist, &DataUpdate::default())
         };
@@ -132,10 +128,7 @@ impl Axes {
     pub fn add_trimesh(&self, spec: TriMeshSpec) -> TriMesh {
         let mut artist = spec.artist;
         artist.base_mut().transform = Some(self.trans_data());
-        let update = DataUpdate::autoscaled(
-            artist.limit_points(self.id(), &*self.raw().figure_state().borrow()),
-        );
-        TriMesh::from_raw(self.adopt_collection(artist, &update))
+        TriMesh::from_raw(self.adopt_measured_collection(artist))
     }
 
     /// Adds a ready-made artist to the axes as matplotlib's `add_*` method
@@ -217,18 +210,11 @@ impl Axes {
             }
             base.in_autoscale |= counted;
         });
-        // A patch whose path a style of the program's makes is measured
-        // apart from the figure, which the style may read and change
-        // (matplotlib's `_update_patch_limits`); everything else with the
-        // figure as it is, for what is measured through display space.
+        // Measured with the figure free where that runs the program's code
+        // (a patch style or a transform of its own, which may read and
+        // change the figure: matplotlib's `_update_patch_limits`).
         let shared = adopted.and_then(|()| figure.borrow().store.shared(artist.id()));
-        let limits = shared.and_then(|adopted| {
-            if adopted.limits_run_program() {
-                adopted.limit_points(self.id(), &NoFigure)
-            } else {
-                adopted.limit_points(self.id(), &*figure.borrow())
-            }
-        });
+        let limits = shared.and_then(|adopted| self.limit_points_of(&*adopted));
         match add_as {
             AddAs::Artist | AddAs::Text | AddAs::Image | AddAs::Collection { autolim: false } => {}
             AddAs::Line | AddAs::Patch => self.update_data(&DataUpdate::extending(limits)),

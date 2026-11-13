@@ -51,7 +51,12 @@ compared on their own. The generators are the modules of ``generators/``:
 * ``overrides``: matplotlib's classes subclassed with one member
   overridden, as libraries override them (``overrides_census.json``), the
   override's calls recorded through the object's life, and its result
-  changed.
+  changed;
+* ``reentry``: a callback of each kind native code makes (formatters,
+  locators, transforms, scales, norms, colormaps, unit converters, path
+  effects, artists' and figures' ``draw``, measures, filters, events,
+  axes locators, layout engines, legend handlers) entering its figure
+  once: reading it, changing it or drawing it.
 
 Programs are written to ``OUT_DIR/<generator>/<name>.py``; the directory
 is emptied first. What the generators' own runs of statements write goes
@@ -74,7 +79,7 @@ matplotlib.use("agg")
 
 from generators import (  # noqa: E402
     api, artists, hostile, interaction, modules, offsetboxes, orders, pickling, plotting, pyplot, randomized,
-    overrides, rcparams, rest, three_d, unreached)
+    overrides, rcparams, reentry, rest, three_d, unreached)
 
 GENERATORS = {
     "artists": artists.programs,
@@ -93,6 +98,7 @@ GENERATORS = {
     "pickling": pickling.programs,
     "interaction": interaction.programs,
     "overrides": overrides.programs,
+    "reentry": reentry.programs,
 }
 
 

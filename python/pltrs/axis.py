@@ -188,6 +188,10 @@ def _converted_limit(axis, value):
     if munits._is_natively_supported(value):
         return value
     converted = axis.convert_units(value)
+    if isinstance(converted, np.ndarray):
+        # A converter's array of one (matplotlib's
+        # ``_validate_converted_limits`` squeezes it).
+        converted = converted.squeeze()
     return np.asarray(converted)[()] if np.ndim(converted) == 0 else converted
 
 
@@ -1063,7 +1067,7 @@ class Axis(DrawnWith, Artist):
         matplotlib's ``Axis._set_lim`` does about the ones it cannot take
         (non-positive limits on a log axis keep the current ones).
         """
-        v0, v1 = (float(np.asarray(self.convert_units(v), dtype=float))
+        v0, v1 = (float(np.asarray(self.convert_units(v), dtype=float).squeeze())
                   for v in (v0, v1))
         if not (np.isfinite(v0) and np.isfinite(v1)):
             # Refused before anything else is said about them.

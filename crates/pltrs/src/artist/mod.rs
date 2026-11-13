@@ -162,6 +162,19 @@ impl LimitPoints {
         })
     }
 
+    /// Whether measuring the data limits of `artist` in `axes` runs code
+    /// of the program's, which matplotlib lets read and change the figure
+    /// meanwhile: a style of its own ([`Artist::limits_run_program`]), or
+    /// a transform of the program's mapping the artist's coordinates
+    /// before the data transform (as matplotlib's `_update_line_limits`
+    /// maps a line's path through `trf_to_data`).
+    pub(crate) fn run_program(artist: &dyn Artist, axes: ArtistId) -> bool {
+        artist.limits_run_program()
+            || (artist.base().transform.as_ref())
+                .and_then(|transform| transform.to_data(axes))
+                .is_some_and(|to_data| to_data.calls_program())
+    }
+
     /// The corners and smallest positive point of `limits`; `None` when
     /// they are empty.
     pub fn from_limits(limits: DataLimits, directions: (bool, bool)) -> Option<Self> {

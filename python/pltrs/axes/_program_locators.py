@@ -82,6 +82,16 @@ def followed(figure):
     return list(_followed.get(figure, ()))
 
 
+def place_to_measure(ax, renderer):
+    """Place *ax* where its locator of the program's says now, as
+    matplotlib's ``Axes.get_tightbbox`` calls the locator before it
+    measures the Axes (with the figure's renderer when *renderer* is
+    None); nothing for an Axes placed otherwise."""
+    figure = ax.get_figure(root=True)
+    if figure is not None and ax in _followed.get(figure, ()):
+        ax._locate_by_program(figure._get_renderer() if renderer is None else renderer)
+
+
 def forget(owner, figure):
     """Stop placing *owner* by a locator of the program's for the root
     *figure*."""

@@ -34,7 +34,7 @@ import numpy as np
 
 from . import _docstring
 from . import (_api, _handles, _live_transforms, _named, _offsetbox_trees,
-               _python_drawing, _unusable, cbook)
+               _python_drawing, _unusable, _values, cbook)
 from ._annotation_kept import native_coords
 from . import rcParams
 from . import text as mtext
@@ -2074,6 +2074,8 @@ class AnnotationBbox(TreeOwner, Artist, mtext._AnnotationBase):
         self._sync_tree()
         self.update_positions(self.get_figure(root=True)._get_renderer()
                               if renderer is None else renderer)
+        from ._annotation_arrow import check_assigned
+        check_assigned(self)
         return self._extent_as_is()
 
     def _tree_root(self):
@@ -2294,6 +2296,27 @@ or callable, default: value of *xycoords*
         `.FancyArrowPatch` (None without *arrowprops*): once the box joined
         a figure, a mirror of the arrow pltrs (Rust) draws (see
         `._annotation_arrow`)."""
+        return _values.assigned(self, "arrow_patch", self._arrow_patch)
+
+    @arrow_patch.setter
+    def arrow_patch(self, patch):
+        from . import _annotation_arrow
+        _annotation_arrow.assign(self, patch, self._take_arrow)
+
+    #: What matplotlib's ``update_positions`` first calls on the arrow.
+    _first_arrow_call = "set_positions"
+
+    def _take_arrow(self, patch):
+        """Make *patch* the arrow: its look the one pltrs (Rust) draws once
+        the box joined a figure, the loose arrow until then."""
+        if "patch" not in self.__dict__:
+            self._loose_arrow = patch
+            return
+        from ._annotation_arrow import AnnotationBboxArrow, adopt
+        adopt(self, patch, AnnotationBboxArrow)
+
+    def _arrow_patch(self):
+        """The arrow as pltrs (Rust) draws it (see `arrow_patch`)."""
         if self.arrowprops is None:
             return None
         if "patch" not in self.__dict__:

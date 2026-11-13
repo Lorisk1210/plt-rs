@@ -12,6 +12,8 @@ their changes once they ran (``restyle_arrow``), and whose extent is
 where the annotation draws the arrow.
 """
 
+import functools
+
 import numpy as np
 
 from . import _mirrors
@@ -75,6 +77,41 @@ def mirror(owner, mirroring=_AnnotationArrow):
     else:
         patch._native = native
     return patch
+
+
+def assign(owner, patch, take):
+    """
+    ``owner.arrow_patch = patch``: while *owner* has ``arrowprops``,
+    matplotlib places and draws the patch assigned at its next draw and
+    measure (``update_positions``), the arrow taking its look here
+    (*take(patch)*), and fails there on None at the first method it calls
+    on it (``set_mutation_scale``, ``set_positions``); without, it never
+    reads it again.
+    """
+    from . import _unusable, _values
+    _unusable.drop(owner, "arrow_patch")
+    _values.take(owner, "arrow_patch")
+    if owner.arrowprops is not None and patch is not None:
+        take(patch)
+        return
+    _values.assign(owner, "arrow_patch", patch)
+    if owner.arrowprops is not None:
+        _unusable.keep(owner, "arrow_patch", patch,
+                       functools.partial(_first_call, owner._first_arrow_call))
+
+
+def _first_call(name, arrow):
+    """Fail as matplotlib's ``update_positions`` fails calling *name* on
+    the arrow assigned (None)."""
+    return getattr(arrow, name)
+
+
+def check_assigned(owner):
+    """Fail as matplotlib's ``update_positions`` does where the arrow of
+    *owner* (with ``arrowprops``) was assigned None."""
+    from . import _values
+    if owner.arrowprops is not None and _values.assigned(owner, "arrow_patch", lambda: owner) is None:
+        _first_call(owner._first_arrow_call, None)
 
 
 def adopt(owner, patch, mirroring):

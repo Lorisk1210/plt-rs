@@ -36,13 +36,6 @@ modules they describe, for both distributions:
   matplotlib's ``__init__`` of the toolkit (pyright reads an untyped
   package's code, which the loader would leave empty; the toolkits have
   no ``py.typed``, as matplotlib's);
-* for each module of pltrs' toolkits (``pltrs.mpl_toolkits``), which
-  pltrs' ``py.typed`` covers, a stub of a module-level ``__getattr__``
-  alone (`UNTYPED_STUB`): matplotlib's toolkits have no ``py.typed``, so a
-  checker takes every name of theirs for ``Any`` (mypy reporting the
-  import as untyped), and so it takes pltrs'. (PEP 561 has no marker for
-  an untyped part of a typed package; the alias' own ``mpl_toolkits`` is
-  untyped as matplotlib's is);
 * only the stubs matplotlib installs (those its ``meson.build`` lists:
   3.11.2's source tree also has ``dates.pyi`` and ``backends/registry.pyi``,
   which its wheels leave out, so that type checkers read those modules'
@@ -74,16 +67,6 @@ TYPED = ("pltrs", "matplotlib")
 #: matplotlib's modules typed inline rather than in a stub, whose stubs
 #: are their code without function bodies.
 INLINE_TYPED = ("pyplot",)
-
-#: The stub of a module of pltrs' toolkits: every name is ``Any``.
-UNTYPED_STUB = """\
-# A module of pltrs' toolkits: untyped for type checkers, as matplotlib's
-# mpl_toolkits are (python/tools/matplotlib_stubs.py).
-
-from typing import Any
-
-def __getattr__(name: str) -> Any: ...
-"""
 
 #: An import of matplotlib's modules at a line's start: ``from
 #: matplotlib[.x] import`` or ``import matplotlib.x[.y] as z``.
@@ -309,9 +292,6 @@ def stubs(sdist):
             wanted["mpl_toolkits"][path] = header(
                 f"mpl_toolkits.{path.parent}", "its code without docstrings and function bodies") \
                 + code_stub(init.read_text(encoding="utf-8"), "matplotlib")
-    toolkits = TREES["pltrs"] / "mpl_toolkits"
-    for module in sorted(toolkits.rglob("*.py")):
-        wanted["pltrs"][module.relative_to(TREES["pltrs"]).with_suffix(".pyi")] = UNTYPED_STUB
     for name in INLINE_TYPED:
         path = pathlib.Path(f"{name}.pyi")
         source = (lib / f"{name}.py").read_text(encoding="utf-8")

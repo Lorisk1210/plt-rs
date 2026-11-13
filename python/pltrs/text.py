@@ -2114,7 +2114,16 @@ or callable, default: value of *xycoords*
         arrow is drawn).
         """
         from ._annotation_arrow import mirror
-        return mirror(self)
+        return _values.assigned(self, "arrow_patch", lambda: mirror(self))
+
+    @arrow_patch.setter
+    def arrow_patch(self, patch):
+        from . import _annotation_arrow
+        _annotation_arrow.assign(self, patch, lambda patch: _annotation_arrow.adopt(
+            self, patch, _annotation_arrow._AnnotationArrow))
+
+    #: What matplotlib's ``update_positions`` first calls on the arrow.
+    _first_arrow_call = "set_mutation_scale"
 
     @property
     def xy(self):

@@ -2644,10 +2644,15 @@ pltrs' module under matplotlib's name, as checkers look for a stub's
 source (pyright warns of one without, and shows its docstrings), and
 pltrs' toolkit modules beside its toolkits' loaders, whose
 `__init__.pyi` are matplotlib's code (`Project.checked_sources`); Python
-never imports them, as the alias loads pltrs' files. pltrs' own toolkits,
-which its `py.typed` covers, have stubs of a module `__getattr__` alone:
-every name `Any`, as mypy takes matplotlib's untyped toolkits (pyright,
-which reads an untyped package's code, then sees less of them).
+never imports them, as the alias loads pltrs' files. pltrs' own toolkits
+(`pltrs.mpl_toolkits`) have no stubs: `py.typed` covers them, and PEP 561
+has no marker for an untyped part of a typed package. pyright reads an
+untyped package's code, so it reports on pltrs' toolkits what it reports
+on matplotlib's; mypy, which takes an untyped package's names for `Any`
+and reports its import (`import-untyped`), reads pltrs' code instead.
+Stubs of a module `__getattr__` alone (every name `Any`) would give
+mypy's reading but silence pyright, and still no `import-untyped`: the
+larger difference.
 
 Instance attributes matplotlib's code keeps plainly (`Wedge.r`,
 `ContourSet.zmin`) and pltrs (Rust) holds are properties with a setter
@@ -2655,7 +2660,12 @@ with matplotlib's effect: to pltrs (Rust) where matplotlib's draws read
 the attribute (`RegularPolygon.xy`, `Arc.theta1`, `AxesImage.origin`,
 `axison`), kept on the object (`_values.assign`) where only a later method
 reads it (a `Wedge`'s fields at its next setter, a `StepPatch`'s
-orientation at `set_data`) or none (a contour set's extremes). matplotlib
+orientation at `set_data`) or none (a contour set's extremes). A patch assigned to a part pltrs (Rust) draws and
+matplotlib re-places at every draw (a legend's `legendPatch`, an
+annotation's `arrow_patch`) gives the part its look and becomes its
+object (`_handles.adopt`, `_annotation_arrow.adopt`); `None` where
+matplotlib's next draw calls the part's methods is kept as the problem
+that draw and measure fail on (`_unusable`). matplotlib
 types `pyplot` inline, which pltrs' `pyplot.py` (wrappers made from source
 text) does not: `pyplot.pyi` is matplotlib's module without docstrings and
 function bodies, with every public name it binds in `__all__`, as mypy

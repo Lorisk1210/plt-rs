@@ -3,8 +3,8 @@ matplotlib's public instance attributes that pltrs (Rust) holds, assigned
 as programs assign them (task TYPES2): each reads back what was assigned,
 and the later reads matplotlib makes of it see it (the next draw, the
 patch transform, the next setter or ``set_data``, a pickle), as recorded
-from matplotlib 3.11.2 (``target/types1/assign/record.py``); and the type
-information of pltrs' toolkits, untyped as matplotlib's are.
+from matplotlib 3.11.2 (``target/types1/assign/record.py``); and
+pltrs' toolkits, read by checkers from their code.
 """
 
 import pathlib
@@ -142,12 +142,9 @@ def test_assigned_callbacks_hear_the_limit_changes():
     plt.close(fig)
 
 
-def test_toolkits_are_untyped_for_checkers():
-    # A stub of a module-level __getattr__ alone beside each module: every
-    # name Any, as matplotlib's mpl_toolkits (no py.typed) are.
+def test_toolkits_are_read_from_their_code():
+    # No stubs: pyright reads pltrs' toolkits as it reads matplotlib's
+    # untyped ones, from their code (python/DESIGN.md, "Type information").
     toolkits = PACKAGE / "mpl_toolkits"
-    modules = sorted(toolkits.rglob("*.py"))
-    assert len(modules) > 30
-    for module in modules:
-        stub = module.with_suffix(".pyi").read_text(encoding="utf-8")
-        assert "def __getattr__(name: str) -> Any: ..." in stub, module
+    assert len(list(toolkits.rglob("*.py"))) > 30
+    assert not list(toolkits.rglob("*.pyi"))

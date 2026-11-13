@@ -766,7 +766,10 @@ class Legend(Artist):
         r"""Return the list of `~.text.Text`\s in the legend."""
         return silent_list('Text', self.texts)
 
-    @property
+    # matplotlib's legend lists its labels and handles when made; after, only
+    # `get_texts`, `get_lines` and `get_patches` read the lists, which a
+    # program may replace.
+    @_values.assignable
     def texts(self):
         """The `~.text.Text` labels of the legend."""
         return _handles.wrap_all(_legend.get_texts(self._native), Text, self.figure)
@@ -796,7 +799,7 @@ class Legend(Artist):
         if prop is not None:
             self.get_title().set_fontproperties(FontProperties._from_any(prop))
 
-    @property
+    @_values.assignable
     def legend_handles(self):
         """
         The artists drawn as the handles of the entries, in their order:
@@ -899,7 +902,19 @@ class Legend(Artist):
         return _handles.wrap(_legend.get_frame(self._native), FancyBboxPatch,
                              self.figure)
 
-    legendPatch = property(get_frame, doc="The `.FancyBboxPatch` framing the legend.")
+    def _set_frame(self, patch):
+        # matplotlib's draw sizes the patch assigned to the legend's box and
+        # draws it (and `get_frame`, `contains` read it): the frame pltrs
+        # (Rust) draws takes its look, and the patch becomes the frame.
+        frame = self.get_frame()
+        frame.set_boxstyle(patch.get_boxstyle())
+        frame.set_mutation_aspect(patch.get_mutation_aspect())
+        for prop in ("facecolor", "edgecolor", "linewidth", "linestyle", "hatch", "fill",
+                     "alpha", "visible", "capstyle", "joinstyle", "path_effects"):
+            getattr(frame, f"set_{prop}")(getattr(patch, f"get_{prop}")())
+        _handles.adopt(patch, frame._native, self.figure)
+
+    legendPatch = property(get_frame, _set_frame, doc="The `.FancyBboxPatch` framing the legend.")
 
     def get_frame_on(self):
         """Get whether the legend box patch is drawn."""

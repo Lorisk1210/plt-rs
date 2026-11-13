@@ -438,9 +438,17 @@ class RcParams(MutableMapping, dict):
         return self
 
     def __copy__(self):
-        return self.copy()
+        return self._copied()
 
     def __deepcopy__(self, memo):
+        return self._copied()
+
+    def _copied(self):
+        """A copy as `copy` makes of matplotlib's: its protocol reads the
+        items (``__reduce_ex__``), which resolves the "auto" backend of
+        ``rcParams`` as reading it does (`copy` copies it unresolved)."""
+        if self is globals().get("rcParams"):
+            self["backend"]  # noqa: B018
         return self.copy()
 
     def __reduce__(self):

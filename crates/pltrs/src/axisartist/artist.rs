@@ -561,7 +561,8 @@ impl AxisArtistState {
         if let Err(err) = labels.draw_box(ctx, &self.base, &self.rc, text) {
             ctx.report(id, err);
         }
-        if labels.pad.is_infinite() && crate::warnings::PRODUCTS_WARN {
+        if labels.pad.is_infinite() && crate::warnings::products_warn(crate::warnings::Product::Dot)
+        {
             // matplotlib moves the text by a translation composed with
             // its transform (`LabelBase.draw`): the product of their
             // matrices multiplies zeros by the infinite pad.
@@ -755,7 +756,9 @@ mod tests {
         };
         assert_eq!(drawn(&fig), [""; 0]);
         bottom.label().set_pad(f64::INFINITY);
-        let dots = usize::from(crate::warnings::PRODUCTS_WARN);
+        let dots = usize::from(crate::warnings::products_warn(
+            crate::warnings::Product::Dot,
+        ));
         assert_eq!(drawn(&fig), ["invalid value encountered in dot"][..dots]);
     }
 

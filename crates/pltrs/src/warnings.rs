@@ -34,6 +34,7 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// A function receiving the warnings of its thread.
 type Handler = Rc<dyn Fn(&str)>;
@@ -76,14 +77,43 @@ pub fn warn(message: &str) {
     }
 }
 
+/// A matrix product of numpy's, whose floating-point exceptions numpy may
+/// or may not warn of (see [`products_warn`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Product {
+    /// `np.dot`, which numpy 1 runs outside its ufuncs and checks for no
+    /// floating-point exception.
+    Dot,
+    /// `np.matmul` (`@`), a ufunc, whose exceptions every numpy reads.
+    Matmul,
+}
+
+/// Whether numpy warns of the floating-point exceptions of its `np.dot`
+/// and `np.matmul` products (see [`products_warn`]).
+static PRODUCTS_WARN: [AtomicBool; 2] = [
+    AtomicBool::new(!cfg!(all(target_os = "macos", target_arch = "aarch64"))),
+    AtomicBool::new(!cfg!(all(target_os = "macos", target_arch = "aarch64"))),
+];
+
 /// Whether numpy warns of the floating-point exceptions its matrix
-/// products raise (`np.dot`, `@`), which it hands to its BLAS: `OpenBLAS`
-/// (Linux, Windows) and Accelerate on Intel Macs multiply on the
-/// processor, whose exception flags numpy reads afterwards, but numpy's
-/// wheels for macOS on Apple silicon multiply with Accelerate on Apple's
+/// product `product` raises, which it hands to its BLAS: numpy 2's wheels
+/// for Linux and Windows (`OpenBLAS`) and Intel Macs (Accelerate) multiply
+/// on the processor, whose exception flags numpy reads afterwards, but
+/// those for macOS on Apple silicon multiply with Accelerate on Apple's
 /// matrix coprocessor, which raises none, so there a product warns of
-/// nothing (`np.dot([[0.0]], [np.inf])` included).
-pub const PRODUCTS_WARN: bool = !cfg!(all(target_os = "macos", target_arch = "aarch64"));
+/// nothing (`np.dot([[0.0]], [np.inf])` included); numpy 1 reads the flags
+/// after `np.matmul` alone. As numpy 2 does on this platform by default; a
+/// binding running with a numpy says what that one does
+/// ([`set_products_warn`]).
+pub fn products_warn(product: Product) -> bool {
+    PRODUCTS_WARN[product as usize].load(Ordering::Relaxed)
+}
+
+/// Sets whether numpy warns of the floating-point exceptions of its
+/// matrix product `product` (see [`products_warn`]).
+pub fn set_products_warn(product: Product, warn: bool) {
+    PRODUCTS_WARN[product as usize].store(warn, Ordering::Relaxed);
+}
 
 /// Whether numpy warns of an invalid value where it floor-divides an
 /// infinity (`np.float64(np.inf) // 1.0`): its scalar floor division takes

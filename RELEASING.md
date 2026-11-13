@@ -101,10 +101,10 @@ branches or pull requests, as every run costs Actions minutes.
 
 3. The workflow runs: it first checks that the tag is `v` followed by
    Cargo.toml's version, then builds every archive, installs and tests each
-   on its platform (pltrs' smoke tests and a matplotlib program, on
-   Python 3.12 and 3.14, on the oldest glibc and musl the tags allow,
-   and with the lowest versions of the requirements). Nothing is
-   published unless all of that passes.
+   on its platform (pltrs alone against matplotlib alone, pltrs' smoke
+   tests and a matplotlib program, on Python 3.12 and 3.14, on the oldest
+   glibc and musl the tags allow, and with the lowest versions of the
+   requirements). Nothing is published unless all of that passes.
 4. Approve the `pypi` deployment when the publish job asks. It checks
    the archives once more and uploads them to PyPI through trusted
    publishing.

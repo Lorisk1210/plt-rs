@@ -2293,7 +2293,15 @@ backend: the framework already running, else pltrs' own windows
   downloads to matplotlib's figure managers (`backend_webagg_core`), from
   an asyncio loop that also runs their timers, under the URL prefix
   `WebAggApplication.initialize` is given (`WebOptions::url_prefix`).
-  **nbAgg** is matplotlib's, over the kernel's comms.
+  So it imports and serves without Tornado installed, where matplotlib's
+  module raises `RuntimeError("The WebAgg backend requires Tornado.")`;
+  pltrs keeps it working: what programs and libraries do with the module
+  is select it (`MPLBACKEND=webagg`, IPython's and ipykernel's backend
+  tables) or subclass `backend_webagg_core` (ipympl), and none of the
+  corpora or the libraries of the ecosystem's venvs relies on the error.
+  `backend_webagg.tornado` gives Tornado's package where it is installed
+  (`_lazy_imports.getter`). **nbAgg** is matplotlib's, over the kernel's
+  comms.
 * **Jupyter's inline backend**: IPython's kernel selects
   `module://matplotlib_inline.backend_inline`, whose module imports
   `matplotlib`; unless that gives pltrs (pltrs loaded as `matplotlib`,
@@ -2930,6 +2938,21 @@ running into its cell limit on saturated coordinates, numpy failing to
 allocate what a saturated date asks for, and the sign of rounding noise
 in numpy's arm64 build of pocketfft.
 
+The same holds across the Pythons and the dependency versions pltrs
+supports (CPython 3.12 to 3.14, `pyproject.toml`'s lower bounds to
+today's releases), which the release workflow runs the smoke tests on.
+Where matplotlib's value or message is the interpreter's or a
+dependency's own (Python's wording of an error, numpy's reprs, scalar
+promotion and warnings, python-dateutil's reading of a zone file), pltrs
+gives what matplotlib gives with that version, and a smoke test pinning
+it asks the environment (`python/tests/build_facts.py`: the message of
+the same operation on a plain object, a fact probed of numpy or
+python-dateutil) rather than pinning one version's. pltrs (Rust) is told
+at import what it models of numpy (`pltrs::warnings::set_products_warn`:
+whether `np.dot` and `@` warn), and asks python-dateutil 2.7's zones,
+which round their offsets to whole minutes, through Python
+(`_date_locators._dateutil_keeps_offsets`).
+
 ## Adding a function: a worked example
 
 `Text.get_rotation()` and `Text.set_rotation()`:
@@ -3138,20 +3161,28 @@ additive:
   `_pylab_helpers`, the testing decorators) is kept close to the original
   and says so in its module docstring; it is under matplotlib's licence
   (`LICENSES/matplotlib.txt`, `THIRD_PARTY.md`).
-* pltrs imports numpy, `cycler` (in `rcsetup`, whose validators return
-  `Cycler` objects as matplotlib's do) and, where matplotlib does,
-  Pillow and `python-dateutil` (`dates` parses date strings and resolves
-  time zone names with it), nothing else. The pltrs venv also holds what
-  matplotlib's *test files* import at module level (`packaging`,
-  `pyparsing`, `contourpy`), so that those files can be collected;
-  pltrs itself does not import them, but for one optional import:
-  where contourpy is importable, a contour set's `_contour_generator` is
-  the contourpy generator matplotlib would make, with the same arguments
-  (`_native.contour.generator_arguments`), made when first asked for and
-  shared with the contour sets made from it (`contour(cs, ...)`); pltrs
-  (Rust) still computes and draws every contour. Without contourpy it is
-  pltrs' own `contour._ContourGenerator`, which holds the field pltrs
-  (Rust) contours again. A `TriContourSet`'s is the `_tri` module's
-  generator (pltrs' `_tri`, matplotlib's C++ extension over pltrs (Rust)'s
-  triangulation).
+* pltrs requires numpy, `cycler` (in `rcsetup`, whose validators return
+  `Cycler` objects as matplotlib's do), Pillow, `python-dateutil` (`dates`
+  parses date strings and resolves time zone names with it) and
+  `packaging` (`parse_version` and `_get_executable_info` read versions
+  with it, imported where first called), nothing else. matplotlib's other
+  requirements, which pltrs (Rust) replaces (contourpy, kiwisolver,
+  fontTools, pyparsing), change nothing pltrs does by being installed:
+  a quad contour set refuses an `nchunk` contourpy refuses with
+  contourpy's error itself (`_contour_chunks`, ported). The one object
+  only they can give is a contour set's `_contour_generator`: where
+  contourpy is importable it is the contourpy generator matplotlib would
+  make, with the same arguments (`_contour_chunks.generator_arguments`),
+  made when first asked for and shared with the contour sets made from
+  it (`contour(cs, ...)`); pltrs (Rust) still computes and draws every
+  contour. Without contourpy it is pltrs' own `contour._ContourGenerator`,
+  which holds the field pltrs (Rust) contours again: a program reading
+  contourpy's object depends on contourpy itself. A `TriContourSet`'s is
+  the `_tri` module's generator (pltrs' `_tri`, matplotlib's C++
+  extension over pltrs (Rust)'s triangulation). `python/tools/check_dist.py
+  --install` installs a wheel alone and fails on an import of a package
+  pltrs does not require, unless matplotlib imports it as optional too or
+  its `OPTIONAL` says why it may be missing. The pltrs venv also holds
+  what matplotlib's *test files* import at module level (`pyparsing`,
+  `contourpy`), so that those files can be collected.
 * Unimplemented keywords raise `NotImplementedError("pltrs: ...")`.

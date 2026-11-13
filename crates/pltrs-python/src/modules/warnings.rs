@@ -19,14 +19,25 @@
 
 use crate::binding::prelude::*;
 use crate::binding::{lookup, report, runtime_warning, setting_failure_aside};
+use pltrs::warnings::Product;
 
 /// Sends pltrs (Rust)'s warnings to `_api.warn_external` and its log
 /// messages to the package's `log_warning` from now on.
-pub(super) fn register(_module: &Module<'_>) -> PyResult<()> {
+pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     pltrs::warnings::set_handler(warn);
     pltrs::warnings::set_log_handler(log);
     pltrs::warnings::set_runtime_handler(warn_runtime);
     pltrs::warnings::set_earlier_scope(setting_failure_aside);
+    module.add("set_products_warn", set_products_warn)?;
+    Ok(())
+}
+
+/// Says whether the numpy the package runs with warns of the
+/// floating-point exceptions of its `np.dot` and its `np.matmul`, which
+/// the package asks it (`pltrs::warnings::set_products_warn`).
+fn set_products_warn(dot: bool, matmul: bool) -> PyResult<()> {
+    pltrs::warnings::set_products_warn(Product::Dot, dot);
+    pltrs::warnings::set_products_warn(Product::Matmul, matmul);
     Ok(())
 }
 

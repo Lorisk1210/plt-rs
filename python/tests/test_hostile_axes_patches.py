@@ -6,7 +6,7 @@ matplotlib 3.11: values matplotlib's setters keep unchecked and fail on
 when they are drawn, the arithmetic it raises and warns in, the order of
 its checks. Each expected value is recorded from matplotlib.
 """
-
+import math
 import warnings
 
 import numpy as np
@@ -16,6 +16,8 @@ import pltrs
 import pltrs.pyplot as plt
 from pltrs import collections, patches, ticker, transforms, units
 from pltrs.path import Path
+
+import build_facts
 
 
 @pytest.fixture(autouse=True)
@@ -60,7 +62,7 @@ def test_path_arcs_compute_with_numpy():
 
 
 def test_affine_arithmetic_is_matplotlibs():
-    with pytest.raises(ValueError, match="^expected a finite input, got inf$"):
+    with pytest.raises(ValueError, match=f"^{build_facts.raised(lambda: math.cos(math.inf))}$"):
         transforms.Affine2D().rotate_deg(float('inf'))
     with pytest.raises(TypeError, match="^must be real number, not str$"):
         transforms.Affine2D().rotate('30')
@@ -165,7 +167,7 @@ def test_ellipse_geometry_is_kept_and_fails_drawing():
         fig.canvas.draw()
     ellipse.set_center((0.4, 0.4))
     ellipse.set_angle(float('inf'))
-    with pytest.raises(ValueError, match="^expected a finite input, got inf$"):
+    with pytest.raises(ValueError, match=f"^{build_facts.raised(lambda: math.cos(math.inf))}$"):
         fig.canvas.draw()
     ellipse.set_angle('30')
     assert ellipse.get_angle() == '30'

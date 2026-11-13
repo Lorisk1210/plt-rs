@@ -313,7 +313,7 @@ def test_an_unknown_shading_warns_and_is_auto():
 def test_violin_computes_its_line_ends_first():
     fig, ax = plt.subplots()
     values = np.linspace(0, 1, 20)
-    with pytest.raises(np._core._exceptions._UFuncNoLoopError, match="'multiply'"):
+    with pytest.raises(build_facts.NUMPY_EXCEPTIONS._UFuncNoLoopError, match="'multiply'"):
         ax.violinplot([values, values + 1], widths='0.3')
     with pytest.raises(TypeError, match="^'NoneType' object is not subscriptable$"):
         ax.violin([None])
@@ -337,7 +337,7 @@ def test_xcorr_of_booleans_sums_them_as_numpy():
 
 def test_cohere_shifts_its_frequencies_in_place():
     fig, ax = plt.subplots()
-    with pytest.raises(np._core._exceptions._UFuncOutputCastingError):
+    with pytest.raises(build_facts.NUMPY_EXCEPTIONS._UFuncOutputCastingError):
         ax.cohere(np.sin(np.arange(256) * 0.3), np.cos(np.arange(256) * 0.2),
                   NFFT=64, Fc=None)
 
@@ -614,19 +614,28 @@ def test_log_formatters_called_as_log_formatter_label_as_it():
     assert formatter(0) == '$\\mathdefault{0}$'
 
 
-@pytest.mark.parametrize("kwargs, expected", [
-    ({}, '1.234500051e3'), (dict(useMathText=True), '1.234500051 \\times 10^{3}')])
-def test_scalar_format_data_computes_in_the_values_precision(kwargs, expected):
+@pytest.mark.parametrize("kwargs, single, double", [
+    ({}, '1.234500051e3', '1.2345e3'),
+    (dict(useMathText=True), '1.234500051 \\times 10^{3}', '1.2345 \\times 10^{3}')])
+def test_scalar_format_data_computes_in_the_values_precision(kwargs, single, double):
+    # A single's significand computed in single precision (numpy 2) or in
+    # double (numpy 1); a long double's in its own.
+    expected = single if build_facts.SCALARS_KEEP_PRECISION else double
     assert mticker.ScalarFormatter(**kwargs).format_data(np.float32(1234.5)) == expected
-    assert mticker.ScalarFormatter(**kwargs).format_data(np.longdouble(1234.5)) != expected
+    assert mticker.ScalarFormatter(**kwargs).format_data(np.longdouble(1234.5)) == double
 
 
 def test_dates_of_numpy_singles_count_microseconds_in_single_precision():
-    assert str(mdates.num2date(np.float32(19800.25))) == '2024-03-18 05:59:37.007104+00:00'
+    # A single counts its microseconds in single precision (numpy 2) or in
+    # double (numpy 1); an array of singles in double either way.
+    single = build_facts.SCALARS_KEEP_PRECISION
+    assert str(mdates.num2date(np.float32(19800.25))) == (
+        '2024-03-18 05:59:37.007104+00:00' if single else '2024-03-18 06:00:00+00:00')
     assert str(mdates.num2date(np.array([19800.25], dtype=np.float32))[0]) == (
         '2024-03-18 06:00:00+00:00')
     formatter = mdates.ConciseDateFormatter(mdates.AutoDateLocator())
-    assert formatter.format_data_short(np.float32(19800.25)) == '2024-03-18 05:59:37'
+    assert formatter.format_data_short(np.float32(19800.25)) == (
+        '2024-03-18 05:59:37' if single else '2024-03-18 06:00:00')
 
 
 @pytest.mark.parametrize("kwargs, error, made", [

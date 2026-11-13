@@ -9,6 +9,7 @@ is recorded from matplotlib.
 """
 
 import io
+import math
 
 import numpy as np
 import pytest
@@ -20,6 +21,8 @@ from pltrs.backends import backend_agg, backend_pdf, backend_ps, backend_svg
 from pltrs.backend_bases import GraphicsContextBase
 from pltrs.offsetbox import AnnotationBbox, TextArea
 from pltrs.path import Path
+
+import build_facts
 
 
 @pytest.fixture(autouse=True)
@@ -43,7 +46,7 @@ def test_flags_read_back_as_given():
     line.set_gid(3)
     line.set_url(3)
     assert line.get_visible() == '' and line.get_clip_on() == 1
-    assert line.get_snap() == 'False' and type(line.get_in_layout()) is np.bool
+    assert line.get_snap() == 'False' and type(line.get_in_layout()) is np.bool_
     assert line.get_gid() == 3 and line.get_url() == 3
     line.set_visible(True)
     assert line.get_visible() is True
@@ -282,9 +285,8 @@ def test_renderers_read_the_graphics_context_as_matplotlib():
     pdf, ps, svg = _renderers()
     square = Path.unit_rectangle()
     affine = transforms.Affine2D()
-    with pytest.raises(AttributeError, match="^'NoneType' object has no attribute "
-                                             "'_fillcolor' and no __dict__ for setting "
-                                             "new attributes$"):
+    message = build_facts.raised(lambda: setattr(None, "_fillcolor", None))
+    with pytest.raises(AttributeError, match=f"^{message}$"):
         pdf.draw_path(None, square, affine)
     for renderer in (ps, svg):
         with pytest.raises(AttributeError, match="^'NoneType' object has no "

@@ -23,14 +23,26 @@ the source tree (which must be there, as a checkout is):
   unchanged on pltrs and writes its figures, and ``matplotlib`` is typed
   as well (the alias carries what type checkers read of pltrs).
 
-``--lowest`` installs the lowest versions the requirements allow first
-(their ``>=`` bounds), so that the bounds are known to work. The venvs,
+Before all that, the pltrs archives are installed alone, with what their
+metadata requires and nothing else (no pytest), into a venv of their own,
+and matplotlib (the version pltrs implements) into another, where
+``bare_imports.py`` imports every module of each package and draws with
+each backend that needs no display: each module matplotlib imports must
+import from pltrs, one matplotlib fails to import (wanting a GUI toolkit,
+tornado, IPython, pytest, ...) may fail only with matplotlib's exception,
+and each backend must draw as matplotlib's does. A package pltrs imports
+without declaring it shows there.
+
+``--lowest`` installs the lowest versions the requirements allow
+(their ``>=`` bounds), and holds every install of the venvs to them, so
+that the bounds are known to work. The venvs,
 pip's cache and the test output go to ``--work`` (default
 ``target/check-dist``, ``check-dist`` in the working directory outside a
 source tree).
 """
 
 import argparse
+import json
 import os
 import pathlib
 import shutil
@@ -100,6 +112,97 @@ def check_typed(interpreter, package, work, environment):
          f"print({package!r}, 'is typed')"], work, environment)
 
 
+def held_to_bounds(dist, work):
+    """pip's options holding an install to the lowest versions the
+    requirements of *dist* allow (their ``>=`` bounds): a constraints
+    file in *work*, so that what else is installed (pytest) cannot raise
+    them."""
+    bounds = _core_metadata.lower_bounds(metadata_of(dist))
+    constraints = work / "lowest.txt"
+    constraints.write_text("".join(f"{name}=={version}\n" for name, version in bounds.items()),
+                           encoding="utf-8")
+    return ["--constraint", constraints]
+
+
+def bare_tables(python, requirements, package, work, environment):
+    """Installs *requirements* (pip's arguments) alone into a fresh venv
+    of *python* and returns the venv's interpreter and what
+    ``bare_imports.py`` finds of *package* there."""
+    venv = work / f"bare-{package}"
+    run([python, "-m", "venv", venv], work, environment)
+    interpreter = venv_python(venv)
+    run([interpreter, "-m", "pip", "install", "--quiet", *requirements], work, environment)
+    tables = venv / "tables.json"
+    run([interpreter, "-I", HERE / "bare_imports.py", package, tables], venv, environment)
+    return interpreter, json.loads(tables.read_text(encoding="utf-8"))
+
+
+#: The packages pltrs' sources import that neither its requirements nor
+#: matplotlib's optional imports give, and why each may be missing.
+OPTIONAL = {
+    "contourpy": "a requirement of matplotlib's that pltrs replaces: a contour set's "
+                 "_contour_generator is contourpy's object, where contourpy is installed",
+    "traitlets": "IPython's kernel brings it, where pltrs' inline backend runs",
+    "zmq": "IPython's kernel brings it, where pltrs' event loop runs in it",
+}
+
+
+#: pltrs' own modules for one system only (``sys.platform``), which import
+#: there alone.
+SYSTEM_MODULES = {"matplotlib.backends._tkagg_win32": "win32"}
+
+
+def bare_problems(ours, theirs):
+    """What pltrs' tables *ours* (see ``bare_imports.py``) show that
+    matplotlib's *theirs* do not: a module or backend failing where
+    matplotlib's works or fails with another exception, a module of
+    pltrs' own failing (but for want of an optional package, or on
+    another system than its own, `SYSTEM_MODULES`), or a package imported
+    that is neither required nor optional to matplotlib (nor in
+    `OPTIONAL`)."""
+    problems = []
+    optional = (theirs["imports"].keys() - set(theirs["required"])) | OPTIONAL.keys()
+    for kind in ("modules", "backends"):
+        for name, failure in sorted(ours[kind].items()):
+            if failure is None or SYSTEM_MODULES.get(name, sys.platform) != sys.platform:
+                continue
+            if name in theirs[kind]:
+                expected = theirs[kind][name]
+                if expected is not None and expected[0] == failure[0]:
+                    continue
+                under = "fine" if expected is None else expected[0]
+            elif failure[2:] and failure[2] in optional:
+                continue
+            else:
+                under = "not matplotlib's"
+            problems.append(f"{name}: {failure[0]}: {failure[1]} (under matplotlib: {under})")
+    for package, module in sorted(ours["imports"].items()):
+        if package not in ours["required"] and package not in optional:
+            problems.append(f"{module} imports {package}, which is no requirement of pltrs "
+                            "nor optional to matplotlib")
+    return problems
+
+
+def bare_check(pltrs, python, held, work, environment):
+    """Installs the archives *pltrs* alone, held by *held* (pip's
+    options), into a fresh venv of *python*, and matplotlib into another,
+    and fails unless pltrs imports and draws there as matplotlib does (see
+    the module's description)."""
+    environment = {**environment, "MPLBACKEND": "agg", "MPLCONFIGDIR": str(work / "mpl-config")}
+    interpreter, ours = bare_tables(python, [*held, *pltrs], "pltrs", work, environment)
+    version = subprocess.run([str(interpreter), "-I", "-c", "import pltrs; print(pltrs.__version__)"],
+                             cwd=work, env=environment, check=True, stdout=subprocess.PIPE,
+                             text=True).stdout.strip()
+    _, theirs = bare_tables(python, [*held, f"matplotlib=={version}"], "matplotlib", work,
+                            environment)
+    problems = bare_problems(ours, theirs)
+    if problems:
+        raise RuntimeError("pltrs alone does not import or draw as matplotlib alone:\n  "
+                           + "\n  ".join(problems))
+    print(f"pltrs alone: {len(ours['modules'])} modules and {len(ours['backends'])} backends "
+          f"as matplotlib {version} alone")
+
+
 def install_check(dists, python, lowest, work):
     """Installs *dists* into a fresh venv of *python* in *work* and runs
     the checks of the module's description."""
@@ -113,16 +216,14 @@ def install_check(dists, python, lowest, work):
     config.mkdir()
     environment.update(PIP_CACHE_DIR=str(work.parent / "pip-cache"), PLTRSCONFIGDIR=str(config),
                        PIP_DISABLE_PIP_VERSION_CHECK="1", PYTHONDONTWRITEBYTECODE="1")
+    pltrs = [dist for dist in dists if dist.name.startswith("pltrs-")]
+    aliases = [dist for dist in dists if dist.name.startswith("matplotlib-")]
+    held = held_to_bounds(pltrs[0], work) if lowest else []
+    bare_check(pltrs, python, held, work, environment)
     venv = work / "venv"
     run([python, "-m", "venv", venv], work, environment)
     interpreter = venv_python(venv)
-    pip = [interpreter, "-m", "pip", "install", "--quiet"]
-    pltrs = [dist for dist in dists if dist.name.startswith("pltrs-")]
-    aliases = [dist for dist in dists if dist.name.startswith("matplotlib-")]
-    if lowest:
-        bounds = _core_metadata.lower_bounds(metadata_of(pltrs[0]))
-        run([*pip, *(f"{name}=={version}" for name, version in bounds.items())], work,
-            environment)
+    pip = [interpreter, "-m", "pip", "install", "--quiet", *held]
     run([*pip, *pltrs, "pytest"], work, environment)
     run([interpreter, "-c", "import pltrs, sys; "
          "assert pltrs.__file__.startswith(sys.prefix), pltrs.__file__; "

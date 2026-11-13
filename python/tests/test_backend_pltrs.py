@@ -794,8 +794,10 @@ def _input_hook():
         def input_is_ready(self):
             return bool(reader.recv(1, socket.MSG_PEEK | socket.MSG_DONTWAIT))
 
-    threading.Timer(0.3, writer.send, (b"x",)).start()
+    # The clock read first: the timer counts from its start, which a busy
+    # machine may delay past the next line.
     start = time.monotonic()
+    threading.Timer(0.3, writer.send, (b"x",)).start()
     _pltrs_loop._input_hook(Context())
     took = time.monotonic() - start
     assert 0.3 <= took < 30, took
@@ -843,8 +845,9 @@ def _kernel_loop():
         time.sleep(0.2)
         messages.append(1)
         writer.send(b"x")
-    threading.Thread(target=kernel_side).start()
+    # The clock read first, as in the input hook's test.
     start = time.monotonic()
+    threading.Thread(target=kernel_side).start()
     _pltrs_loop._serve_kernel(stream, reader.fileno(), lambda: False)
     took = time.monotonic() - start
     assert 0.4 <= took < 30, took

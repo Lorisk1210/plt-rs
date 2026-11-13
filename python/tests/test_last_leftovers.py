@@ -6,6 +6,7 @@ from matplotlib 3.11.
 """
 
 import datetime
+import importlib.util
 import inspect
 import io
 import logging
@@ -258,7 +259,13 @@ def test_names_matplotlib_s_modules_import():
     # matplotlib's: "Thread-1 (<lambda>)", not started, not a daemon.
     assert isinstance(thread, threading.Thread) and thread.name.endswith(" (<lambda>)")
     assert not (thread.is_alive() or thread.daemon)
-    assert backend_webagg.tornado.__name__ == "tornado"
+    if importlib.util.find_spec("tornado") is not None:
+        assert backend_webagg.tornado.__name__ == "tornado"
+    else:
+        # pltrs serves WebAgg without Tornado, whose module matplotlib's
+        # imports (python/DESIGN.md, "WebAgg"): an attribute it lacks.
+        with pytest.raises(AttributeError, match=r"\(tornado is not installed\)$"):
+            backend_webagg.tornado
     fig = plt.figure()
     grid = fig.add_gridspec(2, 2)
     axes = [fig.add_subplot(grid[0, 0]), fig.add_subplot(grid[1, :]),

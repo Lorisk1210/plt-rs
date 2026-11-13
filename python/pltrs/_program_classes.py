@@ -58,6 +58,12 @@ def take_class_defaults(artist):
 
 
 @functools.cache
+def _outside_package(path):
+    """Whether the source file *path* lies outside this package."""
+    return not os.path.realpath(path).startswith(_PACKAGE_DIR + os.sep)
+
+
+@functools.cache
 def takes_from_program(cls, name):
     """Whether the class *cls* takes its attribute *name* from a class of
     the program's rather than one of this package (False when it has
@@ -65,8 +71,7 @@ def takes_from_program(cls, name):
     for klass in cls.__mro__:
         if name in vars(klass):
             path = getattr(sys.modules.get(klass.__module__), "__file__", None)
-            return path is None or not os.path.realpath(path).startswith(
-                _PACKAGE_DIR + os.sep)
+            return path is None or _outside_package(path)
     return False
 
 
@@ -75,5 +80,4 @@ def from_program(function):
     (``RendererBase.new_gc = types.MethodType(...)``), is defined outside
     this package (a callable of another kind always is)."""
     code = getattr(getattr(function, "__func__", function), "__code__", None)
-    return code is None or not os.path.realpath(code.co_filename).startswith(
-        _PACKAGE_DIR + os.sep)
+    return code is None or _outside_package(code.co_filename)

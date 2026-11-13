@@ -179,6 +179,23 @@ def zone(spec):
     raise ValueError(f"unknown zone kind {kind!r}")
 
 
+def as_zoneinfo(args, key=None):
+    """The arguments *args* of a probe with each dateutil zone, given
+    (``{"kind": "dateutil"}``) or by name (a ``tz`` string), zoneinfo's
+    zone of the same name: the probe's twin, which places and names its
+    dates as the probe does where python-dateutil's zones answer as
+    zoneinfo's (python-dateutil 4)."""
+    if isinstance(args, dict):
+        if args.get("kind") == "dateutil":
+            return {"kind": "zoneinfo", "name": args["name"]}
+        return {k: as_zoneinfo(v, k) for k, v in args.items()}
+    if isinstance(args, list):
+        return [as_zoneinfo(v) for v in args]
+    if key == "tz" and isinstance(args, str):
+        return {"kind": "zoneinfo", "name": args}
+    return args
+
+
 def tzinfo(spec):
     """The `datetime.tzinfo` of a zone spec, strings resolved as
     matplotlib resolves them."""

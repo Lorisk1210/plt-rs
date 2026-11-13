@@ -5,6 +5,7 @@ helpers, paths, images, patches and collections. Each expected value is
 recorded from matplotlib.
 """
 
+import re
 import warnings
 
 import numpy as np
@@ -16,6 +17,8 @@ from pltrs import patches, ticker
 from pltrs.category import StrCategoryConverter
 from pltrs.path import Path
 from pltrs.transforms import Bbox
+
+import build_facts
 
 
 @pytest.fixture(autouse=True)
@@ -155,7 +158,7 @@ def test_hexbin_bins_as_matplotlib_for_what_pltrs_does_not_take():
         ax.hexbin(X, Y, gridsize=4.5)
     with pytest.raises(ValueError, match="^arange: cannot compute length$"):
         ax.hexbin(X, Y, gridsize=4, bins=float("nan"))
-    with pytest.raises(ZeroDivisionError, match="^division by zero$"):
+    with pytest.raises(ZeroDivisionError, match=f"^{build_facts.raised(lambda: 1.0 / 0)}$"):
         ax.hexbin(X, Y, gridsize=0)
     with pytest.raises(IndexError, match="^list index out of range$"):
         ax.hexbin(X, Y, gridsize=4, C=[0.0, 1.0, 2.0])
@@ -169,8 +172,8 @@ def test_collections_keep_widths_that_are_no_numbers():
     fig, ax = plt.subplots()
     collection = ax.scatter([1, 2], [3, 4], linewidths="ab")
     assert collection.get_linewidth().tolist() == ["ab"]
-    with pytest.raises(ValueError, match=r"^could not convert string to float: "
-                                         r"np\.str_\('ab'\)$"):
+    message = build_facts.raised(lambda: float(np.str_("ab")))
+    with pytest.raises(ValueError, match=f"^{re.escape(message)}$"):
         fig.canvas.draw()
     collection.set_linewidth(2)
     fig.canvas.draw()

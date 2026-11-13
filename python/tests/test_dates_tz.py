@@ -6,6 +6,22 @@ matplotlib 3.11) with the area's own operations
 run on; then what the goldens cannot hold (Python's objects: pandas'
 dates, ``rrulewrapper``'s, the units of an axis), with the values
 recorded from matplotlib 3.11.2.
+
+The goldens were recorded with python-dateutil 2.9 and every zone name
+the replay asks zoneinfo for. A probe naming a zone zoneinfo lacks here
+(the legacy names systems without their legacy zone files and without
+the tzdata package lack) expects zoneinfo's error, as the probe makes
+the zone before calling matplotlib. Where python-dateutil's zones answer
+as zoneinfo's (python-dateutil 4, `build_facts.DATEUTIL_ZONES_AS_ZONEINFO`),
+matplotlib places and names the dates of a dateutil zone, given or by
+name, as those of zoneinfo's zone of the same name: such a probe
+expects its twin's golden (the area's ``as_zoneinfo``) where the goldens
+hold one. Where python-dateutil's zones round their files' offsets to
+whole minutes (python-dateutil 2.7, `build_facts.DATEUTIL_KEEPS_OFFSETS`),
+a probe asking one for a time its golden gives an offset of seconds
+(local mean time) has nothing to expect: matplotlib computes with the
+rounded offset there, which no golden holds (pltrs asks such a zone
+through Python, as matplotlib does).
 """
 
 import datetime
@@ -13,6 +29,7 @@ import importlib.util
 import json
 import math
 import pathlib
+import re
 import warnings
 import zoneinfo
 
@@ -24,17 +41,19 @@ import pltrs
 import pltrs.dates as mdates
 from pltrs.figure import Figure
 
+import build_facts
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 GOLDEN = ROOT / "spec" / "goldens" / "probes" / "dates_tz.json"
 OPERATIONS = ROOT / "spec" / "reference" / "probes" / "_dates_tz.py"
 
 
-def _operations():
-    """The area's operations on pltrs."""
+def _area():
+    """The area's module of operations."""
     spec = importlib.util.spec_from_file_location("_dates_tz", OPERATIONS)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.make_ops(pltrs)
+    return module
 
 
 def _probes():
@@ -46,7 +65,56 @@ def _probes():
 
 
 PROBES = _probes()
-OPS = _operations()
+AREA = _area()
+OPS = AREA.make_ops(pltrs)
+
+
+def _key(op, args):
+    """A probe's operation and arguments, as a key."""
+    return op, json.dumps(args, sort_keys=True)
+
+
+#: Each golden probe's outcome, by `_key`.
+GOLDEN = {_key(op, entry["args"]): {k: entry[k] for k in ("value", "error") if k in entry}
+          for op, entries in PROBES.items() for entry in entries}
+
+
+def _zoneinfo_names(args):
+    """The names of the zoneinfo zones of *args*."""
+    if isinstance(args, dict):
+        if args.get("kind") == "zoneinfo":
+            return {args["name"]}
+        return set().union(*map(_zoneinfo_names, args.values()))
+    if isinstance(args, list):
+        return set().union(*map(_zoneinfo_names, args))
+    return set()
+
+
+def _has_zone(name):
+    """Whether zoneinfo has the zone *name* here."""
+    try:
+        zoneinfo.ZoneInfo(name)
+    except zoneinfo.ZoneInfoNotFoundError:
+        return False
+    return True
+
+
+#: An offset from UTC of seconds, as the goldens write date-times.
+SECONDS_OFFSET = re.compile(r'[+-]\d\d:\d\d:\d\d"')
+
+
+def _expected(op, args):
+    """What the golden probe of *op* with *args* expects here (see the
+    module's description), None for nothing."""
+    uses_dateutil = AREA.as_zoneinfo(args) != args
+    if (uses_dateutil and not build_facts.DATEUTIL_KEEPS_OFFSETS
+            and SECONDS_OFFSET.search(json.dumps(GOLDEN[_key(op, args)]))):
+        return None
+    if not all(map(_has_zone, _zoneinfo_names(args))):
+        return {"error": "ZoneInfoNotFoundError"}
+    if uses_dateutil and build_facts.DATEUTIL_ZONES_AS_ZONEINFO:
+        return GOLDEN.get(_key(op, AREA.as_zoneinfo(args)), GOLDEN[_key(op, args)])
+    return GOLDEN[_key(op, args)]
 
 UTC = datetime.timezone.utc
 NEW_YORK = zoneinfo.ZoneInfo("America/New_York")
@@ -105,8 +173,10 @@ def _outcome(op, args):
 def test_goldens(op):
     mismatches = []
     for entry in PROBES[op]:
+        expected = _expected(op, entry["args"])
+        if expected is None:
+            continue
         got = _outcome(op, entry["args"])
-        expected = {k: entry[k] for k in ("value", "error") if k in entry}
         if got.keys() != expected.keys() or not _same(
                 next(iter(expected.values())), next(iter(got.values()))):
             mismatches.append(f"{json.dumps(entry['args'])}\n"
@@ -124,10 +194,18 @@ def test_tick_values_run_the_rule_in_the_zone_of_the_dates():
     start, end = datetime.datetime(2020, 3, 29), datetime.datetime(2020, 3, 29, 3)
     assert list(hours.tick_values(start, end)) == [
         18350.0, 18350.041666666668, 18350.083333333332, 18350.125]
-    in_berlin = [d.replace(tzinfo=UTC).astimezone(dateutil.tz.gettz("Europe/Berlin"))
-                 for d in (start, end)]
-    assert list(hours.tick_values(*in_berlin)) == [
-        18350.0, 18350.0, 18350.041666666668, 18350.083333333332, 18350.125]
+    # Where the clocks skip 02:00, matplotlib's rule, run in the zone of the
+    # dates, repeats the tick after the change in zoneinfo's zone (and
+    # python-dateutil 4's) and the one before it in python-dateutil 2's.
+    zoneinfo_ticks = [18350.0, 18350.041666666668, 18350.041666666668, 18350.083333333332,
+                      18350.125]
+    for zone, expected in [
+            (BERLIN, zoneinfo_ticks),
+            (dateutil.tz.gettz("Europe/Berlin"),
+             zoneinfo_ticks if build_facts.DATEUTIL_ZONES_AS_ZONEINFO else
+             [18350.0, 18350.0, 18350.041666666668, 18350.083333333332, 18350.125])]:
+        in_berlin = [d.replace(tzinfo=UTC).astimezone(zone) for d in (start, end)]
+        assert list(hours.tick_values(*in_berlin)) == expected
     six = mdates.HourLocator(byhour=[0, 6, 12, 18], tz="Europe/Berlin")
     assert list(six.tick_values(datetime.datetime(2020, 1, 1),
                                 datetime.datetime(2020, 1, 2))) == [

@@ -25,7 +25,7 @@ use crate::numeric::numpy_arith::Exceptions;
 /// Issues numpy's warnings for projecting `points` (in transformed
 /// coordinates) through `matrix` all at once: `np.dot(M, vec)` of their
 /// homogeneous coordinates (where numpy's products warn at all:
-/// [`PRODUCTS_WARN`](crate::warnings::PRODUCTS_WARN)), then the division
+/// [`products_warn`](crate::warnings::products_warn)), then the division
 /// of each projected point by its last coordinate
 /// (`proj3d._proj_transform_vec` and its kin).
 pub(crate) fn warn_projecting(matrix: &Matrix4, points: &[Vec3]) {
@@ -44,7 +44,7 @@ pub(crate) fn warn_projecting(matrix: &Matrix4, points: &[Vec3]) {
             division.divide(coordinate, projected[3]);
         }
     }
-    if crate::warnings::PRODUCTS_WARN {
+    if crate::warnings::products_warn(crate::warnings::Product::Dot) {
         dot.warn("dot");
     }
     division.warn("divide");
@@ -138,7 +138,10 @@ mod tests {
         warnings
             .iter()
             .copied()
-            .filter(|warning| crate::warnings::PRODUCTS_WARN || !warning.ends_with(" in dot"))
+            .filter(|warning| {
+                crate::warnings::products_warn(crate::warnings::Product::Dot)
+                    || !warning.ends_with(" in dot")
+            })
             .collect()
     }
 

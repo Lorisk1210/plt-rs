@@ -21,7 +21,9 @@ impl IntoPy for HeadlessHandle {
 
 /// A host without a display and the handle driving its windows.
 fn connect_headless() -> PyResult<(WindowHost, HeadlessHandle)> {
-    Ok(WindowHost::headless())
+    let (mut host, handle) = WindowHost::headless();
+    super::waking::install(&mut host);
+    Ok((host, handle))
 }
 
 /// The raw number of the display's window showing hosted window

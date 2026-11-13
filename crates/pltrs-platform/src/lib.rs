@@ -17,7 +17,12 @@
 //! * Handlers receive a [`Context`] with every [`Event`]; use it to create
 //!   and close windows ([`WindowOptions`]), present [`Frame`]s, set titles
 //!   and cursors, and start timers.
-//! * [`EventLoopProxy`] wakes the loop from other threads.
+//! * The loop blocks until input comes, a timer is due or something wakes
+//!   it: an [`EventLoopProxy`] from another thread, or a write to a
+//!   [`WakePipe`] (Python's `signal.set_wakeup_fd`). An embedder may run
+//!   those blocking waits through a [`WaitHook`]
+//!   ([`EventLoop::set_wait_hook`]), to let its other threads work
+//!   meanwhile.
 //! * [`EventLoop::headless`] creates an in-memory loop for tests, with a
 //!   [`HeadlessHandle`] to inject input and inspect presented frames.
 //!
@@ -95,6 +100,7 @@
 #![deny(unsafe_code)]
 
 mod backend;
+mod blocking;
 #[cfg(unix)]
 mod canvas;
 mod click;
@@ -127,6 +133,7 @@ mod registry;
 mod surface;
 #[cfg(any(target_os = "macos", windows, test))]
 mod wake;
+mod wake_pipe;
 #[cfg(target_os = "linux")]
 mod wayland;
 mod window;
@@ -146,6 +153,7 @@ mod x11;
 mod fuzz;
 
 pub use backend::BackendKind;
+pub use blocking::WaitHook;
 pub use decoration::{ButtonLayout, DecorationPainter, TitleBar, TitleBarButton};
 pub use error::{Error, WaylandError, X11Error};
 pub use event::{ButtonState, Event, KeyEvent, MouseButton, ScrollDelta, WindowEvent};
@@ -155,6 +163,7 @@ pub use geometry::{LogicalSize, PhysicalPosition, PhysicalRect, PhysicalSize, Si
 pub use headless::{HeadlessHandle, PresentedFrame, WindowSnapshot};
 pub use icon::{Icon, IconImage, IconLayout};
 pub use keyboard::{Key, Modifiers};
+pub use wake_pipe::WakePipe;
 pub use window::{CursorIcon, WindowId, WindowOptions};
 #[cfg(windows)]
 pub use windows::registry_string_values;

@@ -28,7 +28,9 @@
 //!
 //! What every thread works with is only touched with the GIL held, which
 //! orders all those touches: the GIL is the lock of pltrs (Rust)'s state.
-//! The binding never releases it while pltrs (Rust) works, so a native
+//! The binding never releases it while pltrs (Rust) works (only waits
+//! that touch nothing release it: [`home`](super::home)'s, and the
+//! windows' event loop's, [`blocking`](super::blocking)), so a native
 //! call that does not call back into Python runs as if alone. One that
 //! does (a draw calling the program's formatter, or any Python code a
 //! garbage collection runs) may see other threads run meanwhile, as

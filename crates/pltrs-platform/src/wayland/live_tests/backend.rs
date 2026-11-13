@@ -7,6 +7,7 @@ use super::super::WaylandBackend;
 use super::super::protocol::Interface;
 use super::{live, pattern};
 use crate::backend::Backend;
+use crate::blocking::Blocking;
 use crate::decoration::{DecorationPainter, TitleBar};
 use crate::event::{Event, WindowEvent};
 use crate::geometry::{PhysicalRect, PhysicalSize};
@@ -29,6 +30,7 @@ fn poll_until(
             .poll(
                 Some(Instant::now() + Duration::from_millis(20)),
                 &mut events,
+                Blocking::DIRECT,
             )
             .unwrap();
     }
@@ -72,7 +74,9 @@ fn frames_wait_for_the_frame_callback_and_reuse_buffers() {
         "buffers are reused"
     );
     backend.destroy_window(window).unwrap();
-    backend.poll(Some(Instant::now()), &mut Vec::new()).unwrap();
+    backend
+        .poll(Some(Instant::now()), &mut Vec::new(), Blocking::DIRECT)
+        .unwrap();
 }
 
 /// A painter that fills the title bar with one colour.

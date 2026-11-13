@@ -5,6 +5,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::blocking::Blocking;
 use crate::decoration::DecorationPainter;
 use crate::error::Error;
 use crate::event::Event;
@@ -220,8 +221,14 @@ pub(crate) trait Backend {
 
     /// Waits until input is available or `deadline` passes (`None`: no
     /// deadline; a past deadline: do not wait), then appends every
-    /// available event to `events`.
-    fn poll(&mut self, deadline: Option<Instant>, events: &mut Vec<Event>) -> Result<(), Error>;
+    /// available event to `events`. The wait itself, and nothing else,
+    /// runs through `blocking` (see [`crate::blocking`]).
+    fn poll(
+        &mut self,
+        deadline: Option<Instant>,
+        events: &mut Vec<Event>,
+        blocking: Blocking<'_>,
+    ) -> Result<(), Error>;
 
     /// A thread-safe handle that interrupts [`Backend::poll`].
     fn waker(&self) -> Arc<dyn Waker>;

@@ -1,12 +1,15 @@
 //! What the live tests check against a real windowing system, whichever
 //! it is: each function takes an event loop of the backend under test.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use pltrs_platform::{
-    Event, EventLoop, Frame, OwnedFrame, PhysicalRect, PhysicalSize, WindowEvent, WindowId,
-    WindowOptions,
+    Event, EventLoop, Frame, OwnedFrame, PhysicalRect, PhysicalSize, WakePipe, WindowEvent,
+    WindowId, WindowOptions,
 };
 
 /// Pumps until `done` accepts an event; returns the events of `window`.
@@ -153,4 +156,71 @@ pub(crate) fn timers_and_wake_ups_drive_a_blocking_run(event_loop: &mut EventLoo
     assert_eq!(log, ["timer", "wake-up", "destroyed"]);
     assert!(started.elapsed() >= Duration::from_millis(60));
     assert_eq!(event_loop.context().windows(), []);
+}
+
+/// A loop with a window, blocked without a deadline (but a guard of ten
+/// seconds), its waits run through a hook: a proxy, then a write to a
+/// [`WakePipe`], wakes it from another thread, through the hook, soon
+/// after it blocked.
+pub(crate) fn blocked_waits_wake_through_the_hook(event_loop: &mut EventLoop) {
+    let window = open(event_loop, PhysicalSize::new(64, 64));
+    let proxy = event_loop.proxy();
+    assert_woken_while_blocked(event_loop, move || {
+        proxy.wake_up().expect("the loop is there");
+    });
+    let proxy = event_loop.proxy();
+    let pipe = Arc::new(
+        WakePipe::new(move || {
+            let _ = proxy.wake_up();
+        })
+        .expect("a wake pipe is made"),
+    );
+    let writer = Arc::clone(&pipe);
+    assert_woken_while_blocked(event_loop, move || {
+        writer.write(&[2]).expect("the pipe takes a byte");
+    });
+    assert_eq!(pipe.take_received(), [2]);
+    event_loop
+        .context()
+        .close_window(window)
+        .expect("the window closes");
+}
+
+/// Pumps `event_loop` with no deadline but a guard, its waits through a
+/// hook telling when it blocks, and runs `wake` on another thread once it
+/// does: the pump returns with [`Event::WakeUp`] soon after.
+fn assert_woken_while_blocked(event_loop: &mut EventLoop, wake: impl FnOnce() + Send + 'static) {
+    let guard = Duration::from_secs(10);
+    let (blocked, blocks) = mpsc::channel();
+    let waits = Arc::new(AtomicUsize::new(0));
+    let counted = Arc::clone(&waits);
+    event_loop.set_wait_hook(Some(Box::new(move |wait| {
+        counted.fetch_add(1, Ordering::SeqCst);
+        let _ = blocked.send(());
+        wait();
+    })));
+    let waker = thread::spawn(move || {
+        blocks.recv_timeout(guard).expect("the loop blocks");
+        thread::sleep(Duration::from_millis(50));
+        wake();
+    });
+    let start = Instant::now();
+    let mut woken = false;
+    while !woken && start.elapsed() < guard {
+        event_loop
+            .pump_events(Some(guard), |_, event| woken |= event == Event::WakeUp)
+            .expect("pumping events succeeds");
+    }
+    waker.join().expect("the waking thread ends");
+    event_loop.set_wait_hook(None);
+    assert!(woken, "not woken within {guard:?}");
+    assert!(
+        start.elapsed() < guard / 2,
+        "woken after {:?}",
+        start.elapsed()
+    );
+    assert!(
+        waits.load(Ordering::SeqCst) >= 1,
+        "the waits ran through the hook"
+    );
 }

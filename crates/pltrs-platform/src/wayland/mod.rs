@@ -54,6 +54,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::backend::{Backend, BackendKind, Wait, Waker};
+use crate::blocking::Blocking;
 use crate::decoration::DecorationPainter;
 use crate::error::Error;
 use crate::event::{Event, WindowEvent};
@@ -379,7 +380,12 @@ impl Backend for WaylandBackend {
         self.window(window)?.1.read_pixels()
     }
 
-    fn poll(&mut self, deadline: Option<Instant>, events: &mut Vec<Event>) -> Result<(), Error> {
+    fn poll(
+        &mut self,
+        deadline: Option<Instant>,
+        events: &mut Vec<Event>,
+        blocking: Blocking<'_>,
+    ) -> Result<(), Error> {
         events.append(&mut self.pending);
         let deadline = match (deadline, self.next_repeat()) {
             (Some(a), Some(b)) => Some(a.min(b)),
@@ -390,7 +396,7 @@ impl Backend for WaylandBackend {
         } else {
             Wait::Poll
         };
-        let received = self.conn.read_events(wait)?;
+        let received = self.conn.read_events(wait, blocking)?;
         self.dispatch(received, events)?;
         self.fire_repeats(Instant::now(), events);
         self.finished_pastes(events);

@@ -9,6 +9,7 @@ use super::super::request;
 use super::super::server_event::{SelectionRequest, ServerEvent};
 use super::{Driver, is, live, open_window, pump_until, x11_loop, xid};
 use crate::backend::Wait;
+use crate::blocking::Blocking;
 use crate::event::WindowEvent;
 use crate::event_loop::EventLoop;
 use crate::window::WindowOptions;
@@ -38,7 +39,10 @@ fn paste(
             .unwrap();
         let events = driver
             .conn
-            .wait_for_events(Wait::Until(Instant::now() + Duration::from_millis(20)))
+            .wait_for_events(
+                Wait::Until(Instant::now() + Duration::from_millis(20)),
+                Blocking::DIRECT,
+            )
             .unwrap();
         // `SelectionNotify` (31), sent with `SendEvent`.
         if let Some(notify) = events.iter().find(|raw| raw[0] & 0x7f == 31) {
@@ -179,7 +183,10 @@ fn windows_paste_their_own_text_and_other_clients_text() {
         assert!(Instant::now() < deadline, "no paste");
         let events = driver
             .conn
-            .wait_for_events(Wait::Until(Instant::now() + Duration::from_millis(20)))
+            .wait_for_events(
+                Wait::Until(Instant::now() + Duration::from_millis(20)),
+                Blocking::DIRECT,
+            )
             .unwrap();
         for raw in &events {
             if let ServerEvent::SelectionRequest(asked) = ServerEvent::parse(raw) {

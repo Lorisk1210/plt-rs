@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 use super::super::fake::{Fake, Options};
 use super::{expect, open, wait_requests};
 use crate::backend::Backend;
+use crate::blocking::Blocking;
 use crate::event::WindowEvent;
 use crate::wayland::wire::Request;
 
@@ -43,7 +44,9 @@ fn copied_text_is_sent_to_whoever_asks() {
             .string("UTF8_STRING")
             .fd(OwnedFd::from(writer)),
     );
-    backend.poll(Some(soon()), &mut Vec::new()).unwrap();
+    backend
+        .poll(Some(soon()), &mut Vec::new(), Blocking::DIRECT)
+        .unwrap();
     let mut text = String::new();
     reader.read_to_string(&mut text).unwrap();
     assert_eq!(text, "héllo");
@@ -56,7 +59,9 @@ fn copied_text_is_sent_to_whoever_asks() {
     assert_eq!(destroyed, source, "the text's source is replaced");
     let image = fake.state().requests("wl_data_device", 1)[1].word(0);
     fake.send(Request::new(image, 2));
-    backend.poll(Some(soon()), &mut Vec::new()).unwrap();
+    backend
+        .poll(Some(soon()), &mut Vec::new(), Blocking::DIRECT)
+        .unwrap();
     wait_requests(&mut backend, &fake, "wl_data_source", 1, 2);
 }
 
@@ -68,12 +73,16 @@ fn pasting_reads_another_clients_text() {
     expect(&mut backend, window, &WindowEvent::ClipboardText(None));
     fake.offer_clipboard(&["image/png", "text/plain", "UTF8_STRING"]);
     // The offer is on its way already; one poll reads it.
-    backend.poll(Some(soon()), &mut Vec::new()).unwrap();
+    backend
+        .poll(Some(soon()), &mut Vec::new(), Blocking::DIRECT)
+        .unwrap();
     backend.request_clipboard_text(window).unwrap();
     let text = WindowEvent::ClipboardText(Some(String::from("pasted as UTF8_STRING")));
     expect(&mut backend, window, &text);
     let offer = fake.offer_clipboard(&["image/png"]);
-    backend.poll(Some(soon()), &mut Vec::new()).unwrap();
+    backend
+        .poll(Some(soon()), &mut Vec::new(), Blocking::DIRECT)
+        .unwrap();
     wait_requests(&mut backend, &fake, "wl_data_offer", 2, 1);
     assert_ne!(
         fake.state().requests("wl_data_offer", 2)[0].object,

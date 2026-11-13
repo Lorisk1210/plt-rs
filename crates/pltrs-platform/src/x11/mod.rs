@@ -47,6 +47,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::backend::{Backend, BackendKind, Wait, Waker};
+use crate::blocking::Blocking;
 use crate::error::Error;
 use crate::event::Event;
 use crate::frame::{Frame, OwnedFrame};
@@ -412,8 +413,13 @@ impl Backend for X11Backend {
         self.visual.format.decode(reply::image_data(&reply)?, size)
     }
 
-    fn poll(&mut self, deadline: Option<Instant>, events: &mut Vec<Event>) -> Result<(), Error> {
-        let raw = self.conn.wait_for_events(Wait::until(deadline))?;
+    fn poll(
+        &mut self,
+        deadline: Option<Instant>,
+        events: &mut Vec<Event>,
+        blocking: Blocking<'_>,
+    ) -> Result<(), Error> {
+        let raw = self.conn.wait_for_events(Wait::until(deadline), blocking)?;
         self.dispatch(&raw, events)?;
         match self.conn.take_async_error() {
             Some(error) => Err(Error::X11(error)),

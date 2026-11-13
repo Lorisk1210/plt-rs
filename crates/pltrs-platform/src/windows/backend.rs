@@ -8,6 +8,7 @@ use super::icon::WindowIcon;
 use super::procedure::{WindowState, with_windows};
 use super::sys::{self, Clipboard, Hwnd, WindowClass};
 use crate::backend::{Backend, BackendKind, Wait, Waker};
+use crate::blocking::Blocking;
 use crate::error::Error;
 use crate::event::{Event, WindowEvent};
 use crate::frame::{Frame, OwnedFrame};
@@ -199,7 +200,12 @@ impl Backend for WindowsBackend {
         self.with_state(window, |state| state.surface.to_rgba())
     }
 
-    fn poll(&mut self, deadline: Option<Instant>, events: &mut Vec<Event>) -> Result<(), Error> {
+    fn poll(
+        &mut self,
+        deadline: Option<Instant>,
+        events: &mut Vec<Event>,
+        blocking: Blocking<'_>,
+    ) -> Result<(), Error> {
         let wait = Wait::until(deadline);
         loop {
             sys::dispatch_messages();
@@ -213,7 +219,7 @@ impl Backend for WindowsBackend {
             let Some(timeout) = timeout_ms(wait, Instant::now()) else {
                 return Ok(());
             };
-            sys::wait_for_messages(timeout)?;
+            blocking.run(|| sys::wait_for_messages(timeout))?;
         }
     }
 

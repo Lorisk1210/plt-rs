@@ -55,25 +55,33 @@ def _toolkits_env():
                 if "=" in line)
 
 
+#: The variables of the libraries a program keeps: where their caches go.
+KEPT_VARIABLES = ("MPLCONFIGDIR", "PLTRSCONFIGDIR")
+
+
 def program_env(library, backend, display, wayland=None):
     """The environment of the program of *library* with *backend* on X
     display *display*, or on the Wayland compositor *wayland* (a socket
-    name)."""
+    name), or with neither on the session's own display (macOS, Windows,
+    a desktop)."""
     env = {key: value for key, value in os.environ.items()
-           if not key.startswith(("MPL", "PLTRS", "QT_", "WAYLAND"))}
+           if key in KEPT_VARIABLES
+           or not key.startswith(("MPL", "PLTRS", "QT_", "WAYLAND"))}
     toolkits = _toolkits_env()
     paths = [str(REPO / "python")] if library == "pltrs" else []
     paths += [toolkits.pop("PYTHONPATH")] if "PYTHONPATH" in toolkits else []
     env.update(toolkits)
     env.update(
-        DISPLAY=display, LANG="C.UTF-8", LC_ALL="C.UTF-8",
+        LANG="C.UTF-8", LC_ALL="C.UTF-8",
         PYTHONPATH=os.pathsep.join(paths), GUI_EVENTS_LIBRARY=library,
         GUI_EVENTS_BACKEND=backend, PLTRS_LOOK="matplotlib",
-        QT_QPA_PLATFORM="xcb", PYTHONDONTWRITEBYTECODE="1")
+        PYTHONDONTWRITEBYTECODE="1")
     if wayland is not None:
-        del env["DISPLAY"]
+        env.pop("DISPLAY", None)
         env.update(WAYLAND_DISPLAY=wayland, QT_QPA_PLATFORM="wayland",
                    XDG_RUNTIME_DIR=xdisplay.runtime_dir())
+    elif display is not None:
+        env.update(DISPLAY=display, QT_QPA_PLATFORM="xcb")
     return env
 
 

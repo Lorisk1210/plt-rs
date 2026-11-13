@@ -44,6 +44,12 @@ fn timers_and_wake_ups_drive_a_blocking_run() {
 }
 
 #[test]
+fn blocked_waits_wake_through_the_hook() {
+    let (_serial, mut event_loop) = windows();
+    common::blocked_waits_wake_through_the_hook(&mut event_loop);
+}
+
+#[test]
 fn text_goes_to_the_clipboard_and_comes_back() {
     let (_serial, mut event_loop) = windows();
     let window = common::open(&mut event_loop, PhysicalSize::new(64, 64));

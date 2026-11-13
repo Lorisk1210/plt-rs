@@ -22,6 +22,7 @@ use super::setup::{self, Setup};
 use super::transport::Stream;
 use super::wire::{u16_at, u32_at};
 use crate::backend::Wait;
+use crate::blocking::Blocking;
 use crate::error::{Error, X11Error};
 
 /// Bytes requested from the socket per read.
@@ -257,7 +258,7 @@ impl Connection {
             if let Some(result) = self.replies.remove(&cookie.0) {
                 return result.map_err(Error::X11);
             }
-            self.receive(Wait::Forever)?;
+            self.receive(Wait::Forever, Blocking::DIRECT)?;
         }
     }
 
@@ -273,11 +274,16 @@ impl Connection {
     }
 
     /// Flushes, then returns the queued events, first waiting as `wait`
-    /// allows if there are none (and no pending error).
-    pub(crate) fn wait_for_events(&mut self, wait: Wait) -> Result<VecDeque<RawEvent>, Error> {
+    /// allows if there are none (and no pending error), through
+    /// `blocking`.
+    pub(crate) fn wait_for_events(
+        &mut self,
+        wait: Wait,
+        blocking: Blocking<'_>,
+    ) -> Result<VecDeque<RawEvent>, Error> {
         self.flush()?;
         while self.events.is_empty() && self.async_errors.is_empty() {
-            if !self.receive(wait)? || wait == Wait::Poll {
+            if !self.receive(wait, blocking)? || wait == Wait::Poll {
                 break;
             }
         }
@@ -289,9 +295,10 @@ impl Connection {
         self.async_errors.pop_front()
     }
 
-    /// Reads once from the socket and parses the complete messages.
-    /// Returns `false` if nothing arrived in time.
-    fn receive(&mut self, wait: Wait) -> Result<bool, Error> {
+    /// Reads once from the socket (a read that may wait, through
+    /// `blocking`) and parses the complete messages. Returns `false` if
+    /// nothing arrived in time.
+    fn receive(&mut self, wait: Wait, blocking: Blocking<'_>) -> Result<bool, Error> {
         let start = self.input.len();
         self.input.resize(start + READ_CHUNK, 0);
         let result = if wait == Wait::Poll {
@@ -300,7 +307,8 @@ impl Connection {
             let _output = self.output.lock();
             self.stream.read(&mut self.input[start..], wait)
         } else {
-            self.stream.read(&mut self.input[start..], wait)
+            let (stream, input) = (&self.stream, &mut self.input[start..]);
+            blocking.run(|| stream.read(input, wait))
         };
         let received = result.as_ref().map_or(0, |n| n.unwrap_or(0));
         self.input.truncate(start + received);
@@ -595,7 +603,9 @@ mod tests {
         assert_eq!(reply::intern_atom(&connection.reply(first).unwrap()), Ok(7));
         let error = connection.take_async_error().unwrap();
         assert_eq!((error.code, error.bad_value, error.major_opcode), (3, 1, 8));
-        let events = connection.wait_for_events(Wait::Poll).unwrap();
+        let events = connection
+            .wait_for_events(Wait::Poll, Blocking::DIRECT)
+            .unwrap();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0][4], 0x42);
     }
@@ -657,7 +667,7 @@ mod tests {
         let (mut connection, server) = connect();
         drop(server);
         assert_eq!(
-            connection.wait_for_events(Wait::Forever),
+            connection.wait_for_events(Wait::Forever, Blocking::DIRECT),
             Err(Error::ConnectionClosed)
         );
     }

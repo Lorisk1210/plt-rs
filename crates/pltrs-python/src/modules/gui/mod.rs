@@ -14,6 +14,7 @@ mod desktop;
 mod events;
 mod headless;
 mod subplots;
+mod waking;
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -49,7 +50,9 @@ impl IntoPy for WindowHost {
 
 /// A host on the system's window system.
 fn connect() -> PyResult<WindowHost> {
-    Ok(WindowHost::connect()?)
+    let mut host = WindowHost::connect()?;
+    waking::install(&mut host);
+    Ok(host)
 }
 
 /// The window numbered `window`.
@@ -335,6 +338,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("stop_timer", stop_timer)?;
     module.add("pump", pump)?;
     subplots::register(module)?;
+    waking::register(module)?;
     desktop::register(module)?;
     headless::register(module)
 }

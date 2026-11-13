@@ -9,6 +9,7 @@ use super::super::cursor::INHERIT;
 use super::super::request;
 use super::live;
 use crate::backend::Backend;
+use crate::blocking::Blocking;
 use crate::error::{Error, X11Error};
 use crate::event::{Event, WindowEvent};
 use crate::frame::OwnedFrame;
@@ -29,7 +30,11 @@ fn large_frames_are_split_into_requests_the_server_accepts() {
         event: WindowEvent::RedrawRequested,
     }) {
         backend
-            .poll(Some(Instant::now() + Duration::from_secs(5)), &mut events)
+            .poll(
+                Some(Instant::now() + Duration::from_secs(5)),
+                &mut events,
+                Blocking::DIRECT,
+            )
             .unwrap();
     }
     // The size shown, which a window manager may have rounded: mutter
@@ -73,6 +78,7 @@ fn cursors_are_drawn_at_the_cursor_size() {
         .poll(
             Some(Instant::now() + Duration::from_millis(50)),
             &mut events,
+            Blocking::DIRECT,
         )
         .unwrap();
 }
@@ -92,7 +98,7 @@ fn x_errors_become_typed_errors() {
     let unused = backend.conn.generate_id().unwrap();
     backend.conn.send(&request::map_window(unused)).unwrap();
     let deadline = Instant::now() + Duration::from_secs(5);
-    let polled = backend.poll(Some(deadline), &mut Vec::new());
+    let polled = backend.poll(Some(deadline), &mut Vec::new(), Blocking::DIRECT);
     assert!(
         matches!(polled, Err(Error::X11(X11Error { code: 3, major_opcode: 8, bad_value, .. })) if bad_value == unused),
         "{polled:?}"

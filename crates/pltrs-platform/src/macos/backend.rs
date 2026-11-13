@@ -13,6 +13,7 @@ use super::sys::{
 };
 use super::view::{ViewState, with_views};
 use crate::backend::{Backend, BackendKind, Wait, Waker};
+use crate::blocking::Blocking;
 use crate::error::Error;
 use crate::event::{Event, WindowEvent};
 use crate::frame::{Frame, OwnedFrame};
@@ -308,11 +309,20 @@ impl Backend for MacBackend {
         self.with_state(window, |state| state.surface.to_rgba())
     }
 
-    fn poll(&mut self, deadline: Option<Instant>, events: &mut Vec<Event>) -> Result<(), Error> {
+    fn poll(
+        &mut self,
+        deadline: Option<Instant>,
+        events: &mut Vec<Event>,
+        blocking: Blocking<'_>,
+    ) -> Result<(), Error> {
         let wait = Wait::until(deadline);
         loop {
             let seconds = seconds_until(wait, Instant::now());
-            self.app.pump_events(seconds);
+            if let Some(seconds) = seconds {
+                let app = self.app;
+                blocking.run(|| app.wait_for_event(seconds));
+            }
+            self.app.dispatch_queued();
             events.extend(with_views(|views| views.take_events(self.id)));
             if self.waker.flags.take() {
                 events.push(Event::WakeUp);

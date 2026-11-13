@@ -143,6 +143,10 @@ const TESTS: &[Test] = &[
         services::timers_and_wake_ups_drive_a_blocking_run,
     ),
     (
+        "services::blocked_waits_wake_through_the_hook",
+        services::blocked_waits_wake_through_the_hook,
+    ),
+    (
         "services::text_goes_to_the_clipboard_and_comes_back",
         services::text_goes_to_the_clipboard_and_comes_back,
     ),

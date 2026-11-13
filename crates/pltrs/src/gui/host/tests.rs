@@ -437,3 +437,26 @@ fn a_shrunk_window_is_repainted_before_the_pointer_leaves() {
     assert_eq!(named, ["resized", "exposed", "left", "exposed"]);
     assert!(matches!(events[0], HostEvent::Resized { width: 300, .. }));
 }
+
+#[test]
+fn a_pump_without_a_timeout_waits_through_the_hook_until_woken() {
+    let (mut host, _handle, _figure, _window) = shown(&[]);
+    // What showing the window asked for, first.
+    host.pump(Some(Duration::ZERO)).unwrap();
+    let waits = std::rc::Rc::new(std::cell::Cell::new(0));
+    let counted = std::rc::Rc::clone(&waits);
+    host.set_wait_hook(Some(Box::new(move |wait| {
+        counted.set(counted.get() + 1);
+        wait();
+    })));
+    let proxy = host.proxy();
+    let waker = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(50));
+        proxy.wake_up().unwrap();
+    });
+    let start = Instant::now();
+    assert_eq!(host.pump(None).unwrap(), []);
+    waker.join().unwrap();
+    assert!(start.elapsed() >= Duration::from_millis(50));
+    assert!(waits.get() >= 1);
+}

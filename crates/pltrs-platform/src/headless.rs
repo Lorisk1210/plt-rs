@@ -15,6 +15,7 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::time::Instant;
 
 use crate::backend::{Backend, BackendKind, Waker};
+use crate::blocking::Blocking;
 use crate::error::Error;
 use crate::event::{Event, WindowEvent};
 use crate::frame::{Frame, OwnedFrame};
@@ -412,26 +413,32 @@ impl Backend for HeadlessBackend {
         self.with_window(window, |w| Ok(w.surface.to_rgba()))
     }
 
-    fn poll(&mut self, deadline: Option<Instant>, events: &mut Vec<Event>) -> Result<(), Error> {
-        let mut state = self.shared.lock();
+    fn poll(
+        &mut self,
+        deadline: Option<Instant>,
+        events: &mut Vec<Event>,
+        blocking: Blocking<'_>,
+    ) -> Result<(), Error> {
+        let shared = &self.shared;
+        let mut state = shared.lock();
         while state.queue.is_empty() && !state.woken {
-            state = match deadline {
-                None => self
-                    .shared
+            let left = match deadline {
+                None => None,
+                Some(deadline) => match deadline.checked_duration_since(Instant::now()) {
+                    Some(left) if !left.is_zero() => Some(left),
+                    _ => break,
+                },
+            };
+            state = blocking.run(|| match left {
+                None => shared
                     .input
                     .wait(state)
                     .unwrap_or_else(PoisonError::into_inner),
-                Some(deadline) => {
-                    let Some(left) = deadline.checked_duration_since(Instant::now()) else {
-                        break;
-                    };
-                    if left.is_zero() {
-                        break;
-                    }
-                    let waited = self.shared.input.wait_timeout(state, left);
+                Some(left) => {
+                    let waited = shared.input.wait_timeout(state, left);
                     waited.unwrap_or_else(PoisonError::into_inner).0
                 }
-            };
+            });
         }
         events.extend(state.queue.drain(..));
         if std::mem::take(&mut state.woken) {
@@ -511,14 +518,14 @@ mod tests {
         assert_eq!(handle.clipboard_image(), Some(vec![1, 2]));
         assert_eq!(handle.clipboard_text(), None);
         let mut events = Vec::new();
-        backend.poll(None, &mut events).unwrap();
+        backend.poll(None, &mut events, Blocking::DIRECT).unwrap();
         events.clear();
         backend.request_clipboard_text(window).unwrap();
         backend.set_clipboard_text(window, "0.25".into()).unwrap();
         backend.request_clipboard_text(window).unwrap();
         handle.set_clipboard_text("from elsewhere");
         backend.request_clipboard_text(window).unwrap();
-        backend.poll(None, &mut events).unwrap();
+        backend.poll(None, &mut events, Blocking::DIRECT).unwrap();
         let texts: Vec<WindowEvent> = events
             .into_iter()
             .filter_map(|event| match event {

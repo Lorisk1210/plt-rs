@@ -342,6 +342,12 @@ fn get_origin(image: AnyImage) -> PyResult<&'static str> {
     Ok(image.origin().name())
 }
 
+/// Sets the origin (`'upper'` or `'lower'`).
+fn set_origin(image: AnyImage, name: String) -> PyResult<()> {
+    image.set_origin(parse(&name)?);
+    Ok(())
+}
+
 /// Whether the resampling filter is normalised.
 fn get_filternorm(image: AnyImage) -> PyResult<bool> {
     Ok(image.filternorm())
@@ -512,6 +518,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_interpolation_stage", get_interpolation_stage)?;
     module.add("set_interpolation_stage", set_interpolation_stage)?;
     module.add("get_origin", get_origin)?;
+    module.add("set_origin", set_origin)?;
     module.add("get_filternorm", get_filternorm)?;
     module.add("set_filternorm", set_filternorm)?;
     module.add("get_filterrad", get_filterrad)?;

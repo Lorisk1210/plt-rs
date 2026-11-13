@@ -29,8 +29,10 @@ NOT_IN_PLTRS = ("_qhull.pyi", "backends/_macosx.pyi")
 
 
 def stubs():
-    """The stubs pltrs ships, below the package."""
-    return sorted(path.relative_to(PACKAGE) for path in PACKAGE.rglob("*.pyi"))
+    """The stubs of matplotlib's that pltrs ships, below the package (not
+    the untyped ones of its toolkits, `test_types2.py`'s)."""
+    return sorted(path.relative_to(PACKAGE) for path in PACKAGE.rglob("*.pyi")
+                  if path.relative_to(PACKAGE).parts[0] != "mpl_toolkits")
 
 
 def test_the_package_is_typed():
@@ -108,6 +110,9 @@ def test_an_image_is_an_array_through_the_buffer_protocol():
 
 
 def test_rcparams_copy_as_matplotlibs():
+    # The backend resolved first: comparing the copy with the live
+    # parameters must not be what resolves it.
+    pltrs.rcParams["backend"]  # noqa: B018
     copied = copy.copy(pltrs.rcParams)
     assert type(copied) is pltrs.RcParams and copied == pltrs.rcParams
 

@@ -189,6 +189,13 @@ impl AnyImage {
         self.read(|image| image.resampling().origin)
     }
 
+    /// Changes where row 0 of the array is drawn (an assignment to
+    /// matplotlib's `origin`, which its next draw, `get_extent` and
+    /// `get_cursor_data` read).
+    pub fn set_origin(&self, origin: Origin) -> &Self {
+        self.update(|image| image.resampling_mut().origin = origin)
+    }
+
     /// Whether the weights of the resampling kernel are normalised
     /// (matplotlib's `get_filternorm`).
     pub fn filternorm(&self) -> bool {
@@ -258,7 +265,9 @@ mod tests {
                 .set_interpolation(Interpolation::Hanning)
                 .set_interpolation_stage(InterpolationStage::Data)
                 .set_filternorm(false)
-                .set_resample(true);
+                .set_resample(true)
+                .set_origin(Origin::Lower);
+            assert_eq!(image.origin(), Origin::Lower);
             image.set_filterrad(2.0).expect("a positive radius");
             assert_eq!(image.interpolation(), Interpolation::Hanning);
             assert_eq!(image.interpolation_stage(), InterpolationStage::Data);

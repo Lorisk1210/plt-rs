@@ -1174,25 +1174,57 @@ class RegularPolygon(Patch):
         """``(x, y, numvertices, radius, orientation)``."""
         return _patches.regular_polygon(self._native)
 
+    # matplotlib's ``get_patch_transform`` reads the centre, radius and
+    # orientation at every draw and measure: one assigned is the next
+    # one's. Its path is made of the vertices once: only ``__str__`` reads
+    # their number again.
+
     @property
     def xy(self):
         """The center of the polygon."""
         return _values.given(self, "xy", self._fields()[:2])
+
+    @xy.setter
+    def xy(self, xy):
+        self._set_geometry(xy=xy)
 
     @property
     def numvertices(self):
         """The number of vertices."""
         return self._num_vertices
 
+    @numvertices.setter
+    def numvertices(self, numvertices):
+        self._num_vertices = numvertices
+
     @property
     def radius(self):
         """The distance from the center to each of the vertices."""
         return _values.given(self, "radius", self._fields()[3])
 
+    @radius.setter
+    def radius(self, radius):
+        self._set_geometry(radius=radius)
+
     @property
     def orientation(self):
         """The polygon's rotation, in radians."""
         return _values.given(self, "orientation", self._fields()[4])
+
+    @orientation.setter
+    def orientation(self, orientation):
+        self._set_geometry(orientation=orientation)
+
+    def _set_geometry(self, **given):
+        """Hand pltrs (Rust) the fields *given* (``xy``, ``radius``,
+        ``orientation``), kept as given (see `._kept_geometry`)."""
+        x, y, _, radius, orientation = self._fields()
+        held = {"xy": (x, y), "radius": radius, "orientation": orientation}
+        for name, value in given.items():
+            held[name] = _kept_geometry.hold(self, name, value, self._FIELDS[name], held[name])
+        _patches.set_regular_polygon(self._native, held["xy"], held["radius"],
+                                     held["orientation"])
+        self._watch_geometry()
 
 
 class PathPatch(Patch):
@@ -1338,6 +1370,11 @@ class StepPatch(PathPatch):
         return self.__dict__.get("_given_orientation", (
             'horizontal' if _patches.step_patch_horizontal(self._native) else 'vertical'))
 
+    @orientation.setter
+    def orientation(self, orientation):
+        # matplotlib's ``_update_path`` reads it when the data are set.
+        self._given_orientation = orientation
+
     def get_data(self):
         """Get `.StepPatch` values, edges and baseline as namedtuple."""
         from collections import namedtuple
@@ -1380,7 +1417,8 @@ class StepPatch(PathPatch):
             None if values is None else np.ravel(np.asarray(values, dtype=float)),
             None if edges is None else np.ravel(np.asarray(edges, dtype=float)),
             (baseline is None,
-             None if baseline is None else np.asarray(baseline, dtype=float)))
+             None if baseline is None else np.asarray(baseline, dtype=float)),
+            self.orientation != 'vertical')
 
     def set_path(self, path):
         """Set the path of the patch, drawn until the data are set again."""
@@ -1554,7 +1592,10 @@ class Wedge(Patch):
 
     def _hold_fields(self, **given):
         """Hand pltrs (Rust) the fields *given* it can hold (see
-        `._kept_geometry.hold`)."""
+        `._kept_geometry.hold`), and those assigned since (matplotlib's
+        setters clear the path, which its next read computes from every
+        field as it is then)."""
+        given = {**_values.take(self, *self._FIELDS), **given}
         x, y, r, theta1, theta2, width = self._fields()
         held = {"center": (x, y), "r": r, "theta1": theta1, "theta2": theta2,
                 "width": width}
@@ -1600,35 +1641,60 @@ class Wedge(Patch):
         return Path(v * self.r + self.center, c)
 
     def _given(self, name, index):
-        """Field *name* (at *index* of `_fields`) as given."""
-        fields = self._fields()
-        native = fields[:2] if name == "center" else fields[index]
-        return _values.given(self, name, native)
+        """Field *name* (at *index* of `_fields`) as assigned or given."""
+        def held():
+            fields = self._fields()
+            native = fields[:2] if name == "center" else fields[index]
+            return _values.given(self, name, native)
+        return _values.assigned(self, name, held)
+
+    # A field assigned is read back and by ``__str__``; the path stays as
+    # it is until a setter clears it, as matplotlib's (`_hold_fields`).
 
     @property
     def center(self):
         """The center of the wedge."""
         return self._given("center", 0)
 
+    @center.setter
+    def center(self, center):
+        _values.assign(self, "center", center)
+
     @property
     def r(self):
         """The radius of the wedge."""
         return self._given("r", 2)
+
+    @r.setter
+    def r(self, r):
+        _values.assign(self, "r", r)
 
     @property
     def theta1(self):
         """The start angle in degrees."""
         return self._given("theta1", 3)
 
+    @theta1.setter
+    def theta1(self, theta1):
+        _values.assign(self, "theta1", theta1)
+
     @property
     def theta2(self):
         """The end angle in degrees."""
         return self._given("theta2", 4)
 
+    @theta2.setter
+    def theta2(self, theta2):
+        _values.assign(self, "theta2", theta2)
+
     @property
     def width(self):
         """The ring width, or None for a full wedge."""
         return self._given("width", 5)
+
+    @width.setter
+    def width(self, width):
+        _values.assign(self, "width", width)
 
     def set_center(self, center):
         self._set_fields(center=center)
@@ -1811,6 +1877,7 @@ class FancyArrow(Polygon):
         """Make the arrow's polygon of what it keeps: pltrs (Rust) makes it
         of finite numbers, matplotlib's ``_make_verts`` of anything else,
         failing and warning as it does, which pltrs (Rust) then holds."""
+        _values.take(self, "verts")
         given = (self._x, self._y, self._dx, self._dy, self._width,
                  self._head_width, self._head_length, self._shape, self._overhang)
         verts = (None if _patch_arguments.plain_fancy_arrow(*given)
@@ -1835,8 +1902,16 @@ class FancyArrow(Polygon):
     @property
     def verts(self):
         """The vertices of the arrow's polygon."""
-        given = self.__dict__.get("_given_verts")
-        return _patches.fancy_arrow_verts(self._native) if given is None else given
+        def held():
+            given = self.__dict__.get("_given_verts")
+            return _patches.fancy_arrow_verts(self._native) if given is None else given
+        return _values.assigned(self, "verts", held)
+
+    @verts.setter
+    def verts(self, verts):
+        # Read back, and made anew by `set_data`, as matplotlib's
+        # ``_make_verts``; its polygon is the one set then.
+        _values.assign(self, "verts", verts)
 
     def _outline(self):
         return _patches.fancy_arrow_outline(self._native)
@@ -2578,10 +2653,34 @@ class Arc(Ellipse):
         """The start angle of the arc in degrees."""
         return _values.given(self, "theta1", _patches.arc(self._native)[1][1])
 
+    @theta1.setter
+    def theta1(self, theta1):
+        self._set_angle("theta1", theta1)
+
     @property
     def theta2(self):
         """The end angle of the arc in degrees."""
         return _values.given(self, "theta2", _patches.arc(self._native)[1][2])
+
+    @theta2.setter
+    def theta2(self, theta2):
+        self._set_angle("theta2", theta2)
+
+    def _set_angle(self, name, theta):
+        """Make *theta* the angle *name*: matplotlib's ``draw`` stretches
+        the angles as they are then (``_theta_stretch``), failing on one
+        that is no number."""
+        _values.remember(self, name, theta)
+        try:
+            held = _kept_geometry.real(theta)
+        except TypeError:
+            _unusable.keep(self, name, theta, lambda _: _patch_arguments.arc_angles(
+                self.width, self.height, self.theta1, self.theta2), measured=False)
+            return
+        _unusable.drop(self, name)
+        _, theta1, theta2 = _patches.arc(self._native)[1]
+        _patches.set_arc_angles(self._native, *(
+            (held, theta2) if name == "theta1" else (theta1, held)))
 
     _computed = Ellipse._computed + ("theta1", "theta2", "width", "height")
 

@@ -473,6 +473,22 @@ fn wedge(patch: Patch<Wedge>) -> PyResult<WedgeFields> {
 }
 
 /// Sets a wedge's geometry.
+/// Sets a regular polygon's centre, radius and orientation (its number
+/// of vertices is its own, as matplotlib's path is made once).
+fn set_regular_polygon(
+    patch: Patch<RegularPolygon>,
+    (x, y): (f64, f64),
+    radius: f64,
+    orientation: f64,
+) -> PyResult<()> {
+    patch.update_shape(|shape| {
+        shape.center = Point::new(x, y);
+        shape.radius = radius;
+        shape.orientation = orientation;
+    });
+    Ok(())
+}
+
 fn set_wedge(
     patch: Patch<Wedge>,
     (x, y): (f64, f64),
@@ -547,13 +563,16 @@ fn step_patch_horizontal(patch: Patch<StepPatch>) -> PyResult<bool> {
     Ok(patch.shape().orientation() == pltrs::orientation::Orientation::Horizontal)
 }
 
-/// Replaces the values, edges and baseline of a step patch; `None`
-/// keeps a part, and `keep_baseline` keeps the baseline.
+/// Replaces the values, edges and baseline of a step patch, its steps
+/// running as `horizontal` says (matplotlib's `_update_path` reads the
+/// orientation then); `None` keeps a part, and `keep_baseline` keeps the
+/// baseline.
 fn set_step_patch(
     patch: Patch<StepPatch>,
     values: Option<NdArray>,
     edges: Option<NdArray>,
     (keep_baseline, baseline): (bool, Option<NdArray>),
+    horizontal: bool,
 ) -> PyResult<()> {
     let shape = patch.shape();
     let baseline = if keep_baseline {
@@ -565,7 +584,11 @@ fn set_step_patch(
             Some(base) => StepBaseline::PerStep(base.into_vec()?),
         }
     };
-    let orientation = shape.orientation();
+    let orientation = if horizontal {
+        pltrs::orientation::Orientation::Horizontal
+    } else {
+        pltrs::orientation::Orientation::Vertical
+    };
     let updated = shape
         .with_data(
             values.map(NdArray::into_vec).transpose()?,
@@ -636,6 +659,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_wedge", set_wedge)?;
     module.add("set_path_shape", set_path_shape)?;
     module.add("regular_polygon", regular_polygon)?;
+    module.add("set_regular_polygon", set_regular_polygon)?;
     module.add("arc", arc)?;
     module.add("step_patch", step_patch)?;
     module.add("set_step_patch", set_step_patch)?;

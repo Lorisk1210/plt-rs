@@ -1026,7 +1026,9 @@ class ContourSet(ContourLabeler, mcoll.Collection):
             levels.append(upper)
         return np.asarray(levels)
 
-    @property
+    # matplotlib reads the layers and the extremes of the data only while it
+    # makes the set: one assigned is read back alone.
+    @_values.assignable
     def layers(self):
         """The values the levels or bands are coloured by."""
         return _contour.get_layers(self._contour)
@@ -1044,12 +1046,12 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         """Whether the contours are filled."""
         return _contour.get_state(self._contour)[0]
 
-    @property
+    @_values.assignable
     def zmin(self):
         """The smallest value of the data."""
         return np.float64(_contour.get_state(self._contour)[1])
 
-    @property
+    @_values.assignable
     def zmax(self):
         """The largest value of the data."""
         return np.float64(_contour.get_state(self._contour)[2])

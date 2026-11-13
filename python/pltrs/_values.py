@@ -15,7 +15,17 @@ matplotlib answers:
   what pltrs (Rust) holds now (a value pltrs (Rust) changed itself);
 * `keep` keeps a value matplotlib stores unchecked that pltrs (Rust)
   cannot hold (a string zorder, a hatch line width of None): the getter
-  returns it until the property is set again.
+  returns it until the property is set again;
+* `assign`, `assigned`, `take` and `assignable` keep what a program
+  assigns to an instance attribute of matplotlib's that pltrs (Rust)
+  holds and matplotlib's code reads again only later, or never: a
+  `Wedge`'s fields, read by its next setter (`take`), a `StepPatch`'s
+  orientation, read by ``set_data``, a contour set's extremes, read only
+  while it is made. One matplotlib's draws read goes to pltrs (Rust) by
+  the property's setter instead (`RegularPolygon.xy`). (PRIV1's
+  ``_artist_private._AssignedField`` gives private plain fields their
+  public setter; these attributes have none that does what assigning
+  them does.)
 """
 
 import numpy as np
@@ -187,3 +197,44 @@ def _same(value, native):
     except (TypeError, ValueError):
         return False
     return a.shape == b.shape and bool(np.array_equal(a, b, equal_nan=True))
+
+
+#: The attribute of an object holding what was assigned, by name.
+_ASSIGNED = "_assigned_attributes"
+
+
+def assign(obj, name, value):
+    """Keep *value* as what was assigned to *obj*'s attribute *name*."""
+    obj.__dict__.setdefault(_ASSIGNED, {})[name] = value
+
+
+def assigned(obj, name, held):
+    """What was assigned to *obj*'s attribute *name*, else *held()*."""
+    found = obj.__dict__.get(_ASSIGNED)
+    if found is not None and name in found:
+        return found[name]
+    return held()
+
+
+def take(obj, *names):
+    """What was assigned to *obj*'s attributes *names*, by name, forgotten
+    by *obj* (the method reading them has)."""
+    found = obj.__dict__.get(_ASSIGNED)
+    if not found:
+        return {}
+    return {name: found.pop(name) for name in names if name in found}
+
+
+def assignable(getter):
+    """Property decorator: *getter*'s attribute (named as it is) reads back
+    what was assigned to it, which only matplotlib's later reads of the
+    attribute see, else what *getter* gives."""
+    name = getter.__name__
+
+    def get(obj):
+        return assigned(obj, name, lambda: getter(obj))
+
+    def set_(obj, value):
+        assign(obj, name, value)
+
+    return property(get, set_, doc=getter.__doc__)

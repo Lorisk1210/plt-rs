@@ -50,6 +50,11 @@
 # matplotlib's.
 ^matplotlib\.axis\.Axis\.label_position$ | ^is not present in stub$ | an instance attribute in matplotlib; a property with a setter here, read and assigned alike
 ^matplotlib\.quiver\.QuiverKey\.vector$ | ^is not present in stub$ | an instance attribute in matplotlib; a property with a setter here, read and assigned alike
+# matplotlib's instance attributes read only while the object is made, or
+# again only by the method making them anew (`set_data` for the arrow's
+# vertices): assigning one keeps it, read back as matplotlib reads it
+# (python/tests/test_types2.py).
+^matplotlib\.(contour\.ContourSet\.(layers|zmin|zmax)|tri\._tricontour\.TriContourSet\.(zmin|zmax)|patches\.FancyArrow\.verts)$ | ^is not present in stub$ | an instance attribute in matplotlib read only where it is made; assignable here and read back alike
 
 # Class-level defaults of what matplotlib sets on each instance, with the
 # value matplotlib's instances read: the offset text's side (`_init`), the

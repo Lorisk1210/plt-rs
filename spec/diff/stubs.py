@@ -49,6 +49,10 @@ import driver  # noqa: E402
 
 ALLOWLIST = HERE / "types-allowlist.txt"
 
+#: pltrs' toolkits, untyped for checkers as matplotlib's are (an
+#: allowlist rule below the package's name).
+UNTYPED_TOOLKITS = r"mpl_toolkits(\..*)?"
+
 #: What the installed matplotlib has that its CI's build does not install,
 #: added to its mypy configuration's ``exclude``.
 INSTALLED_TESTS = ".*/matplotlib/tests/"
@@ -169,8 +173,13 @@ class Run:
         """The allowlist file of this run: *rules* (matplotlib's) for its
         package."""
         path = self.work / "allowlist.txt"
-        path.write_text("".join(re.sub(r"^matplotlib\\\.", f"{self.package}\\.", rule) + "\n"
-                                for rule in rules))
+        rules = [re.sub(r"^matplotlib\\\.", f"{self.package}\\.", rule) for rule in rules]
+        if self.package != "matplotlib":
+            # matplotlib's stubtest checks matplotlib, not its toolkits
+            # (untyped, a package of their own), whose stubs in pltrs say
+            # only that every name is Any.
+            rules.append(f"{self.package}\\.{UNTYPED_TOOLKITS}")
+        path.write_text("".join(rule + "\n" for rule in rules))
         return path
 
     def errors(self, rules: list[str]) -> list[dict[str, str]]:

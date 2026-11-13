@@ -26,6 +26,23 @@ modules they describe, for both distributions:
   says so. (pyright takes a typed module's imports for private names whose
   use it reports, which no stub can say: under pltrs it does not report
   them);
+* into ``python/alias/matplotlib`` too, a stub of each module matplotlib
+  installs without one (``units``, ``dates``, the backends), as the alias
+  installs stubs, not code, for type checkers: its code without
+  docstrings and function bodies but for what methods assign on their
+  instance (the attributes a checker reads of a class), with its
+  ``__all__`` or one of every public name it binds; and into
+  ``python/alias/mpl_toolkits``, beside each toolkit's loader, the stub of
+  matplotlib's ``__init__`` of the toolkit (pyright reads an untyped
+  package's code, which the loader would leave empty; the toolkits have
+  no ``py.typed``, as matplotlib's);
+* for each module of pltrs' toolkits (``pltrs.mpl_toolkits``), which
+  pltrs' ``py.typed`` covers, a stub of a module-level ``__getattr__``
+  alone (`UNTYPED_STUB`): matplotlib's toolkits have no ``py.typed``, so a
+  checker takes every name of theirs for ``Any`` (mypy reporting the
+  import as untyped), and so it takes pltrs'. (PEP 561 has no marker for
+  an untyped part of a typed package; the alias' own ``mpl_toolkits`` is
+  untyped as matplotlib's is);
 * only the stubs matplotlib installs (those its ``meson.build`` lists:
   3.11.2's source tree also has ``dates.pyi`` and ``backends/registry.pyi``,
   which its wheels leave out, so that type checkers read those modules'
@@ -49,11 +66,24 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 #: Where each distribution's stubs go, by the name its package has.
-TREES = {"pltrs": ROOT / "python" / "pltrs", "matplotlib": ROOT / "python" / "alias" / "matplotlib"}
+TREES = {"pltrs": ROOT / "python" / "pltrs", "matplotlib": ROOT / "python" / "alias" / "matplotlib",
+         "mpl_toolkits": ROOT / "python" / "alias" / "mpl_toolkits"}
+#: The trees typed by ``py.typed`` (matplotlib's toolkits are not).
+TYPED = ("pltrs", "matplotlib")
 
 #: matplotlib's modules typed inline rather than in a stub, whose stubs
 #: are their code without function bodies.
 INLINE_TYPED = ("pyplot",)
+
+#: The stub of a module of pltrs' toolkits: every name is ``Any``.
+UNTYPED_STUB = """\
+# A module of pltrs' toolkits: untyped for type checkers, as matplotlib's
+# mpl_toolkits are (python/tools/matplotlib_stubs.py).
+
+from typing import Any
+
+def __getattr__(name: str) -> Any: ...
+"""
 
 #: An import of matplotlib's modules at a line's start: ``from
 #: matplotlib[.x] import`` or ``import matplotlib.x[.y] as z``.
@@ -96,16 +126,20 @@ class _BodiesRemoved(ast.NodeTransformer):
 
     def __init__(self, package):
         self.package = package
+        #: Whether the functions visited are methods.
+        self.in_class = False
 
     def visit_Module(self, node):
         self.generic_visit(node)
         node.body = _without_docstring(node.body)
-        # A module's imports are its names for type checkers (mypy's
-        # implicit re-export), a stub's only where it says so: all of them.
-        exported = [ast.Constant(name) for name in dict.fromkeys(_bound(node.body))
-                    if not name.startswith("_")]
-        node.body.append(ast.Assign([ast.Name("__all__", ast.Store())],
-                                    ast.List(exported, ast.Load())))
+        bound = list(dict.fromkeys(_bound(node.body)))
+        if "__all__" not in bound:
+            # A module's imports are its names for type checkers (mypy's
+            # implicit re-export), a stub's only where it says so: all of
+            # them.
+            exported = [ast.Constant(name) for name in bound if not name.startswith("_")]
+            node.body.append(ast.Assign([ast.Name("__all__", ast.Store())],
+                                        ast.List(exported, ast.Load())))
         return node
 
     def visit_FunctionDef(self, node):
@@ -113,13 +147,19 @@ class _BodiesRemoved(ast.NodeTransformer):
         node.args = self.visit(node.args)
         if node.returns is not None:
             node.returns = self.visit(node.returns)
-        node.body = [ast.Expr(ast.Constant(...))]
+        # A method keeps what it assigns on its instance: the attributes a
+        # checker reads of the class.
+        stores = [self.visit(statement) for statement in _instance_stores(node)] \
+            if self.in_class else []
+        node.body = stores or [ast.Expr(ast.Constant(...))]
         return node
 
     visit_AsyncFunctionDef = visit_FunctionDef
 
     def visit_ClassDef(self, node):
+        outer, self.in_class = self.in_class, True
         self.generic_visit(node)
+        self.in_class = outer
         node.body = _without_docstring(node.body) or [ast.Expr(ast.Constant(...))]
         return node
 
@@ -163,6 +203,29 @@ def _bound(body):
             yield from _bound(statement.orelse)
 
 
+def _instance_stores(function):
+    """The statements of *function*'s body (not of the functions it
+    defines) assigning attributes of its first parameter (``self.x = ...``)."""
+    arguments = function.args.posonlyargs + function.args.args
+    if not arguments:
+        return []
+    owner = arguments[0].arg
+    stores, pending = [], list(function.body)
+    while pending:
+        statement = pending.pop(0)
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        targets = (statement.targets if isinstance(statement, ast.Assign)
+                   else [statement.target] if isinstance(statement, ast.AnnAssign) else [])
+        if any(isinstance(item, ast.Attribute) and isinstance(item.value, ast.Name)
+               and item.value.id == owner
+               for target in targets for item in ast.walk(target)):
+            stores.append(statement)
+        for field in ("body", "orelse", "finalbody", "handlers"):
+            pending.extend(getattr(statement, field, None) or [])
+    return stores
+
+
 def _without_docstring(body):
     """*body* without the docstring it opens with."""
     if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) \
@@ -171,9 +234,9 @@ def _without_docstring(body):
     return body
 
 
-def inline_typed_stub(source, package):
-    """The stub of the inline-typed module whose code is *source*, in the
-    package named *package*."""
+def code_stub(source, package):
+    """The stub of the module whose code is *source* (matplotlib's typed
+    inline, or not typed), in the package named *package*."""
     tree = _BodiesRemoved(package).visit(ast.parse(source))
     return ast.unparse(ast.fix_missing_locations(tree)) + "\n"
 
@@ -185,6 +248,17 @@ def module_exists(relative_stub):
     if relative_stub.name == "__init__.pyi":
         return base.with_suffix(".py").exists()
     return base.with_suffix(".py").exists() or (base / "__init__.py").exists()
+
+
+def stubless(module, path):
+    """Whether matplotlib installs the module *module* (*path* below its
+    package) without a stub, and pltrs has it: not its tests nor the
+    Sphinx extensions."""
+    if path.parts[0] in ("tests", "sphinxext") or path.stem in INLINE_TYPED:
+        return False
+    if module.with_suffix(".pyi").exists() and installed(module.with_suffix(".pyi")):
+        return False
+    return module_exists(path.with_suffix(".pyi"))
 
 
 def installed(stub):
@@ -200,7 +274,8 @@ def stubs(sdist):
     pltrs has no module for."""
     lib = sdist / "lib" / "matplotlib"
     marker = (lib / "py.typed").read_text(encoding="utf-8")
-    wanted = {package: {pathlib.Path("py.typed"): marker} for package in TREES}
+    wanted = {package: {pathlib.Path("py.typed"): marker} if package in TYPED else {}
+              for package in TREES}
     skipped = []
     for stub in sorted(lib.rglob("*.pyi")):
         path = stub.relative_to(lib)
@@ -214,13 +289,36 @@ def stubs(sdist):
         wanted["matplotlib"][path] = header(module, "as matplotlib installs it") + text
         wanted["pltrs"][path] = header(module, "importing pltrs' modules for matplotlib's") \
             + pltrs_imports(text, path)
+    # A checker reads the alias' stubs only: the modules matplotlib types
+    # by its code, or not at all, get a stub of that code.
+    for module in sorted(lib.rglob("*.py")):
+        path = module.relative_to(lib)
+        if stubless(module, path):
+            name = ".".join(("matplotlib", *path.with_suffix("").parts)).removesuffix(".__init__")
+            wanted["matplotlib"][path.with_suffix(".pyi")] = header(
+                name, "not typed or typed inline there: its code without docstrings\n# and "
+                "function bodies but for what they assign on the instance") + code_stub(
+                module.read_text(encoding="utf-8"), "matplotlib")
+    # The alias' toolkits are its loaders, which a checker reading their
+    # code (pyright does, of an untyped package) would find empty: beside
+    # each, the stub of matplotlib's ``__init__`` (pltrs' modules beside
+    # it, `Project.checked_sources`).
+    for init in sorted((sdist / "lib" / "mpl_toolkits").glob("*/__init__.py")):
+        path = init.relative_to(sdist / "lib" / "mpl_toolkits").with_suffix(".pyi")
+        if (TREES["mpl_toolkits"] / path).with_suffix(".py").exists():
+            wanted["mpl_toolkits"][path] = header(
+                f"mpl_toolkits.{path.parent}", "its code without docstrings and function bodies") \
+                + code_stub(init.read_text(encoding="utf-8"), "matplotlib")
+    toolkits = TREES["pltrs"] / "mpl_toolkits"
+    for module in sorted(toolkits.rglob("*.py")):
+        wanted["pltrs"][module.relative_to(TREES["pltrs"]).with_suffix(".pyi")] = UNTYPED_STUB
     for name in INLINE_TYPED:
         path = pathlib.Path(f"{name}.pyi")
         source = (lib / f"{name}.py").read_text(encoding="utf-8")
-        for package in TREES:
+        for package in TYPED:
             wanted[package][path] = header(
                 f"matplotlib.{name}", "typed inline there: its code without docstrings\n# and "
-                "function bodies") + inline_typed_stub(source, package)
+                "function bodies") + code_stub(source, package)
     return wanted, skipped
 
 

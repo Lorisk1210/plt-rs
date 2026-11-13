@@ -134,7 +134,7 @@ def _check_margins(fig, w_pad, h_pad, params):
     grids (``make_layout_margins``), for its errors."""
     for subfig in fig.subfigs:
         _check_margins(subfig, w_pad, h_pad, params)
-        _check_margin(subfig.get_subplotspec(), 0, 0, params)
+        _check_margin(subfig._subplotspec, 0, 0, params)
     for ax in fig.axes:
         spec = ax.get_subplotspec()
         if spec is None or not ax.get_in_layout():
@@ -162,7 +162,7 @@ def grids_kept(fig):
     pending = list(fig.subfigs)
     while pending:
         subfig = pending.pop()
-        specs.append(subfig.get_subplotspec())
+        specs.append(subfig._subplotspec)
         pending.extend(subfig.subfigs)
     return any(spec is not None and _gridspec_kept.in_python(spec.get_gridspec(), None)
                for spec in specs)

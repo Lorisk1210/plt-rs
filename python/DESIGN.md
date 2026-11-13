@@ -67,6 +67,7 @@ python/
   tests/test_smoke.py           `cargo xtask python test`
   backend/pltrs_backend/        the PEP 517 build backend (standard library only)
   alias/                        the `matplotlib` distribution: matplotlib's names for pltrs
+                                (and matplotlib's type stubs, `alias/matplotlib/*.pyi`)
   ecosystem/                    `cargo xtask ecosystem`: the libraries importing matplotlib
                                 on pltrs (pandas, seaborn, xarray, networkx, scikit-learn,
                                 statsmodels, geopandas, plotnine, astropy, cartopy, nilearn,
@@ -2622,6 +2623,39 @@ insets too, the private registers libraries read (an artist's `_axes`,
 program changes in place reaching pltrs (Rust) (`_changing_arrays.py`:
 `Poly3DCollection._facecolor3d`), and `MaxNLocator._raw_ticks` as the
 place a subclass changes its steps (cartopy's `LongitudeLocator`).
+
+### Type information
+
+pltrs is typed as matplotlib is, so that a type checker reads a program
+written for matplotlib the same under pltrs: `py.typed` and the stubs
+matplotlib installs lie beside the modules they describe, written by
+`python/tools/matplotlib_stubs.py` from matplotlib's source tree, never by
+hand. matplotlib's stubs import its modules absolutely
+(`from matplotlib.text import Text`), and type checkers read absolute and
+relative imports differently (pyright takes `from . import x` in a stub for
+a re-export, and a package's relative imports in its `__init__` for
+importing those submodules), so each distribution has its own copy:
+`python/pltrs/**/*.pyi` import pltrs' modules for matplotlib's, and
+`python/alias/matplotlib/**/*.pyi` are matplotlib's as it installs them.
+The alias also installs pltrs' modules under `matplotlib/` for type
+checkers alone (`Project.checked_sources`: a module without a stub is read
+from its source, and pltrs' relative imports name the package they lie
+in); Python never imports them, as the alias loads pltrs' files. matplotlib
+types `pyplot` inline, which pltrs' `pyplot.py` (wrappers made from source
+text) does not: `pyplot.pyi` is matplotlib's module without docstrings and
+function bodies, with every public name it binds in `__all__`, as mypy
+exports a module's imports but a stub's only where it says so.
+
+`cargo xtask diff --types` (`spec/diff/stubs.py`) holds the stubs against
+pltrs at run time with `mypy.stubtest`, as matplotlib's CI holds them
+against matplotlib (its allowlist and the lines its `tools/stubtest.py`
+derives): what matplotlib's own run does not report is a difference of
+pltrs' public names (an attribute missing, a property where matplotlib
+has a plain attribute, a name matplotlib has not). Instance attributes the
+stubs declare are read and assigned as matplotlib's are where pltrs keeps
+them natively: a property with a setter, or a descriptor that steps aside
+(`_transform_trees.TreeAttribute`); settings that change the tree a box
+draws are properties (`_offsetbox_trees.TreeSetting`).
 
 ### Jupyter
 

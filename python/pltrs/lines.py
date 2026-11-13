@@ -25,7 +25,7 @@ from .markers import (  # noqa: F401  (matplotlib re-exports these here)
     CARETLEFT, CARETRIGHT, CARETUP, CARETDOWN,
     CARETLEFTBASE, CARETRIGHTBASE, CARETUPBASE, CARETDOWNBASE,
     TICKLEFT, TICKRIGHT, TICKUP, TICKDOWN, MarkerStyle)
-from .path import Path, drawn_path
+from .path import Path, _drawn_path_of
 
 _log = logging.getLogger(__name__)
 
@@ -544,7 +544,7 @@ class Line2D(Artist):
     def get_path(self):
         """Return the `~matplotlib.path.Path` associated with this line."""
         _unusable.check(self, measuring=True)
-        return drawn_path(self, *_lines.get_path(self._native), (
+        return _drawn_path_of(self, *_lines.get_path(self._native), (
             lambda: _lines.get_interpolation_steps(self._native),
             lambda steps: _lines.set_interpolation_steps(self._native, steps)))
 

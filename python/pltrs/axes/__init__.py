@@ -21,5 +21,3 @@ class SubplotBase(metaclass=_SubplotBaseMeta):
 def subplot_class_factory(cls):
     return cls
 
-
-__all__ = ["Axes", "Subplot", "SubplotBase", "subplot_class_factory"]

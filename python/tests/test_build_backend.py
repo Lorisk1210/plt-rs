@@ -66,11 +66,28 @@ def test_the_two_distributions():
     assert f"Requires-Dist: pltrs=={pltrs.version}" in metadata
     files = dict(pltrs.package_files())
     assert "pltrs/__init__.py" in files and "pltrs/pyplot.py" in files
+    assert {"pltrs/py.typed", "pltrs/pyplot.pyi", "pltrs/axes/_axes.pyi"} <= set(files)
     assert not [path for path in files if "_native." in path or "__pycache__" in path]
-    assert sorted(dict(alias.package_files())) == [
-        "_pltrs_matplotlib_alias.py", "matplotlib/__init__.py",
+    aliases = dict(alias.package_files())
+    checked = dict(alias.checked_sources())
+    alias_stubs = {f"matplotlib/{path.relative_to(ROOT / 'python/alias/matplotlib').as_posix()}"
+                   for path in (ROOT / "python/alias/matplotlib").rglob("*.pyi")}
+    assert sorted(set(aliases) - set(checked) - alias_stubs) == [
+        "_pltrs_matplotlib_alias.py", "matplotlib/__init__.py", "matplotlib/py.typed",
         "mpl_toolkits/axes_grid1/__init__.py", "mpl_toolkits/axisartist/__init__.py",
         "mpl_toolkits/mplot3d/__init__.py", "pylab.py"]
+    # The alias' stubs are pltrs' (matplotlib's, importing matplotlib's
+    # modules); type checkers read pltrs' modules under matplotlib's name,
+    # but for its __init__.py (the alias' own runs) and the toolkits (the
+    # alias has its own).
+    pltrs_stubs = {f"matplotlib/{path.relative_to(ROOT / 'python/pltrs').as_posix()}"
+                   for path in (ROOT / "python/pltrs").rglob("*.pyi")}
+    assert alias_stubs == pltrs_stubs and "matplotlib/pyplot.pyi" in alias_stubs
+    assert aliases["matplotlib/__init__.py"] == ROOT / "python/alias/matplotlib/__init__.py"
+    assert {"matplotlib/backends/backend_agg.py", "matplotlib/units.py",
+            "matplotlib/pyplot.py"} <= set(checked)
+    assert not [path for path in checked if path.startswith("matplotlib/mpl_toolkits/")
+                or not path.endswith(".py") or "__pycache__" in path]
     with pytest.raises(ValueError, match="unknown distribution"):
         Project(ROOT, "seaborn")
 

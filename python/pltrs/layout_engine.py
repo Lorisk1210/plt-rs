@@ -404,9 +404,6 @@ class ConstrainedLayoutEngine(LayoutEngine):
         self._changed()
 
 
-__all__ = ["LayoutEngine", "PlaceHolderLayoutEngine", "TightLayoutEngine",
-           "ConstrainedLayoutEngine"]
-
 
 # What matplotlib's module also has from its imports, which programs
 # import from it.

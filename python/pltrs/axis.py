@@ -31,8 +31,6 @@ _empty_conversions = _lazy_imports.module(globals(), "._empty_conversions")
 _held_axis = _lazy_imports.module(globals(), "._held_axis")
 _numpy_values = _lazy_imports.module(globals(), "._numpy_values")
 
-__all__ = ["Tick", "XTick", "YTick", "Ticker", "Axis", "XAxis", "YAxis"]
-
 #: The number of segments of a gridline curved by its projection (polar
 #: axes' circles), as matplotlib interpolates them.
 GRIDLINE_INTERPOLATION_STEPS = 180
@@ -2103,11 +2101,10 @@ class Axis(DrawnWith, Artist):
                                 if visible is None else visible)
             self.set_tick_params(which='major', **gridkw)
 
-    def get_ticks_position(self):
-        """
-        Return the ticks position ("top", "bottom", "left", "right",
-        "default" or "unknown").
-        """
+    def _native_ticks_position(self):
+        # The ticks position of an x- or y-axis ("top", "bottom", "left",
+        # "right", "default" or "unknown"); matplotlib's base Axis has no
+        # get_ticks_position of its own.
         return _axis.get_ticks_position(*self._args())
 
     def _set_ticks_position(self, position):
@@ -2852,7 +2849,7 @@ class XAxis(_AxisOfAxes):
         """
         Return the ticks position ("top", "bottom", "default", or "unknown").
         """
-        return super().get_ticks_position()
+        return self._native_ticks_position()
 
     def contains(self, mouseevent):
         """Test whether the mouse event occurred in the x-axis."""
@@ -2937,7 +2934,7 @@ class YAxis(_AxisOfAxes):
         """
         Return the ticks position ("left", "right", "default", or "unknown").
         """
-        return super().get_ticks_position()
+        return self._native_ticks_position()
 
     def contains(self, mouseevent):
         # docstring inherited

@@ -32,7 +32,7 @@ cbook._set_module(__name__, ArrowStyle, BoxStyle, ConnectionStyle, _Style)
 from ._program_classes import takes_from_program
 from .artist import Artist, allow_rasterization
 from .lines import _get_dash_pattern
-from .path import Path, drawn_path
+from .path import Path, _drawn_path_of
 from ._transform_trees import set_matrix
 from .transforms import Affine2D, BboxTransformTo, IdentityTransform
 
@@ -250,7 +250,7 @@ class Patch(Artist):
     def _native_path(self):
         """The path pltrs (Rust) holds for the patch, which the classes
         deriving from `Patch` return (as matplotlib's keep their own)."""
-        return drawn_path(self, *_patches.get_path(self._native), (
+        return _drawn_path_of(self, *_patches.get_path(self._native), (
             lambda: _patches.get_interpolation_steps(self._native),
             lambda steps: _patches.set_interpolation_steps(self._native, steps)))
 
@@ -888,7 +888,7 @@ class Rectangle(Patch):
             # The very object, as matplotlib's rectangles share it.
             unit._steps_of = (steps, _patches.set_shared_rectangle_steps)
             return unit
-        return drawn_path(self, vertices, codes, (
+        return _drawn_path_of(self, vertices, codes, (
             steps, _patches.set_shared_rectangle_steps))
 
     def _fields(self):

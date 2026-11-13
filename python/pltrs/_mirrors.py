@@ -152,11 +152,14 @@ def pushing(cls):
     what drawing the part changed comes before the setter's change), once:
     the setters it inherits from a class made pushing already push. An
     alias of a setter (``set_name = set_family``) stays the same function
-    as the setter."""
+    as the setter; the aliases ``_api.define_aliases`` makes, which call
+    their setter by name, stay as they are (matplotlib's classes inherit
+    them)."""
     wrappers = {}
+    aliases = {f"set_{alias}" for alias in getattr(cls, "_alias_to_prop", ())}
     for name in dir(cls):
         method = getattr(cls, name) if name.startswith("set_") else None
-        if callable(method) and not getattr(method, "_pushes", False):
+        if callable(method) and name not in aliases and not getattr(method, "_pushes", False):
             if method not in wrappers:
                 wrappers[method] = _pushing(method)
             _replace(cls, name, wrappers[method], getattr(method, "__name__", name))

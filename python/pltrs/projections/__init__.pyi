@@ -1,0 +1,24 @@
+# The type stub of matplotlib.projections: matplotlib 3.11.2's, under the
+# Matplotlib License, importing pltrs' modules for matplotlib's
+# (python/tools/matplotlib_stubs.py).
+
+from .geo import (
+    AitoffAxes as AitoffAxes,
+    HammerAxes as HammerAxes,
+    LambertAxes as LambertAxes,
+    MollweideAxes as MollweideAxes,
+)
+from .polar import PolarAxes as PolarAxes
+from ..axes import Axes
+
+class ProjectionRegistry:
+    def __init__(self) -> None: ...
+    def register(self, *projections: type[Axes]) -> None: ...
+    def get_projection_class(self, name: str) -> type[Axes]: ...
+    def get_projection_names(self) -> list[str]: ...
+
+projection_registry: ProjectionRegistry
+
+def register_projection(cls: type[Axes]) -> None: ...
+def get_projection_class(projection: str | None = ...) -> type[Axes]: ...
+def get_projection_names() -> list[str]: ...

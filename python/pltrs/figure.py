@@ -1507,10 +1507,6 @@ class SubFigure(FigureBase):
             _figure.set_frameon(native, bool(frameon))
         self._internal_update(kwargs)
 
-    def get_subplotspec(self):
-        """Get the SubplotSpec instance."""
-        return self._subplotspec
-
     @property
     def _artists(self):
         # The root figure keeps the objects of all artists (`._handles`).

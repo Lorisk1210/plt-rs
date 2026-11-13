@@ -30,16 +30,16 @@ from ..transforms import Affine2D, BboxTransformTo, Transform
 
 
 # The projection of longitudes and latitudes in radians onto the plane, or
-# its inverse (``inverse``), by the projection ``projection`` names centred
+# its inverse (``_inverse``), by the projection ``_projection`` names centred
 # at ``_center``. No docstring: the inverse transforms show `.Transform`'s,
 # as matplotlib's do.
 class _GeoTransform(Transform):
 
     input_dims = output_dims = 2
     #: The name of the projection.
-    projection = None
+    _projection = None
     #: Whether this is the inverse of the projection.
-    inverse = False
+    _inverse = False
 
     def __init__(self, resolution):
         """
@@ -58,8 +58,8 @@ class _GeoTransform(Transform):
     def transform_non_affine(self, values):
         # docstring inherited
         values = np.asarray(values, dtype=float)
-        compute = _transforms.geo_inverse if self.inverse else _transforms.geo_forward
-        return compute(self.projection, self._center,
+        compute = _transforms.geo_inverse if self._inverse else _transforms.geo_forward
+        return compute(self._projection, self._center,
                        values.reshape(-1, 2)).reshape(values.shape)
 
     def transform_path_non_affine(self, path):
@@ -96,7 +96,7 @@ class _LambertCentred(_GeoTransform):
         # docstring inherited
         if not all(isinstance(c, Real) for c in self._center):
             first, second = np.asarray(values).T
-            if self.inverse:
+            if self._inverse:
                 np.sin(self._center_latitude)
                 self._center_longitude + first  # noqa: B018
             else:
@@ -121,10 +121,10 @@ def _transform_pair(projection, forward_doc):
         return cls
 
     forward = make(f"{projection.capitalize()}Transform",
-                   {"__doc__": forward_doc, "projection": projection})
+                   {"__doc__": forward_doc, "_projection": projection})
     inverse = make(f"Inverted{projection.capitalize()}Transform",
-                   {"__doc__": None, "projection": projection,
-                    "inverse": True, "_inverse_class": forward})
+                   {"__doc__": None, "_projection": projection,
+                    "_inverse": True, "_inverse_class": forward})
     forward._inverse_class = inverse
     return forward, inverse
 
@@ -562,7 +562,7 @@ class LambertAxes(GeoAxes):
 #: The geographic Axes classes pltrs (Rust) draws itself. A class of the
 #: program's deriving from one of them is a projection class of the
 #: program's (`._program.is_program_geo`).
-OWN_CLASSES = frozenset([GeoAxes, AitoffAxes, HammerAxes, MollweideAxes, LambertAxes])
+_OWN_CLASSES = frozenset([GeoAxes, AitoffAxes, HammerAxes, MollweideAxes, LambertAxes])
 
 
 # Methods of their own, as matplotlib's Lambert transforms define them.

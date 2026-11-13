@@ -1,9 +1,10 @@
-# The type stubs of the cm module (matplotlib's, from matplotlib 3.11.2,
-# under the Matplotlib License, importing the package's modules relatively).
+# The type stub of matplotlib.cm: matplotlib 3.11.2's, under the
+# Matplotlib License, importing pltrs' modules for matplotlib's
+# (python/tools/matplotlib_stubs.py).
 
 from collections.abc import Iterator, Mapping
-from . import colors
-from .colorizer import _ScalarMappable
+from pltrs import colors
+from pltrs.colorizer import _ScalarMappable
 
 
 class ColormapRegistry(Mapping[str, colors.Colormap]):

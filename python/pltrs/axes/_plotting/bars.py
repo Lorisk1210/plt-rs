@@ -122,12 +122,23 @@ def _dataset_styles(kwargs):
             [hatch] if isinstance(hatch, str) else [str(h) for h in hatch])
 
 
+def _numpy_number(value):
+    """Whether *value* is a number numpy makes a number array of (the
+    dtype kinds `_check_bar_geometry` passes), told by its type alone."""
+    kind = type(value)
+    if kind is int:
+        return -2**63 <= value < 2**63
+    return kind is float or kind is bool or kind is np.float64 or kind is np.int64
+
+
 def _check_bar_geometry(x, height, width, y, align, orientation):
     """
     Fail as matplotlib's ``bar`` fails with geometry that is no numbers:
     aligning the bars, then making the first bar's rectangle, which adds
     its extent to its corner.
     """
+    if all(map(_numpy_number, (x, height, width, y))):
+        return  # (numbers numpy keeps as such: nothing fails)
     x, height, width, y = np.broadcast_arrays(np.atleast_1d(x), height, width, y)
     if not x.size or all(a.dtype.kind in "biuf" for a in (x, height, width, y)):
         return

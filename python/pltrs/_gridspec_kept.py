@@ -22,6 +22,7 @@ the figure's subplot parameters or the grid's change (`check_positions`),
 and when a subfigure is added on the grid (`subfigure_bounds`).
 """
 
+import math
 from numbers import Real
 
 import numpy as np
@@ -37,7 +38,12 @@ KEYS = ("left", "bottom", "right", "top", "wspace", "hspace")
 def holds(value):
     """Whether pltrs (Rust) holds *value* as a margin or a spacing: a
     number, or None (none given)."""
-    return value is None or isinstance(value, (Real, np.bool_))
+    return value is None or type(value) in _PLAIN or isinstance(value, (Real, np.bool_))
+
+
+#: Types `holds` and `_plain` answer for without the abstract base class
+#: check (a figure's subplots check its grid's ratios at every add).
+_PLAIN = frozenset({float, int})
 
 
 def holds_ratios(ratios):
@@ -55,6 +61,8 @@ def held(values):
 def _plain(value):
     """Whether pltrs (Rust) computes with *value*, a margin, a spacing or a
     ratio, as matplotlib does: a finite number, or None."""
+    if type(value) is float:
+        return math.isfinite(value)
     return value is None or holds(value) and np.isfinite(value)
 
 

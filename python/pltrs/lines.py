@@ -203,7 +203,6 @@ def _native_kwargs(kwargs):
     to the caller, the properties of every artist as
     `._artist_kwargs.native_artist_kwargs` makes them.
     """
-    from . import colors as mcolors
     for name in ("color", "gapcolor"):
         if kwargs.get(name) is not None:
             # As matplotlib's `set_color` and `set_gapcolor` check them.
@@ -692,7 +691,6 @@ class Line2D(Artist):
         ----------
         color : :mpltype:`color`
         """
-        from . import colors as mcolors
         mcolors._check_color_like(color=color)
         self._set_native(color=color)
 

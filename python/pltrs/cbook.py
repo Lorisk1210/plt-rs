@@ -37,6 +37,7 @@ from . import _api, _c_internal_utils, _lazy_imports, mlab
 from ._native import cbook as _cbook
 
 _box_stats = _lazy_imports.module(globals(), "._box_stats")
+_artist_module = _lazy_imports.module(globals(), ".artist", "_artist_module")
 
 
 class _ExceptionInfo:
@@ -1780,7 +1781,7 @@ def normalize_kwargs(kw, alias_mapping=None):
         To match what Python raises if invalid arguments/keyword arguments are
         passed to a callable.
     """
-    from .artist import Artist
+    Artist = _artist_module.Artist  # (pltrs: no import statement per call)
 
     # deal with default value of alias_mapping
     if (isinstance(alias_mapping, type) and issubclass(alias_mapping, Artist)

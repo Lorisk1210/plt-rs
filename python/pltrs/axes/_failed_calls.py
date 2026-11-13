@@ -39,10 +39,17 @@ def leaves_nothing_on_failure(method):
     """*method*, a plotting method of `~.axes.Axes`, taking back what a
     call that fails added to the Axes before it raises (but what it kept,
     see `keep_added`)."""
+    # (`leaving_nothing` written out: the plotting methods are hot.)
     @functools.wraps(method)
     def plotting(self, *args, **kwargs):
-        with leaving_nothing(self):
+        marks = _marked(self)
+        try:
             return method(self, *args, **kwargs)
+        except Exception:
+            _take_back(self, marks[-1])
+            raise
+        finally:
+            marks.pop()
     return plotting
 
 
@@ -52,23 +59,35 @@ def leaving_nothing(axes):
     fail (but what it kept, see `keep_added`): a plotting call, or the
     constructor of an artist matplotlib adds to *axes* only once made (a
     contour set)."""
-    marks = axes.__dict__.setdefault("_call_marks", [])
-    marks.append((_axes.call_mark(axes._native), len(axes.containers)))
+    marks = _marked(axes)
     try:
         yield
     except Exception:
-        mark, containers = marks[-1]
-        del axes.containers[containers:]
-        # An artist of several native parts (a contour set and its
-        # bands) is taken back once.
-        added = {id(artist): artist for artist in (
-            _handles.wrap_any(native, axes._figure)
-            for native in _axes.undo_since(axes._native, mark))}
-        for artist in added.values():
-            artist.remove()
+        _take_back(axes, marks[-1])
         raise
     finally:
         marks.pop()
+
+
+def _marked(axes):
+    """The marks of the calls running on *axes*, with one for a call
+    starting now: what *axes* holds before it."""
+    marks = axes.__dict__.setdefault("_call_marks", [])
+    marks.append((_axes.call_mark(axes._native), len(axes.containers)))
+    return marks
+
+
+def _take_back(axes, mark):
+    """Take back what *axes* got since *mark* (see `_marked`)."""
+    mark, containers = mark
+    del axes.containers[containers:]
+    # An artist of several native parts (a contour set and its bands) is
+    # taken back once.
+    added = {id(artist): artist for artist in (
+        _handles.wrap_any(native, axes._figure)
+        for native in _axes.undo_since(axes._native, mark))}
+    for artist in added.values():
+        artist.remove()
 
 
 def keep_added(axes):

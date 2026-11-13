@@ -56,8 +56,27 @@ impl Color {
 
     /// Resolves to RGBA with an alpha override (ignored for `"none"`).
     pub fn resolve_alpha(&self, alpha: Option<f64>) -> Result<Rgba, ColorError> {
-        let cycle = crate::rc::params().axes_prop_cycle.colors();
+        // Only a `"Cn"` reference reads the cycle: resolving the cycle's
+        // colours may run the program's mapping of names.
+        let cycle = if self.refers_to_cycle() {
+            crate::rc::params().axes_prop_cycle.colors()
+        } else {
+            Vec::new()
+        };
         self.resolve_with(alpha, &cycle)
+    }
+
+    /// Whether this is a property-cycle reference `"Cn"`, the one kind of
+    /// colour [`resolve_with`](Self::resolve_with) reads the cycle for.
+    ///
+    /// ```
+    /// use pltrs::colors::Color;
+    /// assert!(Color::from("C3").refers_to_cycle());
+    /// assert!(!Color::from("#1f77b4").refers_to_cycle());
+    /// assert!(!Color::from([0.0, 0.5, 1.0]).refers_to_cycle());
+    /// ```
+    pub fn refers_to_cycle(&self) -> bool {
+        matches!(self, Self::Spec(spec) if is_cycle_reference(spec))
     }
 
     /// Resolves to RGBA using an explicit colour cycle for `"Cn"`

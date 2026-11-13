@@ -65,16 +65,24 @@ class _Deferred:
         return f"<module {self._name!r} (imported when first used)>"
 
 
-def module(namespace, name):
+def module(namespace, name, bound=None):
     """
     The module *name*, relative to the module whose globals are *namespace*
     as in its ``from`` imports (``".axes._sharing"`` for ``from .axes import
     _sharing``, ``".._mirrors"`` for ``from .. import _mirrors``), imported
     when that module first reads one of its attributes, to be bound under
-    the last part of *name*::
+    *bound*, by default the last part of *name*::
 
         _quiver_reference = _lazy_imports.module(globals(), "._quiver_reference")
+
+    A module a module's functions import from where the module cannot
+    (one importing it in turn) is one too, bound under a private name: an
+    import statement in a function costs every call a lookup of the
+    package, which reading an attribute does not::
+
+        _text_module = _lazy_imports.module(globals(), ".text", "_text_module")
     """
     relative = name.lstrip(".")
     package = namespace["__package__"].rsplit(".", len(name) - len(relative) - 1)[0]
-    return _Deferred(f"{package}.{relative}", namespace, relative.rpartition(".")[2])
+    return _Deferred(f"{package}.{relative}", namespace,
+                     bound or relative.rpartition(".")[2])

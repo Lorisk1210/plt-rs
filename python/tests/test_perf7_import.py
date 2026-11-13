@@ -162,3 +162,48 @@ def test_importing_locates_the_data_directory_without_its_files(tmp_path):
         assert read_at_import == []
         # ... and asking for the path afterwards gives them.
         assert font and sample_data
+
+
+#: The most Python-level calls (``sys.setprofile`` "call" events) a fresh
+#: ``import pltrs.pyplot`` may make, and one ``canvas.draw()`` of a plain
+#: figure: a few per cent over what they make (task PERF8, 2026-11-13:
+#: 102,765 at import, 69 per draw), so that work going through Python for
+#: every colour, artist or name fails here rather than in a benchmark.
+#: (At af3ed0db the import made 129,580, 31,606 of them calls of the
+#: program colour hook, as every colour resolved the whole property cycle.)
+PYTHON_CALLS_CEILING = {"import": 106_000, "draw": 72}
+
+#: Counts the Python calls of ``import pltrs.pyplot`` (the third-party
+#: modules it uses imported first) and of a second draw of a plain figure.
+_CALLS_PROGRAM = """
+import json, sys
+import numpy, PIL.Image, dateutil.parser
+calls = [0]
+def count(frame, event, arg):
+    if event == "call":
+        calls[0] += 1
+sys.setprofile(count)
+import pltrs.pyplot as plt
+sys.setprofile(None)
+at_import, calls[0] = calls[0], 0
+fig, ax = plt.subplots()
+ax.plot([1, 2, 3], [1, 4, 9], label="line")
+ax.set_title("title")
+ax.legend()
+fig.canvas.draw()
+sys.setprofile(count)
+fig.canvas.draw()
+sys.setprofile(None)
+print(json.dumps({"import": at_import, "draw": calls[0]}))
+"""
+
+
+def test_python_calls_at_import_and_per_draw_stay_under_their_ceiling(tmp_path):
+    env = {"PLTRSCONFIGDIR": str(tmp_path), "PLTRS_LOOK": "matplotlib"}
+    _fresh(_CALLS_PROGRAM, **env)  # the caches of a first import written
+    calls, _ = _fresh(_CALLS_PROGRAM, **env)
+    for what, ceiling in PYTHON_CALLS_CEILING.items():
+        assert calls[what] <= ceiling, (
+            f"{calls[what]} Python calls {'at import' if what == 'import' else 'per draw'}"
+            f" (ceiling {ceiling}): something now goes through Python for each "
+            "colour, artist or name")

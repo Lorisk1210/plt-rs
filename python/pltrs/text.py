@@ -34,6 +34,7 @@ from .textpath import TextPath, TextToPath  # noqa: F401 (logically located here
 from .transforms import Bbox, BboxBase, Transform
 
 _text_coords = _lazy_imports.module(globals(), "._text_coords")
+_computed_transforms = _lazy_imports.module(globals(), "._computed_transforms")
 
 #: The keywords `Text` takes explicitly, in the order matplotlib's
 #: ``Text._reset_visual_defaults`` applies them, before the other properties.
@@ -1276,7 +1277,7 @@ class Text(Artist):
         """*value*, the coordinate *index* of the position, as matplotlib
         draws it: NaN when masked, else converted with the units of *axes*
         (by default the text's) into a float."""
-        if np.ma.is_masked(value):
+        if type(value) is not float and np.ma.is_masked(value):
             return np.nan
         artist = self if axes is None else axes
         convert = artist.convert_xunits if index == 0 else artist.convert_yunits
@@ -2052,8 +2053,7 @@ or callable, default: value of *xycoords*
         systems at every draw when the program evaluates one (an
         annotation outside any figure has them evaluated once adopted)."""
         if self._figure is not None:
-            from ._computed_transforms import track
-            track(self, self._figure)
+            _computed_transforms.track(self, self._figure)
 
     def _evaluate_coords(self):
         """Hand pltrs (Rust) the coordinate systems the program evaluates

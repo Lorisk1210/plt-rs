@@ -12,7 +12,7 @@ import pytest
 from PIL import Image
 
 from spec_support import all_cases
-from spec_support.golden import PLATFORM, dump_json, golden_path, record_golden
+from spec_support.golden import RECORDS_COMMON, dump_json, golden_path, record_golden
 from spec_support.tex import SKIP_REASON, has_usetex
 
 for module in sorted(pathlib.Path(__file__).parent.glob("cases_*.py")):
@@ -62,7 +62,7 @@ def test_figure_case(case, update_goldens):
     assert golden_png.exists(), f"missing golden for {case.name}; run --update-goldens"
     golden_facts = json.loads(golden_path(case.facts_golden).read_text(encoding="utf-8"))
     assert golden_facts == json.loads(dump_json(facts))
-    if PLATFORM is None:
+    if RECORDS_COMMON:
         np.testing.assert_array_equal(_pixels(golden_png.read_bytes()), _pixels(png))
     else:
         assert _pixels_pass(golden_png.read_bytes(), png)

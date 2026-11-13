@@ -24,6 +24,7 @@
 //!                                                 IPython's, matplotlib-inline's and ipympl's own tests on pltrs (or matplotlib)
 //! cargo xtask diff [--gallery] [--generated] [--corpus [NAME...]] [PATTERN...] [--failures] [--reduce] [--baseline REPORT] [--coverage | --docs [--strict] | --types [--strict] | --private [--strict]]
 //!                                                 programs run under matplotlib and pltrs (Python), compared
+//! cargo xtask COMMAND ... --level v2|v3|v4        the command as on a processor of that level (numpy, its BLAS and pltrs)
 //! ```
 #![forbid(unsafe_code)]
 #![expect(
@@ -36,6 +37,7 @@ mod bench;
 mod diff;
 mod ecosystem;
 mod examples;
+mod level;
 mod mpl_suite;
 mod mpl_tests;
 mod notebooks;
@@ -53,6 +55,9 @@ use pltrs_spec::probes::{self, AreaReport, ProbeFile};
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(code) = level::rerun(&args) {
+        return code;
+    }
     match args.split_first() {
         Some((command, rest)) if command == "spec" => spec(rest),
         Some((command, rest)) if command == "figures" => figure_cases(rest),
@@ -94,6 +99,7 @@ fn main() -> ExitCode {
             eprintln!(
                 "       cargo xtask diff [--gallery] [--generated] [--corpus [NAME...]] [PATTERN...] [--failures] [--reduce] [--baseline REPORT] [--coverage | --docs [--strict] | --types [--strict] | --private [--strict]]"
             );
+            eprintln!("       cargo xtask COMMAND ... --level v2|v3|v4");
             ExitCode::FAILURE
         }
     }

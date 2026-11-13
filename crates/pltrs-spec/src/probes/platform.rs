@@ -1,10 +1,12 @@
 //! Platform goldens of the probes.
 //!
 //! `spec/goldens/probes/<area>.json` is what matplotlib computes on Linux
-//! x86-64. Where it computes something else on the platform this harness
-//! is built for, `spec/goldens/platforms/<target>/probes/<area>.json`
-//! (written by the reference runner on that platform, see
-//! `spec/reference/spec_support/golden.py`) holds the probes that differ:
+//! x86-64 with AVX-512. Where it computes something else on the platform
+//! this harness is built for, or at the processor level it runs at,
+//! `spec/goldens/platforms/<target or level>/probes/<area>.json`
+//! (written by the reference runner on that platform or at that level,
+//! see `spec/reference/spec_support/golden.py`) holds the probes that
+//! differ:
 //! those with another outcome, those with other arguments (matplotlib and
 //! numpy compute many of them), and the keys of the common probes
 //! matplotlib does not evaluate there.

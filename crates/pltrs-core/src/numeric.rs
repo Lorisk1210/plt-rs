@@ -23,7 +23,17 @@
 //! * `a * b + c` as matplotlib's compiled extensions compute it on this
 //!   platform ([`fused`], [`sum_of_products`], [`difference_of_products`],
 //!   [`FUSES_PRODUCTS`]): in one rounding on arm64 macOS, in two
-//!   elsewhere.
+//!   elsewhere;
+//! * which copy of numpy's loops the processor runs ([`CpuLevel`]): the
+//!   order of equal values in a sort depends on it;
+//! * numpy's own `sinh`, `log` and `power` where a rounding of theirs
+//!   decides something discrete and numpy is in the process ([`Ufunc`]).
+
+mod level;
+mod ufunc;
+
+pub use level::{CpuLevel, LEVEL_VARIABLE, NumpyDispatch, UnknownLevel};
+pub use ufunc::{Evaluator, Ufunc, evaluate_with};
 
 /// The remainder of `a / b` with the sign of `b`: Python's float `%` and
 /// numpy's `remainder`. A zero result takes the sign of `b`.

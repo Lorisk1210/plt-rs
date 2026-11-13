@@ -42,7 +42,7 @@ import pytest
 from spec_support import all_cases
 from spec_support.figcases import VECTOR_METADATA
 from spec_support.fonts import figure_fonts_only
-from spec_support.golden import PLATFORM, SPEC_ROOT, golden_path, record_golden
+from spec_support.golden import RECORDS_COMMON, SPEC_ROOT, golden_path, record_golden
 from spec_support.tex import document_skip_reason
 
 for module in sorted(pathlib.Path(__file__).parent.glob("cases_*.py")):
@@ -191,7 +191,7 @@ def _check(golden, document, update_goldens):
         return
     path = golden_path(golden)
     assert path.exists(), f"missing golden {path}; run --update-goldens"
-    if PLATFORM is None:
+    if RECORDS_COMMON:
         assert path.read_bytes() == document
     else:
         assert passes(path.read_bytes(), document)

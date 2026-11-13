@@ -1,44 +1,51 @@
 //! x86-simd-sort's quicksort of indices (`argsort_`): ranges of more than
-//! [`network::MAX_KEYS`] keys are partitioned around a median of eight
-//! samples, four AVX-512 registers at a time (`argpartition_unrolled`).
+//! [`network::MAX_KEYS`] keys are partitioned around the upper median of
+//! one register of samples, four registers at a time
+//! (`argpartition_unrolled`).
 
-use super::{LANES, fallback, network};
+use super::width::{MAX_LANES, Width};
+use super::{fallback, network};
 
 /// Registers each partition step takes in (`num_unroll`).
 const UNROLL: usize = 4;
 
-/// Keys each partition step takes in.
-const BLOCK: usize = UNROLL * LANES;
+/// The most keys a partition step takes in.
+const MAX_BLOCK: usize = UNROLL * MAX_LANES;
 
 /// Sorts `indices` by their `values`, with `max_iters` more levels of
 /// partitions before `std::sort` ([`fallback`]) takes over.
-pub(super) fn sort(values: &[f64], indices: &mut [usize], max_iters: usize) {
+pub(super) fn sort<W: Width>(values: &[f64], indices: &mut [usize], max_iters: usize) {
     if max_iters == 0 {
         fallback::sort(indices, |a, b| values[a] < values[b]);
         return;
     }
     if indices.len() <= network::MAX_KEYS {
-        network::sort(values, indices);
+        network::sort::<W>(values, indices);
         return;
     }
-    let pivot = pivot(values, indices);
-    let partition = partition(values, indices, pivot);
+    let pivot = pivot::<W>(values, indices);
+    let partition = partition::<W>(values, indices, pivot);
     let (below, rest) = indices.split_at_mut(partition.split);
     if partition.smallest < pivot {
-        sort(values, below, max_iters - 1);
+        sort::<W>(values, below, max_iters - 1);
     }
     if pivot < partition.biggest {
-        sort(values, rest, max_iters - 1);
+        sort::<W>(values, rest, max_iters - 1);
     }
 }
 
-/// The fifth smallest of eight evenly spaced samples (`get_pivot_64bit`
-/// for a range of more than eight keys).
-fn pivot(values: &[f64], indices: &[usize]) -> f64 {
-    let step = (indices.len() - 1) / LANES;
-    let mut samples: [f64; LANES] = std::array::from_fn(|k| values[indices[(k + 1) * step]]);
+/// The upper median of a register of evenly spaced samples
+/// (`get_pivot_64bit` for a range of more keys than a register holds):
+/// the fifth smallest of eight, the third smallest of four.
+fn pivot<W: Width>(values: &[f64], indices: &[usize]) -> f64 {
+    let step = (indices.len() - 1) / W::LANES;
+    let mut samples = [0.0; MAX_LANES];
+    let samples = &mut samples[..W::LANES];
+    for (k, sample) in samples.iter_mut().enumerate() {
+        *sample = values[indices[(k + 1) * step]];
+    }
     samples.sort_unstable_by(f64::total_cmp);
-    samples[LANES / 2]
+    samples[W::LANES / 2]
 }
 
 /// A partitioned range.
@@ -51,9 +58,35 @@ struct Partition {
     biggest: f64,
 }
 
+/// The indices a partition step holds in registers, taken out of the
+/// range before their places are stored into.
+struct Block {
+    indices: [usize; MAX_BLOCK],
+    len: usize,
+}
+
+impl Block {
+    /// A copy of the `UNROLL` registers of `indices` from `at` on.
+    fn load<W: Width>(indices: &[usize], at: usize) -> Self {
+        let len = UNROLL * W::LANES;
+        let mut block = [0; MAX_BLOCK];
+        block[..len].copy_from_slice(&indices[at..at + len]);
+        Self {
+            indices: block,
+            len,
+        }
+    }
+
+    /// The indices held.
+    fn indices(&self) -> &[usize] {
+        &self.indices[..self.len]
+    }
+}
+
 /// Puts the indices of keys below `pivot` first (`argpartition_unrolled`
 /// for a range of more than [`network::MAX_KEYS`] keys).
-fn partition(values: &[f64], indices: &mut [usize], pivot: f64) -> Partition {
+fn partition<W: Width>(values: &[f64], indices: &mut [usize], pivot: f64) -> Partition {
+    let block = UNROLL * W::LANES;
     let mut store = Stores {
         values,
         pivot,
@@ -64,7 +97,7 @@ fn partition(values: &[f64], indices: &mut [usize], pivot: f64) -> Partition {
     };
     let (mut left, mut right) = (0, indices.len());
     // One key at a time until the rest is a whole number of blocks.
-    for _ in 0..indices.len() % BLOCK {
+    for _ in 0..indices.len() % block {
         let key = values[indices[left]];
         store.see(key);
         if key < pivot {
@@ -76,35 +109,30 @@ fn partition(values: &[f64], indices: &mut [usize], pivot: f64) -> Partition {
     }
     // The first and last block are partitioned last, which frees the
     // room the blocks in between are stored into.
-    let first = block(indices, left);
-    let last = block(indices, right - BLOCK);
+    let first = Block::load::<W>(indices, left);
+    let last = Block::load::<W>(indices, right - block);
     store.left = left;
     store.right = right;
-    left += BLOCK;
-    right -= BLOCK;
+    left += block;
+    right -= block;
     while right != left {
         // Take the next block from the side with less room left.
         let next = if store.right - right < left - store.left {
-            right -= BLOCK;
-            block(indices, right)
+            right -= block;
+            Block::load::<W>(indices, right)
         } else {
-            left += BLOCK;
-            block(indices, left - BLOCK)
+            left += block;
+            Block::load::<W>(indices, left - block)
         };
-        store.block(indices, &next);
+        store.block::<W>(indices, &next);
     }
-    store.block(indices, &first);
-    store.block(indices, &last);
+    store.block::<W>(indices, &first);
+    store.block::<W>(indices, &last);
     Partition {
         split: store.left,
         smallest: store.smallest,
         biggest: store.biggest,
     }
-}
-
-/// A copy of the `BLOCK` indices from `at` on, as the registers hold them.
-fn block(indices: &[usize], at: usize) -> [usize; BLOCK] {
-    std::array::from_fn(|k| indices[at + k])
 }
 
 /// The state of a partition: where the next keys below and at least the
@@ -128,26 +156,44 @@ impl Stores<'_> {
     }
 
     /// Partitions the registers of `block` in turn.
-    fn block(&mut self, indices: &mut [usize], block: &[usize; BLOCK]) {
-        for register in block.as_chunks::<LANES>().0 {
-            self.register(indices, register);
+    fn block<W: Width>(&mut self, indices: &mut [usize], block: &Block) {
+        for register in block.indices().chunks_exact(W::LANES) {
+            self.register::<W>(indices, register);
         }
     }
 
-    /// `partition_vec_avx512`: compresses the indices of keys below the
-    /// pivot to the left store and the others to the right one, each in
-    /// lane order.
-    fn register(&mut self, indices: &mut [usize], register: &[usize]) {
-        let (rest, below): (Vec<usize>, Vec<usize>) = register
+    /// `partition_vec`: stores the indices of keys below the pivot at the
+    /// left store in lane order, and the others before the right one, in
+    /// lane order too (`partition_vec_avx512`) or from the last lane down
+    /// (`partition_vec_avx2`).
+    fn register<W: Width>(&mut self, indices: &mut [usize], register: &[usize]) {
+        let mut below = self.left;
+        let mut upper = self.right;
+        for &index in register {
+            let key = self.values[index];
+            self.see(key);
+            if key < self.pivot {
+                indices[below] = index;
+                below += 1;
+            } else {
+                upper -= 1;
+            }
+        }
+        let mut at = upper;
+        let mut place = |index: usize| {
+            indices[at] = index;
+            at += 1;
+        };
+        let upper_keys = register
             .iter()
             .copied()
-            .partition(|&index| self.values[index] >= self.pivot);
-        for &index in register {
-            self.see(self.values[index]);
+            .filter(|&index| self.values[index] >= self.pivot);
+        if W::REVERSES_UPPER_KEYS {
+            upper_keys.rev().for_each(&mut place);
+        } else {
+            upper_keys.for_each(&mut place);
         }
-        indices[self.left..self.left + below.len()].copy_from_slice(&below);
-        indices[self.right - rest.len()..self.right].copy_from_slice(&rest);
-        self.left += below.len();
-        self.right -= rest.len();
+        self.left = below;
+        self.right = upper;
     }
 }

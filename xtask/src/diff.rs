@@ -173,6 +173,16 @@ impl Mode {
     }
 }
 
+/// Where the runs and reports go, below the repository: `target/diff`,
+/// and `target/diff-<level>` for a run at another processor level
+/// (`--level`), whose reference runs are others.
+fn out_directory() -> String {
+    crate::level::asked().map_or_else(
+        || "target/diff".to_owned(),
+        |level| format!("target/diff-{level}"),
+    )
+}
+
 /// Runs the `diff` subcommand.
 pub(crate) fn run(args: &[String]) -> ExitCode {
     match run_diff(args) {
@@ -196,7 +206,7 @@ fn run_diff(args: &[String]) -> Result<(), String> {
         .arg("--root")
         .arg(&root)
         .arg("--out")
-        .arg(root.join("target/diff"));
+        .arg(root.join(out_directory()));
     let mut rest = args.iter();
     while let Some(arg) = rest.next() {
         match arg.as_str() {

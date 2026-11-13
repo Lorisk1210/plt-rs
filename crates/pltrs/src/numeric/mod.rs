@@ -1,7 +1,8 @@
 //! numpy-style numeric helpers: ranges, grids, NaN-aware reductions,
-//! numpy's (unstable) `argsort`, index regions (runs of a mask, block
-//! perimeters of a grid) and numpy's scalar arithmetic with its runtime
-//! warnings ([`numpy_arith`]).
+//! numpy's (unstable) `argsort` as the processor's level sorts
+//! ([`CpuLevel`]), index regions (runs of a mask, block perimeters of a
+//! grid) and numpy's scalar arithmetic with its runtime warnings
+//! ([`numpy_arith`]).
 //!
 //! The range constructors reproduce numpy's floating-point arithmetic
 //! exactly (`linspace` computes `i * step + start` and pins the endpoint),
@@ -17,14 +18,14 @@ mod number;
 pub mod numpy_arith;
 mod regions;
 
-pub use argsort::argsort;
+pub use argsort::{argsort, argsort_at};
 pub(crate) use grid::cell_buffer;
 pub use grid::{Grid, GridShapeError};
 pub use interp::interp;
 pub use number::Number;
 pub(crate) use number::{to_f64s, with_numbers};
 use pltrs_core::numeric::fused;
-pub use pltrs_core::numeric::{linspace, linspace_with, pow, remainder};
+pub use pltrs_core::numeric::{CpuLevel, linspace, linspace_with, pow, remainder};
 pub use regions::{block_perimeters, contiguous_regions};
 
 /// Values `start, start + step, ...` strictly before `stop` (numpy `arange`).

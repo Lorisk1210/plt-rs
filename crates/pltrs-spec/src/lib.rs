@@ -5,9 +5,10 @@
 //! replays against pltrs.
 //!
 //! * [`probes`] — `op(args) -> value` observations per functional area.
-//! * [`golden_path`], [`PLATFORM`] — the goldens are matplotlib's on Linux
-//!   x86-64; a platform where matplotlib computes something else has its
-//!   own for what differs, which this crate prefers there.
+//! * [`golden_path`], [`PLATFORM`], [`level_platform`] — the goldens are
+//!   matplotlib's on Linux x86-64 with AVX-512; a platform or a processor
+//!   level where matplotlib computes something else has its own for what
+//!   differs, which this crate prefers there.
 //! * [`figures`] — Rust translations of the figure cases.
 //! * [`json`] / [`compare`] — golden parsing and tolerant comparison.
 //! * [`rng`] — the deterministic data generator shared with the Python side.
@@ -38,6 +39,8 @@ mod scratch;
 mod user_units;
 
 use std::path::{Path, PathBuf};
+
+use pltrs::numeric::CpuLevel;
 
 /// Puts the process and the current thread in the configuration the
 /// goldens assume (`reference_rc` in `spec/reference/conftest.py`):
@@ -78,19 +81,46 @@ pub const PLATFORM: Option<&str> = if cfg!(all(target_os = "macos", target_arch 
     None
 };
 
-/// The platform golden for `relative` (a path below `spec/goldens`), if
-/// this target has goldens of its own and one is recorded for it.
-pub fn platform_golden(relative: impl AsRef<Path>) -> Option<PathBuf> {
-    let own = spec_root()
-        .join("goldens/platforms")
-        .join(PLATFORM?)
-        .join(relative);
-    own.exists().then_some(own)
+/// The directory, below `spec/goldens/platforms`, of the goldens of the
+/// processor level pltrs computes at, or `None` at the level the common
+/// goldens are recorded at (`X86_V4`) and off x86-64.
+///
+/// numpy runs another copy of its loops on a processor with AVX2 alone or
+/// without it than with AVX-512 (see [`CpuLevel`]), and a target triple
+/// does not say which a machine has, so what matplotlib computes
+/// otherwise there is recorded by level, for every x86-64 system
+/// (`_level` of `spec/reference/spec_support/golden.py`, which this
+/// mirrors). `PLTRS_CPU_LEVEL`, or `cargo xtask spec --level`, holds pltrs
+/// to another level's goldens on an AVX-512 machine.
+pub fn level_platform() -> Option<&'static str> {
+    if !cfg!(target_arch = "x86_64") {
+        return None;
+    }
+    match CpuLevel::current() {
+        CpuLevel::Baseline => Some("x86_64-v2"),
+        CpuLevel::V3 => Some("x86_64-v3"),
+        CpuLevel::V4 => None,
+    }
+}
+
+/// The goldens recorded for `relative` (a path below `spec/goldens`)
+/// that this build is held to before the common one: its target's
+/// ([`PLATFORM`]), then its processor level's ([`level_platform`]).
+pub fn platform_goldens(relative: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
+    let platforms = spec_root().join("goldens/platforms");
+    [PLATFORM, level_platform()]
+        .into_iter()
+        .flatten()
+        .map(move |platform| platforms.join(platform).join(relative.as_ref()))
+        .filter(|own| own.exists())
 }
 
 /// The golden `relative` (a path below `spec/goldens`) this build is held
-/// to: its platform's where one is recorded, the common one otherwise.
+/// to: its target's where one is recorded, else its processor level's,
+/// else the common one.
 pub fn golden_path(relative: impl AsRef<Path>) -> PathBuf {
     let relative = relative.as_ref();
-    platform_golden(relative).unwrap_or_else(|| spec_root().join("goldens").join(relative))
+    platform_goldens(relative)
+        .next()
+        .unwrap_or_else(|| spec_root().join("goldens").join(relative))
 }

@@ -105,6 +105,19 @@ must reproduce them.
   output under the same path, and `pltrs-spec` built for that target
   prefers it. Only `spec/mpl-reference --update-goldens` run on that
   platform writes it; rerun it there when the common goldens change.
+* The common goldens are recorded with AVX-512, where numpy runs the
+  `X86_V4` copy of its loops. With AVX2 alone (`X86_V3`) or without it
+  (`X86_V2`) its `argsort` leaves equal values in another order, and pltrs
+  follows the processor (`pltrs::numeric::CpuLevel`; in pltrs (Python),
+  numpy's own answer). What matplotlib computes otherwise at a level, and
+  pltrs' check refuses, is in `spec/goldens/platforms/x86_64-v3/` and
+  `x86_64-v2/`, for every x86-64 system. An AVX-512 machine checks and
+  records them too: `cargo xtask spec --level v3` (any command takes
+  `--level v2|v3|v4`: it sets `PLTRS_CPU_LEVEL` for pltrs (Rust) and, for
+  what runs numpy, `NPY_DISABLE_CPU_FEATURES` and `OPENBLAS_CORETYPE`),
+  and `spec/mpl-reference --update-goldens` under those two variables
+  (`NPY_DISABLE_CPU_FEATURES="X86_V4 AVX512_ICL AVX512_SPR"
+  OPENBLAS_CORETYPE=Haswell` for `v3`), the probes one module per process.
 * Probes (`spec/reference/probes/test_<area>.py`) record `op(args) -> value`
   via `ProbeSet(area).probe("op", fn, **args)`; goldens in
   `spec/goldens/probes/<area>.json`. Each area is owned by one module; run the

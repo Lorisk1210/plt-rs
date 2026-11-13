@@ -2953,6 +2953,101 @@ whether `np.dot` and `@` warn), and asks python-dateutil 2.7's zones,
 which round their offsets to whole minutes, through Python
 (`_date_locators._dateutil_keeps_offsets`).
 
+### Processor levels
+
+numpy's wheels for x86-64 are built for one baseline (`X86_V2`: SSE4.2)
+and hold two more copies of their hot loops, for `X86_V3` (AVX2 with FMA)
+and `X86_V4` (AVX-512), of which numpy picks the best the processor runs
+when it is imported. The copies do not compute the same, and matplotlib's
+results follow, so "the machine it runs on" means the processor too:
+pltrs computes at numpy's level, `pltrs_core::numeric::CpuLevel`
+(`Baseline`, `V3`, `V4`), resolved once per process.
+
+* **Where the level comes from.** In pltrs (Python) it is numpy's own
+  answer: `pltrs/__init__.py` hands what `__cpu_features__` holds for the
+  groups `X86_V3` and `X86_V4` to `_native.numeric.follow_numpy` before
+  anything is computed, so that a user's `NPY_DISABLE_CPU_FEATURES`, or a
+  numpy built for another baseline, is followed (numpy before the groups,
+  2.2 for one, dispatches the same copies by the features `AVX2` and
+  `AVX512_SKX`, which are read then). pltrs (Rust) on its own asks the
+  processor (`is_x86_feature_detected!`) with numpy's rule for the groups,
+  unless `PLTRS_CPU_LEVEL` names a level (`v2`, `v3`, `v4`). Every other
+  architecture is `Baseline`: arm64 macOS computes as before. A kernel
+  that depends on the level reads the resolved value once per call
+  (`argsort` of 10⁶ values costs what it did; `argsort_at` takes the level
+  as an argument, for tests).
+* **What follows it: the sort.** numpy's unstable `argsort` sorts indices
+  with its own introsort at the baseline and with Intel's x86-simd-sort
+  at `X86_V3` and `X86_V4`, compiled once for registers of 4 keys and
+  once for 8 (`pltrs::numeric::argsort`: one port over both widths). Up to
+  256 values the two compilations agree (one bitonic network); above,
+  their partitions leave ties in another order, and with them the order
+  matplotlib draws 3-D points and faces of equal depth in
+  (`np.argsort(depths)[::-1]`), the labels a contour keeps, and whatever
+  else sorts by `argsort`. `crates/pltrs/tools/argsort_digests.py` holds
+  the proof against numpy (every length to 600 and a spread to 10⁶, at
+  the three levels) and checks a processor's own level with numpy alone
+  (`--check`).
+* **What does not follow it: the maths.** Only numpy's Linux wheel links
+  Intel's SVML, and only its AVX-512 loops call it: at `X86_V4` on Linux
+  `exp`, `log`, `log2`, `log10`, `exp2`, `expm1`, `log1p`, `power`,
+  `cbrt`, `tan`, the inverse trigonometric and the hyperbolic functions
+  of float64 arrays come from SVML and differ from the C library's in the
+  last bit of some results: `log10` 38%, `log` and `log2` 31%, `power`
+  3 to 7%, `exp` 3%, `sinh` 18%, `arcsinh` 13%, `arcsin` and `arccos`
+  71%, `arctan2` 3%, `arctan` 0.1% (10⁵ values each; float32 too, except
+  `exp`, `log`, `sin` and `cos`, which numpy computes itself at both
+  levels). Reductions, `sqrt`, `sin`, `cos`, `hypot`, the casts,
+  `linspace`, `arange`, `interp`, `histogram` and the FFT are the same
+  bits at every level. Everywhere else (`X86_V3`, `X86_V2`, Windows,
+  macOS) numpy calls the C library, as pltrs (Rust) does. pltrs computes
+  with the C library at every level: one bit off at `X86_V4` on Linux,
+  which stays within what the spec and the differential tester allow
+  (1e-9, 1e-6). Of the spec's 3,402 images, 19 differ between the levels
+  under matplotlib itself (log and asinh scales, contours, streamplots,
+  hexbin; the largest RMS 0.16), none past the tolerance, and no
+  structural fact or vector document differs. The float64 kernels numpy
+  calls (`__svml_*8_ha`, the `_ha` files of its `svml` directory) carry
+  an "INTEL CONFIDENTIAL" notice of their own beside the directory's
+  BSD-3-Clause licence: nothing of them is ported.
+* **Where one bit decides: numpy's own values.** A rounding that feeds
+  something discrete shows: the power an `AsinhLocator` rounds a tick to
+  (`floor(log(sinh(...)))`), and the boundaries a colorbar draws for a
+  `LogNorm`, of which an edge on a pixel's centre falls to one pixel or
+  the next. At those two places pltrs (Rust) asks for the values through
+  `pltrs_core::numeric::Ufunc::map`, and pltrs (Python) puts numpy's own
+  ufuncs behind it when it is imported (`_native.numeric.use_ufuncs`; no
+  table of pltrs' own), so that matplotlib's decision is reproduced
+  whatever numpy runs. `AsinhLocator.tick_values` makes four calls
+  (`arcsinh`, `sinh`, `log` or `log10`, `power`) and `LogNorm.inverse`
+  three (`log10` of the limits, `log` of the base, `exp`), of a few
+  microseconds each: the ufuncs matplotlib calls at the same places, as
+  often, and no figure without an asinh axis or a `LogNorm` reaches them.
+  pltrs (Rust) alone computes them with the C library; the spec waives
+  the three `AsinhLocator` probes for it at `X86_V4` and passes them at
+  the lower levels.
+* **numpy's BLAS follows the processor too, and is not followed.**
+  OpenBLAS picks its kernels by the processor (`SkylakeX` with AVX-512,
+  `Haswell` with AVX2), which changes long dot products, large matrix
+  products and LAPACK's results (inverses, solutions, eigenvalues) in the
+  last bits; the 3×3 and 4×4 products pltrs replays are the same in both.
+  In the spec that is one probe (a Bézier curve with control points at
+  1e17), waived at the lower levels, and no figure; as with LAPACK on
+  arm64 macOS, replaying OpenBLAS per kernel does not pay. A machine held
+  to a level for a reference run is held to its kernels all the same
+  (`OPENBLAS_CORETYPE`), so that the reference is a faithful one.
+* **The baseline.** Without AVX2 numpy's complex multiply rounds both
+  products where its AVX2 and AVX-512 loops fuse one
+  (`pltrs::mlab::Complex::mul_at`: `psd`, `csd`, `cohere`), and float32
+  `exp`, `log`, `sin` and `cos` come from the C library.
+
+The spec's goldens are recorded at `X86_V4`. What matplotlib computes
+otherwise at a lower level, and pltrs' check refuses, is that level's
+golden (`spec/goldens/platforms/x86_64-v3`, `x86_64-v2`; see CLAUDE.md),
+looked up after a target's own goldens and before the common ones;
+`cargo xtask spec --level v3` and the smoke tests of
+`python/tests/test_cpu1.py` run the lower levels on an AVX-512 machine.
+
 ## Adding a function: a worked example
 
 `Text.get_rotation()` and `Text.set_rotation()`:

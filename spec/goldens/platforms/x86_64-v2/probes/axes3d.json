@@ -1,0 +1,13 @@
+{
+ "area": "axes3d",
+ "matplotlib": "3.11.2",
+ "platform": "x86_64-v2",
+ "probes": [
+  {
+   "op": "axes3d.format_coord",
+   "args": {"pixel": [120, 120], "view": null, "limits": [[0, 10], [-2, 3], [100, 400]]},
+   "value": "x pane=6.e−17, y=−1.1556, z=159.2811"
+  }
+ ],
+ "absent": []
+}

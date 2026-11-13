@@ -14,7 +14,20 @@ platform's golden, in
 what fails is kept there, and pltrs is held to the platform's golden where
 there is one and to the common one otherwise. Platform goldens are written
 by ``spec/mpl-reference --update-goldens`` run on that platform, which
-never touches the common ones; Linux x86-64 never reads them.
+never touches the common ones.
+
+The processor is such a platform too. The common goldens are recorded
+with AVX-512, where numpy runs the ``X86_V4`` copy of its loops; with AVX2
+alone (``X86_V3``) or without it (the baseline, ``X86_V2``) its sort leaves
+equal values in another order, and a triple cannot say which processor a
+machine has. So ``spec/goldens/platforms/x86_64-v3`` and ``x86_64-v2`` hold
+what matplotlib computes at those levels that fails for the common golden,
+whatever the system, and a machine is held to the first golden recorded
+of: its target's, its level's, the common one. A level's goldens are
+recorded on an AVX-512 machine too, with numpy held to the level
+(``NPY_DISABLE_CPU_FEATURES``, and ``OPENBLAS_CORETYPE`` for the kernels
+of numpy's BLAS, which follow the processor the same way):
+``cargo xtask spec --level v3`` checks pltrs against them there.
 """
 
 from __future__ import annotations
@@ -44,18 +57,45 @@ def _platform() -> str | None:
     return None
 
 
+def _level() -> str | None:
+    """The processor level whose goldens this machine records, ``None``
+    where numpy runs as the common goldens were recorded (``X86_V4``) and
+    off x86-64. Keep in step with ``level_platform`` in ``pltrs-spec``."""
+    if platform.machine().lower() not in ("x86_64", "amd64"):
+        return None
+    from numpy._core._multiarray_umath import __cpu_features__ as features
+    if features.get("X86_V4"):
+        return None
+    return "x86_64-v3" if features.get("X86_V3") else "x86_64-v2"
+
+
 #: The directory name of this machine's platform goldens, if it has any.
 PLATFORM = _platform()
-PLATFORM_ROOT = GOLDEN_ROOT / "platforms" / PLATFORM if PLATFORM else None
+#: The directory name of the goldens of this machine's processor level.
+LEVEL = _level()
+#: The directories this machine's goldens are looked up in before the
+#: common ones, the most specific first.
+_ROOTS = [GOLDEN_ROOT / "platforms" / name for name in (PLATFORM, LEVEL) if name]
+#: Where this machine records what it computes otherwise, ``None`` where
+#: the common goldens are recorded.
+OWN_ROOT = _ROOTS[0] if _ROOTS else None
+#: Whether this machine records the common goldens: Linux x86-64 with
+#: AVX-512, numpy unrestricted.
+RECORDS_COMMON = OWN_ROOT is None
+
+
+def _first(relative: str | pathlib.Path, roots: list[pathlib.Path]) -> pathlib.Path:
+    """The golden ``relative`` in the first of ``roots`` holding one, the
+    common one otherwise."""
+    return next((root / relative for root in roots if (root / relative).exists()),
+                GOLDEN_ROOT / relative)
 
 
 def golden_path(relative: str | pathlib.Path) -> pathlib.Path:
     """The golden ``relative`` (below ``spec/goldens``) this machine is
-    held to: its platform's where one is recorded, the common one
-    otherwise."""
-    if PLATFORM_ROOT is not None and (PLATFORM_ROOT / relative).exists():
-        return PLATFORM_ROOT / relative
-    return GOLDEN_ROOT / relative
+    held to: its platform's where one is recorded, else its processor
+    level's, else the common one."""
+    return _first(relative, _ROOTS)
 
 
 def record_golden(relative: str | pathlib.Path, data: bytes,
@@ -63,20 +103,22 @@ def record_golden(relative: str | pathlib.Path, data: bytes,
     """Record what matplotlib produced here for the golden ``relative``.
 
     Where the common goldens are recorded, that is the common golden.
-    Elsewhere it is a platform golden if it fails for the common one
-    (``passes(common, data)`` is false: the check pltrs' output is put to),
-    and no file at all if it passes: a platform golden left from an
-    earlier run is then removed.
+    Elsewhere it is a golden of this machine's own (``OWN_ROOT``) if it
+    fails for the golden the machine is held to without it
+    (``passes(held, data)`` is false: the check pltrs' output is put to),
+    and no file at all if it passes: one left from an earlier run is then
+    removed.
     """
-    common = GOLDEN_ROOT / relative
-    if PLATFORM_ROOT is None:
+    if OWN_ROOT is None:
+        common = GOLDEN_ROOT / relative
         common.parent.mkdir(parents=True, exist_ok=True)
         common.write_bytes(data)
         return
-    if not common.exists():
+    held = _first(relative, _ROOTS[1:])
+    if not held.exists():
         raise AssertionError(f"{relative} has no common golden: record it on Linux x86-64 first")
-    own = PLATFORM_ROOT / relative
-    if passes(common.read_bytes(), data):
+    own = OWN_ROOT / relative
+    if passes(held.read_bytes(), data):
         own.unlink(missing_ok=True)
     else:
         own.parent.mkdir(parents=True, exist_ok=True)
@@ -239,8 +281,8 @@ def passes(golden: dict[str, Any], probe: dict[str, Any]) -> bool:
 def agrees(golden: dict[str, Any], probe: dict[str, Any]) -> bool:
     """Whether matplotlib's ``probe`` here is what the golden one says:
     exactly where the common goldens are recorded, and as far as pltrs is
-    held to it (``passes``) on a platform with goldens of its own."""
-    return values_equal(golden, probe) if PLATFORM is None else passes(golden, probe)
+    held to it (``passes``) on a machine with goldens of its own."""
+    return values_equal(golden, probe) if RECORDS_COMMON else passes(golden, probe)
 
 
 class GoldenAnswers:
@@ -258,7 +300,7 @@ class GoldenAnswers:
     def __init__(self, goldens: dict[str, dict[str, Any]], run: dict[str, dict[str, Any]]) -> None:
         self._goldens = goldens
         self._free: dict[str, list[str]] = {}
-        if PLATFORM is not None:
+        if not RECORDS_COMMON:
             for key, golden in goldens.items():
                 if key not in run:
                     self._free.setdefault(golden["op"], []).append(key)
@@ -281,66 +323,70 @@ class GoldenAnswers:
         return chosen
 
 
-def _platform_probe_path(area: str) -> pathlib.Path | None:
-    return PLATFORM_ROOT / "probes" / f"{area}.json" if PLATFORM_ROOT is not None else None
-
-
-def golden_probes(area: str) -> dict[str, dict[str, Any]] | None:
-    """The probes of ``area`` this machine is held to, by key: the common
-    golden's, with the platform's in place of those it replaces, without
-    those it lists as absent, and with those it adds. ``None`` without a
-    common golden."""
+def _probes_under(area: str, roots: list[pathlib.Path]) -> dict[str, dict[str, Any]] | None:
+    """The probes of ``area`` by key as the goldens of ``roots`` (the most
+    specific first) change the common ones: each, from the least specific
+    on, puts its probes in place of those they replace, drops those it
+    lists as absent and adds its own. ``None`` without a common golden."""
     common = PROBE_ROOT / f"{area}.json"
     if not common.exists():
         return None
     probes = {probe_key(p): p for p in json.loads(common.read_text(encoding="utf-8"))["probes"]}
-    own = _platform_probe_path(area)
-    if own is not None and own.exists():
-        document = json.loads(own.read_text(encoding="utf-8"))
-        for absent in document["absent"]:
-            del probes[probe_key(absent)]
-        probes.update((probe_key(p), p) for p in document["probes"])
+    for root in reversed(roots):
+        own = root / "probes" / f"{area}.json"
+        if own.exists():
+            document = json.loads(own.read_text(encoding="utf-8"))
+            for absent in document["absent"]:
+                probes.pop(probe_key(absent), None)
+            probes.update((probe_key(p), p) for p in document["probes"])
     return probes
+
+
+def golden_probes(area: str) -> dict[str, dict[str, Any]] | None:
+    """The probes of ``area`` this machine is held to, by key: the common
+    golden's as its processor level's golden and then its platform's
+    change them. ``None`` without a common golden."""
+    return _probes_under(area, _ROOTS)
 
 
 def record_probes(probes: ProbeSet) -> None:
     """Record the probes matplotlib evaluated here as the golden of their
     area: the whole area where the common goldens are recorded. Elsewhere
-    the platform's golden holds the probes that fail for the common golden
-    (``passes``; with them those evaluated with other arguments than any
-    common probe) and, as absent, the common probes of the same operations
-    that no probe here answers: evaluated with those other arguments. A
-    common probe of an operation with nothing of its own here stays, as one
-    matplotlib could not run for want of a program."""
-    own = _platform_probe_path(probes.area)
-    if own is None:
+    this machine's own golden holds the probes that fail for the golden it
+    is held to without it (``passes``; with them those evaluated with
+    other arguments than any such probe) and, as absent, the held probes
+    of the same operations that no probe here answers: evaluated with
+    those other arguments. A held probe of an operation with nothing of
+    its own here stays, as one matplotlib could not run for want of a
+    program."""
+    if OWN_ROOT is None:
         probes.path.parent.mkdir(parents=True, exist_ok=True)
         probes.path.write_text(dump_json(probes.document()), encoding="utf-8", newline="\n")
         return
-    if not probes.path.exists():
+    held = _probes_under(probes.area, _ROOTS[1:])
+    if held is None:
         raise AssertionError(f"{probes.area} has no common golden: record it on Linux x86-64 first")
-    common = {probe_key(p): p
-              for p in json.loads(probes.path.read_text(encoding="utf-8"))["probes"]}
+    own = OWN_ROOT / "probes" / f"{probes.area}.json"
     document = json.loads(dump_json(probes.document()))
     run = {probe_key(p): p for p in document["probes"]}
-    answers = GoldenAnswers(common, run)
+    answers = GoldenAnswers(held, run)
     failing, answered, replaced = [], set(), set()
     for key, probe in run.items():
         golden = answers.key(probe)
-        if golden is not None and passes(common[golden], probe):
+        if golden is not None and passes(held[golden], probe):
             answered.add(golden)
             continue
         failing.append(probe)
-        if key not in common:
+        if key not in held:
             replaced.add(probe["op"])
-    absent = [{"op": p["op"], "args": p["args"]} for key, p in common.items()
+    absent = [{"op": p["op"], "args": p["args"]} for key, p in held.items()
               if key not in run and key not in answered and p["op"] in replaced]
     if not failing and not absent:
         own.unlink(missing_ok=True)
         return
     own.parent.mkdir(parents=True, exist_ok=True)
     own.write_text(dump_json({"area": probes.area, "matplotlib": document["matplotlib"],
-                              "platform": PLATFORM, "probes": failing, "absent": absent}),
+                              "platform": OWN_ROOT.name, "probes": failing, "absent": absent}),
                    encoding="utf-8", newline="\n")
 
 

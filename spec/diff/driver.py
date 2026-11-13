@@ -74,6 +74,8 @@ TIMEOUT = 300
 #: The directories a corpus program's home has, as a desktop's has them
 #: (ultraplot makes its own in ``~/.config`` when imported).
 HOME_DIRECTORIES = (".config", ".cache", ".local/share")
+#: The variables holding numpy and its BLAS to another processor's code.
+PROCESSOR_LEVEL = ("NPY_DISABLE_CPU_FEATURES", "OPENBLAS_CORETYPE")
 #: The files of an implementation's configuration directory a corpus
 #: program gets copies of (the rest it shares, linked): matplotlib's font
 #: cache, which a program may write its own fonts into (ultraplot does),
@@ -220,12 +222,16 @@ class Program:
     def digest(self) -> str:
         """What the reference run depends on: the program, its mode, its
         corpus' tree and venvs, the tester's harness (`HEADLESS` too where
-        the programs get it) and the network it is refused (`OFFLINE`)."""
+        the programs get it), the network it is refused (`OFFLINE`) and
+        the processor level numpy is held to (`PROCESSOR_LEVEL`)."""
         harness = b"".join((HERE / name).read_bytes() for name in ("trace.py", "describe.py", "corpora.py"))
         if NEEDS_HEADLESS:
             harness += (HEADLESS / "sitecustomize.py").read_bytes()
         tree = self.corpus.corpus.sha256.encode() + CORPUS_REQUIREMENTS.read_bytes() if self.corpus else b""
         network = json.dumps(OFFLINE).encode()
+        # The copy of its loops numpy runs, and its BLAS' kernels, where a
+        # run is held to another processor level (`cargo xtask ... --level`).
+        network += "".join(os.environ.get(name, "") for name in PROCESSOR_LEVEL).encode()
         if self.corpus:
             # What a corpus program starts with, besides its tree.
             network += json.dumps([HOME_DIRECTORIES, OWN_CONFIG_FILES]).encode()

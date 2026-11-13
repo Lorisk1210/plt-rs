@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+"""Digests of numpy's ``argsort`` at each processor level, for the tests of
+``pltrs::numeric::argsort``.
+
+numpy's unstable ``argsort`` leaves equal values in an order that depends on
+the code its wheel runs on the processor: its own introsort without AVX2
+(``v2``), x86-simd-sort's AVX2 code (``v3``) or its AVX-512 code (``v4``).
+pltrs replays all three, and
+``crates/pltrs/src/numeric/argsort/digests.txt`` holds what numpy returns:
+one line per family of seeded arrays (ties, NaN, infinities, signed zeros,
+sorted, reversed, constant, stalled partitions) and size, with a digest of
+the returned indices per level. A size of ``0-600`` stands for every length
+from 0 to 600, chained into one digest.
+
+    argsort_digests.py            the digests of the numpy level in force
+    argsort_digests.py --write    rewrite digests.txt, running numpy at each
+                                  level this processor has (an AVX-512
+                                  machine records all three)
+    argsort_digests.py --check    compare the level in force with
+                                  digests.txt: the proof on a processor of
+                                  that level, with numpy alone
+
+The arrays come from SplitMix64 in integer arithmetic, which
+``digests.rs`` mirrors, so they are the same bits everywhere.
+"""
+
+import os
+import pathlib
+import subprocess
+import sys
+
+import numpy as np
+
+DIGESTS = pathlib.Path(__file__).resolve().parents[1] / "src/numeric/argsort/digests.txt"
+LEVELS = ("v2", "v3", "v4")
+#: What ``NPY_DISABLE_CPU_FEATURES`` takes away to run numpy at a level.
+DISABLED = {
+    "v2": "X86_V3 X86_V4 AVX512_ICL AVX512_SPR",
+    "v3": "X86_V4 AVX512_ICL AVX512_SPR",
+    "v4": "",
+}
+#: The lengths beyond the chained ones.
+SIZES = (1000, 2600, 4096, 10_000, 65_537, 100_000, 1_000_000)
+CHAINED = range(601)
+
+GOLDEN = np.uint64(0x9E3779B97F4A7C15)
+MIX1 = np.uint64(0xBF58476D1CE4E5B9)
+MIX2 = np.uint64(0x94D049BB133111EB)
+
+
+def _mix(z):
+    """SplitMix64's output function."""
+    z = (z ^ (z >> np.uint64(30))) * MIX1
+    z = (z ^ (z >> np.uint64(27))) * MIX2
+    return z ^ (z >> np.uint64(31))
+
+
+def splitmix(seed, n):
+    """The first ``n`` outputs of SplitMix64 from ``seed``."""
+    steps = np.arange(1, n + 1, dtype=np.uint64)
+    with np.errstate(over="ignore"):
+        return _mix(np.uint64(seed) + steps * GOLDEN)
+
+
+def _ties(levels):
+    return lambda seed, n: (splitmix(seed, n) % np.uint64(levels)).astype(np.float64) / 4.0
+
+
+def _uniform(seed, n):
+    return (splitmix(seed, n) >> np.uint64(11)).astype(np.float64) / 2.0**53
+
+
+def _nan(seed, n):
+    values = _ties(4)(seed, n)
+    values[::5] = np.nan
+    return values
+
+
+def _infinite(seed, n):
+    values = _ties(4)(seed, n)
+    values[::3] = np.inf
+    values[1::7] = -np.inf
+    return values
+
+
+def _zeros(seed, n):
+    return np.array([0.0, -0.0, 1.0, -1.0])[(splitmix(seed, n) % np.uint64(4)).astype(np.intp)]
+
+
+def _sorted(seed, n):
+    return (np.arange(n) // 3).astype(np.float64)
+
+
+def _reversed(seed, n):
+    return ((n - np.arange(n)) // 3).astype(np.float64)
+
+
+def _constant(seed, n):
+    return np.full(n, 2.5)
+
+
+def _stalled(seed, n):
+    i = np.arange(n)
+    return np.where(i % 7 == 3, (i % 13).astype(np.float64), 0.0)
+
+
+#: The families, in the order ``digests.rs`` numbers them for seeds.
+FAMILIES = {
+    "ties2": _ties(2),
+    "ties5": _ties(5),
+    "ties40": _ties(40),
+    "ties1000": _ties(1000),
+    "uniform": _uniform,
+    "nan": _nan,
+    "infinite": _infinite,
+    "zeros": _zeros,
+    "sorted": _sorted,
+    "reversed": _reversed,
+    "constant": _constant,
+    "stalled": _stalled,
+}
+
+
+def digest(order):
+    """A digest of the indices ``order``, sensitive to their positions."""
+    with np.errstate(over="ignore"):
+        positions = np.arange(order.size, dtype=np.uint64) * GOLDEN
+        return int(_mix(order.astype(np.uint64) ^ positions).sum(dtype=np.uint64))
+
+
+def family_digest(number, family, size):
+    """The digest of ``np.argsort`` of the family's array of ``size``
+    values, or of every length of ``CHAINED`` in turn."""
+    def one(n):
+        return digest(np.argsort(family(number * 10_007 + n, n)))
+
+    if size != "0-600":
+        return one(int(size))
+    total = 0
+    for n in CHAINED:
+        total = (total * int(GOLDEN) + one(n)) % 2**64
+    return total
+
+
+def level_in_force():
+    from numpy._core._multiarray_umath import __cpu_features__ as features
+    return "v4" if features.get("X86_V4") else "v3" if features.get("X86_V3") else "v2"
+
+
+def digests():
+    """``{(family, size): digest}`` at the numpy level in force."""
+    return {(name, str(size)): family_digest(number, family, size)
+            for number, (name, family) in enumerate(FAMILIES.items())
+            for size in ("0-600", *SIZES)}
+
+
+def read():
+    """digests.txt: ``{(family, size): {level: digest}}``."""
+    table = {}
+    for line in DIGESTS.read_text(encoding="utf-8").splitlines():
+        if line and not line.startswith("#"):
+            family, size, *values = line.split()
+            table[family, size] = {level: int(value, 16) for level, value in zip(LEVELS, values)}
+    return table
+
+
+def write():
+    """Record digests.txt from numpy run at every level this processor
+    has."""
+    highest = level_in_force()
+    if highest != "v4":
+        sys.exit(f"this numpy runs at {highest}: recording all levels needs an AVX-512 processor")
+    columns = {}
+    for level in LEVELS:
+        env = dict(os.environ, NPY_DISABLE_CPU_FEATURES=DISABLED[level])
+        out = subprocess.run([sys.executable, __file__], env=env, check=True,
+                             capture_output=True, text=True).stdout.splitlines()
+        if out[0] != f"# numpy {np.__version__} at {level}":
+            sys.exit(f"numpy did not run at {level}: {out[0]}")
+        columns[level] = [line.split() for line in out[1:]]
+    lines = [
+        f"# numpy {np.__version__}'s argsort of seeded arrays: family, size, and a digest of the",
+        "# indices at v2, v3 and v4. Written by crates/pltrs/tools/argsort_digests.py --write.",
+    ]
+    for rows in zip(*(columns[level] for level in LEVELS)):
+        family, size = rows[0][:2]
+        lines.append(f"{family} {size} " + " ".join(row[2] for row in rows))
+    DIGESTS.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+
+
+def check():
+    """Compare numpy here with digests.txt at the level in force."""
+    level, recorded, differing = level_in_force(), read(), []
+    for key, value in digests().items():
+        if recorded[key][level] != value:
+            differing.append(key)
+    print(f"numpy {np.__version__} at {level}: {len(recorded) - len(differing)} of "
+          f"{len(recorded)} digests as recorded")
+    for family, size in differing:
+        print(f"  differs: {family} {size}")
+    sys.exit(1 if differing else 0)
+
+
+if __name__ == "__main__":
+    if "--write" in sys.argv:
+        write()
+    elif "--check" in sys.argv:
+        check()
+    else:
+        print(f"# numpy {np.__version__} at {level_in_force()}")
+        for (family, size), value in digests().items():
+            print(f"{family} {size} {value:016x}")

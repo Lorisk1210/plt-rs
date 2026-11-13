@@ -324,3 +324,8 @@ hostile/module_matplotlib_pyplot_15$ | ^value\[phase_spectrum\]: array values$ @
 # failed render, which pltrs (Rust), whose renderer keeps no cells, does not
 # carry over.
 hostile/table_cell_1$ | ^exception\[draw\]: missing OverflowError$ @ ^line 481$ | matplotlib's Agg canvas keeps overflowing after a render that exceeded its cell block limit (rasteriser state); pltrs's renderer starts each path anew
+
+# numpy's OpenBLAS runs other kernels on a processor with AVX2 than on one
+# with AVX-512, and its long sums round otherwise; pltrs does not follow
+# them by processor (python/DESIGN.md, "Processor levels").
+images_contours_and_fields/tricontour_smooth_delaunay$ | ^value\[refine_field\]: array values$ @ ^95:0\[1\]$ | the min_E interpolation of the example's random points (flat triangles among them) solves an ill-conditioned system, whose result moves by the tolerance under matplotlib itself between OpenBLAS's kernels: with numpy at X86_V3 its minimum is -8.772904476 on the SkylakeX kernels and -8.772913748 on the Haswell ones (1.06e-6 apart), where pltrs gives -8.772904663; clean with AVX-512

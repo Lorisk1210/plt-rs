@@ -1,0 +1,14 @@
+{
+ "area": "path",
+ "matplotlib": "3.11.2",
+ "platform": "x86_64-v2",
+ "probes": [
+  {
+   "op": "bezier.find_bezier_t_intersecting_with_closedpath",
+   "args": {"control_points": [[1e+17, 0.0], [1.00000000000001e+17, 0.0]], "circle": [0, 0, 1.0000000000000051e+17], "t0": 0.0, "t1": 1.0, "tolerance": 1e-30},
+   "value": [0.5, 0.5078125],
+   "tol": 1e-09
+  }
+ ],
+ "absent": []
+}

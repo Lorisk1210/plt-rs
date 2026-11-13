@@ -10,7 +10,7 @@ use std::fmt;
 use std::rc::Rc;
 
 use pltrs_core::archive::{External, ProgramFn};
-use pltrs_core::numeric::{np_arcsinh, np_sign};
+use pltrs_core::numeric::{Ufunc, np_arcsinh, np_sign};
 
 use super::{NonPositive, ScaleError};
 use crate::numeric::numpy_arith::warn_elementwise;
@@ -58,6 +58,57 @@ impl LogTransform {
     pub fn nonpositive(&self) -> NonPositive {
         self.nonpositive
     }
+}
+
+impl LogTransform {
+    /// The logarithms of `values` as matplotlib's `LogTransform` takes
+    /// those of an array: `forward` of each, with numpy's own `log`,
+    /// `log2` or `log10` where numpy is in the process ([`Ufunc`]).
+    pub(crate) fn forward_array(&self, values: &[f64]) -> Vec<f64> {
+        let base = self.base();
+        let logs = if base == std::f64::consts::E {
+            Ufunc::Log.map(values, f64::ln)
+        } else if base == 2.0 {
+            Ufunc::Log2.map(values, f64::log2)
+        } else if base == 10.0 {
+            Ufunc::Log10.map(values, f64::log10)
+        } else {
+            let log_base = natural_log(base);
+            let logs = Ufunc::Log.map(values, f64::ln);
+            logs.into_iter().map(|log| log / log_base).collect()
+        };
+        let clips = self.nonpositive == NonPositive::Clip;
+        values
+            .iter()
+            .zip(logs)
+            .map(
+                |(&value, log)| {
+                    if clips && value <= 0.0 { -CLIPPED } else { log }
+                },
+            )
+            .collect()
+    }
+
+    /// The powers of the base to `values` as matplotlib's
+    /// `InvertedLogTransform` takes those of an array: `inverse` of each,
+    /// with numpy's own `exp` or `exp2` where numpy is in the process.
+    pub(crate) fn inverse_array(&self, values: &[f64]) -> Vec<f64> {
+        let base = self.base();
+        if base == std::f64::consts::E {
+            Ufunc::Exp.map(values, f64::exp)
+        } else if base == 2.0 {
+            Ufunc::Exp2.map(values, f64::exp2)
+        } else {
+            let log_base = natural_log(base);
+            let scaled: Vec<f64> = values.iter().map(|value| value * log_base).collect();
+            Ufunc::Exp.map(&scaled, f64::exp)
+        }
+    }
+}
+
+/// `np.log(base)` of a logarithm's base.
+fn natural_log(base: f64) -> f64 {
+    Ufunc::Log.map(&[base], f64::ln)[0]
 }
 
 impl AxisMap for LogTransform {

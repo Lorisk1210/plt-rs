@@ -4,6 +4,8 @@ use std::fmt;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use pltrs_core::numeric::CpuLevel;
+
 /// A complex number `re + i·im` in binary64, the element type of FFT
 /// results and complex spectra (numpy `complex128`).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -53,16 +55,32 @@ impl Complex {
         self.im.atan2(self.re)
     }
 
-    /// The product as numpy multiplies `complex128` arrays: its SIMD loop
-    /// (`fmaddsub` on x86-64, the fused multiply-add of `AArch64`) rounds
-    /// each part once after adding the product of the real parts to the
-    /// rounded cross term.
+    /// The product as numpy multiplies `complex128` arrays on this
+    /// processor ([`Complex::mul_at`] at the level in force).
     #[must_use]
     pub fn mul_fused(self, rhs: Self) -> Self {
-        Self::new(
-            self.re.mul_add(rhs.re, -(self.im * rhs.im)),
-            self.re.mul_add(rhs.im, self.im * rhs.re),
-        )
+        self.mul_at(rhs, CpuLevel::current())
+    }
+
+    /// The product as numpy multiplies `complex128` arrays at `level`: its
+    /// SIMD loop adds the product of the real parts to the rounded cross
+    /// term, by one instruction that rounds each part once where the
+    /// processor has it (`fmaddsub` from `X86_V3` on, the fused
+    /// multiply-add of `AArch64`), and after rounding that product too at
+    /// the x86-64 baseline, whose SSE has no such instruction.
+    #[must_use]
+    pub fn mul_at(self, rhs: Self, level: CpuLevel) -> Self {
+        if cfg!(target_arch = "x86_64") && level == CpuLevel::Baseline {
+            Self::new(
+                self.re * rhs.re - self.im * rhs.im,
+                self.re * rhs.im + self.im * rhs.re,
+            )
+        } else {
+            Self::new(
+                self.re.mul_add(rhs.re, -(self.im * rhs.im)),
+                self.re.mul_add(rhs.im, self.im * rhs.re),
+            )
+        }
     }
 
     /// Multiplies both parts by a real factor.
@@ -239,9 +257,21 @@ mod tests {
             Complex::new(13.0 / 7.0, 1.0 / 3.0),
             Complex::new(0.1 * 13.0, 13.0 / 9.0),
         );
-        let fused = a.mul_fused(b);
-        assert_eq!(fused.re.to_bits(), 0x3FFE_ECC4_2197_6ECD);
-        assert_eq!(fused.im.to_bits(), 0x4008_ED4E_D4ED_4ED5);
+        for level in [CpuLevel::V3, CpuLevel::V4] {
+            let fused = a.mul_at(b, level);
+            assert_eq!(fused.re.to_bits(), 0x3FFE_ECC4_2197_6ECD);
+            assert_eq!(fused.im.to_bits(), 0x4008_ED4E_D4ED_4ED5);
+        }
         assert_eq!((a * b).re.to_bits(), 0x3FFE_ECC4_2197_6ECE);
+        assert_eq!(a.mul_fused(b), a.mul_at(b, CpuLevel::current()));
+        // numpy 2.5 without AVX2 (its x86-64 baseline) rounds both
+        // products; other processors' baseline loops fuse.
+        let baseline = a.mul_at(b, CpuLevel::Baseline);
+        if cfg!(target_arch = "x86_64") {
+            assert_eq!(baseline.re.to_bits(), 0x3FFE_ECC4_2197_6ECE);
+            assert_eq!(baseline.im.to_bits(), 0x4008_ED4E_D4ED_4ED6);
+        } else {
+            assert_eq!(baseline, a.mul_at(b, CpuLevel::V4));
+        }
     }
 }

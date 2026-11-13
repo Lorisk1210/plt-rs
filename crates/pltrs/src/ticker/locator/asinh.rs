@@ -1,6 +1,6 @@
 //! `AsinhLocator`: ticks evenly spaced on an inverse-sinh axis.
 
-use pltrs_core::numeric::{np_arcsinh, np_sign, py_max};
+use pltrs_core::numeric::{Ufunc, np_arcsinh, np_sign, pow, py_max};
 
 use super::Locator;
 use crate::ticker::pymath::{linspace, pow10, warn_divide};
@@ -101,26 +101,36 @@ impl AsinhLocator {
         self.subs.as_deref()
     }
 
-    /// Rounds data-space positions to nice values.
+    /// Rounds data-space positions to nice values. The logarithms and
+    /// powers are numpy's own where numpy is in the process: their last
+    /// bit decides which power a position is rounded to.
     fn round_ticks(&self, xs: &[f64], ys: &[f64]) -> Vec<f64> {
+        let sizes: Vec<f64> = xs.iter().map(|x| x.abs()).collect();
         if self.base > 1.0 {
             let log_base = self.base.ln();
-            let pows = xs.iter().map(|&x| {
-                np_sign(x) * pltrs_core::numeric::pow(self.base, (x.abs().ln() / log_base).floor())
-            });
+            let exponents: Vec<f64> = Ufunc::Log
+                .map(&sizes, f64::ln)
+                .into_iter()
+                .map(|log| (log / log_base).floor())
+                .collect();
+            let powers = Ufunc::PowerOf(self.base).map(&exponents, |e| pow(self.base, e));
+            let pows = xs.iter().zip(powers).map(|(&x, power)| np_sign(x) * power);
             match &self.subs {
                 Some(subs) => pows.flat_map(|p| subs.iter().map(move |s| p * s)).collect(),
                 None => pows.collect(),
             }
         } else {
+            let exponents: Vec<f64> = Ufunc::Log10
+                .map(&sizes, f64::log10)
+                .into_iter()
+                .map(f64::floor)
+                .collect();
+            let powers = Ufunc::PowerOf(10.0).map(&exponents, pow10);
             xs.iter()
                 .zip(ys)
-                .map(|(&x, &y)| {
-                    let power = if y == 0.0 {
-                        1.0
-                    } else {
-                        pow10(x.abs().log10().floor())
-                    };
+                .zip(powers)
+                .map(|((&x, &y), power)| {
+                    let power = if y == 0.0 { 1.0 } else { power };
                     power * (x / power).round_ties_even()
                 })
                 .collect()
@@ -136,8 +146,8 @@ impl Locator for AsinhLocator {
         _: &TickContext<'_>,
     ) -> Result<Vec<f64>, TickerError> {
         let width = self.linear_width;
-        let ymin = width * np_arcsinh(vmin / width);
-        let ymax = width * np_arcsinh(vmax / width);
+        let ends = Ufunc::Arcsinh.map(&[vmin / width, vmax / width], np_arcsinh);
+        let (ymin, ymax) = (width * ends[0], width * ends[1]);
         let mut ys = linspace(ymin, ymax, self.numticks)?;
         // matplotlib divides the ticks by the span first, whatever it is.
         warn_divide(&ys, ymax - ymin);
@@ -147,7 +157,12 @@ impl Locator for AsinhLocator {
             ys.retain(|y| (y / (ymax - ymin)).abs() > threshold);
             ys.push(0.0);
         }
-        let xs: Vec<f64> = ys.iter().map(|y| width * (y / width).sinh()).collect();
+        let scaled: Vec<f64> = ys.iter().map(|y| y / width).collect();
+        let xs: Vec<f64> = Ufunc::Sinh
+            .map(&scaled, f64::sinh)
+            .into_iter()
+            .map(|sinh| width * sinh)
+            .collect();
         let mut ticks = self.round_ticks(&xs, &ys);
         ticks.sort_by(f64::total_cmp);
         ticks.dedup_by(|a, b| a == b);

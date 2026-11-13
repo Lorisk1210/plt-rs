@@ -56,6 +56,7 @@ mod mathtext;
 mod mlab;
 mod mplot3d;
 mod navigation;
+mod numeric;
 mod offsetbox;
 mod patch_styles;
 mod patches;
@@ -132,6 +133,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     mlab::register(&module.submodule("mlab")?)?;
     mplot3d::register(&module.submodule("mplot3d")?)?;
     navigation::register(&module.submodule("navigation")?)?;
+    numeric::register(&module.submodule("numeric")?)?;
     offsetbox::register(&module.submodule("offsetbox")?)?;
     patch_styles::register(&module.submodule("patch_styles")?)?;
     patches::register(&module.submodule("patches")?)?;

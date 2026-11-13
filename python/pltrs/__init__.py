@@ -87,6 +87,30 @@ import numpy as _np
 # pltrs (Rust) raises where matplotlib calls numpy.
 _register("LinAlgError", _np.linalg.LinAlgError)
 
+# pltrs (Rust) computes at the processor level numpy runs at (DESIGN.md,
+# "Processor levels"): the copy of its loops numpy dispatches to.
+from ._native import numeric as _numeric  # noqa: E402
+
+_numeric.follow_numpy(
+    int(_np.__version__.split(".")[0]),
+    *map((_np._core if hasattr(_np, "_core") else _np.core)._multiarray_umath.__cpu_features__.get,
+         ("X86_V3", "X86_V4", "AVX2", "AVX512_SKX")))
+
+
+def _silently(ufunc):
+    """*ufunc* without numpy's warnings: pltrs (Rust) issues those of the
+    computations it replays itself."""
+    def call(*arrays):
+        with _np.errstate(all="ignore"):
+            return ufunc(*arrays)
+    return call
+
+
+# numpy's own values where their last bit decides something discrete (the
+# power a tick is rounded to, an edge on a pixel's centre).
+_numeric.use_ufuncs(*map(_silently, (_np.arcsinh, _np.sinh, _np.log, _np.log2, _np.log10,
+                                     _np.exp, _np.exp2, _np.power)))
+
 
 def _log_warning(module, message):
     """Log *message* as a warning of the package's module *module*

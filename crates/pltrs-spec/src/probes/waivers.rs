@@ -22,13 +22,17 @@ pub struct Waiver {
 
 const NON_INTEGER_SIDES: &str = "matplotlib accidentally accepts negative and fractional \
      polygon side counts (numpy arange semantics); pltrs requires a positive integer";
-const NUMPY_SIMD_SINH: &str = "numpy's AVX-512 sinh differs from correctly rounded libm in the \
-     last bit, which flips a floor(log) decision in AsinhLocator on this machine; pltrs \
-     matches glibc/musl and numpy without AVX-512";
+const NUMPY_SIMD_SINH: &str = "on Linux with AVX-512 numpy takes sinh from Intel's SVML, whose \
+     last bit differs from the C library's and flips a floor(log) decision in AsinhLocator; \
+     pltrs (Rust) alone computes with the C library, as numpy does at every lower level (where \
+     this probe passes, against that level's golden), and pltrs (Python) takes numpy's value";
 const COMPOSITE_USER_TRANSFORM: &str = "matplotlib raises AttributeError when rotating or \
      scaling a marker whose user transform became composite (a bug); pltrs composes normally";
 const OPENBLAS_FMA: &str = "the result depends on whether OpenBLAS uses fused multiply-add on \
      this machine (confirmed); pltrs evaluates without FMA";
+const OPENBLAS_BASELINE: &str = "without AVX2 numpy's OpenBLAS runs kernels that round each \
+     product, which leave 6e-17 where the fused products of its AVX2 and AVX-512 kernels, which \
+     pltrs replays, cancel to zero; OpenBLAS's kernels are not followed by processor";
 const UNVALIDATED_CODES: &str = "matplotlib does not validate path codes; pltrs rejects \
      undefined codes";
 const NAN_EXTENTS: &str = "numpy's min lets NaN leak into the extents; pltrs's extents \
@@ -121,6 +125,11 @@ pub const WAIVERS: &[Waiver] = &[
         op: "bezier.find_bezier_t_intersecting_with_closedpath",
         args: r#"{"control_points": [[1e17, 0.0], [1.00000000000001e17, 0.0]], "circle": [0, 0, 1.0000000000000051e17], "t0": 0.0, "t1": 1.0, "tolerance": 1e-30}"#,
         reason: OPENBLAS_FMA,
+    },
+    Waiver {
+        op: "axes3d.format_coord",
+        args: r#"{"pixel": [120, 120], "view": null, "limits": [[0, 10], [-2, 3], [100, 400]]}"#,
+        reason: OPENBLAS_BASELINE,
     },
     Waiver {
         op: "path.Path",

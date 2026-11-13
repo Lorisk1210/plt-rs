@@ -21,11 +21,38 @@ pub trait NormTransform: AxisMap + Clone + 'static {
         Some(self.inverse(value))
     }
 
+    /// The transforms of a norm's limits, as matplotlib takes those of
+    /// the array `[vmin, vmax]`.
+    fn forward_limits(&self, lo: f64, hi: f64) -> (f64, f64) {
+        (self.forward(lo), self.forward(hi))
+    }
+
+    /// [`NormTransform::inverse_masked`] of each of `values`, as
+    /// matplotlib inverts an array.
+    fn inverse_array(&self, values: &[f64]) -> Vec<Option<f64>> {
+        values.iter().map(|&v| self.inverse_masked(v)).collect()
+    }
+
     /// The scale the norm was made from (matplotlib's `norm._scale`).
     fn scale(&self) -> Box<dyn Scale>;
 }
 
 impl NormTransform for LogTransform {
+    /// numpy's own logarithms where numpy is in the process: a colorbar
+    /// draws the boundaries a `LogNorm` inverts to, and their last bit
+    /// decides the pixel an edge on a pixel's centre falls to.
+    fn forward_limits(&self, lo: f64, hi: f64) -> (f64, f64) {
+        let limits = self.forward_array(&[lo, hi]);
+        (limits[0], limits[1])
+    }
+
+    fn inverse_array(&self, values: &[f64]) -> Vec<Option<f64>> {
+        LogTransform::inverse_array(self, values)
+            .into_iter()
+            .map(Some)
+            .collect()
+    }
+
     fn scale(&self) -> Box<dyn Scale> {
         Box::new(LogScale::from_base(self.log_base()).with_nonpositive(self.nonpositive()))
     }
@@ -146,6 +173,17 @@ impl<T: NormTransform> ScaleNorm<T> {
         }
     }
 
+    /// [`ScaleNorm::transformed_limits`] for inverting: the transforms
+    /// matplotlib's `inverse` takes of the limits as one array.
+    fn inverting_limits(&self, lo: f64, hi: f64) -> Result<(f64, f64), NormError> {
+        let (t_lo, t_hi) = self.transform.forward_limits(lo, hi);
+        if t_lo.is_finite() && t_hi.is_finite() {
+            Ok((t_lo, t_hi))
+        } else {
+            Err(NormError::InvalidLimits)
+        }
+    }
+
     /// Both limits, checked to be in order.
     fn ordered_limits(&self) -> Result<(f64, f64), NormError> {
         let (lo, hi) = self.limits.both()?;
@@ -247,11 +285,9 @@ impl<T: NormTransform> Norm for ScaleNorm<T> {
 
     fn inverse(&self, values: &[f64]) -> Result<Vec<Option<f64>>, NormError> {
         let (lo, hi) = self.ordered_limits()?;
-        let (t_lo, t_hi) = self.transformed_limits(lo, hi)?;
-        Ok(values
-            .iter()
-            .map(|&v| self.transform.inverse_masked(v * (t_hi - t_lo) + t_lo))
-            .collect())
+        let (t_lo, t_hi) = self.inverting_limits(lo, hi)?;
+        let rescaled: Vec<f64> = values.iter().map(|&v| v * (t_hi - t_lo) + t_lo).collect();
+        Ok(self.transform.inverse_array(&rescaled))
     }
 
     fn kind(&self) -> NormKind<'_> {

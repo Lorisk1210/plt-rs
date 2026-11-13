@@ -1,0 +1,19 @@
+{
+ "area": "ticker",
+ "matplotlib": "3.11.2",
+ "platform": "x86_64-v3",
+ "probes": [
+  {"op": "ticker.AsinhLocator.__call__", "args": {"params": {"linear_width": 10.0, "numticks": 7}, "view": [10.0, 100.0]}, "value": [10.0, 100.0]},
+  {
+   "op": "ticker.AsinhLocator.tick_values",
+   "args": {"params": {"linear_width": 1.0, "base": 2, "subs": [2, 4, 8]}, "vmin": -3.0, "vmax": 2.0},
+   "value": [-16.0, -8.0, -4.0, -2.0, -1.0, -0.5, -0.25, 0.0, 0.5, 1.0, 2.0, 4.0, 8.0]
+  },
+  {
+   "op": "ticker.AsinhLocator.tick_values",
+   "args": {"params": {"linear_width": 1.0, "base": 2}, "vmin": -3.0, "vmax": 2.0},
+   "value": [-2.0, -1.0, -0.5, -0.125, 0.0, 0.25, 0.5, 1.0]
+  }
+ ],
+ "absent": []
+}

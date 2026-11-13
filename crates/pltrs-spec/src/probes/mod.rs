@@ -144,15 +144,18 @@ impl ProbeFile {
     }
 
     /// The golden of `area` this build is held to: the common one, with
-    /// what its platform's golden changes where matplotlib records one
-    /// for the target ([`PLATFORM`](crate::PLATFORM)).
+    /// what the golden of its processor level
+    /// ([`level_platform`](crate::level_platform)) and then the one of its
+    /// target ([`PLATFORM`](crate::PLATFORM)) change, where matplotlib
+    /// records them.
     pub fn load_area(area: &str) -> Result<Self, LoadError> {
         let name = format!("{area}.json");
         let common = Self::load(&crate::probe_goldens_dir().join(&name))?;
-        match crate::platform_golden(Path::new("probes").join(name)) {
-            Some(path) => common.with_platform(&read_json(&path)?),
-            None => Ok(common),
-        }
+        // The most specific golden comes first and is applied last.
+        let own: Vec<_> = crate::platform_goldens(Path::new("probes").join(name)).collect();
+        own.iter()
+            .rev()
+            .try_fold(common, |held, path| held.with_platform(&read_json(path)?))
     }
 
     /// Interprets a parsed golden document.

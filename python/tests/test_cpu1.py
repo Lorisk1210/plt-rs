@@ -34,7 +34,8 @@ DISABLED = {
 #: Whether this numpy names the groups `DISABLED` takes away (numpy 2.5
 #: does; the levels below the processor's can only be run with one that
 #: does).
-HAS_GROUPS = "X86_V3" in np._core._multiarray_umath.__cpu_features__
+HAS_GROUPS = "X86_V3" in (np._core if hasattr(np, "_core") else np.core
+                          )._multiarray_umath.__cpu_features__
 
 #: The levels numpy can be run at here: the processor's and, with a numpy
 #: that has the groups, those below.
@@ -159,7 +160,7 @@ def _at(level, program):
 
 
 def test_pltrs_computes_at_numpys_level():
-    features = np._core._multiarray_umath.__cpu_features__
+    features = (np._core if hasattr(np, "_core") else np.core)._multiarray_umath.__cpu_features__
     if HAS_GROUPS:
         expected = "v4" if features["X86_V4"] else "v3" if features["X86_V3"] else "v2"
     else:

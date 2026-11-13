@@ -6,6 +6,7 @@ window, so that what the programs see can be compared event for event.
 """
 
 import contextlib
+import importlib.util
 import json
 import math
 import os
@@ -58,6 +59,13 @@ def _toolkits_env():
 #: The variables of the libraries a program keeps: where their caches go.
 KEPT_VARIABLES = ("MPLCONFIGDIR", "PLTRSCONFIGDIR")
 
+#: Whether the tests run the source tree's pltrs (``python/`` on the path,
+#: as `cargo xtask python test` runs them), which the programs then load
+#: too, rather than one installed in this interpreter (a wheel, as
+#: ``python/tools/check_dist.py`` tests it), which they load instead.
+FROM_TREE = pathlib.Path(importlib.util.find_spec("pltrs").origin).resolve().is_relative_to(
+    REPO / "python")
+
 
 def program_env(library, backend, display, wayland=None):
     """The environment of the program of *library* with *backend* on X
@@ -68,7 +76,7 @@ def program_env(library, backend, display, wayland=None):
            if key in KEPT_VARIABLES
            or not key.startswith(("MPL", "PLTRS", "QT_", "WAYLAND"))}
     toolkits = _toolkits_env()
-    paths = [str(REPO / "python")] if library == "pltrs" else []
+    paths = [str(REPO / "python")] if library == "pltrs" and FROM_TREE else []
     paths += [toolkits.pop("PYTHONPATH")] if "PYTHONPATH" in toolkits else []
     env.update(toolkits)
     env.update(
@@ -87,11 +95,12 @@ def program_env(library, backend, display, wayland=None):
 
 def python_of(library):
     """The interpreter of *library*'s venv: the reference venv's for
-    matplotlib, the pltrs venv's (else this one) for pltrs."""
+    matplotlib; for pltrs, the pltrs venv's (else this one) when the tests
+    run the source tree's pltrs, this one when they run an installed one."""
     if library == "matplotlib":
         return REPO / ".venv" / "bin" / "python"
     venv = REPO / ".venv-pltrs" / "bin" / "python"
-    return venv if venv.exists() else pathlib.Path(sys.executable)
+    return venv if FROM_TREE and venv.exists() else pathlib.Path(sys.executable)
 
 
 class Driver:

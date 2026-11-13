@@ -132,7 +132,13 @@ def test_the_plan_checks_the_tag_and_chooses_the_runners(tmp_path):
                 LINUX_ARM64_RUNNER="arm-box").returncode == 0
     outputs = dict(line.split("=", 1) for line in output.read_text().splitlines())
     linux = json.loads(outputs["linux"])
-    assert {"platform": "musllinux_1_2", "arch": "aarch64", "runner": "arm-box"} in linux
+    assert {"platform": "musllinux_1_2", "arch": "aarch64", "runner": "arm-box",
+            "target": "aarch64-unknown-linux-musl",
+            "settings": "--config-settings target=aarch64-unknown-linux-musl"} in linux
+    assert {"platform": "manylinux2014", "arch": "x86_64", "runner": "ubuntu-24.04",
+            "target": "x86_64-unknown-linux-gnu",
+            "settings": "--config-settings target=x86_64-unknown-linux-gnu "
+                        "--config-settings glibc=2.17"} in linux
     assert json.loads(outputs["windows"]) == ["x86_64", "aarch64"]
     assert {"arch": "aarch64", "runner": "windows-11-arm", "python": "3.14"} in json.loads(
         outputs["windows_tests"])

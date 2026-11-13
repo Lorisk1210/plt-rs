@@ -3,7 +3,10 @@ The plan of a run of the wheels workflow: checks that a version tag names
 Cargo.toml's version, and writes the jobs' matrices to ``GITHUB_OUTPUT``:
 
 * ``linux``: manylinux2014 and musllinux_1_2, for x86_64 and aarch64,
-  each with the runner it builds and is tested on;
+  each with the Rust target it is built for, the build backend's
+  settings for it (``--config-settings``: Zig links against glibc 2.17,
+  or musl) and the runner it is tested on (it is built on an x86_64
+  one, Zig cross-linking aarch64);
 * ``windows``: the architectures built, x86_64, and aarch64 when the run
   asks for it (the input ``win_arm64``, or the repository variable
   ``WIN_ARM64`` set to ``true``);
@@ -34,9 +37,14 @@ def main():
         "x86_64": "ubuntu-24.04",
         "aarch64": os.environ.get("LINUX_ARM64_RUNNER") or "ubuntu-24.04-arm",
     }
-    linux = [{"platform": platform, "arch": arch, "runner": runner}
-             for platform in ("manylinux2014", "musllinux_1_2")
-             for arch, runner in runners.items()]
+    libraries = {"manylinux2014": ("gnu", ["glibc=2.17"]), "musllinux_1_2": ("musl", [])}
+    linux = []
+    for platform, (library, settings) in libraries.items():
+        for arch, runner in runners.items():
+            target = f"{arch}-unknown-linux-{library}"
+            linux.append({"platform": platform, "arch": arch, "runner": runner, "target": target,
+                          "settings": " ".join(f"--config-settings {setting}"
+                                               for setting in [f"target={target}", *settings])})
     windows = ["x86_64"]
     if os.environ.get("WIN_ARM64") == "true":
         windows.append("aarch64")

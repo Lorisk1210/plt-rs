@@ -63,7 +63,10 @@ def _level() -> str | None:
     off x86-64. Keep in step with ``level_platform`` in ``pltrs-spec``."""
     if platform.machine().lower() not in ("x86_64", "amd64"):
         return None
-    from numpy._core._multiarray_umath import __cpu_features__ as features
+    import numpy
+    # numpy 1 (the lowest numpy pltrs' smoke tests run with) calls it `core`.
+    core = numpy._core if hasattr(numpy, "_core") else numpy.core
+    features = core._multiarray_umath.__cpu_features__
     if features.get("X86_V4"):
         return None
     return "x86_64-v3" if features.get("X86_V3") else "x86_64-v2"

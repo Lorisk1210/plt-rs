@@ -232,7 +232,13 @@ def test_linking_against_an_old_glibc_or_musl_takes_zig(tmp_path, monkeypatch):
     monkeypatch.delenv("CARGO_ENCODED_RUSTFLAGS", raising=False)
     monkeypatch.setenv("RUSTFLAGS", "-C debuginfo=1")
     assert _linker.settings(None, host, None, tmp_path) == _linker.Link(None)
+    assert _linker.settings(host, host, None, tmp_path) == _linker.Link(None)
     monkeypatch.setenv("ZIG", "/opt/zig/zig")
+    # The host is not named to cargo, which would rename the functions the
+    # extension's symbol order names.
+    native = _linker.settings(host, host, "2.17", tmp_path)
+    assert native.target is None
+    assert native.rustc_args == ("-C", f"linker={tmp_path / 'zig-cc-x86_64-linux-gnu.2.17'}")
     link = _linker.settings("aarch64-unknown-linux-gnu", host, "2.17", tmp_path)
     assert link.target == "aarch64-unknown-linux-gnu" and not link.environment
     shim = (tmp_path / "zig-cc-aarch64-linux-gnu.2.17").read_text()
@@ -252,7 +258,7 @@ def test_linking_against_an_old_glibc_or_musl_takes_zig(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="needs Zig"):
         _linker.settings(None, host, "2.17", tmp_path)
     alpine = _linker.settings(None, "aarch64-unknown-linux-musl", None, tmp_path)
-    assert alpine.rustc_args == ("-C", "linker=cc")
+    assert alpine.rustc_args == ("-C", "linker=cc") and alpine.target is None
 
 
 def test_the_zig_linker_takes_what_rustc_passes(tmp_path):

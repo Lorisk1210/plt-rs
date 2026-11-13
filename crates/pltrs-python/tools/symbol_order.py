@@ -123,15 +123,32 @@ def trace(out, script, arguments):
         copy.unlink()
 
 
+#: The section type of an ELF symbol table (``SHT_SYMTAB``).
+SYMBOL_TABLE = 2
+
+
+def _sections(data):
+    """The section headers of the ELF file whose bytes are *data*."""
+    (section_offset,) = struct.unpack_from("<Q", data, 0x28)
+    entry_size, count = struct.unpack_from("<HH", data, 0x3A)
+    return [struct.unpack_from("<IIQQQQIIQQ", data, section_offset + i * entry_size)
+            for i in range(count)]
+
+
+def has_symbol_table(library):
+    """Whether the ELF shared library *library* keeps its symbol table
+    (``.symtab``), which stripping removes."""
+    sections = _sections(pathlib.Path(library).read_bytes())
+    return any(section[1] == SYMBOL_TABLE for section in sections)
+
+
 def functions(library):
     """The functions of the ELF shared library *library*: ``(file offset,
     size, name)``, by offset."""
     data = pathlib.Path(library).read_bytes()
-    (section_offset,) = struct.unpack_from("<Q", data, 0x28)
-    entry_size, count, names_index = struct.unpack_from("<HHH", data, 0x3A)
-    sections = [struct.unpack_from("<IIQQQQIIQQ", data, section_offset + i * entry_size)
-                for i in range(count)]
-    symbol_table = next(s for s in sections if s[1] == 2)  # SHT_SYMTAB
+    sections = _sections(data)
+    count = len(sections)
+    symbol_table = next(s for s in sections if s[1] == SYMBOL_TABLE)
     strings = sections[symbol_table[6]]
     found = []
     for at in range(symbol_table[4], symbol_table[4] + symbol_table[5], 24):

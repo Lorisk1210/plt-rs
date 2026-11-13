@@ -136,7 +136,7 @@ class Spine(Patch):
         _api.check_isinstance(Path, path=path)
         if "_native" not in self.__dict__:
             self._bind(axes, spine_type)
-        self._path = path
+        self._kept_path = path
         self.set_facecolor('none')
         self.set_edgecolor(rcParams['axes.edgecolor'])
         self.set_linewidth(rcParams['axes.linewidth'])
@@ -168,11 +168,11 @@ class Spine(Patch):
         ``_path``, which a class of the program's sets anew before it draws
         (cartopy's ``GeoSpine`` clips its boundary to the view), as
         matplotlib's draw draws ``_path``."""
-        vertices = self._path.vertices
-        if (self.__dict__.get("_pushed_path") is not self._path
+        vertices = self._kept_path.vertices
+        if (self.__dict__.get("_pushed_path") is not self._kept_path
                 or not np.array_equal(self.__dict__.get("_pushed_vertices"), vertices)):
-            _spines.set_patch_path(self._native, self._path)
-            self._pushed_path = self._path
+            _spines.set_patch_path(self._native, self._kept_path)
+            self._pushed_path = self._kept_path
             # (A class may move the vertices of the path it keeps.)
             self._pushed_vertices = np.array(vertices)
 
@@ -227,7 +227,7 @@ class Spine(Patch):
         path = Path.arc(theta1, theta2)
         self._set_shape(center, size, lambda center, radius: _spines.set_patch_arc(
             self._native, center, radius, (float(theta1), float(theta2))))
-        self._path = path
+        self._kept_path = path
         self._watch_location()
 
     def set_patch_circle(self, center, radius):
@@ -271,8 +271,8 @@ class Spine(Patch):
         `set_patch_circle` keep).
         """
         return (self._patch_type != 'arc' and self.spine_type in _LINEAR_PATHS
-                and "_path" in self.__dict__
-                and self._path.vertices.shape != (2, 2))
+                and "_kept_path" in self.__dict__
+                and self._kept_path.vertices.shape != (2, 2))
 
     def _unlocatable(self):
         """Whether laying the spine out fails as matplotlib's does
@@ -328,7 +328,7 @@ class Spine(Patch):
             height = self.convert_yunits(size)
             transform = Affine2D().scale(width * 0.5, height * 0.5).translate(*center)
             # Measured: the extents of its path through that transform.
-            self._path.get_extents(transform)
+            self._kept_path.get_extents(transform)
         if self.axis is not None:
             self.axis.get_visible()
 
@@ -400,6 +400,11 @@ class Spine(Patch):
     #: clear of its Axes until it is asked for (`_ensure_position_is_set`).
     _position_set = True
 
+    @property
+    def _position(self):
+        # matplotlib's field: the position as given, None while unset.
+        return self.get_position() if self._position_set else None
+
     def clear(self):
         """Clear the current spine."""
         _spines.set_position(self._native, ("outward", 0.0))
@@ -463,7 +468,7 @@ class Spine(Patch):
         a program's class asks of a spine class overriding it (bounds set
         on the spine are taken by pltrs (Rust) first).
         """
-        vertices = self._path.vertices
+        vertices = self._kept_path.vertices
         if self.spine_type in ('left', 'right'):
             vertices[:, 1] = self.axes.viewLim.intervaly
         else:
@@ -478,7 +483,7 @@ class Spine(Patch):
             self._adjust_location()
         else:
             along = 1 if self.spine_type in ('left', 'right') else 0
-            self._path.vertices[:, along] = bounds
+            self._kept_path.vertices[:, along] = bounds
 
     @property
     def _is_linear(self):
@@ -488,19 +493,52 @@ class Spine(Patch):
         (Rust) lays out in display space)."""
         return self._patch_type == 'line' and self.spine_type in _LINEAR_PATHS
 
+    @property
+    def _path(self):
+        # matplotlib's field: the path the spine was made with or given, a
+        # linear one spanning its view as its last draw or measure left it
+        # (as it stands, while pltrs (Rust) lays the figure out and runs a
+        # projection's code reading it).
+        try:
+            linear = self._is_linear
+        except RuntimeError:
+            return self.__dict__.get("_kept_path")
+        return self._linear_path() if linear else self.__dict__.get("_kept_path")
+
+    @_path.setter
+    def _path(self, path):
+        # A path the program gives (cartopy's ``GeoSpine``, a class's
+        # ``_adjust_location``) stays as given until the next draw spans it;
+        # one given while the figure is laid out, from the next read on.
+        self._kept_path = path
+        try:
+            linear, draws = self._is_linear, self._draws()
+        except RuntimeError:
+            self._path_draws = None
+            return
+        if linear:
+            self._path_draws = draws
+
+    def _draws(self):
+        """The draws of the spine and of its Axes so far."""
+        return (_artist.draw_count(self._native),
+                0 if self.axes is None else _artist.draw_count(self.axes._native))
+
     def _linear_path(self):
         """The spine's ``_path``, matplotlib's linear one first, which is
         spanned over the view again when the spine or its Axes was drawn
         since (drawing an axis measures the spines its label is placed
         beside, animated ones too)."""
-        if "_path" not in self.__dict__:
-            self._path = Path(np.array(_LINEAR_PATHS[self.spine_type]))
-        draws = (_artist.draw_count(self._native),
-                 0 if self.axes is None else _artist.draw_count(self.axes._native))
-        if draws != self.__dict__.get("_path_draws", (0, 0)) and not self._misshapen():
+        if "_kept_path" not in self.__dict__:
+            self._kept_path = Path(np.array(_LINEAR_PATHS[self.spine_type]))
+        draws = self._draws()
+        if self.__dict__.get("_path_draws", (0, 0)) is None:
+            # Given while the figure was laid out: as it stands now.
+            self._path_draws = draws
+        elif draws != self.__dict__.get("_path_draws", (0, 0)) and not self._misshapen():
             self._path_draws = draws
             self._span_path()
-        return self._path
+        return self._kept_path
 
     def set_position(self, position):
         """
@@ -681,7 +719,7 @@ class Spine(Patch):
         if self._is_linear:
             return self._linear_path()
         if self._keeps_given_path():
-            return self._path
+            return self._kept_path
         vertices, codes = _spines.display_path(self._native) or ([[0, 0]], None)
         # One path, its vertices moved as the spine is laid out again, as
         # matplotlib moves those of its ``_path``.

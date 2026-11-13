@@ -73,7 +73,7 @@ from collections.abc import MutableMapping
 from . import _api
 from ._api import MatplotlibDeprecationWarning  # noqa: F401  (matplotlib exports it here)
 from ._executables import ExecutableNotFoundError, _get_executable_info  # noqa: F401
-from ._preprocess import _preprocess_data  # noqa: F401
+from ._preprocess import _label_from_arg, _preprocess_data, _replacer  # noqa: F401
 from ._native import cbook as _cbook
 from ._native import patheffects as _patheffects
 from ._native import rcsetup as _rcsetup
@@ -391,6 +391,39 @@ class RcParams(MutableMapping, dict):
         """Get the requested backend, if any, without triggering resolution."""
         backend = self._get("backend")
         return None if backend is rcsetup._auto_backend_sentinel else backend
+
+    def _update_raw(self, other_params):
+        """
+        Directly update the data from *other_params*, bypassing deprecation,
+        backend and validation logic on both sides.
+
+        This ``rcParams._update_raw(params)`` replaces the previous pattern
+        ``dict.update(rcParams, params)``.
+
+        Parameters
+        ----------
+        other_params : dict or `.RcParams`
+            The input mapping from which to update.
+        """
+        if isinstance(other_params, RcParams):
+            other_params = [(key, other_params._get(key)) for key in other_params]
+        else:
+            other_params = dict(other_params).items()
+        for key, val in other_params:
+            self._set(key, val)
+
+    def _ensure_has_backend(self):
+        """
+        Ensure that a "backend" entry exists.
+
+        Normally, the default matplotlibrc file contains *no* entry for "backend" (the
+        corresponding line starts with ##, not #; we fill in _auto_backend_sentinel
+        in that case.  However, packagers can set a different default backend
+        (resulting in a normal `#backend: foo` line) in which case we should *not*
+        fill in _auto_backend_sentinel.
+        """
+        if not self._has("backend"):
+            self._set("backend", rcsetup._auto_backend_sentinel)
 
     def __delitem__(self, key):
         # matplotlib's RcParams inherits `MutableMapping.__delitem__`, which

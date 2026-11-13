@@ -1,7 +1,7 @@
 //! `cargo xtask diff [--gallery] [--generated] [--corpus [NAME...]] [PATTERN...]
 //! [--failures] [--reduce] [--baseline REPORT] [--jobs N] [--no-build]
-//! [--coverage | --docs [--strict] | --types [--strict]]`: the differential tester of pltrs
-//! (Python) against matplotlib.
+//! [--coverage | --docs [--strict] | --types [--strict] | --private [--strict]]`:
+//! the differential tester of pltrs (Python) against matplotlib.
 //!
 //! Programs run under real matplotlib (the reference venv) and under pltrs
 //! (Python) (the pltrs venv, the import changed, in matplotlib's look), and
@@ -67,6 +67,18 @@
 //! makes them or brings them up to that list first. A PATTERN keeps the
 //! errors whose names contain it, `--failures` prints every one and
 //! `--strict` fails on any not in `spec/diff/types-allowlist.txt`.
+//!
+//! `--private` measures the private names of matplotlib's objects that
+//! other libraries use (`spec/diff/private.py`), the rows of the census
+//! `spec/diff/private_census.json` (`private_census.py` writes it from the
+//! libraries' sources): whether pltrs (Python) has each where the
+//! generators' scenes hold an instance of its class (built, drawn,
+//! unpickled, cleared) and on objects made alone, with matplotlib's type
+//! and value, and, for the names libraries write, whether an assignment
+//! has matplotlib's effect, written to `target/diff/private.md` and
+//! `private.json`. A PATTERN keeps the rows whose keys (`owner:name`)
+//! contain it, `--failures` prints every difference and `--strict` fails
+//! while any remains.
 
 use std::env;
 use std::path::PathBuf;
@@ -112,6 +124,8 @@ enum Mode {
     Docs,
     /// matplotlib's type stubs against pltrs (Python) at run time.
     Types,
+    /// The private names of matplotlib's objects libraries use, in pltrs.
+    Private,
 }
 
 impl Mode {
@@ -121,6 +135,7 @@ impl Mode {
             ("--coverage", Self::Coverage),
             ("--docs", Self::Docs),
             ("--types", Self::Types),
+            ("--private", Self::Private),
         ];
         let given: Vec<_> = modes
             .iter()
@@ -129,9 +144,10 @@ impl Mode {
         match given[..] {
             [] => Ok(Self::Programs),
             [&(_, mode)] => Ok(mode),
-            _ => {
-                Err("--coverage, --docs and --types measure different things; give one".to_owned())
-            }
+            _ => Err(
+                "--coverage, --docs, --types and --private measure different things; give one"
+                    .to_owned(),
+            ),
         }
     }
 
@@ -142,6 +158,7 @@ impl Mode {
             Self::Coverage => "coverage.py",
             Self::Docs => "docs.py",
             Self::Types => "stubs.py",
+            Self::Private => "private.py",
         }
     }
 
@@ -184,7 +201,7 @@ fn run_diff(args: &[String]) -> Result<(), String> {
     while let Some(arg) = rest.next() {
         match arg.as_str() {
             "--no-build" => build = false,
-            "--coverage" | "--docs" | "--types" => {}
+            "--coverage" | "--docs" | "--types" | "--private" => {}
             flag if SUITES.iter().any(|&(name, _)| name == flag) => {
                 suites.push(flag);
             }
@@ -216,7 +233,8 @@ fn run_diff(args: &[String]) -> Result<(), String> {
             .args(["--suite", suite]);
     } else if !suites.is_empty() {
         return Err(
-            "--docs and --types take no suite: they compare the API, not programs".to_owned(),
+            "--docs, --types and --private take no suite: they compare the API, not programs"
+                .to_owned(),
         );
     }
     if build {
@@ -326,6 +344,10 @@ mod tests {
         assert_eq!(Mode::of(&args(&["--types", "--strict"])), Ok(Mode::Types));
         assert!(Mode::Types.runs_pltrs() && !Mode::Types.runs_programs());
         assert_eq!(Mode::Types.script(), "stubs.py");
+        assert!(Mode::of(&args(&["--private", "--docs"])).is_err());
+        assert_eq!(Mode::of(&args(&["--private"])), Ok(Mode::Private));
+        assert!(Mode::Private.runs_pltrs() && !Mode::Private.runs_programs());
+        assert_eq!(Mode::Private.script(), "private.py");
         assert!(Mode::Docs.runs_pltrs() && !Mode::Docs.runs_programs());
         assert!(Mode::Coverage.runs_programs() && !Mode::Coverage.runs_pltrs());
         assert_eq!(Mode::Docs.script(), "docs.py");

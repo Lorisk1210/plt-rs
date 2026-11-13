@@ -832,6 +832,24 @@ class AxesImage(_ImageBase):
             x1, x2, y1, y2 = extent
             Bbox(np.array([[x1, y1], [x2, y2]]))
 
+    @property
+    def _extent(self):
+        # matplotlib's field: the extent given (or `imshow` computed), None
+        # while the size of the data gives it.
+        return self.__dict__.get("_given_values", {}).get("extent")
+
+    @_extent.setter
+    def _extent(self, extent):
+        # Assigned as matplotlib's field is (mpl-scatter-density): drawn
+        # from the next draw, the data limits left as they are.
+        if extent is None:
+            self.__dict__.get("_given_values", {}).pop("extent", None)
+        else:
+            _values.remember(self, "extent", extent)
+        _native_image.assign_extent(
+            self._native, None if extent is None else tuple(map(float, extent)))
+        self.stale = True
+
     def get_extent(self):
         """Return the image extent as tuple (left, right, bottom, top)."""
         if ("_A" in self.__dict__ and self._A is None

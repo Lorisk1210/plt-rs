@@ -2531,7 +2531,9 @@ class TriMesh(Collection):
 class _MeshData:
     """The vertex grid of a quadrilateral mesh (`QuadMesh`, `PolyQuadMesh`)."""
 
-    def __init__(self, coordinates):
+    def __init__(self, coordinates, *, shading='flat'):
+        # matplotlib's signature; the *shading* is the native mesh's, which
+        # the subclass makes with it (`_shading` reads it back).
         _api.check_shape((None, None, 2), coordinates=coordinates)
         # The vertices read back as matplotlib keeps them (`get_coordinates`).
         self._coordinates_dtype = np.asarray(coordinates).dtype
@@ -2765,10 +2767,17 @@ class QuadMesh(_MeshData, Collection):
 
     """
 
+    @property
+    def _bbox(self):
+        # matplotlib's box of the mesh's vertices, which exporters read.
+        bbox = mtransforms.Bbox.unit()
+        bbox.update_from_data_xy(np.asarray(self.get_coordinates()).reshape(-1, 2))
+        return bbox
+
     def __init__(self, coordinates, *, antialiased=True, shading='flat',
                  **kwargs):
         kwargs.setdefault("pickradius", 0)
-        super().__init__(coordinates=coordinates)
+        super().__init__(coordinates=coordinates, shading=shading)
         self._native = _collections.new_quad_mesh(
             self._native_coordinates(coordinates), shading == 'gouraud',
             bool(antialiased))

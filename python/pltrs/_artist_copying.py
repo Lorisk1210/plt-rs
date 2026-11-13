@@ -119,7 +119,13 @@ class _XYPair(namedtuple("_XYPair", "x y")):
     """The ``x`` and ``y`` sticky edge lists of an artist (matplotlib's
     ``_XYPair``, a named tuple), which give the artist their changes."""
 
-    def __new__(cls, native):
+    def __new__(_cls, x, y):
+        # Lists of no artist, as matplotlib's named tuple makes them.
+        return _cls._holding(None, x, y)
+
+    @classmethod
+    def _of(cls, native):
+        """The pair of the artist *native*, holding its edges."""
         return cls._holding(native, *_artist.get_sticky_edges(native))
 
     @classmethod
@@ -137,8 +143,9 @@ class _XYPair(namedtuple("_XYPair", "x y")):
         return (_XYPair._holding, (self._native, list(self.x), list(self.y)))
 
     def _push_sticky_edges(self):
-        _artist.set_sticky_edges(self._native, [float(v) for v in self.x],
-                                 [float(v) for v in self.y])
+        if self._native is not None:
+            _artist.set_sticky_edges(self._native, [float(v) for v in self.x],
+                                     [float(v) for v in self.y])
 
 
 class CopyingMixin:
@@ -172,7 +179,7 @@ class CopyingMixin:
         pair = self.__dict__.get("_sticky_edges")
         if pair is None or pair._native is not self._native:
             # Made anew when the artist joins a figure under a new handle.
-            pair = self._sticky_edges = _XYPair(self._native)
+            pair = self._sticky_edges = _XYPair._of(self._native)
         else:
             # The values the lists were given stay while pltrs (Rust) has
             # them (an integer stays one).

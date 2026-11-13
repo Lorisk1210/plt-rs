@@ -38,7 +38,8 @@ pub use constrained::ConstrainedLayout;
 pub use grid::{GridOwner, GridParent, Margin, MarginValues, SolvedGrid};
 pub use tight::{TightLayout, TightLayoutError};
 
-pub(crate) use align::{Aligned, LabelGroups};
+pub use align::Aligned;
+pub(crate) use align::LabelGroups;
 
 use std::fmt;
 use std::str::FromStr;

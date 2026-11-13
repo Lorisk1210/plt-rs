@@ -1,0 +1,13 @@
+# Intended differences of `cargo xtask diff --private` (spec/diff/private.py):
+# `<owner:name regex> | <cause regex> | why`, matched against a census row's
+# key and the cause of its difference.
+
+:_isinit$ | value | pltrs (Rust) maps colours without the Python lookup table, so a colormap's `_lut` is made when first read (`Colormap.__getattr__`), not by the draws; `_isinit` tells only whether it was read yet, and libraries reading it call `_init()` when it is False, which then makes the same table
+:_shared_axes$ | ^value | each value answers `cbook.Grouper`'s protocol (`join`, `joined`, `get_siblings`, iteration) over the groups pltrs (Rust) keeps, as a class of its own (`_SharedAxes`), not a `Grouper` of Python sets
+:_twinned_axes$ | ^type Grouper -> _TwinnedAxes | `cbook.Grouper`'s protocol over the twins pltrs (Rust) keeps, as a class of its own
+TransformNode:_parents$ | ^value | the keys are the `id()`s of the child transforms, which differ from process to process; the values are weak references to them
+FigureBase:_align_label_groups$ | ^value | each value answers `cbook.Grouper`'s protocol (`join`, `joined`, `get_siblings`, iteration) over the label groups pltrs (Rust) keeps, as a class of its own (`_aligned_labels.AlignedLabels`)
+:_marker$ | ^type MarkerStyle -> LineMarker | a line's marker is a `MarkerStyle` of pltrs's subclass `LineMarker`, which gives the line its changes; `isinstance(line._marker, MarkerStyle)` holds and it answers as the line's marker
+Affine2D:_inverted$ | ^type | a cache: matplotlib's `inverted()` keeps its last inverse there, pltrs (Rust) inverts natively; libraries only reset it to None (MetPy), which pltrs takes
+Affine2DBase?:_invalid$ | ^value | invalidation flags of the transform graph, which pltrs (Rust) keeps by its own counters; libraries assign them on their own transforms (MetPy, mpltern), which keep their meaning there
+_AxesBase:_tight$ | ^type NoneType -> bool | matplotlib keeps None until `autoscale(tight=...)`; pltrs (Rust) keeps the bool, None and False both meaning not tight wherever matplotlib reads it

@@ -8,8 +8,10 @@ does for a secondary y axis). Each holds the cycle's entries and position
 advance (mplhep's ``_prop_cycle.getdefaults(kwargs)``).
 """
 
-from .. import _values
+from .. import _lazy_imports, _values
 from .._native import axes_base as _axes_base
+
+_plot_args_reference = _lazy_imports.module(globals(), "._plot_args_reference")
 
 
 def _owner(axes, kind):
@@ -131,6 +133,29 @@ class _process_plot_var_args:
         for k in defaults:
             if kw.get(k, None) is None:
                 kw[k] = defaults[k]
+
+    # matplotlib's making of plotted artists from ``plot``'s and ``fill``'s
+    # arguments, for programs calling the cycle themselves (pltrs (Rust)
+    # plots on its own): matplotlib's code (`._plot_args_reference`).
+
+    def __call__(self, axes, *args, data=None, return_kwargs=False, **kwargs):
+        return _plot_args_reference.call(self, axes, *args, data=data,
+                                         return_kwargs=return_kwargs, **kwargs)
+
+    def _make_line(self, axes, x, y, kw, kwargs):
+        return _plot_args_reference._make_line(self, axes, x, y, kw, kwargs)
+
+    def _make_coordinates(self, axes, x, y, kw, kwargs):
+        return _plot_args_reference._make_coordinates(self, axes, x, y, kw, kwargs)
+
+    def _make_polygon(self, axes, x, y, kw, kwargs):
+        return _plot_args_reference._make_polygon(self, axes, x, y, kw, kwargs)
+
+    def _plot_args(self, axes, tup, kwargs, *,
+                   return_kwargs=False, ambiguous_fmt_datakey=False):
+        return _plot_args_reference._plot_args(
+            self, axes, tup, kwargs, return_kwargs=return_kwargs,
+            ambiguous_fmt_datakey=ambiguous_fmt_datakey)
 
 
 class PropCycleMixin:

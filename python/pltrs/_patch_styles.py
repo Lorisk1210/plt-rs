@@ -504,6 +504,8 @@ _qualnames.own_method(ArrowStyle._Curve, "transmute", _arrow_paths)
 _CURVE = dict(head_length=.4, head_width=.2, widthA=1., widthB=1.,
               lengthA=0.2, lengthB=0.2, angleA=0, angleB=0, scaleA=None,
               scaleB=None)
+# matplotlib's constructor of `_Curve`, which its curves with heads inherit.
+ArrowStyle._Curve.__init__ = _described("_Curve", "ArrowStyle._Curve", **_CURVE).__init__
 for _name, _arrow, _params in [
         ("Curve", "-", {}),
         ("CurveA", "<-", _CURVE),
@@ -524,19 +526,22 @@ for _name, _arrow, _params in [
         ("Wedge", "wedge", dict(tail_width=.3, shrink_factor=0.5))]:
     _base = (ArrowStyle._Base if _name in ("Simple", "Fancy", "Wedge")
              else ArrowStyle._Curve)
-    # The curves with heads take the parameters of matplotlib's `_Curve`.
-    _owner = "_Curve" if _params is _CURVE else _name
+    # The curves with heads take the parameters of matplotlib's `_Curve`
+    # (its constructor, below); the others have constructors of their own.
     # matplotlib's curves name their ends in ``arrow``; its other styles do not.
     _ends = {"arrow": _arrow} if _base is ArrowStyle._Curve else {}
-    _style = type(_name, (_base, _described(_name, f"ArrowStyle.{_owner}", **_params)),
-                  {"_spec_name": _arrow, **_ends, "__qualname__": f"ArrowStyle.{_name}"})
+    _own = {"_spec_name": _arrow, **_ends, "__qualname__": f"ArrowStyle.{_name}"}
+    _parameters = _described(_name, f"ArrowStyle.{_name}", **_params)
+    if _params is not _CURVE:
+        _own["__init__"] = _parameters.__init__
+    _style = type(_name, (_base, _parameters), _own)
     if _base is ArrowStyle._Base:
         _qualnames.own_method(_style, "transmute", _arrow_paths)
     _style_docs.document(_style, ArrowStyle)
     setattr(ArrowStyle, _name, _register_style(ArrowStyle._style_list, _style,
                                                name=_arrow))
 _register_tables(ArrowStyle)
-del _name, _arrow, _params, _base, _style, _ends
+del _name, _arrow, _params, _base, _style, _ends, _own, _parameters
 
 
 class _PlainRoute:

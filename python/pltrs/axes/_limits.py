@@ -763,6 +763,10 @@ class LimitsMixin:
     def use_sticky_edges(self, b):
         _axes_base.set_use_sticky_edges(self._native, bool(b))
 
+    # matplotlib's field behind `use_sticky_edges` (ultraplot reads and
+    # assigns it).
+    _use_sticky_edges = use_sticky_edges
+
     @property
     def ignore_existing_data_limits(self):
         """

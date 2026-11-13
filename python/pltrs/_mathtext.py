@@ -10,6 +10,7 @@ matplotlib's, from matplotlib 3.11.2, under the Matplotlib License), the
 parser's symbol tables and `get_unicode_index`.
 """
 
+import abc
 import logging
 import textwrap
 from typing import NamedTuple
@@ -97,7 +98,7 @@ def get_unicode_index(symbol):
     return _mathtext.get_unicode_index(symbol)
 
 
-class Fonts:
+class Fonts(abc.ABC):
     """
     An abstract base class for a system of fonts to use for mathtext.
 
@@ -134,7 +135,7 @@ class Fonts:
         raise NotImplementedError()
 
 
-class TruetypeFonts(Fonts):
+class TruetypeFonts(Fonts, metaclass=abc.ABCMeta):
     """
     A generic base class for all font setups that use Truetype fonts
     (through FT2Font).

@@ -544,9 +544,18 @@ class Line2D(Artist):
     _x = property(lambda self: self.get_xydata()[:, 0], doc="The x data drawn.")
     _y = property(lambda self: self.get_xydata()[:, 1], doc="The y data drawn.")
 
+    @property
+    def _path(self):
+        """The path drawn, made when the line is first asked for it or
+        added (None before, as matplotlib's ``recache`` makes it)."""
+        if self._figure is None and "_path_made" not in self.__dict__:
+            return None
+        return Line2D.get_path(self)
+
     def get_path(self):
         """Return the `~matplotlib.path.Path` associated with this line."""
         _unusable.check(self, measuring=True)
+        self.__dict__["_path_made"] = True
         return _drawn_path_of(self, *_lines.get_path(self._native), (
             lambda: _lines.get_interpolation_steps(self._native),
             lambda steps: _lines.set_interpolation_steps(self._native, steps)))

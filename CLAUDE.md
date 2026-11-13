@@ -162,6 +162,18 @@ must reproduce them.
   properties, kinds of names), by kind and module in
   `target/diff/types.md`; intended ones go to
   `spec/diff/types-allowlist.txt`, with the proof.
+* Private names libraries use: `cargo xtask diff --private [PATTERN...]
+  [--failures] [--strict]` measures every row of the census
+  `spec/diff/private_census.json` (matplotlib's private attributes,
+  methods and module names that other libraries read, call, write or
+  override, found with `ast` by `spec/diff/private_census.py` in the
+  libraries and corpora installed here) on the generators' scenes
+  (built, drawn, unpickled, cleared) and objects made alone: present, of
+  matplotlib's type and value, and for written names with matplotlib's
+  effect on the getter, the pickle and the drawing
+  (`target/diff/private.md`). Intended differences go to
+  `spec/diff/private-allowlist.txt`; `spec/diff/private_fields.py`
+  regenerates matplotlib's plain fields, the table in `python/pltrs/_artist_private.py`.
 * Coverage of matplotlib's own tests: `cargo xtask mpl-tests [--strict]`
   sorts every `def test_*` of `matplotlib/tests` into ported (named or
   cited, with or without `test_`, in `spec/reference` or

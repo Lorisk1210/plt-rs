@@ -1319,6 +1319,11 @@ class LogitFormatter(_NativeFormatter):
     #: matplotlib's labelling, for locations that are no finite numbers.
     _matplotlib_call = _logit_reference.call
 
+    def _format_value(self, x, locs, sci_notation=True):
+        # matplotlib's label of *x* among *locs*, which subclasses call
+        # (cartopy's latitude formatter).
+        return _logit_reference._format_value(x, locs, sci_notation)
+
     def _as_matplotlib(self, *values):
         # docstring inherited; also while the locations are no finite
         # numbers, which matplotlib's formatter keeps and labels as given.

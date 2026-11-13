@@ -1043,6 +1043,40 @@ over a `ValueError` of that pass and draws without the rest of the
 layout; and measuring an axis for a layout measures it again in full
 after a `TypeError` (matplotlib's `_get_tightbbox_for_layout_only`).
 
+### Private names other libraries use
+
+Libraries read, write and call matplotlib's private names
+(``ax._get_lines``, ``text._color``, ``fig._suptitle = t``). Which ones
+is a census, `spec/diff/private_census.json` (`spec/diff/private_census.py`
+reads the libraries and corpora installed here with ``ast``), and
+`cargo xtask diff --private` measures pltrs against it. The means, by
+family:
+
+* **Plain fields** (a private attribute a public getter of its class
+  returns as it is: ``Text._color``, ``Line2D._drawstyle``): the table
+  `FIELDS` in `_artist_private.py`, written by
+  `spec/diff/private_fields.py` from matplotlib's source. A read of one
+  misses the instance and goes to `PrivateAttributesMixin.__getattr__`,
+  which calls pltrs's own getter of the class defining it (a program's
+  override left out; a class of the package whose own getter reads
+  the field keeps none, as matplotlib's `NonUniformImage` its
+  ``_filterrad``). Fields libraries assign whose setter exists, and which
+  pltrs's own code never assigns, get an `_AssignedField` on the class
+  (`__init_subclass__`): read through the getter, assigned through the
+  setter, so that the next draw, getter and pickle see it. A new field
+  joins by regenerating the table; one state pltrs (Rust) owns that no
+  plain getter returns gets a property of its own over the native getter
+  and setter, in the class or a mixin of private state.
+* **Private helpers** matplotlib's code runs over public state (``_get_lines(ax,
+  x, y)``, ``_set_gc_clip``, ``_set_artist_props``) are ported as they are,
+  in a lazily imported reference module when they are long; forwards
+  keep matplotlib's signature (``__wrapped__`` set to a function taking
+  its parameters, as `axis.py`'s `_AXIS_METHODS`).
+* A private name pltrs's own code uses as state of its own must be
+  renamed before it becomes matplotlib's (spines keep `_kept_path`
+  behind matplotlib's ``_path``); a property never goes where pltrs's
+  code assigns the name.
+
 ### Axes' axes: tick helpers, ticks and texts
 
 An `Axis` (`ax.xaxis`) reaches its pltrs (Rust) axis through its axes and

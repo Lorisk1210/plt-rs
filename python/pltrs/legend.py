@@ -855,6 +855,13 @@ class Legend(Artist):
             self._legend_box_object = box
         return box
 
+    # matplotlib's boxes of the title and of the columns of entries, the
+    # children of ``_legend_box``, which programs restyle (legendkit), and
+    # the alignment given (``_alignment``).
+    _legend_title_box = property(lambda self: self._legend_box.get_children()[0])
+    _legend_handle_box = property(lambda self: self._legend_box.get_children()[1])
+    _alignment = property(lambda self: self.get_alignment())
+
     def _laid_out_box_moved(self, xy):
         """Pin the legend's box at *xy*, display coordinates the program
         moved it to (``_legend_box.set_offset``, as `.DraggableLegend` does

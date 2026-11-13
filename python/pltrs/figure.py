@@ -1081,6 +1081,13 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         return Colorbar._beside(mappable, parents, use_gridspec=use_gridspec,
                                 made=warn_if_elsewhere, **kwargs)
 
+    def _set_artist_props(self, a):
+        # matplotlib 3.11.2's, under the Matplotlib License.
+        if a != self:
+            a.set_figure(self)
+        a.stale_callback = _stale_figure_callback
+        a.set_transform(self.transSubfigure)
+
     def add_artist(self, artist, clip=False):
         """
         Add an `.Artist` to the figure.

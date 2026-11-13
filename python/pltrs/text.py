@@ -642,6 +642,31 @@ class Text(Artist):
         """Return the text angle in degrees in the range [0, 360)."""
         return _text.get_rotation(self._native)
 
+    @property
+    def _rotation(self):
+        # matplotlib's field: the rotation as set, in degrees, which
+        # programs read and assign (matplotlib-label-lines).
+        return _text.get_rotation(self._native)
+
+    @_rotation.setter
+    def _rotation(self, rotation):
+        _text.set_rotation(self._native, _rotation_degrees(rotation))
+
+    @property
+    def _renderer(self):
+        # matplotlib's renderer the text was last drawn or measured with
+        # (`_measuring_renderer`), which programs assign for the next
+        # measure without one (MetPy, ultraplot).
+        kept = self.__dict__.get("_measured_with")
+        if kept is not None:
+            return kept[0]
+        return _layout_renderer(self.get_figure(root=True)) if self._has_renderer() else None
+
+    @_renderer.setter
+    def _renderer(self, renderer):
+        draws = None if self._figure is None else _artist.draw_count(self._native)
+        self._measured_with = (renderer, draws)
+
     #: What matplotlib's ``draw`` reads that a class of the program's may
     #: compute (`_push_computed`): the rotation (``_rotation`` as a
     #: property: matplotlib-label-lines turns its labels with the line as
@@ -1789,6 +1814,19 @@ class _AnnotationBase(CoordsMixin):
     ``_AnnotationBase``): their coordinate systems, and dragging them with
     the mouse.
     """
+
+    def __init__(self,
+                 xy,
+                 xycoords='data',
+                 annotation_clip=None):
+        # matplotlib 3.11.2's, under the Matplotlib License, which a class
+        # of the program's calls (pltrs's own make their native artist).
+        x, y = xy  # Make copy when xy is an array (and check the shape).
+        self.xy = x, y
+        self.xycoords = xycoords
+        self.set_annotation_clip(annotation_clip)
+
+        self._draggable = None
 
     def set_annotation_clip(self, b):
         """

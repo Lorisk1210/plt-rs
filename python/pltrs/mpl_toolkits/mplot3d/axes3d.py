@@ -1999,8 +1999,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
     @property
     def _focal_length(self):
-        """The focal length of the camera (infinite: orthographic)."""
-        return _mplot3d.get_focal_length(self._native)
+        """The focal length of the camera (infinite: orthographic), the int
+        ``1`` matplotlib's perspective camera takes by default."""
+        length = _mplot3d.get_focal_length(self._native)
+        return 1 if length == 1 else length
 
     @property
     def _draw_grid(self):

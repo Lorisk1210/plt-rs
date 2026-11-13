@@ -34,14 +34,24 @@ class UnitsMixin:
         """
         A mapping of axis names, e.g. 'x', to `.Axis` instances: None for
         an axis that takes no units (those of 3-D axes, whose values pass
-        as they are, but in `_units_of_native_axes`).
+        as they are, but in `_units_of_native_axes`); the mapping a class of
+        the program's assigned, if it did.
         """
+        given = self.__dict__.get("_given_axis_map")
+        if given is not None:
+            return given
         axis_class = _axis_class()
         through_python = self.__dict__.get("_native_axes_take_units", False)
         return {name: (axis if isinstance(axis, axis_class)
                        and (through_python or not axis._native_units) else None)
                 for name in self._axis_names
                 for axis in [getattr(self, f"{name}axis")]}
+
+    @_axis_map.setter
+    def _axis_map(self, axis_map):
+        # A class of the program's names its axes itself (matplotlib's
+        # `__init__` assigns the mapping), which then answers.
+        self.__dict__["_given_axis_map"] = axis_map
 
     @contextlib.contextmanager
     def _units_of_native_axes(self):

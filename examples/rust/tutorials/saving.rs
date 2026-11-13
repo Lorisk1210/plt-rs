@@ -8,7 +8,9 @@
 //! The format follows the file name, as in matplotlib. PGF, the LaTeX
 //! picture format, is written as a `.pgf` file; turning it into a PDF
 //! (`savefig("fig.pdf", backend="pgf")`) needs LaTeX, and so do figures
-//! with `text.usetex`, which this program leaves out.
+//! with `text.usetex`, which this program leaves out. PostScript has no
+//! transparency: saving the translucent band as PS and EPS draws it
+//! opaque and warns so on stderr, once per file, as matplotlib does.
 #![expect(clippy::print_stdout, reason = "the tutorial reports what it made")]
 
 use pltrs::collections::CollectionProps;

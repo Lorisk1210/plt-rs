@@ -2527,7 +2527,8 @@ def _native_norm(norm):
             values = masked(values, mask)
         if shape is not None:
             values = values.reshape(shape)
-        return plain(norm(values, clip=clip))
+        # matplotlib calls a norm with its values alone, unless it clips.
+        return plain(norm(values) if clip is None else norm(values, clip=clip))
 
     def normalize_scalar(value):
         return plain(norm(np.float64(value)))

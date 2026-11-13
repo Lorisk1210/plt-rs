@@ -200,7 +200,9 @@ class TitlesMixin:
         (cartopy's ``GeoAxes`` lifts them above its gridliner's labels)."""
         if self._places_titles():
             if renderer is None:
-                renderer = self.get_figure(root=True)._get_renderer()
+                # That of the print running, as matplotlib's draw hands it.
+                from .._python_drawing import drawing_renderer
+                renderer = drawing_renderer(self)
             self._update_title_position(renderer)
 
     def _readies_before_measured(self):

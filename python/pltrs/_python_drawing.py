@@ -131,10 +131,11 @@ def attach(artist, again=False):
     gives it one (its class takes ``draw`` from the program, or the program
     set one on the artist), or its class computes what matplotlib's
     ``draw`` reads (the ``_computed`` attributes of the package's class,
-    such as an arc's ``theta1``); *again* for an artist whose painter may
-    no longer be needed (its own ``draw`` deleted)."""
+    such as an arc's ``theta1``), or measures it (`_measures`: a painter
+    is what pltrs (Rust) measures it through); *again* for an artist whose
+    painter may no longer be needed (its own ``draw`` deleted)."""
     cls = type(artist)
-    if "draw" in vars(artist) or any(
+    if "draw" in vars(artist) or _measures(cls) or any(
             takes_from_program(cls, name)
             for name in ("draw", *getattr(cls, "_computed", ()))):
         _drawing.set_painter(artist._native, weakref.ref(artist),
@@ -389,6 +390,8 @@ def measure_artist(artist):
     if _readies_itself(artist) and artist._before_measured():
         # pltrs (Rust) measures it, now that it is ready.
         return ()
+    if _left_out_of_axes_box(artist):
+        return None
     if figure is None:
         bbox = artist.get_tightbbox(None)
     else:
@@ -398,10 +401,35 @@ def measure_artist(artist):
         # matplotlib's layouts draw is drawn over.
         with (_recording(renderer) if hasattr(renderer, "_recording")
               else contextlib.nullcontext()):
-            bbox = artist.get_tightbbox(renderer)
+            bbox = _tightbbox_of(artist, renderer)
     if bbox is None or (bbox.width == 0 and bbox.height == 0):
         return None
     return tuple(map(float, bbox.extents))
+
+
+def _left_out_of_axes_box(artist):
+    """Whether *artist* is an artist of an Axes that the Axes' tight box
+    leaves out (matplotlib's ``get_default_bbox_extra_artists``): one fully
+    clipped to the Axes, but for Axes, axes and offset boxes."""
+    from .axes._base import _AxesBase
+    from .axis import Axis
+    from .offsetbox import AnnotationBbox, OffsetBox
+    return (getattr(artist, "axes", None) is not None
+            and not isinstance(artist, (_AxesBase, Axis, AnnotationBbox, OffsetBox))
+            and artist._fully_clipped_to_axes())
+
+
+def _tightbbox_of(artist, renderer):
+    """*artist*'s ``get_tightbbox(renderer)``, an Axes' with
+    ``bbox_extra_artists=None`` unless its class takes no such keyword, as
+    matplotlib's ``Figure.get_tightbbox`` asks its Axes."""
+    from .axes._base import _AxesBase
+    if isinstance(artist, _AxesBase):
+        try:
+            return artist.get_tightbbox(renderer, bbox_extra_artists=None)
+        except TypeError:
+            pass
+    return artist.get_tightbbox(renderer)
 
 
 def measure_box(box):

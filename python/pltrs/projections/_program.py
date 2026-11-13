@@ -53,6 +53,7 @@ import weakref
 import numpy as np
 
 from .. import _transform_trees
+from .._program_classes import takes_from_program
 from .._native import artist as _artist
 from .._native import polar as _polar
 from .._native import projections as _projections, spines as _spines
@@ -89,13 +90,21 @@ def native_name(cls):
     return "rectilinear"
 
 
+#: The methods matplotlib's ``Axes.__init__`` builds an Axes with, and the
+#: transforms its axes are drawn with: a class of the program's overriding
+#: one is a projection of the program's, whatever its ``name``.
+_PROJECTION_HOOKS = ("_set_lim_and_transforms", "_gen_axes_spines", "_init_axis", "_gen_axes_patch",
+                     "get_xaxis_transform", "get_yaxis_transform")
+
+
 def is_program_class(cls):
     """Whether *cls* is an Axes class of a projection the program defines
-    (one whose ``name`` pltrs (Rust) does not know, deriving from the
-    rectilinear or the polar Axes, and which does not make its native Axes
-    itself)."""
+    (one whose ``name`` pltrs (Rust) does not know, or which overrides how
+    matplotlib's ``__init__`` builds an Axes, deriving from the rectilinear
+    or the polar Axes, and which does not make its native Axes itself)."""
     return (issubclass(cls, Axes)
-            and cls.name not in _NATIVE_PROJECTIONS
+            and (cls.name not in _NATIVE_PROJECTIONS
+                 or any(takes_from_program(cls, hook) for hook in _PROJECTION_HOOKS))
             and native_name(cls) in ("rectilinear", "polar")
             and getattr(cls, "_make_native", None) is None)
 
@@ -565,10 +574,12 @@ def connect(ax):
     projection the transforms made of them."""
     _build_trees(ax)
     ax._update_transScale()
-    # The spines the class made, which the pickle kept.
+    # The spines the class made, which the pickle kept (matplotlib's
+    # unpickled Axes makes none).
     spines = ax.__dict__.get("_spines_kept")
-    ax._program_projection = _Projection(
-        ax, ax._gen_axes_spines() if spines is None else dict(spines))
+    if spines is None:
+        spines = ax.__dict__["_program_projection"].named_spines
+    ax._program_projection = _Projection(ax, dict(spines))
 
 
 def _figure_set(ax):

@@ -262,15 +262,21 @@ fn resolved(figure: &Figure, transform: &Transform) -> PyResult<ResolvedTransfor
 
 /// The points of `values` (`(2,)` or `(N, 2)`) mapped by `transform` in
 /// `figure`'s current layout: entirely (`part` `"all"`), by its affine
-/// part, or by its non-affine part.
+/// part, or by its non-affine part; all at once, so that a transform of
+/// the program's is called once with all of them, as matplotlib calls it.
 fn apply(figure: Figure, transform: Transform, values: NdArray, part: String) -> PyResult<NdArray> {
     let resolved = resolved(&figure, &transform)?;
-    let map = |p: Point| match part.as_str() {
-        "affine" => resolved.affine_part().transform_point(p),
-        "non_affine" => resolved.transform_point_non_affine(p),
-        _ => resolved.transform_point(p),
-    };
-    let mapped: Vec<Point> = points(&values)?.into_iter().map(map).collect();
+    let mut mapped = points(&values)?;
+    match part.as_str() {
+        "affine" => {
+            let affine = resolved.affine_part();
+            for p in &mut mapped {
+                *p = affine.transform_point(*p);
+            }
+        }
+        "non_affine" => resolved.transform_points_non_affine(&mut mapped),
+        _ => resolved.transform_points(&mut mapped),
+    }
     points_array(&mapped, values.shape)
 }
 

@@ -26,6 +26,7 @@ from .axes import Axes
 from .axes._base import _AxesBase
 from .axes import _sharing
 from .axes import _program_tick_params
+from .axes import _construction
 from .backend_bases import DrawEvent, FigureCanvasBase, MouseButton, NonGuiException
 from .gridspec import GridSpec, SubplotParams, SubplotSpec, _figure_subplotpars
 from ._program_classes import takes_from_program
@@ -57,8 +58,10 @@ def _native_maker(projection_class):
     constructor for a subclass of `.Axes` with a constructor of the
     program's, which matplotlib calls with the keywords of
     ``add_subplot``; by the class' own ``_make_native``; by its
-    constructor for any other subclass with a constructor of its own;
-    else None, for pltrs (Rust)'s axes of the projection.
+    constructor for any other subclass with a constructor of its own,
+    and for a class of the program's overriding what that constructor
+    calls (`_constructed`); else None, for pltrs (Rust)'s axes of the
+    projection.
     """
     if not callable(projection_class):
         # matplotlib calls it to make the Axes (a program's *axes_class*).
@@ -72,6 +75,8 @@ def _native_maker(projection_class):
     if (make is None and projection_class.name == "rectilinear"
             and projection_class.__init__ is not Axes.__init__):
         make = projection_class._constructed_native
+    if make is None and _constructed(projection_class):
+        make = projection_class._constructed_native
     if make is None:
         from .projections import _program
         if _program.is_program_class(projection_class):
@@ -79,6 +84,21 @@ def _native_maker(projection_class):
                     if projection_class.__init__ is not Axes.__init__
                     else _program.maker(projection_class))
     return make
+
+
+#: What matplotlib's ``Axes.__init__`` calls on the new Axes: a class of
+#: the program's overriding one is made by its constructor.
+_CONSTRUCTION_CALLS = ("__init__", "clear", "cla", "grid")
+
+
+def _constructed(projection_class):
+    """Whether a new *projection_class* is made by its constructor: a
+    rectilinear or polar class of the program's overriding what
+    matplotlib's ``Axes.__init__`` calls (`_CONSTRUCTION_CALLS`), which
+    matplotlib calls with the arguments of ``add_subplot``."""
+    from .projections import _program
+    return (_program.native_name(projection_class) in ("rectilinear", "polar")
+            and any(takes_from_program(projection_class, name) for name in _CONSTRUCTION_CALLS))
 
 
 class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
@@ -633,7 +653,8 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         spec = subplotspec._native_spec()
         make = _native_maker(projection_class)
         if make is not None:
-            native, pkw = make(self, pkw, spec=spec)
+            with _construction.given_arguments(args, subplotspec):
+                native, pkw = make(self, pkw, spec=spec)
         elif projection_class.name == "rectilinear":
             native = _gridspec.add_subplot(self._native, spec)
         else:

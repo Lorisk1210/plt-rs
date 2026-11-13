@@ -14,6 +14,8 @@ Axes made by its constructor and for one pltrs (Rust) made (`_from_native`).
 """
 
 from collections.abc import Iterable
+import contextlib
+import threading
 
 import numpy as np
 
@@ -22,6 +24,46 @@ from .._program_classes import takes_from_program
 from .._native import axis as _axis, figure as _figure, insets as _insets
 from ..transforms import Bbox
 from . import _program_tick_params
+
+
+class _Given(threading.local):
+    """The arguments ``add_subplot`` was given while it makes an Axes by
+    its class' constructor, and the `.SubplotSpec` it made of them, with
+    the arguments (`given_arguments`)."""
+
+    arguments = None
+    subplotspec = None
+
+
+_given = _Given()
+
+
+@contextlib.contextmanager
+def given_arguments(args, subplotspec):
+    """While ``add_subplot`` makes an Axes with the positional arguments
+    *args*, which an Axes made by its constructor (`_constructed_native`)
+    is handed, as matplotlib's ``add_subplot`` hands them on, and which
+    place it on *subplotspec* (made of them once: a second
+    ``_from_subplot_args`` would make a grid of its own)."""
+    saved = _given.arguments, _given.subplotspec
+    _given.arguments = tuple(args)
+    _given.subplotspec = (_given.arguments, subplotspec)
+    try:
+        yield
+    finally:
+        _given.arguments, _given.subplotspec = saved
+
+
+def _subplotspec_of(fig, args):
+    """The `.SubplotSpec` the arguments *args* of an Axes' constructor
+    name: the one ``add_subplot`` made of them when it hands them on
+    (`given_arguments`), else one made now."""
+    from ..gridspec import SubplotSpec
+    made, _given.subplotspec = _given.subplotspec, None
+    if made is not None and len(made[0]) == len(args) and all(
+            a is b for a, b in zip(made[0], args)):
+        return made[1]
+    return SubplotSpec._from_subplot_args(fig, args)
 
 
 class ConstructionMixin:
@@ -140,9 +182,15 @@ class ConstructionMixin:
         ``fig.add_subplot(axes_class=...)`` and ``fig.add_axes`` make them.
         """
         from ..gridspec import SubplotSpec
-        where = (rect if rect is not None
-                 else SubplotSpec._from_native(spec, figure))
-        ax = cls(figure, where, **kwargs)
+        given, _given.arguments = _given.arguments, None
+        if given is not None:
+            # The arguments of ``add_subplot``, as matplotlib hands them.
+            where = given
+        else:
+            _given.subplotspec = None
+            where = ((rect,) if rect is not None
+                     else (SubplotSpec._from_native(spec, figure),))
+        ax = cls(figure, *where, **kwargs)
         ax._add_to_figure(figure, False)
         return ax._native, {}
 
@@ -236,8 +284,7 @@ def _removed_native(fig, args, cls):
         if projection == "rectilinear":
             return _figure.removed_axes(native_figure(fig), bounds)
         return _figure.removed_axes_projection(native_figure(fig), bounds, projection)
-    from ..gridspec import SubplotSpec
-    spec = SubplotSpec._from_subplot_args(fig, args)._native_spec()
+    spec = _subplotspec_of(fig, args)._native_spec()
     if projection == "rectilinear":
         return _figure.removed_subplot(native_figure(fig), spec)
     return _figure.removed_subplot_projection(native_figure(fig), spec, projection)

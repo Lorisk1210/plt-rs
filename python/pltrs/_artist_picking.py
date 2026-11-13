@@ -9,6 +9,7 @@ pick as matplotlib's recursion over the children does. A callable picker
 stays with the Python artist, which `PickingMixin.pick` asks itself.
 """
 
+import functools
 import logging
 from numbers import Number
 
@@ -50,6 +51,19 @@ def contains_untested(artist, mouseevent):
     """
     _log.warning("%r needs 'contains' method", artist.__class__.__name__)
     return False, {}
+
+
+@functools.cache
+def _is_bare_artist(cls):
+    """Whether *cls* derives from `.Artist` through classes of the
+    program's only, whose ``contains`` is matplotlib's `.Artist`'s (it has
+    no hit test: it warns)."""
+    from .artist import Artist
+    package = __name__.partition(".")[0]
+    for klass in cls.__mro__:
+        if klass.__module__.partition(".")[0] == package:
+            return klass is Artist
+    return False
 
 
 class PickingMixin:
@@ -98,6 +112,8 @@ class PickingMixin:
             such as which points are contained in the pick radius. See the
             individual Artist subclasses for details.
         """
+        if _is_bare_artist(type(self)):
+            return contains_untested(self, mouseevent)
         return self._contains_within(mouseevent, self._pick_radius())
 
     def _contains_within(self, mouseevent, radius):

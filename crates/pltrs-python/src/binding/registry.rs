@@ -25,7 +25,7 @@ static REGISTRY: Mutex<BTreeMap<String, Owned>> = Mutex::new(BTreeMap::new());
     clippy::unnecessary_wraps,
     reason = "a native function, in the form `Module::add` registers"
 )]
-fn register(name: String, object: Owned) -> PyResult<()> {
+pub(crate) fn register(name: String, object: Owned) -> PyResult<()> {
     let replaced = REGISTRY
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)

@@ -1853,11 +1853,17 @@ class _NativeLocator(Locator):
         """Return the locations of the ticks."""
         if self._as_matplotlib():
             return self._matplotlib_call()
-        if self._ticks_the_view and _asks_program_view(self.axis):
+        if self._ticks_the_view and (_asks_program_view(self.axis) or self._gives_tick_values()):
             vmin, vmax = self.axis.get_view_interval()
             return self.tick_values(vmin, vmax)
         return self.raise_if_exceeds(
             _ticker.locate(self._spec(), self._axis_info()))
+
+    def _gives_tick_values(self):
+        """Whether a class of the program's computes the ticks itself (its
+        ``tick_values``), which matplotlib's ``__call__`` asks for the view
+        interval."""
+        return _program_classes.takes_from_program(type(self), "tick_values")
 
     def view_limits(self, vmin, vmax):
         # docstring inherited
@@ -2334,7 +2340,7 @@ class MaxNLocator(_NativeLocator):
 
     def __call__(self):
         # docstring inherited
-        if self._gives_raw_ticks():
+        if self._gives_raw_ticks() or self._gives_tick_values():
             vmin, vmax = self.axis.get_view_interval()
             return self.tick_values(vmin, vmax)
         return super().__call__()

@@ -479,14 +479,11 @@ impl Artist for LineArtist {
     /// marker; `None` without a finite point.
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         let resolved = self.drawn_transform(*ctx).ok()??;
-        let points = self.points().ok()?;
-        let extent = Bbox::from_points(
-            points
-                .vertices()
-                .iter()
-                .map(|&p| resolved.transform_point(p))
-                .filter(|p| p.is_finite()),
-        );
+        // All the points at once, as matplotlib maps them (a transform of
+        // the program's is called once).
+        let mut points = self.points().ok()?.vertices().to_vec();
+        resolved.transform_points(&mut points);
+        let extent = Bbox::from_points(points.into_iter().filter(|p| p.is_finite()));
         if extent.is_null() {
             return None;
         }

@@ -13,6 +13,7 @@ The ``clear``/``cla`` dispatch and ``get_children`` are matplotlib
 import functools
 import weakref
 
+from .._program_classes import takes_from_program
 from .. import _api, _handles, cbook
 from .._native import artist as _artist, axes as _axes
 from .. import _lazy_imports
@@ -100,6 +101,12 @@ class ClearMixin:
             axis.stale = True
         from .. import rcParams
         self._gridOn = rcParams['axes.grid']
+        if takes_from_program(type(self), "grid"):
+            # matplotlib's clear turns the grid off, then as the rcParams
+            # say, through the class' own `grid`.
+            self.grid(False)
+            self.grid(self._gridOn, which=rcParams['axes.grid.which'],
+                      axis=rcParams['axes.grid.axis'])
         self.__dict__.pop("_containers", None)
         self.__dict__.pop("_limit_callbacks", None)
         self.__dict__.pop("_limit_callbacks_connected", None)

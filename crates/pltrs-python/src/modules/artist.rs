@@ -276,6 +276,12 @@ fn is_attached(artist: RawHandle) -> PyResult<bool> {
     Ok(artist.is_attached())
 }
 
+/// Whether the artist's figure is in use: laid out or drawn by pltrs
+/// (Rust) now, the code running meanwhile the program's it calls.
+fn figure_in_use(artist: RawHandle) -> PyResult<bool> {
+    Ok(artist.figure_in_use())
+}
+
 /// Removes the artist from its figure.
 fn remove(artist: RawHandle) -> PyResult<()> {
     artist.remove();
@@ -322,6 +328,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_sketch_params", set_sketch_params)?;
     module.add("is_part", is_part)?;
     module.add("is_attached", is_attached)?;
+    module.add("figure_in_use", figure_in_use)?;
     module.add("remove", remove)?;
     classes::register(module)?;
     clip::register(module)?;

@@ -1463,6 +1463,28 @@ class QuadContourSet(ContourSet):
         with _failed_calls.leaving_nothing(ax):
             ax._contour(filled, args, kwargs, made=self)
 
+    def _process_args(self, *args, corner_mask=None, algorithm=None, **kwargs):
+        """
+        Process args and kwargs.
+        """
+        # matplotlib's step of the constructor: the field contoured, that of
+        # another set (at its levels) or the grid of ``[X, Y,] Z``, checked,
+        # kept as the set's generator (``_contour_generator``); the other
+        # keywords are given back.
+        if args and isinstance(args[0], QuadContourSet):
+            self._generator = args[0]._generator
+            return kwargs
+        from . import rcParams
+        rcParams.validate['contour.algorithm'](
+            rcParams['contour.algorithm'] if algorithm is None else algorithm)
+        fn = 'contourf' if self.filled else 'contour'
+        z, mask, x, y, _ = _contour_args(fn, args, kwargs)
+        extent = None if self.extent is None else tuple(map(float, self.extent))
+        chunks = _contour_arguments.held_chunks(self.nchunk) or 0
+        self._generator = _ContourGenerator(
+            (z, mask, x, y, (self.origin, extent)), (corner_mask, chunks, algorithm))
+        return kwargs
+
 
 def _contour_args(fn, args, kwargs):
     """

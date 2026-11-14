@@ -197,7 +197,7 @@ fn a_window_starting_a_resized_animation_runs_one_timer() {
 }
 
 #[test]
-fn a_full_draw_makes_the_background_be_saved_again() {
+fn a_full_draw_keeps_the_background_saved_for_the_view() {
     let (fig, line, animation) = blitted(10, true);
     let ax = fig.axes()[0].clone();
     let (timer, _) = fig.timers()[0];
@@ -209,8 +209,8 @@ fn a_full_draw_makes_the_background_be_saved_again() {
     let image = fig.canvas().buffer_rgba().unwrap();
     assert_eq!(
         image.pixel(25, 5),
-        Some([0, 0, 0, 255]),
-        "the new background"
+        Some([255, 255, 255, 255]),
+        "matplotlib saves a background again only for another view"
     );
     assert!(animated(&line));
     drop(animation);

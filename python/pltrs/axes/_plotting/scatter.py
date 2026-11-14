@@ -46,10 +46,18 @@ def _mapping(cmap, norm, vmin, vmax, colorizer=None, variates=False):
             "directly to the norm when creating it.")
     if colorizer is not None:
         cmap, norm = made.cmap, made.norm
-    elif cmap is not None:
+    elif cmap is not None or not _rc_cmap_found_natively():
         cmap = made.cmap
     return made, (cmap, norm, None if vmin is None else float(vmin),
                   None if vmax is None else float(vmax))
+
+
+def _rc_cmap_found_natively():
+    """Whether pltrs (Rust) finds :rc:`image.cmap` by its name: the registry
+    ``matplotlib.colormaps`` is the package's, which it mirrors, not one a
+    program put in its place (ultraplot's colormap database), whose
+    colormap is then handed to it as resolved."""
+    return getattr(mcolorizer._mpl().colormaps, "_native_mirror", False)
 
 
 class ScatterMixin:

@@ -119,7 +119,8 @@ def _dataset_styles(kwargs):
             [] if linewidth is None else [float(w) for w in np.atleast_1d(linewidth)],
             [] if linestyle is None else mcoll._linestyle_specs(linestyle),
             [] if hatch is None else
-            [hatch] if isinstance(hatch, str) else [str(h) for h in hatch])
+            [hatch] if isinstance(hatch, str)
+            else ["" if h is None else str(h) for h in hatch])
 
 
 def _numpy_number(value):
@@ -476,8 +477,9 @@ class BarsMixin:
         facecolors = [tuple(c) for c in facecolor] or ['none']
         linewidths = ([] if linewidth is None
                       else [float(lw) for lw in np.atleast_1d(linewidth)])
+        # A bar of no hatch among hatched ones keeps its place.
         hatches = ([] if hatch is None
-                   else [str(h) for h in np.atleast_1d(hatch) if h is not None])
+                   else ["" if h is None else str(h) for h in np.atleast_1d(hatch)])
 
         errors = {}
         if xerr is not None or yerr is not None:

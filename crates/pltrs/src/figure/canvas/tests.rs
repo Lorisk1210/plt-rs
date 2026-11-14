@@ -93,30 +93,32 @@ fn animated_artists_change_without_making_the_figure_stale() {
 }
 
 #[test]
-fn regions_go_stale_with_a_draw_a_resize_or_another_figure() {
-    let (fig, _, _) = figure_with_line(0.5);
+fn regions_outlive_a_draw_a_resize_and_their_figure() {
+    let (fig, ax, _) = figure_with_line(0.5);
     let canvas = fig.canvas();
     canvas.draw().unwrap();
     let region = canvas.copy_from_bbox(&fig.bbox()).unwrap();
+    let saved = canvas.buffer_rgba().unwrap();
+    ax.set_facecolor(pltrs_core::Rgba::BLACK);
     canvas.draw().unwrap();
-    assert!(matches!(
-        canvas.restore_region(&region),
-        Err(CanvasError::StaleRegion)
-    ));
-    let region = canvas.copy_from_bbox(&fig.bbox()).unwrap();
+    assert!(canvas.buffer_rgba().unwrap() != saved, "drawn anew");
+    canvas.restore_region(&region).unwrap();
+    assert!(
+        canvas.buffer_rgba().unwrap() == saved,
+        "matplotlib restores a region saved before the last draw"
+    );
     fig.set_dpi(100.0);
-    assert!(matches!(
-        canvas.restore_region(&region),
-        Err(CanvasError::StaleRegion)
-    ));
+    canvas.restore_region(&region).unwrap();
+    let resized = canvas.buffer_rgba().unwrap();
+    assert_eq!((resized.width(), resized.height()), (100, 100));
+    assert_eq!(resized.pixel(25, 25), saved.pixel(25, 25));
     let (other, _, _) = figure_with_line(0.5);
     other.canvas().draw().unwrap();
-    let foreign = other.canvas().copy_from_bbox(&other.bbox()).unwrap();
-    canvas.draw().unwrap();
-    assert!(matches!(
-        canvas.restore_region(&foreign),
-        Err(CanvasError::StaleRegion)
-    ));
+    other.canvas().restore_region(&region).unwrap();
+    assert!(
+        other.canvas().buffer_rgba().unwrap() == saved,
+        "and one saved from another figure's canvas"
+    );
 }
 
 #[test]

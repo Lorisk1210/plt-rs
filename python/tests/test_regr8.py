@@ -104,3 +104,38 @@ def test_a_figure_legend_is_made_anchored_to_a_box():
     assert alone.get_bbox_to_anchor().bounds == pytest.approx(
         [179.2, 126.72, 297.6, 221.76])
     assert ax.get_legend() is None
+
+
+def test_a_background_patch_is_as_stale_as_matplotlibs():
+    # Two changes met here, each making a background patch stale until
+    # its owner draws it, by its own count: together a patch first read
+    # after a draw read as stale. pltrs makes the patch when the program
+    # first reads it; matplotlib makes it with its owner and anew at an
+    # Axes' clear, and that is how old it is.
+    fig, ax = plt.subplots()
+    assert (fig.patch.stale, ax.patch.stale) == (True, True)
+    fig, ax = plt.subplots()
+    ax.plot([0, 1])
+    fig.canvas.draw()
+    assert (fig.patch.stale, ax.patch.stale) == (False, False)
+    ax.clear()
+    assert (fig.patch.stale, ax.patch.stale) == (False, True)
+    fig.canvas.draw()
+    assert (fig.patch.stale, ax.patch.stale) == (False, False)
+    # The patch first read after the clear, and after the draw following it.
+    fig, ax = plt.subplots()
+    fig.canvas.draw()
+    ax.clear()
+    fig.canvas.draw()
+    assert (fig.patch.stale, ax.patch.stale) == (False, False)
+    fig, ax = plt.subplots()
+    fig.canvas.draw()
+    ax.clear()
+    assert (fig.patch.stale, ax.patch.stale) == (False, True)
+    fig.canvas.draw()
+    ax.patch.set_facecolor("red")
+    assert ax.patch.stale
+    fig.canvas.draw()
+    assert not ax.patch.stale
+    fig.clear()
+    assert not fig.patch.stale

@@ -11,6 +11,7 @@ from ... import _docstring
 from ... import _api, cbook, collections as mcoll, colorizer as mcolorizer, colors as mcolors
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
+from ..._program_classes import takes_from_program
 from ... import _lazy_imports
 from ._helpers import wrap
 from .scatter import _mapping
@@ -86,6 +87,20 @@ def _hist2d_plain(x, y, bins, range, weights, cmin, cmax):
                                      and numeric(weights)))
             and all(bound is None or isinstance(bound, numbers.Real)
                     for bound in (cmin, cmax)))
+
+
+def _hist2d_through_pcolormesh(axes, x, y, bins, range, density, weights, cmin, cmax,
+                               kwargs):
+    """matplotlib 3.11.2's `~.Axes.hist2d` (under the Matplotlib License),
+    for an Axes class whose ``pcolormesh`` is the program's."""
+    h, xedges, yedges = np.histogram2d(x, y, bins=bins, range=range,
+                                       density=density, weights=weights)
+    if cmin is not None:
+        h[h < cmin] = None
+    if cmax is not None:
+        h[h > cmax] = None
+    pc = axes.pcolormesh(xedges, yedges, h.T, **kwargs)
+    return h, xedges, yedges, pc
 
 
 def _native_hexbin(axes, x, y, C, gridsize, bins, xscale, yscale, extent, cmap,
@@ -419,6 +434,11 @@ class Bins2dMixin:
            extents of the histogram; now, autoscaling also takes other plot
            elements into account.
         """
+        if takes_from_program(type(self), "pcolormesh"):
+            # matplotlib's draws the counts with the class' own pcolormesh
+            # (ultraplot's, which takes keywords of its own).
+            return _hist2d_through_pcolormesh(self, x, y, bins, range, density, weights,
+                                              cmin, cmax, kwargs)
         # numpy's histogram2d, which matplotlib's computes with, compares
         # the lengths first.
         if len(x) != len(y):

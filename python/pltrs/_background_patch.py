@@ -19,9 +19,11 @@ background's shape; so does one it makes a (sub)figure's
 
 import numpy as np
 
-from . import _live_transforms, _mirrors
+from . import _lazy_imports, _live_transforms, _mirrors
 from ._native import artist as _artist, axisartist as _axisartist, patches as _patches
 from ._native import projections as _projections
+
+_drawn_with = _lazy_imports.module(globals(), "._drawn_with")
 
 
 class _Background(_mirrors.Mirroring):
@@ -32,17 +34,21 @@ class _Background(_mirrors.Mirroring):
 
     def push(self, patch):
         _patches.push_background(self.owner._native, patch._native)
-        patch._changed_at_draw = _artist.draw_count(self.owner._native)
+        # The patch changed since the owner last drew it.
+        _drawn_with.changed(patch, self.owner)
 
     def pull(self, patch):
-        """Give *patch* the background's style, and the staleness of the
-        patch matplotlib draws with its owner: changed since that draw."""
+        """Give *patch* the background's style, which it has had since
+        the owner last changed it: as fresh or stale as it was."""
+        stale = _artist.get_stale(patch._native)
         _patches.pull_background(self.owner._native, patch._native)
-        drawn = _artist.draw_count(self.owner._native)
-        _artist.set_stale(patch._native, drawn == patch.__dict__.get("_changed_at_draw", 0))
+        _artist.set_stale(patch._native, stale)
 
     def window_extent(self, patch, renderer=None, dpi=None):
         return patch.get_path().get_extents(patch.get_transform())
+
+    def drawer(self, patch):
+        return self.owner
 
     def contains(self, patch, mouseevent, radius=None):
         return self.owner.contains(mouseevent)
@@ -59,6 +65,11 @@ class _AxesBackground(_Background):
         # its own radius (what the canvas' ``inaxes`` asks).
         from .patches import Patch
         return Patch.contains_point(patch, point, radius)
+
+    def drawn_by_drawer(self, patch):
+        # matplotlib's Axes draws its patch when it shows its axes framed.
+        axes = self.owner
+        return patch.get_visible() and axes.axison and axes.get_frame_on()
 
     def clip_spec(self, patch):
         # The outline of the Axes, followed as it changes.
@@ -130,9 +141,10 @@ def _made(owner, patch, mirroring, transform):
         with _mirrors.detached(patch):
             patch.set_transform(transform)
     owner.__dict__["_patch"] = patch
-    # New, as matplotlib's patch made anew (an Axes' clear) is, until its
-    # owner is drawn again.
-    patch._changed_at_draw = _artist.draw_count(owner._native)
+    # As old as matplotlib's patch, which it makes with the owner and
+    # anew at an Axes' clear: stale until the owner draws after that,
+    # whenever the program first reads it.
+    _drawn_with.made(patch, owner.__dict__.get("_patch_made_at_draw", 0))
     return patch
 
 

@@ -4,7 +4,8 @@ read and write, which pltrs keeps elsewhere.
 
 * ``_axes``, the attribute behind matplotlib's `.Artist.axes` (nilearn's
   tests read ``image._axes``), ``_parent_figure`` behind ``figure``,
-  ``_stale`` behind ``stale``, ``_remove_method`` and ``_set_gc_clip``.
+  ``_stale`` behind ``stale``, ``_animated`` behind ``get_animated``,
+  ``_remove_method`` and ``_set_gc_clip``.
 * matplotlib's *plain fields* (`FIELDS`, below): private attributes
   that a public getter of their class returns as they are
   (``Text._text``, ``Line2D._drawstyle``, ``Patch._edgecolor``). pltrs
@@ -370,6 +371,18 @@ class PrivateAttributesMixin:
             self.set_transform(self.get_transform())
 
     @property
+    def _animated(self):
+        # matplotlib's flag behind `get_animated`, which a program sets
+        # without `set_animated`'s ``pchanged`` (ultraplot leaves its Axes
+        # out of a figure's draw so): the figure's draws see it.
+        return self.get_animated()
+
+    @_animated.setter
+    def _animated(self, value):
+        _artist.set_animated(self._native, bool(value))
+        _values.remember(self, "animated", value)
+
+    @property
     def _parent_figure(self):
         # matplotlib's (sub)figure behind `figure`, which programs set as
         # `set_figure` sets it (marsilea).
@@ -406,6 +419,9 @@ class PrivateAttributesMixin:
         return sorted(names)
 
     def __getattr__(self, name):
+        if name == "stale_callback":
+            from ._artist_staleness import default_stale_callback
+            return default_stale_callback(self)
         if name == "_axes":
             from .figure import FigureBase
             # A figure has none: matplotlib's deletes it, its ``axes`` being

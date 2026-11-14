@@ -218,9 +218,11 @@ impl Archive for Painter {
 
 impl RawHandle {
     /// Has `painter` draw the artist wherever pltrs draws it, or pltrs
-    /// again with `None` (see [`ArtistPainter`]).
+    /// again with `None` (see [`ArtistPainter`]). The artist stays as
+    /// fresh as it was, as matplotlib's does when a program gives it a
+    /// `draw` of its own.
     pub fn set_painter(&self, painter: Option<Painter>) {
-        self.with_base_mut(|base| base.painter = painter);
+        self.with_base_mut_unmarked(|base| base.painter = painter);
     }
 
     /// The artist's painter, if it has one.

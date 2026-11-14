@@ -21,7 +21,7 @@ import numpy as np
 
 from . import (_api, _artist_clipping, _artist_effects, _live_transforms, _mirrors,
                _unusable, _values, cbook)
-from ._native import artist as _artist, axis as _axis
+from ._native import artist as _artist, axis as _axis, text as _text
 from .artist import Artist, allow_rasterization
 from .lines import Line2D
 from .text import Text, _check_metrics_renderer
@@ -905,6 +905,15 @@ class _AxisText:
 class AxisLabel(_AxisText):
     """The mirror of an axis label."""
 
+    def __init__(self, axis):
+        super().__init__(axis)
+        if axis.axis_name == "y":
+            # As matplotlib's y-axis makes its label, which pltrs (Rust)
+            # turns about its anchor: the mirror alone is told (its
+            # setter would give the axis the mode again, for each of a
+            # grid's Axes).
+            _text.set_rotation_mode(self.text._native, "anchor")
+
     def _transform_of(self, text):
         # The transform `.Axis.set_label_coords` gave, else the default.
         given = self.axis.__dict__.get("_label_transform")
@@ -922,6 +931,27 @@ class AxisLabel(_AxisText):
     _push_effects_native = _axis.push_axis_label_effects
     _extent_native = _axis.axis_label_extent
     _START = {"x": (0.5, 0), "y": (0, 0.5)}
+
+    def place_by_program(self, renderer):
+        """Measure the axis, which places the label where its draw will,
+        and set the label there through its own setters, as matplotlib's
+        ``_update_label_position`` calls ``set_position`` (a setter of the
+        program's follows it: ultraplot moves its spanning label so)."""
+        self.axis.get_tightbbox(renderer)
+        text = self._synced()
+        text.set_position(text.get_position())
+
+
+def follow_program_setters(text):
+    """Have the figure place *text*, if it is an axis label given a
+    position setter of the program's, through it (see
+    `AxisLabel.place_by_program`)."""
+    owner = getattr(_mirrors.mirroring(text), "owner", None)
+    if isinstance(owner, AxisLabel):
+        from .axes import _program_locators
+        figure = owner.axis.axes.get_figure(root=True)
+        if figure is not None:
+            _program_locators.follow_label(owner, figure)
 
 
 class OffsetText(_AxisText):

@@ -20,15 +20,17 @@ import weakref
 import numpy as np
 
 from . import _lazy_imports
-from ._native import register as _register, transforms as _transforms
+from ._native import artist as _artist, register as _register, transforms as _transforms
 from .transforms import (
     Affine2D, Affine2DBase, AffineDeltaTransform, BlendedAffine2D,
     BlendedGenericTransform, CompositeAffine2D, CompositeGenericTransform,
     IdentityTransform, ScaledTranslation, Transform, TransformedPath,
-    TransformWrapper, blended_transform_factory, composite_transform_factory)
+    TransformNode, TransformWrapper, blended_transform_factory,
+    composite_transform_factory)
 from .path import Path
 
 _owned_paths = _lazy_imports.module(globals(), "._owned_paths")
+_transform_trees = _lazy_imports.module(globals(), "._transform_trees")
 
 
 class LiveTransform(Transform):
@@ -158,6 +160,56 @@ def follow_given(artist):
         computes = given.__dict__["_computes_matrix"] = _computes_matrix(given)
     if computes:
         _transforms.set_transform(artist._native, to_native(given))
+
+
+class _GivenWatcher(TransformNode):
+    """
+    A parent of the transform an artist was given, holding parts pltrs
+    (Rust) takes by their matrix as it is when handed (an affine transform
+    of Python's, on a box the program changes): a change of one of them
+    hands pltrs (Rust) the transform again, as matplotlib maps through the
+    transform's parts as they are wherever it draws or measures.
+    """
+
+    def __init__(self, artist, transform):
+        super().__init__()
+        self._artist = weakref.ref(artist)
+        self._given = transform
+        self.set_children(transform)
+
+    def _invalidate_internal(self, level, invalidating_node):
+        artist = self._artist()
+        # Changes made while pltrs (Rust) lays the figure out or draws it
+        # are its own syncs and the code of the program's it calls (an
+        # axis placing its spine), which it follows itself.
+        if (artist is not None and not _transform_trees._syncing()
+                and artist.__dict__.get("_given_transform") is self._given
+                and "_native" in artist.__dict__
+                and not _artist.figure_in_use(artist._native)):
+            _transforms.set_transform(artist._native, to_native(self._given))
+
+    def __reduce__(self):
+        # Pickled with the artist, it unpickles as a plain node (the artist
+        # is handed its transform again when it is read back).
+        return (TransformNode, ())
+
+
+def watch_given(artist, transform):
+    """Have *artist*, made with *transform* by a plotting method (``plot``'s
+    ``transform``), follow it where pltrs (Rust) took parts of it by their
+    matrix (see `_GivenWatcher`); nothing to follow otherwise."""
+    artist.__dict__.pop("_given_watcher", None)
+    if isinstance(transform, Transform) and _takes_matrices(_description(transform)):
+        artist.__dict__["_given_watcher"] = _GivenWatcher(artist, transform)
+
+
+def _takes_matrices(description):
+    """Whether the transform *description* holds a part by its matrix."""
+    tag, *parts = description
+    if tag == "affine":
+        return True
+    return any(isinstance(part, tuple) and part and isinstance(part[0], str)
+               and _takes_matrices(part) for part in parts)
 
 
 def _description(t, by_matrix=False):

@@ -11,11 +11,13 @@
 //! machine learning (`analysis`), the sciences (`science`), plotting
 //! itself (`plotting`), the add-ons building on matplotlib's parts
 //! (`addons`) and the charts of other fields drawn with it (`charts`),
-//! these last two in venvs of their own.
+//! these last two in venvs of their own, and the libraries of other
+//! fields (`fields`), in venvs of theirs.
 
 mod addons;
 mod analysis;
 mod charts;
+mod fields;
 mod plotting;
 mod science;
 
@@ -122,12 +124,17 @@ pub(super) enum Source {
 /// setup adds to the unpacked sdist from the library's repository.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct LeftOut {
-    /// The raw files of the repository; a release's are under its tag,
-    /// `v<version>`.
+    /// The raw files of the repository, a release's under its tag.
     pub(super) repository: &'static str,
+    /// The release's tag, where `{version}` stands for the pinned version:
+    /// [`V_VERSION`] for most (`v1.2.3`), the bare version for others.
+    pub(super) tag: &'static str,
     /// The files, with their SHA-256.
     pub(super) files: &'static [(&'static str, &'static str)],
 }
+
+/// The tag most releases have: `v` and the version.
+pub(super) const V_VERSION: &str = "v{version}";
 
 /// Test files of which only the tests taking a fixture run (with the
 /// pytest plugin `python/ecosystem/plugin/ecosystem_select.py`).
@@ -233,6 +240,7 @@ pub(super) fn all() -> impl Iterator<Item = Library> {
         plotting::LIBRARIES.as_slice(),
         addons::LIBRARIES.as_slice(),
         charts::LIBRARIES.as_slice(),
+        fields::LIBRARIES.as_slice(),
     ]
     .into_iter()
     .flatten()

@@ -111,8 +111,10 @@ class ClearMixin:
         self.__dict__.pop("_limit_callbacks", None)
         self.__dict__.pop("_limit_callbacks_connected", None)
         # A new background patch in the Axes' face colour, and new titles,
-        # as matplotlib's clear makes them.
+        # as matplotlib's clear makes them; the patch is stale until the
+        # Axes draw again (see `._background_patch`).
         self.__dict__.pop("_patch", None)
+        self._patch_made_at_draw = _artist.draw_count(self._native)
         for loc in ("center", "left", "right"):
             figure._artists.pop(_artist.id(_axes.title_text(self._native, loc)), None)
         from ..projections import _program

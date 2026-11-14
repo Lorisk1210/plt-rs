@@ -23,7 +23,7 @@ import numpy as np
 
 from . import _api, _artist_effects, _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
 from . import _live_transforms, _mirrors, _program_classes, _pybind, _python_drawing, _unusable, _values
-from . import _transform_trees
+from . import _artist_staleness, _lazy_imports, _transform_trees
 from ._artist_callbacks import CallbacksMixin
 from ._artist_children import ChildrenSearchMixin
 from ._artist_clipping import ClippingMixin
@@ -37,6 +37,15 @@ from ._artist_subclassing import SubclassingMixin, _LazySet
 from ._artist_units import UnitsMixin
 from ._native import artist as _artist
 from ._native import transforms as _transforms
+
+#: Loaded when a mirror's staleness is first read (see `_follow_part_drawer`).
+_drawn_with = _lazy_imports.module(globals(), "._drawn_with")
+#: Loaded when a program first gives an artist a position setter.
+_axis_artists = _lazy_imports.module(globals(), "._axis_artists")
+
+#: The setters a program may give an artist to follow where pltrs (Rust)
+#: places it (see `._axis_artists.follow_program_setters`).
+_POSITION_SETTERS = frozenset({"set_x", "set_y", "set_position"})
 
 
 def allow_rasterization(draw):
@@ -139,6 +148,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         super().__setattr__(name, value)
         if name == "draw" and "_native" in vars(self):  # As in matplotlib.
             _python_drawing.attach(self, again=True)
+        elif name == "stale_callback":
+            _artist_staleness.set_by_program()
+        elif name in _POSITION_SETTERS:
+            # An axis label's (ultraplot's spanning labels follow them).
+            _axis_artists.follow_program_setters(self)
 
     def __delattr__(self, name):
         super().__delattr__(name)
@@ -360,18 +374,28 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """
         # A value other than a bool reads back as given (matplotlib keeps
         # it) while pltrs (Rust) holds its truth.
+        self._follow_part_drawer()
         return _values.given_flag(self, "stale", _artist.get_stale(self._native))
 
     @stale.setter
     def stale(self, val):
         # pltrs (Rust) marks what contains the artist stale too, unless
         # the artist is animated.
+        self._follow_part_drawer()
         _artist.set_stale(self._native, bool(val))
         if type(val) is not bool:
             _values.remember(self, "stale", val)
         elif "_given_values" in self.__dict__:
             self.__dict__["_given_values"].pop("stale", None)
         self._went_stale(val)
+
+    def _follow_part_drawer(self):
+        """Make a mirror fresh once the artist drawing its part drew it
+        (see `._drawn_with`)."""
+        mirror = self.__dict__.get("_mirror")
+        if mirror is not None:
+            _drawn_with.follow(self, mirror.drawer(self),
+                               lambda: mirror.drawn_by_drawer(self))
 
     def get_visible(self):
         """Return the visibility."""

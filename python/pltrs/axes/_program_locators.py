@@ -15,6 +15,9 @@ its locator says (its ``_locate_by_program(renderer)``) until the next
 draw. Before the first draw an axes keeps its original position, as in
 matplotlib.
 
+Last, the hook places the axis labels given position setters of the
+program's (`follow_label`) where the draw will, through those setters.
+
 The hook first brings up to date the view limits of the Axes whose
 class of the program's autoscales them (`follow_autoscale`: their
 ``autoscale_view``, as matplotlib's draw does through
@@ -36,6 +39,10 @@ _followed = weakref.WeakKeyDictionary()
 #: The Axes whose class of the program's autoscales them, per root figure.
 _autoscaled = weakref.WeakKeyDictionary()
 
+#: The axis labels (their `._axis_artists.AxisLabel`) given position setters
+#: of the program's, per root figure.
+_labels = weakref.WeakKeyDictionary()
+
 
 def follow(owner, figure):
     """
@@ -52,6 +59,15 @@ def follow_autoscale(ax, figure):
     layout of a draw, while *ax* lives."""
     _owners(figure)
     _autoscaled.setdefault(figure, weakref.WeakSet()).add(ax)
+
+
+def follow_label(label, figure):
+    """Have the root *figure* place the axis label *label* (an
+    `._axis_artists.AxisLabel`, whose text the program gave a ``set_x``,
+    ``set_y`` or ``set_position`` of its own) through its setters before
+    every layout of a draw, while it lives."""
+    _owners(figure)
+    _labels.setdefault(figure, weakref.WeakSet()).add(label)
 
 
 def follow_engine(figure):
@@ -132,3 +148,8 @@ def _locate(figure):
         renderer = figure._get_renderer()
         for owner in owners:
             owner._locate_by_program(renderer)
+    labels = list(_labels.get(figure, ()))
+    if labels:
+        renderer = figure._get_renderer()
+        for label in labels:
+            label.place_by_program(renderer)

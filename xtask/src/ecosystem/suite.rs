@@ -33,7 +33,7 @@ use super::{baselines, data, metadata, site, venvs};
 use crate::mpl_suite::display::VirtualDisplay;
 use crate::mpl_suite::outcomes::Outcomes;
 use crate::mpl_suite::pytest::Variable;
-use crate::mpl_suite::{self, Mode, Options, pytest, report};
+use crate::mpl_suite::{self, Mode, Options, prepare, pytest, report};
 use crate::python;
 
 /// The version of matplotlib the reference run has.
@@ -205,8 +205,10 @@ impl Tests<'_> {
         let mut options = pytest_options(self.library);
         options.extend_from_slice(extra);
         // The temporary files of the tests (pytest-mpl's results and
-        // downloads) in the run's own directory.
+        // downloads) in the run's own directory, emptied first: what a run
+        // left there (a seeded temporary name taken) reaches no other.
         let temporary = self.dir.join("tmp");
+        prepare::remove(&temporary)?;
         fs::create_dir_all(&temporary).map_err(|err| format!("{}: {err}", temporary.display()))?;
         let mut variables = vec![("TMPDIR".to_owned(), Some(temporary.into_os_string()))];
         variables.extend(data::variables(self.library)?);
@@ -235,6 +237,15 @@ impl Tests<'_> {
             cache: environment.cache,
         }
         .outcomes_with(&variables)
+        .map(|outcomes| {
+            let site = self.site.to_string_lossy();
+            let venv = self
+                .python
+                .parent()
+                .and_then(Path::parent)
+                .unwrap_or(self.python);
+            outcomes.naming_paths(&[(&site, "{site}"), (&venv.to_string_lossy(), "{venv}")])
+        })
     }
 }
 

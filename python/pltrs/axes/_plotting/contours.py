@@ -64,8 +64,12 @@ def _contour_look(axes, kwargs):
     if negative_linestyles is None:
         from ... import rcParams
         negative_linestyles = rcParams['contour.negative_linestyle']
+    colorizer = kwargs.pop("colorizer", None)
     made, mapping = _mapping(cmap, kwargs.pop("norm", None), kwargs.pop("vmin", None),
-                             kwargs.pop("vmax", None), kwargs.pop("colorizer", None))
+                             kwargs.pop("vmax", None), colorizer)
+    if colors is not None and cmap is None and colorizer is None:
+        # The colours given map the levels, not the default colormap.
+        mapping = (None, *mapping[1:])
     look = (None if colors is None else
             # A colormap of no colours maps every level to transparent black.
             [tuple(c) for c in mcolors.to_rgba_array(colors)] or [(0., 0., 0., 0.)],

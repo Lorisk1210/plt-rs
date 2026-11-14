@@ -4,7 +4,7 @@
 
 use super::{
     Baselines, CONFIGURATION, Data, DataFile, DataForm, Environment, Found, LeftOut, Library,
-    Making, Network, OnlyTaking, PLAIN, Source, Venvs,
+    Making, Network, OnlyTaking, PLAIN, Source, V_VERSION, Venvs,
 };
 
 /// The libraries.
@@ -21,6 +21,7 @@ pub(super) const LIBRARIES: [Library; 11] = [
         ],
         left_out: Some(LeftOut {
             repository: "https://raw.githubusercontent.com/pandas-dev/pandas",
+            tag: V_VERSION,
             files: &[(
                 IRIS,
                 "904d791b308aa79bf4f06669f63be3f1ab331a23bd508051065e00f700f573f9",
@@ -191,6 +192,7 @@ pub(super) const LIBRARIES: [Library; 11] = [
         ],
         left_out: Some(LeftOut {
             repository: "https://raw.githubusercontent.com/geopandas/geopandas",
+            tag: V_VERSION,
             files: GEOPANDAS_DATA,
         }),
         configuration: CONFIGURATION,
@@ -270,6 +272,7 @@ pub(super) const LIBRARIES: [Library; 11] = [
         // tests), which the sdist leaves out.
         left_out: Some(LeftOut {
             repository: "https://raw.githubusercontent.com/CamDavidsonPilon/lifelines",
+            tag: V_VERSION,
             files: &[(
                 "conftest.py",
                 "348979891ef8f506db75439eb97d16dc0917b1f1f41bce7a92fa040c9e2a4bd2",

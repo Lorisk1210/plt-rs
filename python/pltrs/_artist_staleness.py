@@ -11,6 +11,8 @@ chain of callbacks as matplotlib does: the artist's, which sets its Axes'
 or its figure's ``stale``, which runs theirs, up to the program's.
 """
 
+from ._native import artist as _artist
+
 #: A callback nobody set: the artist's reads as matplotlib's default.
 _DEFAULT = object()
 
@@ -52,6 +54,12 @@ def _default_callback(artist):
     axes = artist.axes
     if (isinstance(axes, Artist) and axes is not artist) or _given_no_axes(artist):
         return _stale_axes_callback
+    if (axes is artist and "_decoupled" not in artist.__dict__
+            and not _artist.is_attached(artist._native)):
+        # An Axes made for its figure and not added to it: matplotlib's
+        # figure gives the callback when it adds the Axes (a removed one
+        # keeps it).
+        return None
     drawer = getattr(artist, "_drawer", None)
     if (artist.get_figure(root=True) is None or _mirrors.is_attached(artist)
             or isinstance(artist, Legend) or (drawer is not None and drawer() is not None)):
@@ -68,23 +76,29 @@ def _given_no_axes(artist):
     return axes is not None and not isinstance(axes, StalenessMixin)
 
 
+def default_stale_callback(artist):
+    """
+    The ``stale_callback`` of *artist* where no one set it: the function
+    called with the artist and True when the artist goes stale
+    (matplotlib's default marks its container stale), or None. matplotlib
+    keeps the attribute in the instance, set when the artist joins its
+    container; it reads here through `.Artist`'s ``__getattr__``, which a
+    class of the program's ``super().stale_callback`` does not reach, as
+    matplotlib's class has no such attribute.
+    """
+    return _default_callback(artist)
+
+
+def set_by_program():
+    """Note that a program set a stale callback of its own (see
+    `_program_callbacks`)."""
+    global _program_callbacks
+    _program_callbacks = True
+
+
 class StalenessMixin:
-    """`stale_callback` of `.Artist`, and what setting ``stale`` runs."""
-
-    @property
-    def stale_callback(self):
-        """
-        The function called with the artist and True when the artist goes
-        stale (matplotlib's default marks its container stale), or None.
-        """
-        callback = self.__dict__.get("_stale_callback", _DEFAULT)
-        return _default_callback(self) if callback is _DEFAULT else callback
-
-    @stale_callback.setter
-    def stale_callback(self, callback):
-        global _program_callbacks
-        self._stale_callback = callback
-        _program_callbacks = True
+    """What setting ``stale`` runs (see `default_stale_callback` for
+    ``stale_callback``)."""
 
     def _went_stale(self, val):
         """Run the stale callback as matplotlib's ``stale`` setter does,

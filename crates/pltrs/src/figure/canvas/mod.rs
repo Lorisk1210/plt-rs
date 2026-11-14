@@ -48,7 +48,7 @@ use super::{DrawErrors, Figure};
 use crate::artist::{ArtistHandle, DrawError};
 use crate::events::{Event, EventKind};
 pub use region::{BufferRegion, PixelBox};
-use state::{CanvasKey, Generation, KeptCanvas};
+use state::{CanvasKey, KeptCanvas};
 pub(crate) use state::{CanvasState, Presentation};
 
 /// Why a canvas operation failed.
@@ -62,9 +62,6 @@ pub enum CanvasError {
     /// A box has a coordinate that is not finite or no pixel coordinate,
     /// or is upside down.
     InvalidBox(Bbox),
-    /// The region comes from another figure, or the canvas was drawn,
-    /// resized or given another resolution since it was saved.
-    StaleRegion,
     /// The canvas has not been drawn yet.
     NotDrawn,
     /// The artist belongs to another figure.
@@ -90,9 +87,6 @@ impl fmt::Display for CanvasError {
                 bbox.x1(),
                 bbox.y1()
             ),
-            Self::StaleRegion => f.write_str(
-                "the region was saved from another figure or before the canvas was last drawn or resized",
-            ),
             Self::NotDrawn => f.write_str("the canvas has not been drawn yet"),
             Self::ForeignArtist => f.write_str("the artist belongs to another figure"),
             Self::InvalidPixelRatio(ratio) => write!(
@@ -113,7 +107,6 @@ impl std::error::Error for CanvasError {
             Self::Draw(err) => Some(err),
             Self::Text(err) => Some(err),
             Self::InvalidBox(_)
-            | Self::StaleRegion
             | Self::NotDrawn
             | Self::ForeignArtist
             | Self::InvalidPixelRatio(_) => None,
@@ -163,7 +156,7 @@ impl FigureCanvas {
     /// Draws the whole figure onto the canvas, leaving out its animated
     /// artists, then sends [`Event::Draw`] to its callbacks (matplotlib's
     /// `canvas.draw()`). The canvas takes the figure's size and resolution
-    /// first, and the regions saved before cannot be restored any more.
+    /// first.
     /// Windows showing the figure present the whole canvas.
     ///
     /// # Errors
@@ -175,7 +168,6 @@ impl FigureCanvas {
         kept.renderer.clear();
         let drawn = self.figure.draw_without_event(&mut kept.renderer);
         let drawn = DrawErrors::with_refused_memory(drawn, &mut kept.renderer, self.figure.id());
-        kept.generation = Generation::next();
         self.keep(kept);
         self.figure.state_mut().canvas.drawn();
         self.figure.process_event(&Event::Draw);
@@ -261,13 +253,13 @@ impl FigureCanvas {
     }
 
     /// Puts a saved region back where it came from (matplotlib's
-    /// `restore_region`).
+    /// `restore_region`), into the canvas as it is now: as matplotlib's,
+    /// a region saved before a later draw, a resize or from another
+    /// figure's canvas is restored too, as far as it lands on the canvas.
     ///
     /// # Errors
     ///
-    /// [`CanvasError::StaleRegion`] when the canvas was drawn, resized or
-    /// given another resolution since the region was saved, or the region
-    /// comes from another figure.
+    /// [`CanvasError::Backend`] when the canvas cannot be made.
     pub fn restore_region(&self, region: &BufferRegion) -> Result<(), CanvasError> {
         self.restore_region_with(region, None, None)
     }

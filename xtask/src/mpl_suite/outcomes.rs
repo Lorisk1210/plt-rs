@@ -160,6 +160,29 @@ impl Outcomes {
         self.collection_errors.extend(run.collection_errors);
     }
 
+    /// The outcomes with each of the absolute `paths` in a test id (a test
+    /// parametrised by the path of a file, aplpy's, sunpy's) written as
+    /// its name: the run's site and venv differ between the modes and
+    /// from one checkout to the next, the test does not.
+    pub(crate) fn naming_paths(self, paths: &[(&str, &str)]) -> Self {
+        let name = |id: String| {
+            paths
+                .iter()
+                .fold(id, |id, (path, name)| id.replace(path, name))
+        };
+        Self {
+            tests: self
+                .tests
+                .into_iter()
+                .map(|(id, outcome)| (name(id), outcome))
+                .collect(),
+            reasons: (self.reasons.into_iter())
+                .map(|(id, reason)| (name(id), reason))
+                .collect(),
+            collection_errors: self.collection_errors,
+        }
+    }
+
     /// Forgets what was recorded for the test files under `suite` (test
     /// directories and files of a suite run in full) that are not among
     /// `files`, the suite's files now: ids of files gone from it, or of
@@ -339,6 +362,39 @@ mod tests {
         assert_eq!(all.tests["f.py::a"], Outcome::Passed);
         assert_eq!(all.tests["g.py::b"], Outcome::Passed);
         assert!(all.collection_errors.is_empty(), "h.py ran and collected");
+    }
+
+    #[test]
+    fn paths_in_test_ids_are_named() {
+        let mut run = Outcomes::default();
+        run.tests.insert(
+            "a/tests/test_x.py::test[/w/suite/pltrs/a/site/a/data/x.fits-1]".into(),
+            Outcome::Passed,
+        );
+        run.tests.insert(
+            "a/tests/test_y.py::test[/w/venvs/g/venv/lib/a/y.fits]".into(),
+            Outcome::Failed,
+        );
+        run.reasons.insert(
+            "a/tests/test_y.py::test[/w/venvs/g/venv/lib/a/y.fits]".into(),
+            "E".into(),
+        );
+        let named = run.naming_paths(&[
+            ("/w/suite/pltrs/a/site", "{site}"),
+            ("/w/venvs/g/venv", "{venv}"),
+        ]);
+        assert_eq!(
+            named.tests.keys().collect::<Vec<_>>(),
+            [
+                "a/tests/test_x.py::test[{site}/a/data/x.fits-1]",
+                "a/tests/test_y.py::test[{venv}/lib/a/y.fits]"
+            ]
+        );
+        assert!(
+            named
+                .reasons
+                .contains_key("a/tests/test_y.py::test[{venv}/lib/a/y.fits]")
+        );
     }
 
     #[test]

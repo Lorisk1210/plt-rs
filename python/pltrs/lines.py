@@ -430,6 +430,8 @@ class Line2D(Artist):
             x, y, _native_kwargs({**props, "pickradius": float(pickradius)}))
         super().__init__()
         _remember_given(self, props)
+        if "marker" in props:
+            self._given_marker = props["marker"]
         for name, color in unheld_colors.items():
             self._set_marker_color(name, color)
         self._xorig, self._yorig = copy.copy(xdata), copy.copy(ydata)
@@ -449,6 +451,8 @@ class Line2D(Artist):
         """Set native properties by their resolved names."""
         _lines.update(self._native, _native_kwargs(kwargs))
         _values.remember_all(self, kwargs, _GIVEN_COLORS)
+        if "marker" in kwargs:
+            self._given_marker = kwargs["marker"]
 
     def _set_marker_color(self, name, color):
         """

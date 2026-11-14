@@ -241,9 +241,9 @@ pub trait Artist: Any + Debug + ArtistClone {
     }
 
     /// Whether drawing the visible artist makes it fresh (matplotlib's
-    /// `draw` ending with `self.stale = False`): not for an annotation
-    /// whose point is clipped, whose `draw` returns first, nor for an
-    /// inset indicator, whose `draw` never does.
+    /// `draw` ending with `self.stale = False`): not for an empty text or
+    /// an annotation whose point is clipped, whose `draw` returns first,
+    /// nor for an inset indicator, whose `draw` never does.
     fn freshened_by_draw(&self, _ctx: &LayoutContext<'_>) -> bool {
         true
     }

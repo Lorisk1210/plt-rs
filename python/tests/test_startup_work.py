@@ -9,6 +9,7 @@ in the order the benchmark scripts run them. Expected values are matplotlib
 """
 
 import inspect
+import json
 import os
 import pathlib
 import platform
@@ -135,9 +136,15 @@ def test_builtin_segments_as_matplotlibs():
         (0.65, 0, 0), (1.0, 0, 0)]
 
 
-@pytest.mark.skipif(sys.platform != "linux" or platform.machine() != "x86_64",
-                    reason="the order is given to the linker on x86_64 Linux")
-def test_extension_lays_out_functions_in_order():
+#: How to write the order again (see the tool's docstring).
+_REORDER = ("run `.venv-pltrs/bin/python crates/pltrs-python/tools/symbol_order.py` twice, "
+            "with `cargo xtask python --release` before each run")
+
+
+def _ordered_offsets():
+    """The order file's function names, and where the extension built lays
+    out each it has; skips where the extension was not built with the
+    order's profile."""
     tool = runpy.run_path(str(ROOT / "crates/pltrs-python/tools/symbol_order.py"))
     if not tool["has_symbol_table"](pltrs._native.__file__):
         # The wheels' extension is stripped (Zig links it so): its order
@@ -146,10 +153,109 @@ def test_extension_lays_out_functions_in_order():
     offsets = {name: offset for offset, _, name in tool["functions"](pltrs._native.__file__)}
     named = [line for line in tool["ORDER"].read_text().splitlines()
              if line and not line.startswith("#")]
-    laid_out = [offsets[name] for name in named[:500] if name in offsets]
-    if len(laid_out) < 250:
+    if sum(name in offsets for name in named[:500]) < 250:
         # cargo names a crate's functions after the profile it builds:
         # the order is the extension profile's (`cargo xtask python
         # --release`, the wheels), and other builds keep the compiler's.
         pytest.skip("the extension was built with another profile than the order's")
+    return named, offsets
+
+
+_ON_ORDERED_TARGET = pytest.mark.skipif(
+    sys.platform != "linux" or platform.machine() != "x86_64",
+    reason="the order is given to the linker on x86_64 Linux")
+
+
+@_ON_ORDERED_TARGET
+def test_extension_lays_out_functions_in_order():
+    named, offsets = _ordered_offsets()
+    laid_out = [offsets[name] for name in named[:500] if name in offsets]
     assert laid_out == sorted(laid_out)
+    # A cheap second line: most of the functions the file names still
+    # exist (all of them when it is written; 95.6% after the 80 commits
+    # that let it go stale before task PERF9).
+    present = sum(name in offsets for name in named) / len(named)
+    assert present >= 0.97, f"{present:.1%} of the order's functions exist: {_REORDER}"
+
+
+#: The most of the extension's code a process may hold, in KiB, after
+#: ``import pltrs.pyplot`` and after saving a small figure as PNG, with the
+#: kernel mapping 64 KiB around each page it faults in: a little above
+#: what the order of task PERF9 (2026-11-14) gives, 3,808 and 5,664 KiB.
+#: The code the program runs, laid out together, is what keeps them low;
+#: with the order 80 commits stale they were 5,344 and 8,800 KiB, as the
+#: functions added since lay among those no program runs.
+RESIDENT_CODE_CEILING_KIB = {"import": 4_100, "figure": 6_100}
+
+#: Measures, in a fresh process, the fault-around window (the pages that
+#: become present when one page of a cached file is read through a
+#: mapping) and the extension's code resident after the import and after a
+#: small figure, the whole extension read first so that the page cache
+#: holds it as after a build or an install.
+_RESIDENT_PROGRAM = """
+import io, json, mmap, os, sys
+PAGE = os.sysconf("SC_PAGE_SIZE")
+
+
+def present(path, executable):
+    total, current = 0, None
+    with open("/proc/self/smaps") as smaps:
+        for line in smaps:
+            fields = line.split()
+            if "-" in fields[0] and len(fields) >= 5 and not fields[0].endswith(":"):
+                current = (fields[1], fields[5] if len(fields) >= 6 else "")
+            elif fields[0] == "Rss:" and current and current[1] == path and (
+                    not executable or "x" in current[0]):
+                total += int(fields[1])
+    return total
+
+
+probe = os.path.join(sys.argv[1], "fault-around")
+with open(probe, "wb") as file:
+    file.write(bytes(64 * PAGE))
+with open(probe, "rb") as file:
+    file.read()
+    mapped = mmap.mmap(file.fileno(), 64 * PAGE, prot=mmap.PROT_READ)
+    mapped[32 * PAGE]
+    window_kib = present(probe, False)
+    mapped.close()
+import numpy, PIL.Image, dateutil.parser
+import pltrs
+native = os.path.realpath(pltrs._native.__file__)
+with open(native, "rb") as file:
+    while file.read(1 << 24):
+        pass
+import pltrs.pyplot as plt
+at_import = present(native, True)
+fig, ax = plt.subplots()
+ax.plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])
+ax.set_title("A title")
+ax.set_xlabel("x")
+fig.savefig(io.BytesIO(), format="png")
+print(json.dumps({"window_kib": window_kib, "page": PAGE, "import": at_import,
+                  "figure": present(native, True)}))
+"""
+
+
+@_ON_ORDERED_TARGET
+def test_extension_code_a_small_program_holds_stays_under_its_ceiling(tmp_path):
+    _ordered_offsets()
+    env = {**os.environ, "MPLBACKEND": "agg", "PLTRS_LOOK": "matplotlib",
+           "PLTRSCONFIGDIR": str(tmp_path)}
+
+    def measure():
+        result = subprocess.run([sys.executable, "-c", _RESIDENT_PROGRAM, str(tmp_path)],
+                                env=env, capture_output=True, text=True, check=True)
+        return json.loads(result.stdout.splitlines()[-1])
+
+    measure()  # the caches of a first import written
+    resident = measure()
+    if resident["page"] != 4096 or resident["window_kib"] != 64:
+        pytest.skip(f"the kernel maps {resident['window_kib']} KiB in pages of "
+                    f"{resident['page']} bytes around a fault, not the 64 KiB in pages of "
+                    "4096 the ceilings are for")
+    over = {what: (resident[what], ceiling)
+            for what, ceiling in RESIDENT_CODE_CEILING_KIB.items() if resident[what] > ceiling}
+    assert not over, (
+        f"KiB of the extension's code resident (held, ceiling): {over}: the code an "
+        f"ordinary program runs no longer lies together; {_REORDER}")

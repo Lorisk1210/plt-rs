@@ -72,20 +72,23 @@ def _with_signature(name, signature, call):
     """
     Parameter = inspect.Parameter
     namespace = {"_call": call, "__name__": _PYPLOT}
-    by_position = any(parameter.kind is Parameter.VAR_POSITIONAL
-                      for parameter in signature.parameters.values())
+    # Each parameter's properties read once (they are Python properties,
+    # and pyplot makes some fifty of these functions at import).
+    described = [(parameter.name, parameter.kind, parameter.default)
+                 for parameter in signature.parameters.values()]
+    by_position = any(kind is Parameter.VAR_POSITIONAL for _, kind, _ in described)
     parameters, positional, keywords = [], [], []
     previous = None
-    for index, parameter in enumerate(signature.parameters.values()):
-        kind, text = parameter.kind, parameter.name
+    for index, (parameter_name, kind, default) in enumerate(described):
+        text = parameter_name
         if previous is Parameter.POSITIONAL_ONLY and kind is not previous:
             parameters.append("/")
         if kind is Parameter.KEYWORD_ONLY and previous not in (
                 Parameter.KEYWORD_ONLY, Parameter.VAR_POSITIONAL):
             parameters.append("*")
         previous = kind
-        if parameter.default is not Parameter.empty:
-            namespace[f"_default{index}"] = parameter.default
+        if default is not Parameter.empty:
+            namespace[f"_default{index}"] = default
             text += f"=_default{index}"
         if kind is Parameter.VAR_POSITIONAL:
             parameters.append(f"*{text}")
@@ -98,11 +101,11 @@ def _with_signature(name, signature, call):
         parameters.append(text)
         if kind is Parameter.POSITIONAL_ONLY or (
                 kind is Parameter.POSITIONAL_OR_KEYWORD and by_position):
-            positional.append(parameter.name)
-        elif parameter.name == "data":
+            positional.append(parameter_name)
+        elif parameter_name == "data":
             keywords.append("**({'data': data} if data is not None else {})")
         else:
-            keywords.append(f"{parameter.name!r}: {parameter.name}")
+            keywords.append(f"{parameter_name!r}: {parameter_name}")
     if previous is Parameter.POSITIONAL_ONLY:
         parameters.append("/")
     source = (f"def {name}({', '.join(parameters)}):\n"

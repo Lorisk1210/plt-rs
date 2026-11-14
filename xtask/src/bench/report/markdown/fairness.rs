@@ -4,6 +4,7 @@
 use std::fmt::Write as _;
 
 use super::super::super::guard::{DEVIATION, TOLERANCE};
+use super::super::super::machine::Machine;
 use super::super::super::results::Results;
 use super::super::super::stats::{RESAMPLES, Sampling};
 use super::Links;
@@ -152,12 +153,37 @@ fn same_conditions(out: &mut String, results: &Results) {
          * **One thread.** pltrs draws on one thread, as matplotlib does. Every Python \
          process holds numpy's BLAS to one thread (`OPENBLAS_NUM_THREADS`, \
          `OMP_NUM_THREADS` and `MKL_NUM_THREADS` set to 1). {blas_threads} \
-         No process is pinned to a CPU.\n\
+         {placement}\n\
          * **Peak memory.** {peak}, and the tables give the median over its runs.\n\n",
         warm = runs(&plan.warm),
         cold = runs(&plan.cold),
         blas_threads = blas_threads(results),
+        placement = placement(&results.machine),
     );
+}
+
+/// Where the processes run: anywhere, or confined to the fastest of the
+/// machine's classes of CPUs (`crate::bench::confine`).
+fn placement(machine: &Machine) -> String {
+    machine.confinement.as_ref().map_or_else(
+        || "No process is pinned to a CPU.".to_owned(),
+        |reason| {
+            format!(
+                "The machine's CPUs run at different speeds, and the operating system \
+                 places a new process on any of them, so the harness confines itself, and \
+                 with it every process it starts, to {reason}: CPUs {cpus}, for \
+                 matplotlib, pltrs (Python) and pltrs (Rust) alike (numpy, where its \
+                 threads are left alone, starts one per CPU of those on every side). \
+                 Unconfined, the speed-ups are the same, but the medians of short cold \
+                 runs depend on where most of the runs landed: on the Framework laptop of \
+                 these reports, a bare interpreter starts in 8.0 to 8.4 ms on one of its \
+                 fast cores and in 12.4 to 13.2 ms on a slow one. Its reports before \
+                 2026-11-14 ran unconfined, and their cold medians do not compare with \
+                 confined ones.",
+                cpus = machine.affinity
+            )
+        },
+    )
 }
 
 /// What numpy's BLAS does with threads when it is left alone.
@@ -255,6 +281,7 @@ fn machine(out: &mut String, results: &Results) {
          | CPU frequency governor | {governor} |\n\
          {power}\
          | CPUs the processes may run on | {affinity} |\n\
+         {confinement}\
          | {load} | {before} at the start, {after} at the end |\n\
          | Rust | {rustc} |\n\n\
          | | matplotlib's venv | pltrs (Python)'s venv |\n|---|---|---|\n",
@@ -273,6 +300,7 @@ fn machine(out: &mut String, results: &Results) {
         governor = machine.governor.as_deref().unwrap_or("not reported"),
         power = optional_row("power settings", machine.power.as_deref()),
         affinity = machine.affinity,
+        confinement = optional_row("CPU confinement", machine.confinement.as_deref()),
         before = results.load_before,
         after = results.load_after,
         rustc = machine.rustc,
@@ -343,4 +371,29 @@ pub(super) fn reproduce(out: &mut String) {
          `DIR/xtask bench [PREFIX...] --against OTHER` times that build against the pack \
          in `OTHER`, both faces of pltrs, warm and cold, in turns.\n"
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Machine, placement};
+
+    #[test]
+    fn the_report_says_where_the_processes_ran() {
+        let unconfined = Machine::default();
+        assert_eq!(placement(&unconfined), "No process is pinned to a CPU.");
+        let confined = Machine {
+            affinity: "0-3,12-15".to_owned(),
+            confinement: Some(
+                "8 of the 24 CPUs, those of the fastest class (5157 MHz; the others 3289 MHz)"
+                    .to_owned(),
+            ),
+            ..Machine::default()
+        };
+        let sentence = placement(&confined);
+        assert!(sentence.contains(
+            "to 8 of the 24 CPUs, those of the fastest class (5157 MHz; the others 3289 MHz): \
+             CPUs 0-3,12-15, for matplotlib, pltrs (Python) and pltrs (Rust) alike"
+        ));
+        assert!(sentence.contains("8.0 to 8.4 ms"));
+    }
 }

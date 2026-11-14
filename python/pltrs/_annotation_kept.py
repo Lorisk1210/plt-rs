@@ -8,6 +8,8 @@ pltrs (Rust) holding ``'data'`` and the origin meanwhile, and fails as
 matplotlib's does wherever matplotlib's would place the point.
 """
 
+import numpy as np
+
 from . import _api, _lazy_imports, _unusable, _values, units
 from ._native import annotation as _annotation
 
@@ -31,10 +33,20 @@ def native_coords(coords, figure):
     """The coordinate systems *coords* of an annotation in *figure* (None
     outside any) as `_native.annotation` takes them, or None for systems
     pltrs (Rust) cannot hold."""
+    if type(coords) is str and coords in _HELD_NAMES:
+        return coords
     try:
-        return _text_module._native_coords(coords, figure)
+        native = _text_module._native_coords(coords, figure)
     except (TypeError, ValueError):
         return None
+    if type(coords) is str:
+        _HELD_NAMES.add(coords)
+    return native
+
+
+#: The names of coordinate systems pltrs (Rust) took (``'data'``,
+#: ``'offset points'``...), which `native_coords` hands on unchecked.
+_HELD_NAMES = set()
 
 
 def annotate_arguments(xy, xytext, xycoords, textcoords, arrowprops,
@@ -61,6 +73,27 @@ def warn_textcoords(xytext, textcoords, xycoords):
         _api.warn_external("You have used the `textcoords` kwarg, but "
                            "not the `xytext` kwarg.  This can lead to "
                            "surprising results.")
+
+
+def _plain_number(value):
+    """Whether *value* is a number an annotation keeps as given without
+    asking pltrs (Rust) whether it holds it: a float, or an int a float
+    holds (larger ones fail where pltrs (Rust) is handed them)."""
+    kind = type(value)
+    return kind in _FLOATS or (kind is int and -_FLOAT_INTS < value < _FLOAT_INTS)
+
+
+#: Ints beyond these do not convert to a float.
+_FLOAT_INTS = 2**1023
+
+#: The float types `_plain_number` takes (numpy's float64 is a float).
+_FLOATS = frozenset({float, np.float64})
+
+
+def _plain_pair(xy):
+    """Whether *xy* is a pair (a tuple or a list) of plain numbers."""
+    return (type(xy) in (tuple, list) and len(xy) == 2
+            and _plain_number(xy[0]) and _plain_number(xy[1]))
 
 
 #: The setters of `_native.annotation` of each coordinate system.
@@ -127,18 +160,27 @@ class KeptMixin:
         """Keep the point *xy* and the text *position* the annotation was
         made with as given, and those of them and of its coordinate systems
         that pltrs (Rust) could not hold as unusable (see
-        `annotate_arguments`)."""
-        point = native_point(xy, self.figure)
-        if point is None or any(isinstance(value, str) for value in point):
-            # Category names matplotlib converts where it places the point,
-            # failing at every draw where the axis has no categories.
-            self._keep_unusable_xy(xy)
+        `annotate_arguments`). Plain numbers, the usual point and position,
+        are remembered as they are."""
+        figure = self.figure
+        if _plain_pair(xy):
+            _values.remember(self, "xy", xy)
         else:
-            self._remember_xy(xy)
+            point = native_point(xy, figure)
+            if point is None or any(isinstance(value, str) for value in point):
+                # Category names matplotlib converts where it places the
+                # point, failing at every draw where the axis has no
+                # categories.
+                self._keep_unusable_xy(xy)
+            else:
+                self._remember_xy(xy)
         for index, value in enumerate(position):
-            self._given_coordinate(index, value)
+            if _plain_number(value):
+                _values.remember(self, _text_module._POSITION[index], value)
+            else:
+                self._given_coordinate(index, value)
         for name, coords in (("xycoords", self._xycoords), ("anncoords", self._textcoords)):
-            if native_coords(coords, self.figure) is None:
+            if native_coords(coords, figure) is None:
                 self._keep_coords(name, coords)
 
     def _hold_xy(self, xy):

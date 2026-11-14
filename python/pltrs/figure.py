@@ -91,11 +91,13 @@ def _native_maker(projection_class):
 _CONSTRUCTION_CALLS = ("__init__", "clear", "cla", "grid")
 
 
+@functools.cache
 def _constructed(projection_class):
     """Whether a new *projection_class* is made by its constructor: a
     rectilinear or polar class of the program's overriding what
     matplotlib's ``Axes.__init__`` calls (`_CONSTRUCTION_CALLS`), which
-    matplotlib calls with the arguments of ``add_subplot``."""
+    matplotlib calls with the arguments of ``add_subplot`` (kept per class,
+    as `.takes_from_program` keeps its answers)."""
     return (_program.native_name(projection_class) in ("rectilinear", "polar")
             and any(takes_from_program(projection_class, name) for name in _CONSTRUCTION_CALLS))
 

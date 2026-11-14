@@ -131,10 +131,16 @@ def is_program_class(cls):
         return False
     if is_program_geo(cls):
         return True
-    return ((cls.name not in _NATIVE_PROJECTIONS
-             or any(takes_from_program(cls, hook) for hook in _PROJECTION_HOOKS))
+    return ((cls.name not in _NATIVE_PROJECTIONS or _overrides_projection_hooks(cls))
             and native_name(cls) in ("rectilinear", "polar")
             and getattr(cls, "_make_native", None) is None)
+
+
+@functools.cache
+def _overrides_projection_hooks(cls):
+    """Whether the class *cls* takes one of `_PROJECTION_HOOKS` from the
+    program (kept per class, as `.takes_from_program` keeps its answers)."""
+    return any(takes_from_program(cls, hook) for hook in _PROJECTION_HOOKS)
 
 
 def _split(transform, middle):

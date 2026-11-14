@@ -40,6 +40,7 @@
 mod against;
 mod child;
 mod cold;
+mod confine;
 mod guard;
 mod implementation;
 mod machine;
@@ -198,6 +199,12 @@ pub(crate) fn run(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if request.pack.is_none()
+        && !request.rewrite
+        && let Some(code) = confine::enter()
+    {
+        return code;
+    }
     if cfg!(debug_assertions) {
         eprintln!("warning: timing a debug build; `cargo xtask` builds in release mode");
     }

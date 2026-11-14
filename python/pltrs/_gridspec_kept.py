@@ -27,9 +27,11 @@ from numbers import Real
 
 import numpy as np
 
-from . import rcParams
+from . import _lazy_imports, rcParams
 from ._native import gridspec as _gridspec
 from ._program_classes import takes_from_program
+
+_figure = _lazy_imports.module(globals(), ".figure", "_figure")
 
 #: The margin and spacing names of a grid and of subplot parameters.
 KEYS = ("left", "bottom", "right", "top", "wspace", "hspace")
@@ -129,11 +131,10 @@ def in_python(gridspec, figure):
         gridspec = parent.get_gridspec()
     if figure is None:
         return False
-    from .figure import FigureBase
-    if not isinstance(figure, FigureBase):
+    if not isinstance(figure, _figure.FigureBase):
         return True
     params = figure.subplotpars
-    return not all(_plain(getattr(params, key)) for key in KEYS)
+    return not _all_plain([getattr(params, key) for key in KEYS])
 
 
 def subplot_params(gridspec, figure):

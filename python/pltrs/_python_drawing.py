@@ -135,14 +135,22 @@ def attach(artist, again=False):
     is what pltrs (Rust) measures it through); *again* for an artist whose
     painter may no longer be needed (its own ``draw`` deleted)."""
     cls = type(artist)
-    if "draw" in vars(artist) or _measures(cls) or any(
-            takes_from_program(cls, name)
-            for name in ("draw", *getattr(cls, "_computed", ()))):
+    if "draw" in vars(artist) or _measures(cls) or _draws_from_program(cls):
         _drawing.set_painter(artist._native, weakref.ref(artist),
                              _draw_of(artist)[1],
                              _measures(cls) or _readies_itself(artist))
     elif again:
         _drawing.set_painter(artist._native, None, False, False)
+
+
+@functools.cache
+def _draws_from_program(cls):
+    """Whether the class *cls* takes ``draw``, or one of the attributes its
+    package class computes for matplotlib's ``draw`` (``_computed``), from
+    the program (kept per class, as `.takes_from_program` keeps its
+    answers)."""
+    return any(takes_from_program(cls, name)
+               for name in ("draw", *getattr(cls, "_computed", ())))
 
 
 @functools.cache

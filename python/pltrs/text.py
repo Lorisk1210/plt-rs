@@ -1286,14 +1286,15 @@ class Text(Artist):
         """
         self._set_text_coordinate(1, y)
 
-    def _set_text_coordinate(self, index, value, axes=None):
+    def _set_text_coordinate(self, index, value, axes=None, *, stale=True):
         """
         Set the coordinate *index* of the position (0 for x, 1 for y) to
         *value*, which reads back as given. matplotlib keeps it unchecked
         and converts it wherever it draws or measures the text
         (`_unitless_coordinate`, with the units of *axes*, by default the
         text's): a value that fails to convert is kept (see `._unusable`),
-        and the text fails there as matplotlib's does.
+        and the text fails there as matplotlib's does. The text goes stale
+        unless *stale* is false (a new text, see `_place`).
         """
         try:
             number = self._unitless_coordinate(index, value, axes)
@@ -1305,7 +1306,8 @@ class Text(Artist):
             _text.set_position(self._native, *position)
             self._remember_coordinate(index, value)
             _unusable.drop(self, _POSITION[index])
-        self.stale = True
+        if stale:
+            self.stale = True
 
     def _keep_unusable_coordinate(self, index, value):
         """Keep *value*, the coordinate *index* of the position, which
@@ -1758,10 +1760,30 @@ def _remember_position(text, xy):
 
 def _place(text, xy):
     """Give the new *text* its position *xy*, kept as matplotlib keeps it
-    (see `Text._set_text_coordinate`)."""
+    (see `Text._set_text_coordinate`). matplotlib's new text only stores
+    its position: nothing goes stale, and no stale callback runs. Plain
+    numbers, which every axis gives back as they are, go to pltrs (Rust)
+    as they are, unless the text's class converts units its own way."""
     x, y = xy
-    text._set_text_coordinate(0, x)
-    text._set_text_coordinate(1, y)
+    cls = type(text)
+    if (type(x) in _PLAIN_COORDINATES and type(y) in _PLAIN_COORDINATES
+            and cls.convert_xunits is Artist.convert_xunits
+            and cls.convert_yunits is Artist.convert_yunits):
+        try:
+            position = float(x), float(y)
+        except OverflowError:
+            pass  # (an int beyond floats fails coordinate by coordinate)
+        else:
+            _text.set_position(text._native, *position)
+            _values.remember(text, "x", x)
+            _values.remember(text, "y", y)
+            return
+    text._set_text_coordinate(0, x, stale=False)
+    text._set_text_coordinate(1, y, stale=False)
+
+
+#: The coordinate types `_place` hands pltrs (Rust) without converting them.
+_PLAIN_COORDINATES = frozenset({float, int, np.float64})
 
 
 def _point(xy):

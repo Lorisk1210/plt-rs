@@ -220,6 +220,12 @@ def _kept_in_python(key):
     return key in _PYTHON_PARAMS or (
         key not in _NATIVE_KEYS and not (isinstance(key, str) and key.startswith("pltrs.")))
 
+
+#: The rcParams `_kept_in_python` says False for without being called:
+#: those pltrs (Rust) keeps, but for those of `_PYTHON_PARAMS` (rcParams
+#: are read thousands of times at import).
+_HELD_NATIVELY = _NATIVE_KEYS - _PYTHON_PARAMS.keys()
+
 #: rcParams whose matplotlib validators warn about a valid value (``toolbar
 #: = 'toolmanager'``): they run on assignment, as every validator does, but
 #: not on reading (they choose among keywords, which pltrs (Rust) keeps in
@@ -293,7 +299,7 @@ class RcParams(MutableMapping, dict):
 
     def _has(self, key):
         """Whether *key* is in this mapping."""
-        if _kept_in_python(key):
+        if key not in _HELD_NATIVELY and _kept_in_python(key):
             return key in self._python
         if self._keys is None:
             return key in _NATIVE_KEYS
@@ -352,7 +358,7 @@ class RcParams(MutableMapping, dict):
 
     def _get(self, key):
         """Get *key* without the deprecation checks (matplotlib's ``_get``)."""
-        if self._store is not None or _kept_in_python(key):
+        if self._store is not None or (key not in _HELD_NATIVELY and _kept_in_python(key)):
             return self._get_uncached(key)
         # The current parameters: a value read before holds until they change.
         generation = _rcsetup.generation()

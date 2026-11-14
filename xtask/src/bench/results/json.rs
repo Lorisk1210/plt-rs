@@ -98,6 +98,7 @@ fn machine_json(machine: &Machine) -> Json {
         ("os", machine.os.as_str().into()),
         ("kernel", machine.kernel.as_str().into()),
         ("affinity", machine.affinity.as_str().into()),
+        ("confinement", machine.confinement.as_deref().into()),
         ("governor", machine.governor.as_deref().into()),
         ("power", machine.power.as_deref().into()),
         ("rustc", machine.rustc.as_str().into()),

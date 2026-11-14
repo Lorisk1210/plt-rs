@@ -123,11 +123,16 @@ def _dataset_styles(kwargs):
 
 
 def _numpy_number(value):
-    """Whether *value* is a number numpy makes a number array of (the
-    dtype kinds `_check_bar_geometry` passes), told by its type alone."""
+    """Whether *value* is a number numpy makes a number array of, or such
+    an array (the dtype kinds `_check_bar_geometry` passes), told by its
+    type and dtype alone."""
     kind = type(value)
     if kind is int:
         return -2**63 <= value < 2**63
+    if kind is np.ndarray:
+        # (`bar` converted the positions to arrays; their shapes broadcast,
+        # as `bar` checked before.)
+        return value.dtype.kind in "biuf"
     return kind is float or kind is bool or kind is np.float64 or kind is np.int64
 
 

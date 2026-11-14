@@ -30,6 +30,9 @@ pub(super) struct Machine {
     pub(super) kernel: String,
     /// The CPUs this process may run on.
     pub(super) affinity: String,
+    /// Why the benchmark runs on those CPUs only, when it is confined to
+    /// the fastest class of CPUs of different speeds (`super::confine`).
+    pub(super) confinement: Option<String>,
     /// The first CPU's frequency governor, where the kernel reports one.
     pub(super) governor: Option<String>,
     /// The power settings that steer the clock, where the kernel reports
@@ -95,6 +98,12 @@ impl Machine {
             .lines()
             .find_map(|line| field(line, "Cpus_allowed_list"))
             .unwrap_or_else(unknown);
+        #[cfg(target_os = "linux")]
+        let confinement = super::confine::wanted()
+            .filter(|confinement| confinement.cpus == affinity)
+            .map(|confinement| confinement.reason);
+        #[cfg(not(target_os = "linux"))]
+        let confinement = None;
         let governor = fs::read_to_string("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
             .ok()
             .map(|g| g.trim().to_owned());
@@ -108,6 +117,7 @@ impl Machine {
             os,
             kernel: read("/proc/sys/kernel/osrelease").trim().to_owned(),
             affinity,
+            confinement,
             governor,
             power: power(),
             rustc,
@@ -265,6 +275,7 @@ mod macos {
             ),
             kernel: format!("{} {}", sysctl("kern.ostype"), sysctl("kern.osrelease")),
             affinity: format!("all {threads}"),
+            confinement: None,
             governor: None,
             power: None,
             rustc,
@@ -357,6 +368,7 @@ mod windows {
             os: line(4).unwrap_or_else(unknown),
             kernel: line(5).map_or_else(unknown, |version| format!("Windows NT {version}")),
             affinity: number(7).map_or_else(unknown, processors),
+            confinement: None,
             governor: line(6).map(|plan| format!("power plan {plan}")),
             power: None,
             rustc,

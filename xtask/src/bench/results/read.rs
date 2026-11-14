@@ -179,6 +179,7 @@ fn machine(value: &Value<'_>) -> Result<Machine, String> {
         os: value.text_of("os")?,
         kernel: value.text_of("kernel")?,
         affinity: value.text_of("affinity")?,
+        confinement: optional("confinement")?,
         governor: optional("governor")?,
         power: optional("power")?,
         rustc: value.text_of("rustc")?,

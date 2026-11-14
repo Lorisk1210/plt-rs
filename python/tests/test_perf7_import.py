@@ -166,12 +166,14 @@ def test_importing_locates_the_data_directory_without_its_files(tmp_path):
 
 #: The most Python-level calls (``sys.setprofile`` "call" events) a fresh
 #: ``import pltrs.pyplot`` may make, and one ``canvas.draw()`` of a plain
-#: figure: a few per cent over what they make (task PERF8, 2026-11-13:
-#: 102,765 at import, 69 per draw), so that work going through Python for
-#: every colour, artist or name fails here rather than in a benchmark.
-#: (At af3ed0db the import made 129,580, 31,606 of them calls of the
-#: program colour hook, as every colour resolved the whole property cycle.)
-PYTHON_CALLS_CEILING = {"import": 106_000, "draw": 72}
+#: figure: a few per cent over what they make, so that work going through
+#: Python for every colour, artist or name fails here rather than in a
+#: benchmark. At af3ed0db the import made 129,580 calls, 31,606 of them of
+#: the program colour hook, as every colour resolved the whole property
+#: cycle; PERF8 took it to 102,765 and PERF9 (2026-11-14) to 100,487 on
+#: Python 3.12, 101,994 on 3.13 and 101,132 on 3.14; a draw makes 68 on
+#: each.
+PYTHON_CALLS_CEILING = {"import": 104_000, "draw": 72}
 
 #: Counts the Python calls of ``import pltrs.pyplot`` (the third-party
 #: modules it uses imported first) and of a second draw of a plain figure.
@@ -207,3 +209,96 @@ def test_python_calls_at_import_and_per_draw_stay_under_their_ceiling(tmp_path):
             f"{calls[what]} Python calls {'at import' if what == 'import' else 'per draw'}"
             f" (ceiling {ceiling}): something now goes through Python for each "
             "colour, artist or name")
+
+
+#: The most Python calls building each of these figures may make (the
+#: second time, after a first build): a few per cent over what they make.
+#: The checks of unusual arguments and the dispatch to program overrides
+#: added since b414751d had taken them, unnoticed, to 1.6 times what they
+#: were (task PERF9, 2026-11-14): an ordinary argument must cost one type
+#: test, and a dispatch no program class asked for nothing after the first
+#: question per class. They are the same on Python 3.12 to 3.14 (the
+#: constrained grid makes 4 fewer on 3.14).
+BUILD_CALLS_CEILING = {
+    "grid_16x16": 105_000,          # 102,262 (b414751d: 94,214; edf9a0a2: 149,380)
+    "constrained_8x8": 37_700,      # 36,587 (31,527; 48,563)
+    "bars_300": 71_500,             # 69,314 (62,933; 76,409)
+    "texts_2000": 118_000,          # 114,609 (156,533; 182,809)
+    "annotations_1000": 98_500,     # 95,739 (82,649; 122,934)
+}
+
+#: Builds the figures of `BUILD_CALLS_CEILING` twice each and prints the
+#: Python calls of the second build.
+_BUILD_PROGRAM = """
+import json, sys
+import numpy as np
+import pltrs.pyplot as plt
+
+x = np.linspace(0.0, 2.0 * np.pi, 30)
+
+
+def grid_16x16():
+    fig, axs = plt.subplots(16, 16, figsize=(16.0, 16.0))
+    for k, ax in enumerate(axs.flat):
+        ax.plot(x, np.sin(x * (1.0 + k / 64.0)))
+
+
+def constrained_8x8():
+    fig, axs = plt.subplots(8, 8, figsize=(16.0, 12.0), layout="constrained")
+    for k, ax in enumerate(axs.flat):
+        ax.plot(x, np.cos(x + k / 10.0))
+        ax.set_title(f"panel {k}")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+    fig.suptitle("64 panels")
+
+
+def bars_300():
+    fig, ax = plt.subplots()
+    for i, height in enumerate(np.linspace(1.0, 10.0, 300)):
+        ax.bar(i, height)
+
+
+def texts_2000():
+    fig, ax = plt.subplots()
+    for i in range(2000):
+        ax.text((i % 50) / 50.0, (i // 50) / 40.0, f"t{i}", fontsize=6)
+
+
+def annotations_1000():
+    fig, ax = plt.subplots()
+    xs = np.linspace(0.0, 10.0, 1000)
+    ax.plot(xs, xs[::-1], "o", markersize=2)
+    for i in range(1000):
+        ax.annotate(f"p{i}", (xs[i], xs[999 - i]), fontsize=6)
+
+
+calls = [0]
+
+
+def count(frame, event, arg):
+    if event == "call":
+        calls[0] += 1
+
+
+counts = {}
+for build in (grid_16x16, constrained_8x8, bars_300, texts_2000, annotations_1000):
+    build()
+    plt.close("all")
+    calls[0] = 0
+    sys.setprofile(count)
+    build()
+    sys.setprofile(None)
+    plt.close("all")
+    counts[build.__name__] = calls[0]
+print(json.dumps(counts))
+"""
+
+
+def test_python_calls_building_figures_stay_under_their_ceiling(tmp_path):
+    calls, _ = _fresh(_BUILD_PROGRAM, PLTRSCONFIGDIR=str(tmp_path), PLTRS_LOOK="matplotlib")
+    over = {name: (calls[name], ceiling) for name, ceiling in BUILD_CALLS_CEILING.items()
+            if calls[name] > ceiling}
+    assert not over, (
+        f"Python calls building (made, ceiling): {over}; a check or a dispatch now runs "
+        "in Python for each Axes or artist an ordinary program adds")

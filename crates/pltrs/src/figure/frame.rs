@@ -36,6 +36,11 @@ pub(crate) struct FigureFrame {
     /// of when the frame was made, as matplotlib's patch takes it (the
     /// figure's own sketch, as its clipping, draws nothing).
     patch_sketch: Option<Sketch>,
+    /// The outline of a background patch the program gave (matplotlib's
+    /// `fig.patch = patch`), in fractions of the frame, filled and
+    /// stroked in place of the frame's box with the patch's own
+    /// anti-aliasing; `None` for the box matplotlib makes.
+    pub(crate) patch_outline: Option<Path>,
     /// Extent as a fraction of the parent frame (the unit box for the root).
     pub(crate) relative_extent: Bbox,
     /// Owned artists in insertion order (axes included).
@@ -62,6 +67,7 @@ pltrs_core::archive_struct!(FigureFrame {
     frameon,
     patch_gid,
     patch_sketch,
+    patch_outline,
     relative_extent,
     children,
     texts_as_artists,
@@ -132,6 +138,7 @@ impl FigureFrame {
             },
             frameon: true,
             patch_gid: None,
+            patch_outline: None,
             relative_extent,
             children: Vec::new(),
             texts_as_artists: Vec::new(),
@@ -147,11 +154,16 @@ impl FigureFrame {
     /// Draws the background and border over `extent`. The figure patch
     /// is a `Rectangle` painted as any patch (without an edge when it has
     /// no colour, unfilled when transparent, its alpha replacing the alpha
-    /// of its colours), but always without anti-aliasing, unclipped and
-    /// sketched as it was made.
+    /// of its colours), but without anti-aliasing, unclipped and sketched
+    /// as it was made; a patch the program gave is its outline, with its
+    /// own anti-aliasing.
     fn draw_patch(&self, ctx: &mut DrawContext<'_>, extent: Bbox) {
         let style = PatchStyle {
-            antialiased: Some(false),
+            antialiased: if self.patch_outline.is_some() {
+                self.style.antialiased
+            } else {
+                Some(false)
+            },
             ..self.style.clone()
         };
         let paint = match PatchPaint::new(&style, &crate::rc::params(), self.base.alpha, false) {
@@ -170,12 +182,10 @@ impl FigureFrame {
         let drawn = ctx.draw_artist(false, |ctx| {
             with_path_effects(ctx, &self.base.path_effects, |ctx| {
                 paint.paint(gc.clone(), |gc, face| {
-                    ctx.renderer().draw_path(
-                        gc,
-                        &Path::unit_rectangle(),
-                        &unit_to_bbox(&extent),
-                        face,
-                    );
+                    let unit = Path::unit_rectangle();
+                    let path = self.patch_outline.as_ref().unwrap_or(&unit);
+                    ctx.renderer()
+                        .draw_path(gc, path, &unit_to_bbox(&extent), face);
                 });
             })
         });
@@ -272,6 +282,34 @@ impl Figure {
             .with::<FigureFrame, _>(|frame| frame.style.clone())
     }
 
+    /// The outline of the background patch the program gave, in fractions
+    /// of the (sub)figure (see [`Figure::set_patch_outline`]).
+    pub fn patch_outline(&self) -> Option<Path> {
+        self.root
+            .with::<FigureFrame, _>(|frame| frame.patch_outline.clone())
+    }
+
+    /// Makes `outline`, a path in fractions of the (sub)figure, the shape
+    /// of the background (matplotlib's ``fig.patch = patch``, a patch of
+    /// the program's drawn in place of the figure's box), drawn with the
+    /// patch style's anti-aliasing; `None` draws the figure's box again.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::path::Path;
+    /// use pltrs::transforms::Point;
+    /// let fig = Figure::new();
+    /// fig.set_patch_outline(Some(Path::circle(Point::new(0.5, 0.5), 0.25)));
+    /// assert!(fig.patch_outline().is_some_and(|outline| outline.has_curves()));
+    /// fig.to_png()?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_patch_outline(&self, outline: Option<Path>) -> &Self {
+        self.root
+            .with_mut::<FigureFrame, _>(|frame| frame.patch_outline = outline);
+        self
+    }
+
     /// Gives the background patch the style of a patch (matplotlib's
     /// `fig.patch` setters).
     ///
@@ -339,6 +377,17 @@ mod tests {
             listing_order(&state.store, &created),
             [ax.id(), text.id(), sub.id()]
         );
+    }
+
+    #[test]
+    fn a_patch_the_program_gave_is_drawn_as_its_outline() {
+        let fig = Figure::with_size(1.0, 1.0, 72.0);
+        let boxed = fig.to_svg().expect("an svg");
+        fig.set_patch_outline(Some(Path::circle(pltrs_core::Point::new(0.5, 0.5), 0.25)));
+        let outlined = fig.to_svg().expect("an svg");
+        assert_ne!(outlined, boxed, "the circle is drawn in place of the box");
+        fig.set_patch_outline(None);
+        assert_eq!(fig.to_svg().expect("an svg"), boxed);
     }
 
     #[test]

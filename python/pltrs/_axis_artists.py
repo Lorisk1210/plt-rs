@@ -367,6 +367,12 @@ class Tick(Artist):
             _values.remember(label, coordinate, self._loc)
         if axis.axes.name != "3d":
             self._place_lines(None if loc is None else self._loc)
+        given = axis._tick_kw[not self._major]
+        for name, part in zip(("label1On", "label2On", "tick1On", "tick2On", "gridOn"), parts):
+            if name in given:
+                # The switch as `tick_params` was given it ("off", 1), which
+                # matplotlib's tick passes to the part's `set_visible`.
+                _values.remember(part, "visible", given[name])
         self._drawn = _artist.draw_count(axis.axes._native)
 
     def _place_lines(self, loc):

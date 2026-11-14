@@ -333,6 +333,26 @@ impl ColorbarState {
     /// Shrinks the axes to leave room for the extensions (matplotlib's
     /// `_ColorbarAxesLocator`); a colorbar that made its own axes keeps
     /// its long-to-short ratio on the shrunk axes.
+    /// matplotlib's `extend` assigned: the colorbar's Axes makes room for
+    /// the extensions from the next layout on (its locator reads the
+    /// attribute at every draw), which are drawn once the colorbar follows
+    /// its mappable or its view again (`update_normal`, `_do_extends`).
+    pub(super) fn assign_extend(&mut self, ax: &Axes, extend: Extend) -> Result<(), ColorbarError> {
+        self.extend = extend;
+        let inverted = ax.axis_of(long_axis(self.orientation)).inverted();
+        (self.blocks.lower, self.blocks.upper) = Blocks::extended_ends(extend, inverted);
+        if extend == Extend::Neither {
+            // matplotlib's locator then leaves the position as it is, and
+            // the box aspect it gave the Axes last.
+            ax.raw().with_mut::<AxesState, _>(|axes| {
+                if let Some(locator) = &mut axes.aspect.locator {
+                    (locator.shrink, locator.offset) = ((1.0, 1.0), (0.0, 0.0));
+                }
+            });
+        }
+        self.install_locator(ax)
+    }
+
     pub(super) fn install_locator(&self, ax: &Axes) -> Result<(), ColorbarError> {
         if self.extend == Extend::Neither {
             return Ok(());

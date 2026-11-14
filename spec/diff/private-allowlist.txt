@@ -9,5 +9,64 @@ TransformNode:_parents$ | ^value | the keys are the `id()`s of the child transfo
 FigureBase:_align_label_groups$ | ^value | each value answers `cbook.Grouper`'s protocol (`join`, `joined`, `get_siblings`, iteration) over the label groups pltrs (Rust) keeps, as a class of its own (`_aligned_labels.AlignedLabels`)
 :_marker$ | ^type MarkerStyle -> LineMarker | a line's marker is a `MarkerStyle` of pltrs's subclass `LineMarker`, which gives the line its changes; `isinstance(line._marker, MarkerStyle)` holds and it answers as the line's marker
 Affine2D:_inverted$ | ^type | a cache: matplotlib's `inverted()` keeps its last inverse there, pltrs (Rust) inverts natively; libraries only reset it to None (MetPy), which pltrs takes
-Affine2DBase?:_invalid$ | ^value | invalidation flags of the transform graph, which pltrs (Rust) keeps by its own counters; libraries assign them on their own transforms (MetPy, mpltern), which keep their meaning there
+Affine2D(Base)?:_invalid$ | ^value | invalidation flags of the transform graph, which pltrs (Rust) keeps by its own counters; libraries assign them on their own transforms (MetPy, mpltern), which keep their meaning there
 _AxesBase:_tight$ | ^type NoneType -> bool | matplotlib keeps None until `autoscale(tight=...)`; pltrs (Rust) keeps the bool, None and False both meaning not tight wherever matplotlib reads it
+
+# PRIV2: what pltrs (Rust) owns as state of its own, whose Python face
+# answers the same question another way. Each was traced to its cause.
+# Transforms: pltrs's transform objects map as matplotlib's do, but of
+# other classes where matplotlib composes or freezes one, as references
+# into the figure's tree after unpickling, made as a 3-D axis' tick parts
+# are drawn; a figure's own is its tree's, which no assignment replaces.
+:_transform$ | ^(value|identity|type |missing \(ValueError\)|write: assign fails) | the same mapping as matplotlib's, by another class of pltrs's transform tree (composed where matplotlib freezes, references after unpickling); a figure's transform is its own tree's
+# Shapes pltrs (Rust) computes: a spine's path read out anew at each read
+# (no kept object), spanning the view as pltrs lays it out where matplotlib
+# keeps the span of its last draw through a clear; a path assigned to a
+# colorbar's outline or to a line, which only matplotlib's own later code
+# reads back (its draw of the outline, a line's `recache`).
+:_path$ | ^(value|identity|write: drawn otherwise|write: assign fails) | the shape pltrs (Rust) holds, read out anew (a new Path each read), spanning the view as laid out now; a path assigned to an outline or a line is not drawn by pltrs
+:_paths$ | ^(value|type NoneType -> list) | the paths pltrs (Rust) made: a mesh's before matplotlib makes them on first `get_paths` (None there), a contour set's as pltrs's generator traces them
+# Laid-out boxes: pltrs (Rust) applies an Axes' aspect and locators (a
+# colorbar's shrink, a 3-D Axes squared, a polar Axes' box) in every
+# layout, matplotlib only as it draws; before the first draw (and a 3-D
+# Axes' original box after it) the boxes are pltrs's layout's.
+_AxesBase:_(position|originalPosition)$ | ^value | laid out by pltrs (Rust) in every layout, aspect and locators applied, where matplotlib applies them as it draws
+^\(receiver unknown\):_(position|bbox|points)$ | ^(value|type ndarray -> NoneType) | boxes as pltrs (Rust) lays them out in every layout; a figure's box is computed on its first read
+^\(receiver unknown\):_position$ | ^type NoneType -> tuple$ | pltrs's polar spines are of the linear spines' kind, at the default position ('outward', 0.0); matplotlib's circular spine keeps None
+^\(receiver unknown\):_offset$ | ^(value|write: unpickled value) | where a draw placed a legend's boxes: pltrs (Rust) lays them out at each draw and answers (0, 0), so a program's offset is not pickled
+FancyArrowPatch:_posA_posB$|^\(receiver unknown\):_posA_posB$ | ^value | an annotation's arrow, which matplotlib places in display coordinates as it draws; pltrs (Rust) draws it from the annotation without storing the ends there
+_AxesBase:_yaxis_transform$ | ^value | an unpickled polar Axes: matplotlib's state holds None there until it is cleared; pltrs builds the transform when it is read
+# Numbers typed otherwise: ints matplotlib's code made (a tick at the int
+# 0, an int alpha, a geo Axes' int centre, a log locator's int base) that
+# pltrs (Rust) holds as floats, and widths of the drawn layout.
+^\(receiver unknown\):_(loc|base|width|edgecolor|center_latitude|center_longitude)$|LambertAxes:_center_l(atitude|ongitude)$ | ^(type (int|int64|float64) -> float(64)?|value) | numbers pltrs (Rust) holds as floats where matplotlib's code made ints (a tick at 0, an int alpha, an int base or centre), and offset-box widths as laid out
+AutoDateLocator:_freq$ | ^(value|write: unpickled value) | the frequency matplotlib's locator picks as it computes ticks; pltrs (Rust)'s locator picks it natively and keeps no field a pickle would carry
+GridSpecBase:_n(rows|cols)$|^\(receiver unknown\):_format$ | ^write: unpickled value | the shape of a grid and a formatter's format are pltrs (Rust)'s; an assignment changes the Python object, which a pickle does not carry
+# Writes pltrs (Rust) holds no field for: a legend's font size (its draw
+# lays the legend out from its texts), a 3-D Axes' camera distance (its
+# zoom is the box aspect's), a colorbar's values, a figure's patch moved
+# to another figure.
+:_(fontsize|dist)$ | ^write: drawn otherwise | read by matplotlib's draw from the field; pltrs (Rust) lays the legend out from its texts and projects with the zoom of the box aspect
+^\(receiver unknown\):_values$ | ^write: assign fails | a colorbar's values are computed by pltrs (Rust) from its norm and boundaries
+^\(receiver unknown\):_parent_figure$ | ^(write: assign fails|type ) | which figure the artists of nested trees know (a root figure's own is itself, legend packers' children and a subfigure's artists are told theirs); moving a figure's patch to another figure is refused
+:_axes$ | ^type (Axes -> NoneType|NoneType -> Axes) | which artists of an offset box know their Axes: a legend's packed children are told none, a frame patch its box's
+# Objects of pltrs's own classes answering the same protocol.
+:_cells$ | ^type dict -> _Cells$ | a mapping answering dict's protocol over the cells pltrs (Rust) keeps
+^\(receiver unknown\):_(facecolor3d|edgecolor3d)$ | ^type ndarray -> ChangingArray$ | an ndarray subclass that gives the collection the changes a program makes in place
+:_renderer$ | ^type | the renderer a text was last measured or drawn with: pltrs's vector backends draw texts themselves (no MixedModeRenderer), an unpickled figure's texts are measured with Agg, an axis' offset text is drawn natively
+^\(receiver unknown\):_clippath$ | ^type TransformedPatchPath -> NoneType$ | an axis' clip path is the Axes' patch, which pltrs (Rust) holds
+^\(receiver unknown\):_locs$ | ^type list -> ndarray$ | the locations pltrs (Rust) gave the formatter as it placed ticks, where matplotlib's formatter has none yet
+Artist:_remove_method$ | ^type | a function removing the artist from what holds it, as matplotlib's (a partial or bound method there)
+_AxesBase:_(left|right)_title$|^\(receiver unknown\):_(left|right)_title$ | ^identity$ | a geo Axes made alone lists its children in another order (its titles after its spines); the titles are the same objects
+XAxis:_update_label_position$ | ^signature$ | a 3-D axis keeps the 2-D axes' `_update_label_position(renderer)`; matplotlib's 3-D axis changes the signature to edge points
+# Not ported: matplotlib's private helpers and fields with no state in
+# pltrs (Rust): a fill-between collection's box, a polar spine's circle,
+# a 3-D collection's faces and a 3-D patch's segment, a contour set's
+# argument processing, an axis artist's tick update.
+^\(receiver unknown\):_(bbox|center|width|faces|update_ticks)$|QuadContourSet:_process_args$|Patch3D:_segment3d$ | ^missing \(AttributeError\)$ | matplotlib's field or helper that pltrs (Rust) has no state for (a fill-between box, a polar spine's circle, 3-D faces and segments, contour argument processing, an axis artist's tick update)
+# Staleness of the objects pltrs (Python) makes when they are read
+# (mirrors, a legend's packers, an Axes' parts): a figure's and an Axes'
+# background patch is stale until its owner's first draw after it changed
+# or was made, a legend's boxes as the legend; what matplotlib's clears mark
+# stale part by part (its spines) is not tracked per object.
+Artist:_stale$ | ^value$ | the staleness of objects pltrs makes on read follows their owner's draws; matplotlib's clears mark some parts (spines) stale one by one

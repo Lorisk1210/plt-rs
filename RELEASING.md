@@ -91,26 +91,35 @@ branches or pull requests, as every run costs Actions minutes.
 
 ## Releasing
 
-1. Set the version in `Cargo.toml`'s `[workspace.package]`: the one
+1. If native code changed since the order of the extension's functions
+   was last written, write it again and commit it: the x86_64 Linux
+   wheel is linked in that order (`crates/pltrs-python/symbol-order.txt`),
+   and code the file does not name lies among code no program runs,
+   which costs every process memory. Twice, as the tool's docstring
+   says: `cargo xtask python --release`, then
+   `.venv-pltrs/bin/python crates/pltrs-python/tools/symbol_order.py`.
+   `python/tests/test_startup_work.py` then holds what a small program
+   maps against its ceilings.
+2. Set the version in `Cargo.toml`'s `[workspace.package]`: the one
    source of the crates', the wheels' and the alias' versions (the
    alias is `<matplotlib version>+pltrs.<version>`). Commit and push.
-2. Tag the commit and push the tag:
+3. Tag the commit and push the tag:
 
    ```sh
    git tag -a v0.1.0 -m "pltrs 0.1.0"
    git push origin v0.1.0
    ```
 
-3. The workflow runs: it first checks that the tag is `v` followed by
+4. The workflow runs: it first checks that the tag is `v` followed by
    Cargo.toml's version, then builds every archive, installs and tests each
    on its platform (pltrs alone against matplotlib alone, pltrs' smoke
    tests and a matplotlib program, on Python 3.12 and 3.14, on the oldest
    glibc and musl the tags allow, and with the lowest versions of the
    requirements). Nothing is published unless all of that passes.
-4. Approve the `pypi` deployment when the publish job asks. It checks
+5. Approve the `pypi` deployment when the publish job asks. It checks
    the archives once more and uploads them to PyPI through trusted
    publishing.
-5. A draft GitHub release then holds every archive, the alias wheel
+6. A draft GitHub release then holds every archive, the alias wheel
    included. Write its notes and publish it.
 
 If any job fails, nothing reaches PyPI. Fix the cause on `main`, delete

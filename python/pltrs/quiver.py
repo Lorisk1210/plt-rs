@@ -540,11 +540,20 @@ class Quiver(mcollections.PolyCollection):
     def span(self):
         """The width of the Axes in arrow-width units at the last draw
         (set by matplotlib's ``_init``)."""
+        assigned = self.__dict__.get("_assigned_span")
+        if assigned is not None and assigned[0] == _artist.draw_count(self._native):
+            return assigned[1]
         span = _plotting.quiver_sizes(self._native)[2]
         if span is None:
             raise AttributeError(
                 f"{type(self).__name__!r} object has no attribute 'span'")
         return np.float64(span)
+
+    @span.setter
+    def span(self, span):
+        # Read back until the next draw, which sets it anew from the Axes
+        # (matplotlib's ``_init``) before it reads it.
+        self.__dict__["_assigned_span"] = (_artist.draw_count(self._native), span)
 
     def get_paths(self):
         """The arrows of the last draw, in arrow-width units (each draw

@@ -74,6 +74,7 @@ class SecondaryAxis(Axes):
             parent._native, orientation, native_location,
             self._native_functions()), parent.figure)
         self._child_of = parent
+        parent._child_added(self)
         self._init_axes_state()
         self._axis = self.xaxis if orientation == 'x' else self.yaxis
         # The axis' scale maps through the program's functions, which

@@ -12,6 +12,11 @@
 # there. Only a read off the class itself shows the descriptor.
 ^matplotlib\.(figure\.(Figure|SubFigure)\.(bbox|bbox_inches|bbox_relative|dpi_scale_trans|figbbox|transFigure|transSubfigure)|axes\._base\._AxesBase\.(bbox|dataLim|transAxes|transData|transLimits|transScale))$ | ^variable differs from runtime type matplotlib\._transform_trees\.TreeAttribute$ | instance attribute built on first read by a descriptor that then steps aside (the value is in the instance's __dict__)
 ^matplotlib\.projections\.geo\.GeoAxes\.(transAffine|transProjection)$ | ^is not present in stub$ | instance attribute built on first read by a descriptor that then steps aside (the value is in the instance's __dict__)
+# A renderer's converter of texts to paths, which matplotlib's constructor
+# makes: built on its first read here (`functools.cached_property`, the
+# value then in the instance's `__dict__`), as importing `textpath` costs
+# every program that never converts a text.
+^matplotlib\.backend_bases\.RendererBase\._text2path$ | ^variable differs from runtime type functools\.cached_property\[Any\]$ | instance attribute built on first read by a descriptor that then steps aside (the value is in the instance's __dict__)
 
 # matplotlib binds these by importing them from its private modules (`_cm`,
 # `_cm_listed`, `_cm_multivar`, `_cm_bivar`), which stubtest passes over;
@@ -29,9 +34,10 @@
 # `__init__(self, filename, hinting_factor=None, *, ...)`, which `cargo xtask
 # diff --docs` compares) and of the bindings in `src/ft2font_wrapper.cpp`
 # (`draw_glyph_to_bitmap`'s and `draw_glyphs_to_bitmap`'s `antialiased`
-# after `py::kw_only()`); and the buffer protocol both classes have
+# after `py::kw_only()`, `_layout`'s `string` with `features` and
+# `language` after it); and the buffer protocol both classes have
 # (`__release_buffer__`, a C slot in matplotlib).
-^matplotlib\.ft2font\.FT2Font\.(__init__|load_glyph|draw_glyphs?_to_bitmap)$ | ^is inconsistent, stub (does not have parameter "hinting_factor"|parameter "antialiased" is not keyword-only|parameter "glyphindex" differs from runtime parameter "glyph_index")$ | matplotlib's C++ run time has this signature, which its stub misdescribes and stubtest cannot read there
+^matplotlib\.ft2font\.FT2Font\.(__init__|load_glyph|draw_glyphs?_to_bitmap|_layout)$ | ^is inconsistent, stub (does not have parameter "hinting_factor"|parameter "antialiased" is not keyword-only|parameter "glyphindex" differs from runtime parameter "glyph_index"|parameter "text" differs from runtime parameter "string"|parameter "(features|language)" is not keyword-only)$ | matplotlib's C++ run time has this signature, which its stub misdescribes and stubtest cannot read there
 ^matplotlib\.ft2font\.(FT2Font|FT2Image)\.__release_buffer__$ | ^is not present in stub$ | matplotlib's classes have it too, as a C slot stubtest passes over
 
 # A spine binds its native spine in `__new__`, before the constructor of a
@@ -55,6 +61,13 @@
 # vertices): assigning one keeps it, read back as matplotlib reads it
 # (python/tests/test_types2.py).
 ^matplotlib\.(contour\.ContourSet\.(layers|zmin|zmax)|tri\._tricontour\.TriContourSet\.(zmin|zmax)|patches\.FancyArrow\.verts)$ | ^is not present in stub$ | an instance attribute in matplotlib read only where it is made; assignable here and read back alike
+# matplotlib's instance attributes its later methods read (a colorbar's
+# range, a contour set's colour values and labels, the span a quiver's
+# first draw sets), and the background and subplot parameters of a figure,
+# which matplotlib sets on Figure and SubFigure alike: pltrs gives them as
+# properties assignable as the attributes are, with the effect assigning
+# them has (python/tests/test_priv2.py).
+^matplotlib\.(colorbar\.Colorbar\.(vmin|vmax)|contour\.ContourSet\.cvalues|contour\.ContourLabeler\.(labelCValues|labelTexts)|quiver\.Quiver\.span|figure\.FigureBase\.(patch|subplotpars))$ | ^is not present in stub$ | an instance attribute in matplotlib; a property with a setter here, read and assigned alike
 
 # Class-level defaults of what matplotlib sets on each instance, with the
 # value matplotlib's instances read: the offset text's side (`_init`), the

@@ -68,8 +68,7 @@ impl AxesState {
             // matplotlib's `Axis.clear` keeps the tick parameters, except
             // whether gridlines are on, which restarts from the rc; the
             // axis object stays, with its picker and pick radius.
-            fresh.axis_mut(name).keep_tick_styles(self.axis(name));
-            fresh.axis_mut(name).keep_drawing(self.axis(name));
+            fresh.axis_mut(name).keep_through_clear(self.axis(name));
             // matplotlib's `Axis.clear` disconnects the axes' handler of
             // the axis' changes of units.
             fresh.axis_mut(name).follows_units = false;

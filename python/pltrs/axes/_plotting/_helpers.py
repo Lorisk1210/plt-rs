@@ -82,7 +82,7 @@ def convert_units(axes, name, values):
         return values
     from ... import units as munits
     from ...axis import _is_native_converter
-    axis = axes._axis_map.get(name)
+    axis = axes._unit_axis_map.get(name)
     if axis is not None and not _is_native_converter(
             axis._given_converter or munits.registry.get_converter(values)):
         # A converter of the program's (nc-time-axis' of cftime dates),
@@ -106,7 +106,7 @@ def line_data(axes, x, y):
     data first (matplotlib's ``_plot_args`` and ``Line2D.recache``).
     """
     for name, values in (("x", x), ("y", y)):
-        axis = axes._axis_map[name]
+        axis = axes._unit_axis_map[name]
         if axis is not None:
             axis.update_units(values)
     return converted_line_data(axes, x, y)

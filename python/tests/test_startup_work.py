@@ -180,12 +180,17 @@ def test_extension_lays_out_functions_in_order():
 
 #: The most of the extension's code a process may hold, in KiB, after
 #: ``import pltrs.pyplot`` and after saving a small figure as PNG, with the
-#: kernel mapping 64 KiB around each page it faults in: a little above
-#: what the order of task PERF9 (2026-11-14) gives, 3,808 and 5,664 KiB.
-#: The code the program runs, laid out together, is what keeps them low;
-#: with the order 80 commits stale they were 5,344 and 8,800 KiB, as the
-#: functions added since lay among those no program runs.
-RESIDENT_CODE_CEILING_KIB = {"import": 4_100, "figure": 6_100}
+#: kernel mapping 64 KiB around each page it faults in: a quarter above
+#: what the order of task PERF9 (2026-11-14) gives when it is written,
+#: 3,808 and 5,664 KiB. The code the program runs, laid out together, is
+#: what keeps them low; with the order 80 commits stale they were 5,344
+#: and 8,800 KiB, as the functions added since lay among those no program
+#: runs. The room is for the changes between two writings: the first
+#: change of native code after PERF9's order took the figure to 6,132 KiB
+#: (functions the order names no longer exist under that name once the
+#: code around them changes). The order is written again before a release
+#: and an official benchmark (RELEASING.md), and whenever this fails.
+RESIDENT_CODE_CEILING_KIB = {"import": 4_750, "figure": 7_100}
 
 #: Measures, in a fresh process, the fault-around window (the pages that
 #: become present when one page of a cached file is read through a

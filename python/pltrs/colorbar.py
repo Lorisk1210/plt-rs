@@ -121,7 +121,24 @@ class _ColorbarSpine(mspines.Spine):
     _position = None
     _patch_type = 'line'
 
-    @property
+    def __init__(self, axes):
+        # matplotlib's: an outline of no path yet, in the Axes' fractions,
+        # which a colorbar gives the path of its colours and extensions; a
+        # loose patch styled as matplotlib's spines are (pltrs (Rust) draws
+        # a colorbar's own).
+        from . import rcParams
+        self._ax = axes
+        mpatches.Patch.__init__(self)
+        self._spine_axes = axes
+        self.set_figure(axes.get_figure(root=False))
+        self.set_facecolor('none')
+        self.set_edgecolor(rcParams['axes.edgecolor'])
+        self.set_linewidth(rcParams['axes.linewidth'])
+        self.set_capstyle('projecting')
+        self.set_zorder(2.5)
+        mpatches.Patch.set_transform(self, axes.transAxes)
+
+    @_kept_values.assignable
     def spine_type(self):
         """``'colorbar'``."""
         return 'colorbar'
@@ -705,7 +722,7 @@ class Colorbar:
         self.norm.vmin, self.norm.vmax = mtransforms._nonsingular(
             self.norm.vmin, self.norm.vmax, expander=0.1)
 
-    @property
+    @_kept_values.assignable
     def ax(self):
         """The `~.axes.Axes` the colorbar is drawn in."""
         removed = self.__dict__.get("_removed_ax")
@@ -716,17 +733,17 @@ class Colorbar:
         return _handles.wrap(_colorbar.ax(self._native), Axes,
                              self._figure.get_figure(root=True))
 
-    @property
+    @_kept_values.assignable
     def cmap(self):
         """The colormap of the mappable."""
         return self.mappable.cmap
 
-    @property
+    @_kept_values.assignable
     def norm(self):
         """The norm of the mappable."""
         return self.mappable.norm
 
-    @property
+    @_kept_values.assignable
     def orientation(self):
         """``'vertical'`` or ``'horizontal'``."""
         return _colorbar.get_orientation(self._native)
@@ -735,15 +752,26 @@ class Colorbar:
     def extend(self):
         """The ends extended beyond the range: ``'neither'``, ``'both'``,
         ``'min'`` or ``'max'``."""
-        return _colorbar.get_extend(self._native)
+        return _kept_values.given(self, "extend", _colorbar.get_extend(self._native))
 
-    @property
+    @extend.setter
+    def extend(self, extend):
+        # matplotlib's Axes locator reads it at every draw, making room for
+        # the extensions its next update draws; another value extends
+        # neither end there (as 'neither', but for the box aspect its
+        # locator gives the Axes anew), and reads back as given.
+        named = isinstance(extend, str) and extend in ('neither', 'both', 'min', 'max')
+        _colorbar.set_extend(self._native, extend if named else 'neither')
+        (_kept_values.remember if named else _kept_values.keep)(self, "extend", extend)
+        self.stale = True
+
+    @_kept_values.assignable
     def vmin(self):
         """The lower end of the colorbar's data range (the first boundary
         inside it, a numpy float as matplotlib reads it off its array)."""
         return np.float64(_colorbar.limits(self._native)[0])
 
-    @property
+    @_kept_values.assignable
     def vmax(self):
         """The upper end of the colorbar's data range."""
         return np.float64(_colorbar.limits(self._native)[1])
@@ -786,14 +814,14 @@ class Colorbar:
             return self._forward_boundaries, self._inverse_boundaries
         return self.norm, self.norm.inverse
 
-    @property
+    @_kept_values.assignable
     def outline(self):
         """The spine outlining the colours and the extensions, the
         ``'outline'`` of the Axes' spines."""
         return _handles.wrap(_colorbar.outline(self._native), _ColorbarSpine,
                              self._figure)
 
-    @property
+    @_kept_values.assignable
     def solids(self):
         """The `.QuadMesh` of the colour blocks, None when they are the
         hatched patches of a hatched contour set."""
@@ -817,7 +845,7 @@ class Colorbar:
         for patch in self._extend_patches:
             _kept_values.remember(patch, "zorder", np.float64(patch.get_zorder()))
 
-    @property
+    @_kept_values.assignable
     def solids_patches(self):
         """The hatched patches drawn as the colour blocks of a hatched
         contour set, in place of `solids`."""
@@ -825,7 +853,7 @@ class Colorbar:
         return _handles.wrap_all(_colorbar.solids_patches(self._native),
                                  PathPatch, self._figure)
 
-    @property
+    @_kept_values.assignable
     def lines(self):
         """The `.LineCollection`\\s `add_lines` drew."""
         from .collections import LineCollection
@@ -840,7 +868,7 @@ class Colorbar:
         return _handles.wrap_all(_colorbar.extend_patches(self._native),
                                  PathPatch, self._figure)
 
-    @property
+    @_kept_values.assignable
     def dividers(self):
         """The `.LineCollection` of the lines between the colours: with
         *drawedges*, at the edges of the colours in the view and at the
@@ -924,6 +952,14 @@ class Colorbar:
         self.long_axis.set_minor_locator(self._minorlocator)
         self.long_axis.set_major_formatter(self._formatter)
 
+    # matplotlib 3.11.2's, under the Matplotlib License: the view of a
+    # colorbar's interactive navigation is its norm's range.
+    def _get_view(self):
+        return self.norm.vmin, self.norm.vmax
+
+    def _set_view(self, view):
+        self.norm.vmin, self.norm.vmax = view
+
     def drag_pan(self, button, key, x, y):
         points = self.ax._get_pan_points(button, key, x, y)
         if points is not None:
@@ -951,6 +987,10 @@ class Colorbar:
             # in contrast, ColorizingArtist (and Colorizer) emit
             # self.callbacks.process('changed') without passing a mappable.
             self.mappable = mappable
+        # What a program assigned that matplotlib's update sets anew: the
+        # colormap and norm of the mappable, the range and the colours
+        # (``_draw_all``).
+        _kept_values.take(self, "cmap", "norm", "vmin", "vmax", "solids", "solids_patches")
         _log.debug('colorbar update normal %r %r', self.mappable.norm, self.norm)
         self.set_alpha(self.mappable.get_alpha())
         self._scale_norm()
@@ -1115,20 +1155,29 @@ class Colorbar:
             [lambda self, CS, erase=True: locals(),
              lambda self, levels, colors, linewidths, erase=True: locals()],
             self, *args, **kwargs)
+        erase = bool(params["erase"])
+        # A list the program assigned to `lines`: its lines are removed when
+        # erased, else the new ones are appended to it, as matplotlib's are.
+        assigned = _kept_values.take(self, "lines").get("lines")
+        if erase and assigned:
+            for lines in assigned:
+                lines.remove()
         if "CS" in params:
             cs = params["CS"]
             if not isinstance(cs, contour.ContourSet) or cs.filled:
                 raise ValueError("If a single artist is passed to add_lines, "
                                  "it must be a ContourSet of lines")
-            _colorbar.add_contour_lines(self._native, cs._contour,
-                                        bool(params["erase"]))
-            return
-        _colorbar.add_level_lines(
-            self._native,
-            [float(level) for level in np.atleast_1d(params["levels"])],
-            [tuple(rgba) for rgba in mcolors.to_rgba_array(params["colors"])],
-            [float(width) for width in np.atleast_1d(params["linewidths"])],
-            bool(params["erase"]))
+            _colorbar.add_contour_lines(self._native, cs._contour, erase)
+        else:
+            _colorbar.add_level_lines(
+                self._native,
+                [float(level) for level in np.atleast_1d(params["levels"])],
+                [tuple(rgba) for rgba in mcolors.to_rgba_array(params["colors"])],
+                [float(width) for width in np.atleast_1d(params["linewidths"])],
+                erase)
+        if assigned is not None and not erase:
+            assigned.append(self.lines[-1])
+            self.lines = assigned
 
     def remove(self):
         """

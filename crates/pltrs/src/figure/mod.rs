@@ -346,6 +346,35 @@ impl Figure {
         Ok(self)
     }
 
+    /// Changes the subplot margins and spacing of this figure or subfigure
+    /// alone, for the subplots added after and the next
+    /// [`subplots_adjust`](Self::subplots_adjust), leaving the axes placed
+    /// so far where they are (matplotlib's `fig.subplotpars =
+    /// SubplotParams(...)`: the figure keeps the object it is given).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::gridspec::SubplotOverrides;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let placed = ax.position();
+    /// fig.set_subplot_params(SubplotOverrides { left: Some(0.3), ..Default::default() })?;
+    /// assert_eq!(ax.position(), placed);
+    /// assert_eq!(fig.subplot_params().left, 0.3);
+    /// # Ok::<(), pltrs::gridspec::GridSpecError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the margins leave no room (left not below right, bottom not
+    /// below top).
+    pub fn set_subplot_params(&self, overrides: SubplotOverrides) -> Result<&Self, GridSpecError> {
+        let params = self.subplot_params().updated(overrides)?;
+        self.root
+            .with_mut::<FigureFrame, _>(|frame| frame.subplot_params = params);
+        Ok(self)
+    }
+
     /// Adds a line through `(x, y)` in figure fractions, styled from the
     /// rc parameters and `props` without the property cycle (matplotlib's
     /// `fig.add_artist(Line2D(...))`).

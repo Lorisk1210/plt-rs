@@ -351,6 +351,13 @@ fn update_normal(
     Ok(())
 }
 
+/// Makes room for the extensions `extend` names from the next layout on
+/// (matplotlib's `cbar.extend = ...`), drawn at the next update.
+fn set_extend(colorbar: Colorbar, name: String) -> PyResult<()> {
+    colorbar.set_extend(extend(&name)?)?;
+    Ok(())
+}
+
 /// Removes the colorbar and its axes, giving the space back.
 fn remove(colorbar: Colorbar) -> PyResult<()> {
     colorbar.remove();
@@ -429,6 +436,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("ax", ax)?;
     module.add("get_orientation", get_orientation)?;
     module.add("get_extend", get_extend)?;
+    module.add("set_extend", set_extend)?;
     module.add("boundaries", boundaries)?;
     module.add("values", values)?;
     module.add("limits", limits)?;

@@ -13,13 +13,14 @@ setters give the background their changes. Its extent, its figure,
 whether it contains a point and the region clipping to it clips to are
 those of the background. A patch the program makes an Axes' patch
 (`set_axes_patch`) becomes such a mirror too, its outline the
-background's shape.
+background's shape; so does one it makes a (sub)figure's
+(`set_figure_patch`).
 """
 
 import numpy as np
 
 from . import _live_transforms, _mirrors
-from ._native import axisartist as _axisartist, patches as _patches
+from ._native import artist as _artist, axisartist as _axisartist, patches as _patches
 from ._native import projections as _projections
 
 
@@ -31,10 +32,14 @@ class _Background(_mirrors.Mirroring):
 
     def push(self, patch):
         _patches.push_background(self.owner._native, patch._native)
+        patch._changed_at_draw = _artist.draw_count(self.owner._native)
 
     def pull(self, patch):
-        """Give *patch* the background's style."""
+        """Give *patch* the background's style, and the staleness of the
+        patch matplotlib draws with its owner: changed since that draw."""
         _patches.pull_background(self.owner._native, patch._native)
+        drawn = _artist.draw_count(self.owner._native)
+        _artist.set_stale(patch._native, drawn == patch.__dict__.get("_changed_at_draw", 0))
 
     def window_extent(self, patch, renderer=None, dpi=None):
         return patch.get_path().get_extents(patch.get_transform())
@@ -91,6 +96,21 @@ class _FigureBackground(_Background):
                 _live_transforms.to_native(self.owner.transSubfigure))
 
 
+class _ShapedFigureBackground(_FigureBackground):
+    """The background of a (sub)figure whose patch the program gave
+    (``fig.patch = patch``): the patch's outline, placed by its own
+    transform (pixels for one it never gave a transform, as matplotlib's
+    figure draws it), is the shape the background fills."""
+
+    def push(self, patch):
+        super().push(patch)
+        from .artist import Artist
+        placement = patch.get_patch_transform() + (
+            Artist.get_transform(patch) - self.owner.transSubfigure)
+        _patches.set_figure_patch_outline(
+            self.owner._native, placement.transform_path(patch.get_path()))
+
+
 def _attach(patch, mirroring):
     """Make *patch* the mirror of a background (*mirroring*). A patch of any
     class may be the background (the one an Axes class of the program's
@@ -110,6 +130,9 @@ def _made(owner, patch, mirroring, transform):
         with _mirrors.detached(patch):
             patch.set_transform(transform)
     owner.__dict__["_patch"] = patch
+    # New, as matplotlib's patch made anew (an Axes' clear) is, until its
+    # owner is drawn again.
+    patch._changed_at_draw = _artist.draw_count(owner._native)
     return patch
 
 
@@ -184,6 +207,20 @@ def set_axes_patch(axes, patch):
     elif mirror.owner is not axes:
         _axisartist.share_floating_patch(mirror.owner._native, axes._native)
     axes.__dict__["_patch"] = patch
+
+
+def set_figure_patch(figure, patch):
+    """Make *patch* the background of *figure*, a figure or subfigure
+    (``fig.patch = patch``): the patch becomes the mirror of the
+    background, which takes its style and is drawn as its outline."""
+    mirror = _mirrors.mirroring(patch)
+    if mirror is not None and getattr(mirror, "owner", None) is not figure:
+        raise TypeError("the background of another figure or of an Axes "
+                        "cannot be a figure's")
+    if mirror is None:
+        _attach(patch, _ShapedFigureBackground(figure))
+        patch._mirror.push(patch)
+    figure.__dict__["_patch"] = patch
 
 
 def figure_patch(figure):

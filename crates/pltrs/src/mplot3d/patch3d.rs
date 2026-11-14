@@ -87,10 +87,10 @@ impl Axes3D {
         )
     }
 
-    /// The path a 3-D patch of these axes is drawn with, projected in the
-    /// figure's current layout, which is brought up to date first
-    /// (matplotlib's `Patch3D.get_path`, which projects the patch if it
-    /// was not drawn yet).
+    /// The path a 3-D patch of these axes is drawn with: that of its last
+    /// draw, else its projection in the figure's current layout, which is
+    /// brought up to date first (matplotlib's `Patch3D.get_path`, which
+    /// projects the patch if it was not drawn yet).
     ///
     /// ```
     /// use pltrs::artist::ArtistHandle;
@@ -112,6 +112,14 @@ impl Axes3D {
             matches!(art, Art3D::Patch(_) | Art3D::PathPatch(_)).then_some(())
         })?;
         self.raw().figure_state().work_on(FigureState::prepare);
+        let drawn = self.with(|axes| {
+            axes.artists
+                .iter()
+                .any(|artist| artist.id == patch.id() && artist.drawn)
+        });
+        if !drawn {
+            self.project_artist(patch, |projection| projection)?;
+        }
         (patch
             .downcast::<Patch<ProjectedOutline>>()
             .map(|p| p.shape().0))

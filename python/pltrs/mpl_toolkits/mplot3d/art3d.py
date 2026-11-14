@@ -1873,6 +1873,16 @@ class Text3D(mtext.Text):
         # docstring inherited
         return self.__dict__.get("_rotation3d", 0.0)
 
+    @property
+    def _rotation(self):
+        # matplotlib's field: the rotation as set, which its draw replaces
+        # with the projected angle only while it draws the text.
+        return self.__dict__.get("_rotation3d", 0.0)
+
+    @_rotation.setter
+    def _rotation(self, rotation):
+        Text3D.set_rotation(self, rotation)
+
     def set_position_3d(self, xyz, zdir=None):
         """
         Set the (*x*, *y*, *z*) position of the text.

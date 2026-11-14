@@ -63,7 +63,7 @@ class _Updater:
     def _axis(self, axes, name):
         """The `.Axis` named *name* of the Axes of the handle *axes*."""
         ax = self._axes(axes)
-        return None if ax is None else ax._axis_map.get(name)
+        return None if ax is None else ax._unit_axis_map.get(name)
 
     def spines(self, axes):
         """The spines of the Axes as matplotlib's code measures them: name,

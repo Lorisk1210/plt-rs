@@ -17,6 +17,7 @@ use crate::binding::prelude::*;
 use crate::modules::artist::filter::python_filter;
 use crate::modules::dates::Zone;
 use crate::modules::plotting::values::PyAxisValues;
+use crate::modules::spines::side_name;
 
 /// Whether the major or `minor` locator (`kind` `"locator"`) or formatter
 /// (`"formatter"`) is still the one the scale installed.
@@ -271,6 +272,12 @@ fn set_offset_position(axes: Axes, name: String, position: String) -> PyResult<(
     Ok(())
 }
 
+/// The side the offset text of axis `name` sits on (an x axis' follows
+/// its ticks: matplotlib's `XAxis._tick_position`).
+fn get_offset_position(axes: Axes, name: String) -> PyResult<&'static str> {
+    Ok(side_name(axis(&axes, &name)?.offset_position()))
+}
+
 /// Rescales the view along axis `name` at the next layout, `tight`
 /// replacing the tight setting (`_request_autoscale_view`).
 fn request_autoscale(axes: Axes, name: String, tight: Option<bool>) -> PyResult<()> {
@@ -436,6 +443,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_labelpad", get_labelpad)?;
     module.add("set_labelpad", set_labelpad)?;
     module.add("set_label_coords", set_label_coords)?;
+    module.add("get_offset_position", get_offset_position)?;
     module.add("set_animated", set_animated)?;
     module.add("set_agg_filter", set_agg_filter)?;
     module.add("set_tick_visible", set_tick_visible)?;

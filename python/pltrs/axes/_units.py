@@ -32,20 +32,27 @@ class UnitsMixin:
     @property
     def _axis_map(self):
         """
-        A mapping of axis names, e.g. 'x', to `.Axis` instances: None for
-        an axis that takes no units (those of 3-D axes, whose values pass
-        as they are, but in `_units_of_native_axes`); the mapping a class of
-        the program's assigned, if it did.
+        A mapping of axis names, e.g. 'x', to `.Axis` instances (matplotlib's
+        attribute; the mapping a class of the program's assigned, if it
+        did).
         """
         given = self.__dict__.get("_given_axis_map")
         if given is not None:
             return given
+        return {name: getattr(self, f"{name}axis") for name in self._axis_names}
+
+    @property
+    def _unit_axis_map(self):
+        """
+        `_axis_map` as the unit methods take it: None for an axis that
+        takes no units (those of 3-D axes, whose values pass as they are,
+        but in `_units_of_native_axes`).
+        """
         axis_class = _axis_class()
         through_python = self.__dict__.get("_native_axes_take_units", False)
         return {name: (axis if isinstance(axis, axis_class)
                        and (through_python or not axis._native_units) else None)
-                for name in self._axis_names
-                for axis in [getattr(self, f"{name}axis")]}
+                for name, axis in self._axis_map.items()}
 
     @_axis_map.setter
     def _axis_map(self, axis_map):
@@ -91,7 +98,7 @@ class UnitsMixin:
         """
         datasets = datasets or []
         kwargs = kwargs or {}
-        axis_map = self._axis_map
+        axis_map = self._unit_axis_map
         for axis_name, data in datasets:
             try:
                 axis = axis_map[axis_name]

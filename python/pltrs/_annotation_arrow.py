@@ -74,6 +74,9 @@ def mirror(owner, mirroring=_AnnotationArrow):
     if patch is None:
         patch = owner._arrow_mirror = _mirrors.attach(
             FancyArrowPatch._from_native(native, None), mirroring(owner))
+        # Made as matplotlib makes it, ``FancyArrowPatch((0, 0), (1, 1))``:
+        # its ends read back as those ints until its owner places it.
+        patch._given_positions = [(0, 0), (1, 1)]
     else:
         patch._native = native
     return patch

@@ -860,6 +860,9 @@ class Legend(Artist):
                            else _values.float64s(pinned))
             box._laid_out_for = self
             self._legend_box_object = box
+        if not self.stale:
+            # Drawn with the legend, as matplotlib's draw draws its box.
+            _fresh(box)
         return box
 
     # matplotlib's boxes of the title and of the columns of entries, the
@@ -1184,6 +1187,15 @@ class Legend(Artist):
         _legend.set_bbox_to_anchor(self._native, bounds,
                                    _live_transforms.to_native(transform))
         self._anchored = (anchored, bounds)
+
+
+def _fresh(box):
+    """Mark the laid-out *box* and the boxes in it as drawn."""
+    from .offsetbox import OffsetBox
+    _artist.set_stale(box._native, False)
+    for child in box.get_children():
+        if isinstance(child, OffsetBox):
+            _fresh(child)
 
 
 def _get_legend_handles(axs, legend_handler_map=None):

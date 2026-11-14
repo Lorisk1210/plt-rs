@@ -28,6 +28,8 @@ from ._enums import CapStyle, JoinStyle
 from ._program_classes import takes_from_program
 from ._native import artist as _artist, collections as _collections
 from ._native import tri as _tri
+
+_changing_arrays = _lazy_imports.module(globals(), "._changing_arrays")
 from .artist import Artist, _check_array_alpha, allow_rasterization
 from .path import Path
 
@@ -624,6 +626,11 @@ class Collection(mcolorizer.ColorizingArtist):
         _program_paths.keep(self, None if isinstance(paths, Path) else paths)
 
     def get_transforms(self):
+        assigned = self.__dict__.get("_assigned_transforms")
+        if assigned is not None and assigned[0] == _artist.draw_count(self._native):
+            # Assigned to a collection with sizes, whose next draw sets them
+            # from the sizes again (matplotlib's ``draw`` calls ``set_sizes``).
+            return assigned[1]
         drawn = self._drawn_transforms()
         if drawn is not None:
             return drawn
@@ -637,6 +644,28 @@ class Collection(mcolorizer.ColorizingArtist):
         """The transforms the class' draws compute, which `get_transforms`
         gives once it is drawn (an `EllipseCollection`'s), else None."""
         return None
+
+    @property
+    def _transforms(self):
+        # matplotlib's field: the shape transform of each item, an
+        # ``(n, 3, 3)`` array a program assigns and fills in place
+        # (matplot2tikz's collection of transformed ellipses), drawn by
+        # a collection without sizes.
+        return _changing_arrays.ChangingArray(self.get_transforms(), self._push_transforms)
+
+    @_transforms.setter
+    def _transforms(self, matrices):
+        self._push_transforms(matrices)
+
+    def _push_transforms(self, matrices):
+        """Draw the items with the shape transforms *matrices*, which a
+        collection with sizes reads back until its next draw."""
+        matrices = np.array(matrices, dtype=float)
+        native = matrices.reshape(-1, 3, 3) if matrices.size else matrices.ravel()
+        _collections.set_transforms(self._native, native)
+        if _collections.get_sizes(self._native) is not None:
+            self.__dict__["_assigned_transforms"] = (_artist.draw_count(self._native), matrices)
+        self.stale = True
 
     def get_offsets(self):
         """Return the offsets for the collection."""
@@ -1166,13 +1195,22 @@ class Collection(mcolorizer.ColorizingArtist):
         self.stale = True
 
     def get_facecolor(self):
-        return self._get("facecolor")
+        # The field assigned (`_facecolors`) as it was, while drawn.
+        return _values.given(self, "_facecolors", self._get("facecolor"))
 
     @property
     def _facecolors(self):
         """The RGBA face colours, as drawn (matplotlib's ``_facecolors``,
         which `get_facecolor` gives)."""
         return self.get_facecolor()
+
+    @_facecolors.setter
+    def _facecolors(self, colors):
+        # Assigned as matplotlib's field is (ultraplot): drawn as they are,
+        # unless the items are colour-mapped, whose draw maps them again.
+        _collections.set_facecolors(self._native, _rgba(colors))
+        _values.remember(self, "_facecolors", colors)
+        self.stale = True
 
     def set_facecolor(self, c):
         """
@@ -1194,7 +1232,8 @@ class Collection(mcolorizer.ColorizingArtist):
         self._face_fill = not cbook._str_lower_equal(c, "none")
 
     def get_edgecolor(self):
-        return self._get("edgecolor")
+        # The field assigned (`_edgecolors`) as it was, while drawn.
+        return _values.given(self, "_edgecolors", self._get("edgecolor"))
 
     @property
     def _offsets(self):
@@ -1210,6 +1249,13 @@ class Collection(mcolorizer.ColorizingArtist):
         if cbook._str_equal(self._get("edgecolor_setting"), "face"):
             return "face"
         return self.get_edgecolor()
+
+    @_edgecolors.setter
+    def _edgecolors(self, colors):
+        # Assigned as matplotlib's field is: RGBA colours, or 'face'.
+        _collections.set_edgecolors(self._native, _edge_spec(colors))
+        _values.remember(self, "_edgecolors", colors)
+        self.stale = True
 
     def set_edgecolor(self, c):
         """
@@ -1347,6 +1393,7 @@ class _CollectionWithSizes(Collection):
             raise
         _collections.set_sizes(self._native, np.asarray(sizes, float))
         _values.remember(self, "sizes", sizes)
+        self.__dict__.pop("_assigned_transforms", None)
         if len(sizes) or not isinstance(self, RegularPolyCollection):
             _unusable.drop(self, "sizes")
         else:

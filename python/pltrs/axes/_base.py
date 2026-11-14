@@ -305,6 +305,9 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
             # Only drawing places an axes with a locator, and applies its
             # aspect.
             return Bbox.from_extents(*_axes_base.located_position(self._native))
+        if original and "_original_in_figure" in self.__dict__:
+            # A child Axes' (see `add_child_axes`).
+            return self._original_in_figure.frozen()
         position = Bbox.from_extents(*_axes_base.position(self._native,
                                                           bool(original)))
         if not original:
@@ -351,6 +354,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
             # out of its layout.
             self.set_in_layout(False)
             return
+        if which != 'active':
+            self.__dict__.pop("_original_in_figure", None)
         _axes_base.set_position(self._native, tuple(map(float, pos.bounds)),
                                 which)
 

@@ -674,12 +674,24 @@ impl Artist for TextArtist {
             .ok()
     }
 
-    /// An annotation whose point is not shown is not drawn
-    /// (`Annotation.draw` returns before it is made fresh).
+    /// matplotlib's `Text.draw` returns before it makes the text fresh
+    /// when the text is empty or placed at a point that is not finite,
+    /// and `Annotation.draw` when its point is not shown. A position a
+    /// transform of the program's maps is not mapped again here (the
+    /// figure is not free): its draw drew it.
     fn freshened_by_draw(&self, ctx: &LayoutContext<'_>) -> bool {
-        self.annotation
-            .as_ref()
-            .is_none_or(|annotation| annotation.is_shown(self, *ctx))
+        if self.text.is_empty() {
+            return false;
+        }
+        match &self.annotation {
+            Some(annotation) => {
+                annotation.is_shown(self, *ctx)
+                    && (annotation.text_display(self, *ctx)).is_ok_and(Point::is_finite)
+            }
+            None => ctx.resolve(&self.transform()).is_some_and(|resolved| {
+                resolved.calls_program() || resolved.transform_point(self.position).is_finite()
+            }),
+        }
     }
 
     /// An empty text takes no space, not even its annotation's arrow

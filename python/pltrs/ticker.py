@@ -1883,8 +1883,11 @@ class _NativeLocator(Locator):
         # docstring inherited
         if self._as_matplotlib(v0, v1):
             return super().nonsingular(v0, v1)
+        # matplotlib's locators give their default range without reading
+        # the axis (whose view pltrs (Rust) would autoscale first).
+        bounded = np.isfinite(float(v0)) and np.isfinite(float(v1))
         return _ticker.nonsingular(self._spec(), float(v0), float(v1),
-                                   self._axis_info())
+                                   self._axis_info() if bounded else None)
 
 
 class IndexLocator(_NativeLocator):

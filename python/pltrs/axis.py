@@ -946,6 +946,7 @@ class Axis(DrawnWith, Artist):
         _tick_helpers.install(self, "locator", minor, locator)
         formatter = self.minor.formatter if minor else self.major.formatter
         formatter._set_locator(locator)
+        self.stale = True
 
     def minorticks_on(self):
         """
@@ -1123,6 +1124,7 @@ class Axis(DrawnWith, Artist):
         v0, v1 = self._checked_limits(v0, v1)
         limits = _axes.set_lim(self.axes._native, self.axis_name, (v0, v1),
                                None if auto is None else bool(auto), bool(emit))
+        self.stale = True
         return self._typed_limits(given, limits)
 
     def _typed_limits(self, given, limits):
@@ -1231,12 +1233,21 @@ class Axis(DrawnWith, Artist):
         # one of the program's may keep the axis' (seaborn's categorical
         # scale keeps the category locator).
         helpers = self._tick_helpers()
+        programs = _native_scale_of(scale) is None
+        if programs:
+            old_default_lims = helpers[0].nonsingular(-np.inf, np.inf)
         if self._install_scale(scale):
             self._restore_tick_helpers(helpers)
             scale.set_default_locators_and_formatters(self)
             _axis.mark_default_helpers(*self._args())
         for axis in shared:
             axis.axes._update_transScale()
+        if (programs and self.get_major_locator().nonsingular(-np.inf, np.inf)
+                != old_default_lims):
+            # As matplotlib's, autoscaled now with the scale's locator's
+            # ``nonsingular`` (pltrs (Rust) does so for its own scales).
+            self.axes.autoscale_view(
+                **{f"scale{k}": k == self.axis_name for k in self.axes._axis_names})
 
     def get_transform(self):
         """Return the transform used in the Axis' scale"""
@@ -1919,6 +1930,7 @@ class Axis(DrawnWith, Artist):
                 major = self._major_tick_kw
                 self.offsetText.set_visible(major.get('label1On', False)
                                             or major.get('label2On', False))
+        self.stale = True
 
     def get_tick_params(self, which='major'):
         """
@@ -2120,6 +2132,7 @@ class Axis(DrawnWith, Artist):
     def _set_ticks_position(self, position):
         """Put the ticks where *position* says (natively checked)."""
         _axis.set_ticks_position(*self._args(), position)
+        self.stale = True
 
     # --- Label and offset text -----------------------------------------------
 
@@ -2527,6 +2540,7 @@ class Axis(DrawnWith, Artist):
                 default = converter.default_units(data, self)
                 if default is not None and self.units is None:
                     self.set_units(default)
+            self.stale = True
             return taken
         neednew = self._given_converter != converter
         self._set_converter(converter)
@@ -2535,6 +2549,7 @@ class Axis(DrawnWith, Artist):
             self.set_units(default)
         elif neednew:
             self._update_axisinfo()
+        self.stale = True
         return True
 
     def _take_native_converter(self, converter, take):
@@ -2806,6 +2821,7 @@ class _AxisOfAxes(Axis):
     def _set_label_side(self, position):
         """Put the axis label on the side *position* names."""
         _axis.set_label_position(*self._args(), position)
+        self.stale = True
 
 
 @_serving_held

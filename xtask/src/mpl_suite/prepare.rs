@@ -133,12 +133,15 @@ pub(super) fn test_files(site: &Path) -> Result<Vec<String>, String> {
 
 /// Copies a test package from the sdist to `dest` unless the copy is
 /// already there, and only it: a copy holding Python files the sdist
-/// lacks (a file left there by hand, which pytest would collect) is made
+/// lacks (a file left there by hand, which pytest would collect), or
+/// lacking one the sdist has (a file setup added to it since), is made
 /// again.
 pub(crate) fn copy_tests(from: &Path, dest: &Path) -> Result<(), String> {
     let stamp = dest.join(STAMP);
     let source = from.display().to_string();
-    if fs::read_to_string(&stamp).is_ok_and(|copied| copied == source) && !holds_strays(from, dest)
+    if fs::read_to_string(&stamp).is_ok_and(|copied| copied == source)
+        && !holds_strays(from, dest)
+        && !holds_strays(dest, from)
     {
         return Ok(());
     }
@@ -244,8 +247,6 @@ pub(crate) fn remove(path: &Path) -> Result<(), String> {
     }
 }
 
-/// Copies the directory `source` into `dest`, recursively, leaving out
-/// byte-code caches.
 /// Whether `dest`, a copy of `source`, holds a Python file (outside the
 /// byte-code caches) that `source` does not.
 fn holds_strays(source: &Path, dest: &Path) -> bool {
@@ -264,6 +265,8 @@ fn holds_strays(source: &Path, dest: &Path) -> bool {
     })
 }
 
+/// Copies the directory `source` into `dest`, recursively, leaving out
+/// byte-code caches.
 fn copy_dir(source: &Path, dest: &Path) -> Result<(), String> {
     fs::create_dir_all(dest).map_err(|err| format!("{}: {err}", dest.display()))?;
     let entries = fs::read_dir(source).map_err(|err| format!("{}: {err}", source.display()))?;
@@ -304,6 +307,12 @@ mod tests {
         copy_tests(&source, &dest).unwrap();
         assert!(!dest.join("plots/test_debug.py").exists());
         assert!(dest.join("plots/test_a.py").is_file());
+        fs::write(source.join("plots/tools.py"), "").unwrap();
+        copy_tests(&source, &dest).unwrap();
+        assert!(
+            dest.join("plots/tools.py").is_file(),
+            "a file the source gained"
+        );
         fs::remove_dir_all(dir).unwrap();
     }
 }

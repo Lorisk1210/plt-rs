@@ -85,7 +85,8 @@ pub struct BarOptions {
     pub edgecolor: Vec<Color>,
     /// Edge widths in points.
     pub linewidth: Vec<f64>,
-    /// Hatch patterns.
+    /// Hatch patterns; an empty one leaves its bars unhatched (a `None`
+    /// among matplotlib's hatches).
     pub hatch: Vec<String>,
     /// Properties applied to every bar after the per-bar ones.
     pub props: PatchProps,
@@ -488,7 +489,8 @@ impl Axes {
             patch.style.linewidth = Some(options.linewidth[index % options.linewidth.len()]);
         }
         if !options.hatch.is_empty() {
-            patch.style.hatch = Some(options.hatch[index % options.hatch.len()].clone());
+            let hatch = &options.hatch[index % options.hatch.len()];
+            patch.style.hatch = (!hatch.is_empty()).then(|| hatch.clone());
         }
         patch.base_mut().label = options
             .bar_labels

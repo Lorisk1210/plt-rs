@@ -323,7 +323,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         _handles.adopt(self, native, fig.figure)
         if unplaced is not None:
             _mplot3d.set_position(native, unplaced)
+        # As `_from_native` sets up the axes `add_subplot` makes: a class
+        # of the program's draws through its own ``draw``.
+        self._init_axes_state()
         self._init_3d_state(fig.figure)
+        self._connect_unit_change_handler()
         self._internal_update(kwargs)
 
     @classmethod
@@ -2129,8 +2133,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
     def add_collection(self, collection, autolim=True):
         # docstring inherited
-        if isinstance(collection, art3d._Loose3D):
+        if (isinstance(collection, art3d._Loose3D)
+                and collection._pending_key() in collection.__dict__):
             return collection._adopt_into(self, bool(autolim), False)
+        # A 3-D collection removed from a 3-D axes takes back its geometry
+        # as it is added (`_add_to_axes`).
         return self._without_projection(super().add_collection(collection, autolim))
 
     def add_patch(self, p):

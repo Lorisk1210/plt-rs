@@ -1,27 +1,11 @@
 //! What a figure keeps of its raster canvas between draws, and what the
 //! windows showing it have yet to present.
 
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use pltrs_core::path::convert::SimplifySettings;
 use pltrs_render::{RasterBackendError, RasterRenderer, Renderer};
 
 use super::PixelBox;
 use crate::figure::Figure;
-
-/// Identifies one drawing of one figure's canvas: a new canvas and every
-/// full draw start a new generation, which the regions saved before
-/// cannot be restored into.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Generation(u64);
-
-impl Generation {
-    /// A generation no canvas had before, in any figure.
-    pub(super) fn next() -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        Self(NEXT.fetch_add(1, Ordering::Relaxed))
-    }
-}
 
 /// What a canvas was made for: matplotlib's renderer key (its size in
 /// whole pixels and the resolution) and the rcParams a raster canvas
@@ -73,18 +57,12 @@ pub(crate) struct KeptCanvas {
     pub(super) renderer: RasterRenderer,
     /// What it was made for.
     pub(super) key: CanvasKey,
-    /// Its current drawing.
-    pub(super) generation: Generation,
 }
 
 impl KeptCanvas {
     /// The blank canvas `renderer`, made for `key`.
     fn new(renderer: RasterRenderer, key: CanvasKey) -> Self {
-        Self {
-            renderer,
-            key,
-            generation: Generation::next(),
-        }
+        Self { renderer, key }
     }
 }
 
@@ -204,10 +182,5 @@ mod tests {
         let mut whole = Presentation::Whole;
         whole.add(first);
         assert_eq!(whole, Presentation::Whole);
-    }
-
-    #[test]
-    fn generations_never_repeat() {
-        assert_ne!(Generation::next(), Generation::next());
     }
 }

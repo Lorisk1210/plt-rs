@@ -227,7 +227,11 @@ def _measured_by(renderer, dpi):
     the pads matplotlib converts with the renderer measured at its
     resolution where that is not *dpi*, as matplotlib measures with the
     renderer (the texts are placed at the figure's)."""
-    own = getattr(renderer, "dpi", None)
+    # A vector backend's mixed-mode renderer measures texts with its
+    # vector renderer (matplotlib's ``__getattr__`` hands it the metrics),
+    # which measures in points whatever resolution its raster parts take.
+    measuring = getattr(renderer, "_vector_renderer", renderer)
+    own = getattr(measuring, "dpi", None)
     at = None if own is None or dpi is None or own == dpi else float(own)
     with _measuring_with(renderer), _text_metrics_module.measured_at(at):
         yield

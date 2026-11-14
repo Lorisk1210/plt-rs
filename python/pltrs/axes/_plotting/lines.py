@@ -485,6 +485,12 @@ class LinesMixin:
                     self._get_lines.get_next_color()
                 raise
             line = wrap(self, native, mlines.Line2D)
+            if "transform" in props:
+                # The line keeps the transform given, as matplotlib's
+                # constructor sets it, and follows it where pltrs (Rust)
+                # took parts of it by their matrix.
+                line._given_transform = props["transform"]
+                _live_transforms.watch_given(line, props["transform"])
             whole = _format_color(fmt)
             mlines._remember_given(
                 line, props if whole is None else {"color": whole, **props})

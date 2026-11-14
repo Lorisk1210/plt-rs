@@ -114,7 +114,8 @@ fn fetch(python: &Path, library: &Library) -> Result<(), String> {
     for (path, sha256) in left_out.files {
         let dest = sdist.join(path);
         if !dest.is_file() {
-            let url = format!("{}/v{version}/{path}", left_out.repository);
+            let tag = left_out.tag.replace("{version}", &version);
+            let url = format!("{}/{tag}/{path}", left_out.repository);
             python::run_checked(
                 fetch_command(python, "file")
                     .args([url.as_str(), sha256])

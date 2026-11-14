@@ -106,9 +106,10 @@ impl Blitter {
     }
 
     /// Erases the artists of the last frame by putting back the saved
-    /// background of their owners (matplotlib's `_blit_clear`); a
-    /// background whose axes changed view, or that the canvas was drawn
-    /// again since, is dropped instead.
+    /// background of their owners (matplotlib's `_blit_clear`), even one
+    /// saved before the canvas was last drawn, as matplotlib's; a
+    /// background whose axes changed view, or that cannot be restored, is
+    /// dropped instead.
     pub(super) fn clear(&mut self, figure: &Figure) {
         let canvas = figure.canvas();
         for owner in self.owners() {

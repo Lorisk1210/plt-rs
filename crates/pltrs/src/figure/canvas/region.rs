@@ -8,7 +8,7 @@ use pltrs_raster::Pixmap;
 use pltrs_render::RgbaImage;
 
 use super::CanvasError;
-use super::state::{Generation, KeptCanvas};
+use super::state::KeptCanvas;
 
 /// A rectangle of whole canvas pixels, measured from the top-left corner
 /// of the canvas with y growing downwards, as the pixels are stored
@@ -159,10 +159,10 @@ fn whole_pixel(value: f64) -> Option<i64> {
 /// (matplotlib's `BufferRegion`), usually the background that animated
 /// artists are drawn over.
 ///
-/// A region belongs to the canvas as it was drawn: once the figure is
-/// drawn again, resized or given another resolution, restoring it fails
-/// with [`CanvasError::StaleRegion`] and a new background should be saved
-/// (matplotlib programs do so on `draw_event`).
+/// A region keeps its pixels whatever the canvas does after: as
+/// matplotlib's, it can be restored after the figure is drawn again,
+/// resized or given another resolution, or into another figure's canvas
+/// (matplotlib programs save a new background on `draw_event`).
 #[derive(Clone, PartialEq)]
 pub struct BufferRegion {
     /// The box asked for.
@@ -171,8 +171,6 @@ pub struct BufferRegion {
     saved: PixelBox,
     /// The pixels of `saved`.
     pixels: Pixmap,
-    /// The canvas the pixels come from.
-    generation: Generation,
 }
 
 impl fmt::Debug for BufferRegion {
@@ -234,7 +232,6 @@ impl BufferRegion {
             extents,
             saved,
             pixels,
-            generation: canvas.generation,
         })
     }
 
@@ -251,9 +248,6 @@ impl BufferRegion {
         bbox: Option<Bbox>,
         xy: Option<Point>,
     ) -> Result<(), CanvasError> {
-        if self.generation != canvas.generation {
-            return Err(CanvasError::StaleRegion);
-        }
         let (source, offset) = match (bbox, xy) {
             (None, None) => {
                 let whole = PixelBox::new(0, 0, i64::MAX, i64::MAX);

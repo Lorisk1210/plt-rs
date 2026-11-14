@@ -19,7 +19,11 @@ class LineMarker(MarkerStyle):
     """The `.MarkerStyle` of *line*, whose ``_transform`` the line follows."""
 
     def __init__(self, line):
-        super().__init__(line.get_marker(), line.get_fillstyle())
+        # With the user transform, cap and join styles of a style given.
+        given = line.__dict__.get("_given_marker")
+        styled = ((given.get_user_transform(), given._user_capstyle, given._user_joinstyle)
+                  if isinstance(given, MarkerStyle) else ())
+        super().__init__(line.get_marker(), line.get_fillstyle(), *styled)
         # (Held as the line holds the style: both pickle with the figure.)
         self.__dict__["_line"] = line
 

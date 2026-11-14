@@ -135,9 +135,14 @@ class ChildAxesMixin:
                                  "and no __dict__ for setting new attributes",
                                  name="_axes", obj=ax)
         if ax.__dict__.get("_child_of") is not self:
+            # pltrs (Rust) places the child in its host's fractions from
+            # now on; matplotlib's original position stays the rectangle in
+            # the figure's (ultraplot sizes colorbars from it).
+            original = ax.get_position(original=True).frozen()
             # matplotlib adds a child twice over; pltrs (Rust) keeps one.
             _insets.add_child_axes(self._native, ax._native)
             ax._child_of = self
+            ax._original_in_figure = original
         self._child_added(ax)
         self.stale = True
         return ax

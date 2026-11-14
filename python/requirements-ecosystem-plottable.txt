@@ -1,0 +1,27 @@
+# The venvs of plottable (`target/ecosystem/venvs/plottable`, made by
+# `cargo xtask ecosystem setup`): its wheel installs its tests as a
+# top-level `tests` package, which would take the place of the other
+# libraries' own in a shared venv. Resolved against
+# requirements-ecosystem.txt and requirements-ecosystem-reference.txt; the
+# reference venv adds requirements-ecosystem-reference.txt.
+#
+# What pltrs itself imports (as requirements-pltrs.txt pins it):
+numpy==2.5.4
+pillow==12.3.0
+cycler==0.12.1
+python-dateutil==2.9.0.post0
+# The libraries under test:
+plottable==0.1.5
+# Their dependencies and the test tools:
+contourpy==1.4.0
+execnet==2.1.2
+iniconfig==2.3.1
+packaging==26.3
+pandas==3.1.0
+pluggy==1.7.0
+pygments==2.21.0
+pyparsing==3.3.3
+pytest==8.4.2
+pytest-timeout==2.4.0
+pytest-xdist==3.8.0
+six==1.17.0

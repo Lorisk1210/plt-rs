@@ -10,7 +10,7 @@ pass (``_native.insets``).
 from numbers import Real
 
 from .. import _docstring
-from .. import _handles, _live_transforms
+from .. import _handles, _live_transforms, _values
 from .. import patches  # noqa: F401  (whose Rectangle the docstrings list)
 from .._native import insets as _insets
 from ..transforms import Bbox, TransformedBbox
@@ -114,7 +114,9 @@ _TransformedBoundsLocator.__module__ = __name__.rpartition(".")[0] + "._base"
 class ChildAxesMixin:
     """The child Axes of an Axes (`~.axes._base._AxesBase`'s)."""
 
-    @property
+    # matplotlib's list, which its draws and `get_children` follow; one
+    # assigned is read back (pltrs (Rust) draws the children it holds).
+    @_values.assignable
     def child_axes(self):
         """The Axes placed inside this one: insets and secondary axes."""
         from ._axes import Axes
@@ -136,8 +138,17 @@ class ChildAxesMixin:
             # matplotlib adds a child twice over; pltrs (Rust) keeps one.
             _insets.add_child_axes(self._native, ax._native)
             ax._child_of = self
+        self._child_added(ax)
         self.stale = True
         return ax
+
+    def _child_added(self, ax):
+        """Append *ax*, a child Axes just added, to the list of them the
+        program assigned (`child_axes`), as matplotlib's `add_child_axes`
+        appends it."""
+        assigned = _values.assigned(self, "child_axes", lambda: None)
+        if assigned is not None:
+            assigned.append(ax)
 
 
 class InsetsMixin:
@@ -222,6 +233,7 @@ class InsetsMixin:
                 None if name == "rectilinear" or program else name)
             inset_ax = _handles.wrap(native, projection_class, self._figure)
             inset_ax._child_of = self
+            self._child_added(inset_ax)
             inset_ax._init_projection()
         locator = _TransformedBoundsLocator(
             bounds, self.transAxes if transform is None else transform)

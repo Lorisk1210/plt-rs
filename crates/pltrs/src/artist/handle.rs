@@ -255,6 +255,17 @@ pub trait ArtistHandle {
         self
     }
 
+    /// Forgets the coordinate system set on the artist, which keeps the
+    /// default of what adds it (matplotlib's `_transformSet = False`, after
+    /// which `add_patch` gives the patch `transData`).
+    fn unset_transform(&self) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| b.transform = None);
+        self
+    }
+
     /// The coordinate system set on the artist, `None` while it keeps the
     /// default of the function that made it (matplotlib's `get_transform`
     /// and `is_transform_set`).

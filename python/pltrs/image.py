@@ -207,6 +207,11 @@ class _ImageBase(mcolorizer.ColorizingArtist):
 
     zorder = 0
 
+    #: matplotlib's cache of the resampled image, None until its non-uniform
+    #: images fill it and set to None by programs to have it made anew
+    #: (mpl_animators); pltrs (Rust) keeps no such cache.
+    _imcache = None
+
     #: The methods whose override by a class of the program's computes the
     #: pixels matplotlib's ``draw`` draws: an image of such a class is
     #: drawn through ``draw`` (``_python_drawing.attach``), from what its

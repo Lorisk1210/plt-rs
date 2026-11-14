@@ -197,7 +197,9 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         else:
             raise ValueError(f'unknown value for which: {which!r}')
 
-    @property
+    # matplotlib's container, which a program may replace (read back; pltrs
+    # (Rust) draws the spines it holds).
+    @_values.assignable
     def spines(self):
         """The `.Spines` of the Axes: its `.Spine` objects by side."""
         from .._native import spines as _spines

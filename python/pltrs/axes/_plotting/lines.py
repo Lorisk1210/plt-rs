@@ -877,7 +877,11 @@ class LinesMixin:
         lines = wrap(self, native, mcoll.LineCollection)
         if transform is not None:
             lines.set_transform(transform)
-        props = {"linestyle": linestyles, "label": label}
+        props = {"linestyle": linestyles}
+        if label is not None and str(label):
+            # (matplotlib's `add_collection` labels one without a label
+            # `_child<n>`, as pltrs (Rust) did.)
+            props["label"] = label
         if colors is not None:
             props["color"] = colors
         lines._internal_update(props)

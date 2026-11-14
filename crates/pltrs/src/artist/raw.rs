@@ -150,13 +150,20 @@ impl RawHandle {
     /// Mutates the artist as concrete type `T` and marks the figure stale
     /// (see [`RawHandle::mark_changed`]).
     pub(crate) fn with_mut<T: Artist, R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
+        let result = self.with_mut_unseen(f);
+        self.mark_changed(&mut self.figure.borrow_mut());
+        result
+    }
+
+    /// Mutates the artist as concrete type `T` without marking anything
+    /// stale: bookkeeping that changes nothing a draw shows (matplotlib's
+    /// tick lists growing as a program lists the ticks).
+    pub(crate) fn with_mut_unseen<T: Artist, R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
         let mut state = self.figure.borrow_mut();
         let artist = state
             .artist_as_mut::<T>(self.id)
             .unwrap_or_else(|| self.mismatched());
-        let result = f(artist);
-        self.mark_changed(&mut state);
-        result
+        f(artist)
     }
 
     /// Mutates the artist as concrete type `T` together with the other

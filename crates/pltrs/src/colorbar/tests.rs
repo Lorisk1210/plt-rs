@@ -90,6 +90,31 @@ fn extensions_shrink_the_axes() {
 }
 
 #[test]
+fn an_assigned_extend_makes_room_drawn_at_the_next_update() {
+    let (fig, _, image) = image_figure();
+    let colorbar = fig.colorbar(&image, ColorbarOptions::default()).unwrap();
+    let placed = colorbar.ax().position();
+    colorbar.set_extend(Extend::Both).unwrap();
+    fig.to_png().unwrap();
+    let (_, y, _, h) = colorbar.ax().position().bounds();
+    assert!(h < placed.height() && y > placed.y0(), "the axes shrink");
+    assert!(
+        colorbar.extend_patches().is_empty(),
+        "no extension drawn yet"
+    );
+    colorbar.update_normal(&image).unwrap();
+    assert_eq!(colorbar.extend_patches().len(), 2);
+    colorbar.set_extend(Extend::Neither).unwrap();
+    fig.to_png().unwrap();
+    let (_, y, _, h) = colorbar.ax().position().bounds();
+    assert_eq!(
+        (y, h),
+        (placed.y0(), placed.height()),
+        "the full length again"
+    );
+}
+
+#[test]
 fn boundary_norms_tick_their_boundaries() {
     let fig = Figure::new();
     let ax = fig.subplot();

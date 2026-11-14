@@ -28,7 +28,8 @@ from .axes import _sharing
 from .axes import _program_tick_params
 from .axes import _construction
 from .backend_bases import DrawEvent, FigureCanvasBase, MouseButton, NonGuiException
-from .gridspec import GridSpec, SubplotParams, SubplotSpec, _figure_subplotpars
+from .gridspec import (GridSpec, SubplotParams, SubplotSpec, _assign_figure_subplotpars,
+                       _figure_subplotpars)
 from ._program_classes import takes_from_program
 from ._figure_images import FigureImagesMixin
 from ._figure_layout import FigureBaseLayout, FigureLayout
@@ -214,6 +215,10 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         """The background of the (sub)figure: a `.Rectangle` mirroring the
         background pltrs (Rust) draws (see `._background_patch`)."""
         return _background_patch.figure_patch(self)
+
+    @patch.setter
+    def patch(self, patch):
+        _background_patch.set_figure_patch(self, patch)
 
     def _listed_axes(self):
         """The Axes of the figure or subfigure (`Figure.axes`,
@@ -929,6 +934,11 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             self._native, self.__dict__.get("_subplotpars"))
         return self._subplotpars
 
+    @subplotpars.setter
+    def subplotpars(self, params):
+        self._subplotpars = _assign_figure_subplotpars(
+            self._native, params, self.__dict__.get("_subplotpars"))
+
     def subplots_adjust(self, left=None, bottom=None, right=None, top=None,
                         wspace=None, hspace=None):
         """
@@ -1427,14 +1437,23 @@ class SubFigure(FigureBase):
 
     @property
     def subplotpars(self):
-        """The `.SubplotParams` of the subfigure: its parent's."""
-        return self._parent.subplotpars
+        """The `.SubplotParams` of the subfigure: its parent's, until one
+        is assigned."""
+        own = self.__dict__.get("_subplotpars")
+        if own is None:
+            return self._parent.subplotpars
+        return _figure_subplotpars(self._native, own)
 
-    @property
+    @subplotpars.setter
+    def subplotpars(self, params):
+        self._subplotpars = _assign_figure_subplotpars(
+            self._native, params, self.__dict__.get("_subplotpars"))
+
+    @_values.assignable
     def images(self):
-        """The figure images of the subfigure: none (`~.Figure.figimage`
-        places images on the root figure)."""
-        return []
+        """The figure images of the subfigure: a list of its own, empty
+        (`~.Figure.figimage` places images on the root figure)."""
+        return self.__dict__.setdefault("_images", [])
 
     def __init__(self, parent, subplotspec, *,
                  facecolor=None,

@@ -15,7 +15,8 @@ read and write, which pltrs keeps elsewhere.
   setter, so that the next draw, getter and pickle see it.
 """
 
-from ._native import artist as _artist
+from . import _values
+from ._native import artist as _artist, transforms as _transforms
 
 # matplotlib's plain fields, written by spec/diff/private_fields.py from matplotlib 3.11.2:
 #: class -> {field: (getter, setter or None)}
@@ -92,7 +93,7 @@ FIELDS = {'artist.Artist': {'_agg_filter': ('get_agg_filter', None),
  'collections.PathCollection': {'_paths': ('get_paths', None)},
  'collections.RegularPolyCollection': {'_numsides': ('get_numsides', None),
                                        '_rotation': ('get_rotation', None)},
- 'collections._CollectionWithSizes': {'_sizes': ('get_sizes', None)},
+ 'collections._CollectionWithSizes': {'_sizes': ('get_sizes', 'set_sizes')},
  'collections._MeshData': {'_coordinates': ('get_coordinates', None)},
  'colors.BivarColormap': {'_rgba_bad': ('get_bad', None),
                           '_rgba_outside': ('get_outside', None)},
@@ -313,24 +314,6 @@ def plain_field(obj, name):
     raise AttributeError(name)
 
 
-class _AssignedField:
-    """A plain field libraries assign: read through the class' getter,
-    assigned through its setter (pltrs's own, whatever a subclass
-    overrides)."""
-
-    __slots__ = ("getter", "setter")
-
-    def __init__(self, getter, setter):
-        self.getter = getter
-        self.setter = setter
-
-    def __get__(self, obj, owner=None):
-        return self if obj is None else self.getter(obj)
-
-    def __set__(self, obj, value):
-        self.setter(obj, value)
-
-
 class PrivateAttributesMixin:
     """matplotlib's private attributes of an artist, where nothing set
     them."""
@@ -372,6 +355,21 @@ class PrivateAttributesMixin:
         _artist.set_stale(self._native, bool(value))
 
     @property
+    def _transformSet(self):
+        # matplotlib's flag behind `is_transform_set`, which a program
+        # clears so that the Axes adding the artist gives it ``transData``
+        # (pyregion).
+        return self.is_transform_set()
+
+    @_transformSet.setter
+    def _transformSet(self, value):
+        if not value:
+            self.__dict__.pop("_given_transform", None)
+            _transforms.unset_transform(self._native)
+        elif not self.is_transform_set():
+            self.set_transform(self.get_transform())
+
+    @property
     def _parent_figure(self):
         # matplotlib's (sub)figure behind `figure`, which programs set as
         # `set_figure` sets it (marsilea).
@@ -397,7 +395,7 @@ class PrivateAttributesMixin:
         super().__init_subclass__(**kwargs)
         for name, (getter, setter) in (fields_of(cls) or {}).items():
             if setter is not None and not hasattr(cls, name):
-                setattr(cls, name, _AssignedField(getattr(cls, getter), getattr(cls, setter)))
+                setattr(cls, name, _values.assignable(getattr(cls, getter), getattr(cls, setter)))
 
     def __dir__(self):
         # The plain fields the class answers (`__getattr__`), which

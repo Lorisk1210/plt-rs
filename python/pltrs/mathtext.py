@@ -83,11 +83,13 @@ class MathTextParser:
         prop = prop.copy() if prop is not None else None
         if antialiased is None:
             antialiased = _rc('text.antialiased')
-        hinting = _rc('text.hinting') if self._output_type == "raster" else None
-        return self._parse_cached(s, dpi, prop, antialiased, hinting)
+        # The hinting raster output's glyphs take, as a key of the cache
+        # (matplotlib's ``load_glyph_flags``).
+        load_glyph_flags = _rc('text.hinting') if self._output_type == "raster" else None
+        return self._parse_cached(s, dpi, prop, antialiased, load_glyph_flags)
 
     @functools.lru_cache(50)
-    def _parse_cached(self, s, dpi, prop, antialiased, hinting):
+    def _parse_cached(self, s, dpi, prop, antialiased, load_glyph_flags):
         if prop is None:
             prop = FontProperties()
         _api.getitem_checked(

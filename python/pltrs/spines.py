@@ -460,6 +460,12 @@ class Spine(Patch):
         side = self.__dict__.get("_spine_type")
         return _spines.side(self._native) if side is None else side
 
+    @spine_type.setter
+    def spine_type(self, spine_type):
+        # matplotlib's field, which its later placements read (the side
+        # pltrs (Rust) draws stays, as matplotlib's next draw keeps it).
+        self.__dict__["_spine_type"] = spine_type
+
     def _adjust_location(self):
         """
         Have the spine's path (``_path``: two points in data coordinates
@@ -651,6 +657,12 @@ class Spine(Patch):
         name = {"left": "y", "right": "y", "bottom": "x", "top": "x",
                 "polar": "y"}.get(self.spine_type)
         return None if name is None else getattr(self.axes, f"{name}axis")
+
+    @axis.setter
+    def axis(self, axis):
+        # Registered as matplotlib's `register_axis` assigns it (pltrs's
+        # own, whatever a subclass overrides).
+        Spine.register_axis(self, axis)
 
     def register_axis(self, axis):
         """

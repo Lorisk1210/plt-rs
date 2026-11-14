@@ -583,6 +583,15 @@ class Axis(maxis.XAxis):
         """
         self.set_ticks_position('bottom')
 
+    @property
+    def _tick_position(self):
+        # matplotlib's field behind the ticks position.
+        return self.get_ticks_position()
+
+    @_tick_position.setter
+    def _tick_position(self, position):
+        self.set_ticks_position(position)
+
     def get_ticks_position(self):
         """
         Get the ticks position.

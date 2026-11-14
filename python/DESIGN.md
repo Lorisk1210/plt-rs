@@ -125,8 +125,12 @@ of `crates/pltrs-python/symbol-order.txt`: the code every program runs
 first, so that a process maps about 5 MiB of the library's code rather
 than 11 (see `build.rs`). `crates/pltrs-python/tools/symbol_order.py`
 writes the file from what the benchmark scripts run; a function it does
-not name (new code) is laid out after the others, so the file only needs
-writing again when much of the code has changed.
+not name (new code, or code whose name changed with the code around it)
+is laid out after the others, among code no program runs. One change of
+native code can cost a small figure half a MiB that way, eighty commits
+cost it 3 MiB: the file is written again before a release and an
+official benchmark (`RELEASING.md`), and `python/tests/test_startup_work.py`
+fails when the code a small program holds has grown by a quarter.
 
 ### `unsafe`
 
@@ -1061,12 +1065,19 @@ family:
   override left out; a class of the package whose own getter reads
   the field keeps none, as matplotlib's `NonUniformImage` its
   ``_filterrad``). Fields libraries assign whose setter exists, and which
-  pltrs's own code never assigns, get an `_AssignedField` on the class
-  (`__init_subclass__`): read through the getter, assigned through the
-  setter, so that the next draw, getter and pickle see it. A new field
-  joins by regenerating the table; one state pltrs (Rust) owns that no
-  plain getter returns gets a property of its own over the native getter
-  and setter, in the class or a mixin of private state.
+  pltrs's own code never assigns, get an assignable attribute on the
+  class (`__init_subclass__`): read through the getter, assigned through
+  the setter, so that the next draw, getter and pickle see it. A new
+  field joins by regenerating the table; one state pltrs (Rust) owns
+  that no plain getter returns gets a property of its own over the
+  native getter and setter, in the class or a mixin of private state.
+* **Assignable attributes** (public or private, an attribute a program
+  assigns and reads back) have one means, `_values.assignable`:
+  ``assignable(getter, setter)`` where the assignment has an effect
+  matplotlib's later code sees (a draw, a measure, a pickle), and
+  ``@assignable`` on a getter alone (store and read back, `_values.take`
+  for the method that reads it once) where matplotlib's code never reads
+  it again, or only while the object is made.
 * **Private helpers** matplotlib's code runs over public state (``_get_lines(ax,
   x, y)``, ``_set_gc_clip``, ``_set_artist_props``) are ported as they are,
   in a lazily imported reference module when they are long; forwards

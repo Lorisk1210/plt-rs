@@ -10,6 +10,7 @@ use pltrs::figure::Figure;
 
 use super::AnyPatch;
 use crate::binding::prelude::*;
+use crate::modules::path::PyPath;
 
 /// What a background belongs to: an axes (a 3-D axes' is that of its
 /// projection plane), or a figure or subfigure.
@@ -28,10 +29,12 @@ impl FromPy<'_> for Owner {
 }
 
 /// Gives the loose `patch` the style, opacity, visibility, z-order and
-/// group id of the background of `owner`.
+/// group id of the background of `owner`, leaving it as stale as it was
+/// (it changes to show what is drawn).
 fn pull_background(owner: Owner, patch: AnyPatch) -> PyResult<()> {
     let patch = patch.into_style();
     let raw = patch.raw_handle();
+    let stale = raw.is_stale();
     let (style, alpha, visible, gid) = match &owner {
         Owner::Axes(axes) => {
             raw.set_zorder(axes.patch_zorder());
@@ -57,6 +60,7 @@ fn pull_background(owner: Owner, patch: AnyPatch) -> PyResult<()> {
         Some(gid) => raw.set_gid(gid),
         None => raw.clear_gid(),
     };
+    raw.set_stale(stale);
     Ok(())
 }
 
@@ -84,10 +88,19 @@ fn push_background(owner: Owner, patch: AnyPatch) -> PyResult<()> {
     Ok(())
 }
 
+/// Makes `outline`, a path in fractions of `figure` (a figure or
+/// subfigure), the shape of its background (the patch a program gave,
+/// `fig.patch = patch`), or its box again with `None`.
+fn set_figure_patch_outline(figure: Figure, outline: Option<PyPath>) -> PyResult<()> {
+    figure.set_patch_outline(outline.map(|outline| outline.path));
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("pull_background", pull_background)?;
-    module.add("push_background", push_background)
+    module.add("push_background", push_background)?;
+    module.add("set_figure_patch_outline", set_figure_patch_outline)
 }
 
 #[cfg(test)]

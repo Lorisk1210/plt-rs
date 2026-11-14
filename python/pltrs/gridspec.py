@@ -1036,6 +1036,22 @@ def _figure_subplotpars(figure_native, params=None):
     return params
 
 
+def _assign_figure_subplotpars(figure_native, params, previous):
+    """
+    *params* made the `SubplotParams` of the (sub)figure *figure_native*
+    in place of *previous* (``fig.subplotpars = params``), as matplotlib's
+    figure keeps the object: the subplots added after and the next
+    `~.Figure.subplots_adjust` take its parameters, those placed so far
+    stay where they are, and *previous* is the figure's no more.
+    """
+    from ._native import figure as _figure
+    _figure.set_subplot_params(figure_native, _gridspec_kept.held(
+        tuple(getattr(params, key) for key in _KEYS)))
+    if previous is not None and previous is not params:
+        _FIGURE_OF_PARAMS.pop(previous, None)
+    return _figure_subplotpars(figure_native, params)
+
+
 # What matplotlib's module also has from its imports, which programs
 # import from it.
 import copy  # noqa: E402, F401

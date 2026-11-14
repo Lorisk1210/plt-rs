@@ -316,6 +316,13 @@ fn set_transform(artist: RawHandle, transform: Option<Transform>) -> PyResult<()
     Ok(())
 }
 
+/// Forgets the transform set on `artist` (matplotlib's `_transformSet =
+/// False`): what adds the artist gives it its own.
+fn unset_transform(artist: RawHandle) -> PyResult<()> {
+    artist.unset_transform();
+    Ok(())
+}
+
 /// The data transform of the axes (`ax.transData`).
 fn trans_data(axes: Axes) -> PyResult<Transform> {
     Ok(axes.trans_data())
@@ -353,6 +360,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("inverted", inverted)?;
     module.add("get_transform", get_transform)?;
     module.add("set_transform", set_transform)?;
+    module.add("unset_transform", unset_transform)?;
     module.add("trans_data", trans_data)?;
     module.add("trans_axes", trans_axes)?;
     module.add("trans_xaxis", trans_xaxis)?;

@@ -229,6 +229,12 @@ substring of 'BRTL'
         cell._native = _table.cell_rectangle(cell._ref())
         # Where matplotlib's tables make their cells (`add_cell`).
         cell._given_xy = ((0, 0), 0)
+        # The alignment `table` made the cell with: the row labels', the
+        # column labels', else the body's.
+        body, columns, rows = table.__dict__.get("_cell_locs", ('right', None, None))
+        row, col = key
+        cell._loc = (rows if col == -1 and rows is not None
+                     else columns if row == 0 and columns is not None else body)
         return _mirrors.attach(cell, _CellLook())
 
     def _ref(self):
@@ -1220,6 +1226,8 @@ def table(ax,
          None if fontsize is None else float(fontsize)))
     table = _handles.wrap(native, Table, ax.figure)
     table._loc = Table.codes[_loc_name(loc)]
+    table._cell_locs = (cellLoc, None if colLabels is None else colLoc,
+                        None if rowLabels is None else rowLoc)
     table._keep_bbox(bbox)
     # matplotlib's ``table`` adds the table with ``add_table``.
     _artist_clipping.take_parent_defaults(table, ax)

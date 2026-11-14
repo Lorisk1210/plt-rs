@@ -12,7 +12,7 @@ use pltrs::collections::{
 use pltrs::colors::{Color, Colormap, Norm};
 use pltrs::orientation::Orientation;
 use pltrs::transforms::Transform;
-use pltrs_core::Point;
+use pltrs_core::{Affine2D, Point};
 use pltrs_render::{CapStyle, JoinStyle};
 
 use super::cm::NativeColormap;
@@ -352,6 +352,29 @@ fn get_transforms(collection: Collection, dpi: f64) -> PyResult<NdArray> {
     NdArray::with_shape(data, vec![transforms.len(), 3, 3])
 }
 
+/// Replaces the shape transform of each item with those of an `(n, 3, 3)`
+/// array (matplotlib's `_transforms` assigned).
+fn set_transforms(collection: Collection, matrices: NdArray) -> PyResult<()> {
+    let transforms = match matrices.shape[..] {
+        [_, 3, 3] => matrices
+            .data
+            .as_chunks::<9>()
+            .0
+            .iter()
+            .map(|m| Affine2D::from_values(m[0], m[3], m[1], m[4], m[2], m[5]))
+            .collect(),
+        [0] => Vec::new(),
+        _ => {
+            return Err(PyErr::value_error(format!(
+                "transforms are an (n, 3, 3) array, not of shape {:?}",
+                matrices.shape
+            )));
+        }
+    };
+    collection.set_item_transforms(transforms);
+    Ok(())
+}
+
 /// Sets the colours drawn in the gaps of dashed edges (an `(N, 4)` RGBA
 /// array), or leaves the gaps empty with `None`.
 fn set_gapcolors(collection: Collection, colors: Option<NdArray>) -> PyResult<()> {
@@ -615,6 +638,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_offsets", get_offsets)?;
     module.add("set_offsets", set_offsets)?;
     module.add("get_transforms", get_transforms)?;
+    module.add("set_transforms", set_transforms)?;
     module.add("set_gapcolors", set_gapcolors)?;
     module.add("get_gapcolors", get_gapcolors)?;
     module.add("get_paths", get_paths)?;

@@ -448,6 +448,24 @@ fn subplots_adjust(
     Ok(())
 }
 
+/// Changes the subplot parameters of `figure` (a figure or subfigure)
+/// alone, the axes placed so far staying where they are (matplotlib's
+/// `fig.subplotpars = params`).
+fn set_subplot_params(
+    figure: Figure,
+    (left, bottom, right, top, wspace, hspace): Overrides,
+) -> PyResult<()> {
+    figure.set_subplot_params(SubplotOverrides {
+        left,
+        bottom,
+        right,
+        top,
+        wspace,
+        hspace,
+    })?;
+    Ok(())
+}
+
 /// A grid of subfigures filling `figure`, row by row (`subfigures`):
 /// `spacing` is `(wspace, hspace)`.
 fn subfigures(
@@ -495,6 +513,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("add_subplot_spec_projection", add_subplot_spec_projection)?;
     module.add("add_axes_projection", add_axes_projection)?;
     module.add("subplots_adjust", subplots_adjust)?;
+    module.add("set_subplot_params", set_subplot_params)?;
     module.add("draw_without_rendering", draw_without_rendering)?;
     module.add("clear", clear)?;
     module.add("subfigures", subfigures)?;

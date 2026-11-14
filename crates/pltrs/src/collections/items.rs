@@ -72,6 +72,22 @@ mod tests {
     }
 
     #[test]
+    fn assigned_transforms_draw_items_without_sizes() {
+        let ax = Figure::new().subplot();
+        let paths = ax.add_collection(CollectionSpec::paths(vec![Path::unit_circle()]));
+        let shear = Affine2D::from_values(1.0, 0.5, 0.0, 2.0, 0.0, 0.0);
+        paths.set_item_transforms(vec![shear, Affine2D::scaling(3.0, 3.0)]);
+        assert_eq!(
+            paths.item_transforms(72.0),
+            [shear, Affine2D::scaling(3.0, 3.0)]
+        );
+        let dots = ax.scatter(vec![1.0], vec![2.0]).unwrap();
+        dots.set_sizes(vec![4.0]);
+        dots.set_item_transforms(vec![shear]);
+        assert_eq!(dots.item_transforms(72.0), [Affine2D::scaling(2.0, 2.0)]);
+    }
+
+    #[test]
     fn collections_without_sizes_keep_their_own_transforms() {
         let ax = Figure::new().subplot();
         let paths = ax.add_collection(CollectionSpec::paths(vec![Path::unit_rectangle()]));

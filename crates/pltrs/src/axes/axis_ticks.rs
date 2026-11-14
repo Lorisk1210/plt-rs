@@ -218,7 +218,12 @@ impl Axis {
     /// assert_eq!(ax.xaxis().tick_label_props(false, 2), hidden);
     /// ```
     pub fn make_ticks(&self, minor: bool, count: usize) -> &Self {
-        self.update(|axis| axis.overrides_mut(minor).make_ticks(count));
+        // Listed, not changed: the figure stays as fresh as it was.
+        self.axes.raw().with_mut_unseen::<AxesState, _>(|axes| {
+            axes.axis_mut(self.name)
+                .overrides_mut(minor)
+                .make_ticks(count);
+        });
         self
     }
 
@@ -574,6 +579,18 @@ mod tests {
     use super::*;
     use crate::axes::{TickDirection, TickLevel, TickParams};
     use crate::figure::Figure;
+
+    #[test]
+    fn listing_ticks_leaves_a_drawn_figure_fresh() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        fig.canvas().draw().expect("drawn");
+        assert!(!fig.is_stale());
+        let drawn = ax.xaxis().ticks_made(false);
+        ax.xaxis().make_ticks(false, drawn + 2);
+        assert_eq!(ax.xaxis().ticks_made(false), drawn + 2);
+        assert!(!fig.is_stale(), "listing ticks changes nothing drawn");
+    }
 
     #[test]
     fn tick_positions_read_back_as_set() {

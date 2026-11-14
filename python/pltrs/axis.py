@@ -1989,8 +1989,14 @@ class Axis(DrawnWith, Artist):
             # Since a reset, only the grid and the sides set again.
             switches = {key: value for key, value in switches.items()
                         if key == "gridOn" or key in self._tick_kw[minor]}
-        # In matplotlib's order, the sides first; pltrs (Rust)'s sides win.
-        return {**switches, **self._tick_kw[minor], **switches}
+        given = self._tick_kw[minor]
+        # In matplotlib's order (its reset sets the grid first, then the
+        # sides, then the parameters set), each as given while pltrs (Rust)
+        # holds its truth ("on", 1), as matplotlib keeps them; pltrs
+        # (Rust)'s sides win.
+        switches = {key: given[key] if key in given and _values._same_truth(given[key], switches[key])
+                    else switches[key] for key in ("gridOn", *keys[:4]) if key in switches}
+        return {**switches, **given, **switches}
 
     @classmethod
     def _translate_tick_params(cls, kw, reverse=False):
@@ -2811,6 +2817,20 @@ class XAxis(_AxisOfAxes):
     #: longer read (the side of the ticks places the text).
     offset_text_position = 'bottom'
 
+    @property
+    def _tick_position(self):
+        # matplotlib's field: the side ('bottom' or 'top') the offset text
+        # follows the ticks to, which programs set (proplot, ultraplot); as
+        # assigned while it names the side it is drawn on.
+        return _values.given(self, "_tick_position", _axis.get_offset_position(*self._args()),
+                             same=lambda given, side: _offset_side(given) == side)
+
+    @_tick_position.setter
+    def _tick_position(self, position):
+        _axis.set_offset_position(*self._args(), _offset_side(position))
+        _values.remember(self, "_tick_position", position)
+        self.stale = True
+
     def __init__(self, *args, **kwargs):
         # matplotlib's signature, whose ``_init`` the native axis did.
         super().__init__(*args, **kwargs)
@@ -2878,6 +2898,12 @@ class XAxis(_AxisOfAxes):
 
 
 @_serving_held
+def _offset_side(tick_position):
+    """The side matplotlib's x axis puts its offset text on for its field
+    ``_tick_position``: the bottom for ``'bottom'``, else the top."""
+    return 'bottom' if cbook._str_equal(tick_position, 'bottom') else 'top'
+
+
 class YAxis(_AxisOfAxes):
     __name__ = 'yaxis'
     axis_name = 'y'  #: Read-only name identifying the axis.

@@ -224,7 +224,10 @@ impl Axes3DState {
     /// Artists the draw fails on (see [`Axes3D::set_draw_failure`]) are
     /// not projected, nor are the lines and texts of a draw that ends
     /// projecting the collections and patches, nor anything when the
-    /// projection itself fails.
+    /// projection itself fails. A measure projects none: matplotlib
+    /// projects an artist only as it draws it, so its 2-D artist keeps the
+    /// projection of the last draw, or the 2-D data it was made with, and
+    /// what a program set on it since (offsets).
     ///
     /// [`Axes3D::set_draw_failure`]: super::Axes3D::set_draw_failure
     pub(crate) fn prepare(
@@ -247,12 +250,16 @@ impl Axes3DState {
             let span = self.limits.span(dir);
             self.axes[dir.index()].update_ticks(&span, width_points, automargin);
         }
+        let Some(painting) = painting else {
+            self.depth_order.clear();
+            return;
+        };
         let projection = self.projection();
         let hiding = projection
             .clone()
             .hiding_outside(Axis3::ALL.map(|axis| self.limits.bound(axis)));
         let mut depths: Vec<(ArtistId, SortKind, f64)> = Vec::new();
-        let stops = painting.is_some() && self.stops_projecting(store);
+        let stops = self.stops_projecting(store);
         for Artist3D {
             id,
             art,
@@ -262,7 +269,7 @@ impl Axes3DState {
         {
             let animated = store.get(*id).is_some_and(|a| a.base().animated);
             if art.projected_when_drawn()
-                && ((animated && !saving) || painting == Some(Painting::Stopped) || stops)
+                && ((animated && !saving) || painting == Painting::Stopped || stops)
             {
                 continue;
             }
@@ -279,7 +286,7 @@ impl Axes3DState {
                 depths.push((*id, kind, depth));
             }
         }
-        if self.computed_zorder && painting.is_some() {
+        if self.computed_zorder {
             self.depth_order = depths;
             self.order_by_depth(store);
         } else {

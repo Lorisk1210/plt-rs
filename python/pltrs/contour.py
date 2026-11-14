@@ -379,7 +379,7 @@ class ContourLabeler:
             raise IndexError("pop index out of range")
         _contour.pop_label(self._contour, index % count)
 
-    @property
+    @_values.assignable
     def labelTexts(self):
         """The label `.Text` instances."""
         from .text import Text
@@ -400,7 +400,7 @@ class ContourLabeler:
             _remember_position(text, tuple(map(np.float64, text.get_position())))
             _values.remember(text, "color", tuple(map(np.float64, text.get_color())))
 
-    @property
+    @_values.assignable
     def labelXYs(self):
         """The display positions of the labels: numpy floats, as
         matplotlib's placement computes them, or as given to `add_label`."""
@@ -413,25 +413,26 @@ class ContourLabeler:
         """The ids of the label texts, in order."""
         return [_artist.id(text) for text in _contour.label_texts(self._contour)]
 
-    @property
+    @_values.assignable
     def labelCValues(self):
         """The colour values (`cvalues`) of the levels of the labels, or as
         given to `add_label`."""
-        index = {level: i for i, level in enumerate(self.levels)}
+        # Those the labels were made with, whatever was assigned since.
+        index = {level: i for i, level in enumerate(_contour.get_levels(self._contour))}
         # Numpy scalars, as matplotlib takes them (``np.take``).
-        cvalues = np.asarray(self.cvalues)
+        cvalues = np.asarray(self._held_cvalues())
         adopted = self.__dict__.get("_adopted_labels", {})
         return [adopted[key][1] if key in adopted else cvalues[index[level]]
                 for key, level in zip(self._label_ids(),
                                       _contour.label_text_levels(self._contour))]
 
-    @property
+    @_values.assignable
     def labelLevelList(self):
         """The levels the last `clabel` labelled: the set's levels when it
         labelled them all, else a list of those it labelled, as matplotlib
         keeps them."""
         if self.__dict__.get("_labelled_all_levels"):
-            return self.levels
+            return _contour.get_levels(self._contour)
         return [np.float64(level) for level in _contour.label_levels(self._contour)]
 
     def print_label(self, linecontour, labelwidth):
@@ -1009,7 +1010,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
                 colorizer.norm = mcolors.NoNorm()
         super()._attach_native_mapping(cmap, norm, colorizer)
 
-    @property
+    @_values.assignable
     def levels(self):
         """The contour levels."""
         return _contour.get_levels(self._contour)
@@ -1034,15 +1035,22 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         """The values the levels or bands are coloured by."""
         return _contour.get_layers(self._contour)
 
-    @property
+    # matplotlib reads the levels, the colour values, whether the set is
+    # filled and its extensions again only in its later methods (labels,
+    # `changed`, a colorbar made after): one assigned is read back there.
+    @_values.assignable
     def cvalues(self):
         """The values the levels or bands are mapped to colours by: the
         layers, or indices into explicitly given colours (a list of
         integers, as matplotlib's ``_process_colors`` makes them)."""
+        return self._held_cvalues()
+
+    def _held_cvalues(self):
+        """The colour values pltrs (Rust) holds (`cvalues`)."""
         values, indexed = _contour.get_cvalues(self._contour)
         return [int(value) for value in values] if indexed else values
 
-    @property
+    @_values.assignable
     def filled(self):
         """Whether the contours are filled."""
         return _contour.get_state(self._contour)[0]
@@ -1057,7 +1065,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         """The largest value of the data."""
         return np.float64(_contour.get_state(self._contour)[2])
 
-    @property
+    @_values.assignable
     def extend(self):
         """Which ends the colors extend: 'neither', 'both', 'min' or 'max'
         (as given; any other value extends neither end)."""

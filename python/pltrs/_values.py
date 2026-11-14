@@ -21,11 +21,12 @@ matplotlib answers:
   holds and matplotlib's code reads again only later, or never: a
   `Wedge`'s fields, read by its next setter (`take`), a `StepPatch`'s
   orientation, read by ``set_data``, a contour set's extremes, read only
-  while it is made. One matplotlib's draws read goes to pltrs (Rust) by
-  the property's setter instead (`RegularPolygon.xy`). (PRIV1's
-  ``_artist_private._AssignedField`` gives private plain fields their
-  public setter; these attributes have none that does what assigning
-  them does.)
+  while it is made. An attribute whose assignment has an effect
+  matplotlib's later code sees (its draws, its measures) takes a setter:
+  ``assignable(getter, setter)`` assigns through it, as the private
+  plain fields of `_artist_private` do with their public setters
+  (``Collection._facecolors``) and one matplotlib's draws read does by
+  the property's own setter (`RegularPolygon.xy`).
 """
 
 import numpy as np
@@ -225,10 +226,15 @@ def take(obj, *names):
     return {name: found.pop(name) for name in names if name in found}
 
 
-def assignable(getter):
-    """Property decorator: *getter*'s attribute (named as it is) reads back
-    what was assigned to it, which only matplotlib's later reads of the
-    attribute see, else what *getter* gives."""
+def assignable(getter, setter=None):
+    """An attribute a program assigns: read through *getter*, assigned
+    through *setter* (its effect where matplotlib reads the attribute
+    later), or, without one, as a property decorator, *getter*'s attribute
+    (named as it is) reads back what was assigned to it, which only
+    matplotlib's later reads of the attribute see, else what *getter*
+    gives."""
+    if setter is not None:
+        return property(getter, setter, doc=getter.__doc__)
     name = getter.__name__
 
     def get(obj):

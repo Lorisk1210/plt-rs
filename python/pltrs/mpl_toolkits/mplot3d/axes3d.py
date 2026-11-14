@@ -1529,6 +1529,20 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
     get_adjustable.__doc__ = Axes.get_adjustable.__doc__
 
+    @property
+    def _frameon(self):
+        # matplotlib's draw turns it off (it draws the panes in place of a
+        # frame), until it is set again.
+        set_at = self.__dict__.get("_frameon_set_at", 0)
+        if _artist.draw_count(self._native) > set_at:
+            return False
+        return Axes._frameon.fget(self)
+
+    @_frameon.setter
+    def _frameon(self, b):
+        Axes._frameon.fset(self, b)
+        self._frameon_set_at = _artist.draw_count(self._native)
+
     def get_proj(self):
         """Create the projection matrix from the current viewing position."""
         problem = _draw_problems.view_problem(

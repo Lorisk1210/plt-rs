@@ -241,6 +241,20 @@ impl Colorbar {
         self.read(|state| state.extend)
     }
 
+    /// Makes room for the extensions `extend` names, from the next layout
+    /// on, which are drawn once the colorbar follows its mappable again
+    /// (matplotlib's `cbar.extend = ...`, which its Axes' locator reads at
+    /// every draw and `update_normal` draws).
+    ///
+    /// # Errors
+    ///
+    /// When the lengths of the extensions cannot be computed (a norm of the
+    /// program's failing).
+    pub fn set_extend(&self, extend: Extend) -> Result<&Self, ColorbarError> {
+        self.edit(|state| state.assign_extend(&self.ax, extend))?;
+        Ok(self)
+    }
+
     /// The axis along the colorbar, which carries its ticks and label.
     pub fn long_axis(&self) -> Axis {
         self.ax.axis_of(long_axis(self.orientation()))

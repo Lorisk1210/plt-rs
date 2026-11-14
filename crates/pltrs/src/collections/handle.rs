@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use pltrs_core::{Path, Point, Rgba};
+use pltrs_core::{Affine2D, Path, Point, Rgba};
 use pltrs_render::{CapStyle, JoinStyle};
 
 use super::{
@@ -253,6 +253,14 @@ impl Collection {
     /// Sets the marker areas in points² (cycled).
     pub fn set_sizes(&self, sizes: Vec<f64>) -> &Self {
         self.update(|c| c.sizes = Some(sizes))
+    }
+
+    /// Replaces the shape transform of each item (matplotlib's
+    /// `_transforms` assigned): the transforms a collection without sizes
+    /// draws its items with. A collection with sizes still scales its
+    /// items to them, as matplotlib's draw sets them from the sizes again.
+    pub fn set_item_transforms(&self, transforms: Vec<Affine2D>) -> &Self {
+        self.update(|c| c.transforms = transforms)
     }
 
     /// The marker areas in points² (cycled), if set (matplotlib's

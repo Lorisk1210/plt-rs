@@ -10,15 +10,16 @@ impl AxisState {
     /// keeps the part `self` plays in its projection, its tick parameters
     /// but whether gridlines are on (which restarts from the rc, as
     /// matplotlib's `Axis.clear` resets `gridOn`), its tick label size,
-    /// its picking, visibility and place in layouts, and how it autoscales.
+    /// its picking, visibility and place in layouts, the side of its
+    /// offset text (see [`keep_through_clear`](Self::keep_through_clear))
+    /// and how it autoscales.
     /// Its axes no longer follows its changes of units (matplotlib's
     /// `Axis.clear` disconnects the axes' handler with its callbacks).
     pub(super) fn cleared(&self, rc: &RcParams) -> Self {
         let mut fresh = Self::new(self.name, rc);
         fresh.follows_units = false;
         fresh.role = self.role;
-        fresh.keep_tick_styles(self);
-        fresh.keep_drawing(self);
+        fresh.keep_through_clear(self);
         fresh.autoscale = self.autoscale;
         fresh.autolimit_mode = self.autolimit_mode;
         fresh.ticker_owner = self.ticker_owner;
@@ -26,11 +27,22 @@ impl AxisState {
         fresh
     }
 
+    /// Takes what matplotlib's `Axis.clear` leaves the axis of `old`, its
+    /// own or its axes': its tick parameters (`keep_tick_styles`), how it
+    /// is drawn (`keep_drawing`) and the side of its offset text
+    /// (matplotlib's `XAxis._tick_position` and
+    /// `YAxis.offset_text_position`, which no clear resets).
+    pub(super) fn keep_through_clear(&mut self, old: &Self) {
+        self.keep_tick_styles(old);
+        self.keep_drawing(old);
+        self.offset_side = old.offset_side;
+    }
+
     /// Takes whether `old` is shown, laid out and animated, and its image
     /// filter, which matplotlib's clears leave the axis artist (they are
     /// no settings of its ticks): an axis hidden before its axes is
     /// cleared stays hidden.
-    pub(super) fn keep_drawing(&mut self, old: &Self) {
+    fn keep_drawing(&mut self, old: &Self) {
         self.visible = old.visible;
         self.in_layout = old.in_layout;
         self.animated = old.animated;

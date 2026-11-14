@@ -1597,7 +1597,23 @@ class Wedge(Patch):
     def get_path(self):
         # docstring inherited
         _unusable.check(self, measuring=True)
-        return self._native_path()
+        assigned = self.__dict__.get("_assigned_path")
+        return self._native_path() if assigned is None else assigned
+
+    @property
+    def _path(self):
+        # matplotlib's field, which its `_recompute_path` makes (a class of
+        # the program's recomputing it assigns its own: dna_features_viewer's
+        # ``ArrowWedge``) and `get_path` returns.
+        return self.get_path()
+
+    @_path.setter
+    def _path(self, path):
+        self.__dict__["_assigned_path"] = path
+
+    def _recompute_path(self):
+        """Make the path anew from the wedge's fields (matplotlib's)."""
+        self.__dict__.pop("_assigned_path", None)
 
     def _fields(self):
         """``(x, y, r, theta1, theta2, width)``."""

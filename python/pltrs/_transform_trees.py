@@ -399,7 +399,10 @@ def _sync(figure_ref, leaves):
     owners = d["_tree_owners"]
     with setting_leaves():
         set_matrix(d["dpi_scale_trans"], Affine2D().scale(dpi).get_matrix())
-        set_extents(d["bbox_inches"], (0.0, 0.0, *size))
+        # (The figure's own box, while a print cut to a window gives the
+        # figure the window's, `_follow_print_window`.)
+        kept = d.get("_kept_for_window")
+        set_extents(d["bbox_inches"] if kept is None else kept[3], (0.0, 0.0, *size))
         for frame_id, relative in frames:
             sub = owners.get(frame_id)
             if sub is not None:
@@ -440,14 +443,15 @@ def _follow_print_window(fig):
     While pltrs (Rust) prints the root figure *fig* cut to a window (a
     tight box, a ``bbox_inches`` given), its trees as matplotlib's print
     sets them (``_tight_bbox.adjust_bbox``): ``transFigure`` moved by the
-    window's corner, and so every transform through it, and ``fig.bbox``
-    of the window's size; put back once the print is over.
+    window's corner, and so every transform through it, and
+    ``fig.bbox_inches`` and ``fig.bbox`` of the window's size; put back
+    once the print is over.
     """
     d = fig.__dict__
     window = _figure.print_window(fig._native)
     kept = d.get("_kept_for_window")
     if kept is not None and (window is None or kept[0] != window):
-        _, d["bbox"], boxout = d.pop("_kept_for_window")
+        _, d["bbox"], boxout, d["bbox_inches"] = d.pop("_kept_for_window")
         d["transFigure"]._boxout = boxout
         d["transFigure"].invalidate()
         kept = None
@@ -456,11 +460,12 @@ def _follow_print_window(fig):
     x0, y0, x1, y1 = window
     scale = d["dpi_scale_trans"].frozen()
     trans_figure = d["transFigure"]
-    d["_kept_for_window"] = (window, d["bbox"], trans_figure._boxout)
+    d["_kept_for_window"] = (window, d["bbox"], trans_figure._boxout, d["bbox_inches"])
     (left, bottom), size = scale.transform([(x0, y0), d["bbox_inches"].size])
+    d["bbox_inches"] = Bbox.from_bounds(0, 0, x1 - x0, y1 - y0)
     trans_figure._boxout = Bbox.from_bounds(-left, -bottom, *size)
     trans_figure.invalidate()
-    d["bbox"] = TransformedBbox(Bbox.from_bounds(0, 0, x1 - x0, y1 - y0), scale)
+    d["bbox"] = TransformedBbox(d["bbox_inches"], scale)
     d["bbox"]._spanning = trans_figure
 
 

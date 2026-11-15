@@ -13,7 +13,11 @@ from ... import _transform_trees
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import BarContainer
+from ... import _lazy_imports
+from ..._program_classes import takes_any_from_program
 from ._helpers import floats, record_container, wrap_all
+
+_composed_reference = _lazy_imports.module(globals(), "._composed_reference")
 
 
 def _rcParams():
@@ -329,6 +333,11 @@ such objects
         (``plt.stairs(*np.histogram(data))``), or by setting *histtype* to
         'step' or 'stepfilled' rather than 'bar' or 'barstacked'.
         """
+        if takes_any_from_program(type(self), ('bar', 'barh', 'fill')):
+            # matplotlib's makes what it plots through these.
+            return _composed_reference.hist(self, x, bins, range, density, weights, cumulative,
+                bottom, histtype, align, orientation, rwidth, log, color, label, stacked,
+                **kwargs)
         bin_range = range
         kwargs = cbook.normalize_kwargs(kwargs, mpatches.Patch)
         if np.isscalar(x):

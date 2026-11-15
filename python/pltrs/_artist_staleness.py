@@ -38,11 +38,11 @@ def _stale_figure_callback(self, val):
 def _default_callback(artist):
     """The callback matplotlib gives *artist* when it joins its Axes or
     figure: the Axes' for an artist given an Axes (a tick too), the
-    figure's for a subfigure or an artist added to a figure; none for a
-    root figure, an artist in no figure, a part of another artist that
-    only got its figure (a tick label, an axis label, a table cell, the
-    Axes' patch, the offset box of an annotation box) or a figure's
-    legend."""
+    figure's for a subfigure among its parent's or an artist added to a
+    figure; none for a root figure, a subfigure being made or made alone,
+    an artist in no figure, a part of another artist that only got its
+    figure (a tick label, an axis label, a table cell, the Axes' patch,
+    the offset box of an annotation box) or a figure's legend."""
     from . import _mirrors
     from .artist import Artist
     from .figure import Figure, FigureBase
@@ -50,7 +50,9 @@ def _default_callback(artist):
     if isinstance(artist, Figure):
         return None
     if isinstance(artist, FigureBase):
-        return _stale_figure_callback
+        parent = artist.__dict__.get("_parent")
+        listed = parent is not None and any(sub is artist for sub in parent.subfigs)
+        return _stale_figure_callback if listed else None
     axes = artist.axes
     if (isinstance(axes, Artist) and axes is not artist) or _given_no_axes(artist):
         return _stale_axes_callback

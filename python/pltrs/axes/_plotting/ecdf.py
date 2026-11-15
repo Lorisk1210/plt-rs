@@ -8,7 +8,11 @@ from ... import _docstring
 from ... import _api, cbook, lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
+from ... import _lazy_imports
+from ..._program_classes import takes_any_from_program
 from ._helpers import wrap
+
+_composed_reference = _lazy_imports.module(globals(), "._composed_reference")
 
 
 def _plain(x, weights):
@@ -133,6 +137,10 @@ class EcdfMixin:
         -inf or +inf (if they should be sorted at the beginning or the end of
         the array).
         """
+        if takes_any_from_program(type(self), ('plot',)):
+            # matplotlib's makes what it plots through it.
+            return _composed_reference.ecdf(self, x, weights, complementary=complementary,
+                orientation=orientation, compress=compress, **kwargs)
         _api.check_in_list(["horizontal", "vertical"], orientation=orientation)
         if "drawstyle" in kwargs or "ds" in kwargs:
             raise TypeError("Cannot pass 'drawstyle' or 'ds' to ecdf()")

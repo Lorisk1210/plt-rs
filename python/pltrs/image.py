@@ -1499,6 +1499,8 @@ class FigureImage(_ImageBase):
             colorizer=colorizer,
             origin=origin
         )
+        if self._program_setters:
+            _program_classes.replay_setters(self, [("set_figure", (fig,))])
         self._internal_update(kwargs)
         self._keep_figimage_settings(offsetx, offsety)
 

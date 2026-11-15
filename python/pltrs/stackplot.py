@@ -11,6 +11,11 @@ function is `.Axes.stackplot`, which pltrs (Rust) stacks.
 
 __all__ = ['stackplot']
 
+from . import _lazy_imports
+from ._program_classes import takes_any_from_program
+
+_stackplot_reference = _lazy_imports.module(globals(), "._stackplot_reference")
+
 
 def stackplot(axes, x, *args,
               labels=(), colors=None, baseline='zero',
@@ -79,6 +84,10 @@ def stackplot(axes, x, *args,
         A list of `.PolyCollection` instances, one for each element in the
         stacked area plot.
     """
+    if takes_any_from_program(type(axes), ("fill_between",)):
+        # matplotlib's draws each layer through it.
+        return _stackplot_reference.stackplot(axes, x, *args, labels=labels, colors=colors,
+                                              baseline=baseline, **kwargs)
     if not hasattr(axes, "_stackplot"):
         # matplotlib's function stacks the data, then asks *axes* for the
         # colours of the layers (else for its `fill_between`).

@@ -140,6 +140,16 @@ def takes_from_program(cls, name):
     return False
 
 
+@class_cache
+def takes_any_from_program(cls, names):
+    """Whether the class *cls* takes any of the attributes *names* (a
+    tuple) from the program: an Axes class overriding a plotting method
+    matplotlib's plotting method of another kind calls (``errorbar`` draws
+    its bars through ``vlines``), which pltrs then runs as matplotlib's code
+    (a hit runs no Python code, so plain Axes pay nothing)."""
+    return any(takes_from_program(cls, name) for name in names)
+
+
 class Held:
     """
     What pltrs (Rust) holds for an object of the program's handed to it

@@ -24,7 +24,7 @@ use crate::spines::SpineSide;
 use crate::ticker::{
     AutolimitMode, AxisName, Formatter, Locator, TickSpace, TickerError, TickerSettings,
 };
-use crate::transforms::{AxisMap, program_calls};
+use crate::transforms::{AxisMap, Transform, program_calls};
 use crate::units::{AxisUnits, Categories, UnitAxisInfo, UnitData, UnitState};
 
 /// Autoscaling configuration and state of one axis.
@@ -356,6 +356,12 @@ pub(crate) struct AxisState {
     /// matplotlib's draws and measures call: the program's tick updater
     /// ticks the axis then.
     pub(crate) program_update: bool,
+    /// The transforms the ticks on the low and the high side keep from the
+    /// spine they were made on, which the program replaced since
+    /// (`ax.spines['bottom'] = spine`): matplotlib's ticks keep the
+    /// transform their spine gave them until they are made anew
+    /// (`reset_ticks`); `None` follows the spine of the side.
+    pub(crate) kept_tick_sides: [Option<Transform>; 2],
 }
 
 pltrs_core::archive_struct!(AxisState {
@@ -398,7 +404,7 @@ pltrs_core::archive_struct!(AxisState {
     scaled_view,
     program_view,
     program_update
-} skip { program_ticked });
+} skip { program_ticked, kept_tick_sides });
 
 impl AxisState {
     /// A linear axis configured from `rc`.
@@ -479,6 +485,7 @@ impl AxisState {
             program_ticked: None,
             program_view: false,
             program_update: false,
+            kept_tick_sides: [None, None],
         }
     }
 

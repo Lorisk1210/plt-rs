@@ -507,8 +507,13 @@ impl<'a> AxisPainter<'a> {
 
     /// The coordinate system of the ticks and labels on the low (bottom,
     /// left) or high side: that side's spine transform, so ticks follow a
-    /// moved spine (matplotlib's `get_xaxis_transform('tick1')`).
+    /// moved spine (matplotlib's `get_xaxis_transform('tick1')`), or the one
+    /// of the spine they were made on, which the program replaced since.
     pub(super) fn side_transform(&self, layout: LayoutContext<'_>, high: bool) -> Transform {
+        if let Some(kept) = &self.axis.kept_tick_sides[usize::from(high)] {
+            // The spine the ticks were made on, replaced since.
+            return kept.clone();
+        }
         self.spine(layout, SpineSide::of(self.name, high))
             .map_or_else(
                 || self.grid_transform(),

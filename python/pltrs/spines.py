@@ -15,7 +15,7 @@ import numpy as np
 from . import _docstring
 from . import _api, _handles, _python_drawing, _unusable, _values, rcParams
 from .colors import to_rgba
-from ._native import artist as _artist, spines as _spines
+from ._native import artist as _artist, axis as _axis, spines as _spines
 from ._program_classes import takes_from_program
 from .artist import Artist, allow_rasterization
 from .cbook import _str_equal
@@ -934,7 +934,19 @@ def _replace_drawn(old, spine):
     if old is None:
         _spines.add_spine(spine.axes._native, spine._native)
     elif isinstance(old, Spine) and spine.axes is old.axes:
+        _keep_tick_spine(old)
         _spines.replace_spine(old.axes._native, old._native, spine._native)
+
+
+def _keep_tick_spine(old):
+    """Have the ticks made on the spine *old* of a side, which the program
+    replaces, keep its transform, as matplotlib's ticks keep the one their
+    spine gave them until they are made anew (``reset_ticks``)."""
+    side = old.spine_type
+    axis = {"bottom": "xaxis", "top": "xaxis", "left": "yaxis", "right": "yaxis"}.get(side)
+    axis = getattr(old.axes, axis, None) if axis else None
+    if axis is not None and any(axis.__dict__.get("_ticks_seen", {}).values()):
+        _axis.keep_tick_spine(*axis._args(), side in ("top", "right"))
 
 
 def _locate_label_spines(axes):

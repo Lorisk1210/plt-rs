@@ -144,9 +144,11 @@ class FillsMixin:
         patches = []
         for x, y, fmt, label in list(_plot_datasets(list(args), data, kwargs, self)):
             fmt_color = None if fmt is None else _plotting.format_parts(fmt)[2]
+            # (matplotlib's polygon takes ``fill=None`` as no fill, as
+            # `hist`'s steps give it.)
             props = cbook.normalize_kwargs(
                 {k: v for k, v in kwargs.items()
-                 if k != 'label' and v is not None},
+                 if k != 'label' and (v is not None or k == 'fill')},
                 mpatches.Patch)
             native = _plotting.fill(
                 self._native, *converted_line_data(self, x, y), (fmt_color, bool(closed)),

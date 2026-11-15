@@ -407,3 +407,27 @@ api/module_matplotlib_pyplot_0$ | ^warning missing: RuntimeWarning: overflow enc
 ^generated/overrides/(Spine-get_transform|Spine-pchanged|Spine-set_transform|SubplotSpec-get_gridspec|SymmetricalLogScale-get_transform|Text-get_figure|Text-get_rotation|Text-get_transform|Text-get_visible|Text-pchanged|Transform-get_affine|Transform-transform_path_affine)$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | no library of spec/diff/overrides_census.json overrides this member on this class; the override's values and the figures match matplotlib's, only how often pltrs (Rust) calls it, where it does its work natively, differs
 ^generated/overrides/(XAxis-clear|XAxis-draw|XAxis-get_figure|XAxis-get_major_locator|XAxis-get_major_ticks|XAxis-get_minor_ticks|XAxis-get_tightbbox|XAxis-pchanged|XAxis-set_minor_locator|XAxis-set_tick_params|XTick-get_children|XTick-get_figure)$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | no library of spec/diff/overrides_census.json overrides this member on this class; the override's values and the figures match matplotlib's, only how often pltrs (Rust) calls it, where it does its work natively, differs
 ^generated/overrides/(XTick-pchanged)$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | no library of spec/diff/overrides_census.json overrides this member on this class; the override's values and the figures match matplotlib's, only how often pltrs (Rust) calls it, where it does its work natively, differs
+
+# A figure whose callback redraws it while it is being drawn is drawn once.
+# A callback of the program's that matplotlib's draw calls (a formatter, a
+# locator, a scale's or an artist's transform, a norm or colormap, a path
+# effect, an agg filter, an artist's draw, an xlim_changed callback of
+# limits the draw autoscales: librosa's waveshow redraws its canvas from
+# there) and that draws the canvas (canvas.draw(), draw_idle(), which the
+# Agg canvas runs at once, or fig.draw(canvas.get_renderer())) makes
+# matplotlib paint the whole figure, as the callback finds it, into the
+# buffer of the draw under way (the canvas' renderer, which a PNG save
+# draws into too): the buffer is cleared, the figure painted, and the draw
+# under way then paints what it had left over it (the rest of the Axes
+# being drawn and every artist after it), so those come out twice, darker
+# where antialiased, and what the nested draw showed of a state halfway
+# through autoscaling (y limits still 0 to 1, a shared Axes' x not yet
+# updated) shows through. pltrs (Rust) lays the figure out before painting
+# it and draws it once, as the program's final state says (python/DESIGN.md,
+# "A draw started from a callback during a draw"). matplotlib with the
+# callback drawing nothing gives pltrs's image exactly (RMS 0.0 in all 14
+# kinds; librosa's 05-onsets with AdaptiveWaveplot.update's draw_idle
+# left out: figures 3 to 5, RMS 0.00); the values the callback read and
+# the state after the draw (limits, ticks, the figure's artists, the next
+# draw and print) are matplotlib's.
+(generated/reentry/(agg_filter|artist-draw|colormap-call|formatter|locator-call|locator-tick_values|locator-tick_values-3d|locator-tick_values-polar|norm-call|path_effect|scale-transform|transform-affine|transform-non_affine|xlim_changed-stale)--draw_idle-at-save|corpus/librosa/docs/tutorials/01-intro/05-onsets)$ | ^image: RMS > 1$ | a callback that matplotlib's draw calls redraws the canvas: matplotlib paints that draw into the buffer of the draw under way and paints the rest of the figure over it again; pltrs draws the figure once, the image matplotlib gives when the callback draws nothing

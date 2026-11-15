@@ -1479,6 +1479,31 @@ figure for change only when autoscaling is pending
 changes), `draw` overrides and the program's axes locators run with the
 figure free, as in matplotlib.
 
+A draw started from a callback during a draw: a callback that
+matplotlib's draw calls (a formatter, a locator, a transform, a norm, a
+path effect, an artist's `draw`, an `xlim_changed` callback of limits the
+draw autoscales: librosa's `waveshow` redraws its canvas from there) may
+draw the canvas (`canvas.draw()`, `draw_idle()`, which the Agg canvas runs
+at once, `fig.draw(canvas.get_renderer())`). matplotlib then paints the
+whole figure, as the callback finds it, into the buffer of the draw under
+way (a PNG save draws into the canvas' renderer too), clearing it first,
+and the draw under way paints what it had left over that: the rest of
+the Axes being drawn and every artist after it come out twice, and a
+state halfway through autoscaling (y limits still 0 to 1) shows through.
+pltrs (Rust) calls most of these callbacks while it lays the figure out,
+before it paints anything, and paints the figure once, as its final state
+says: the nested draw runs on the figure lent to it and paints the
+canvas' own buffer, not the save's. Matching matplotlib would take a
+paint target shared with nested draws, an outer paint resuming at the
+point of matplotlib's draw each kind of callback is called at, and nested
+layouts of the states halfway; it was decided against (task ROBUST3): the
+doubled image is a glitch no program asks for. What the callback reads,
+the state the draw leaves and every later draw are matplotlib's (the
+`reentry` generator's `xlim_changed-stale` kind and `--draw_idle-at-save`
+programs; the image difference is in `spec/diff/allowlist.txt`). A
+`fig.draw(renderer)` from code pltrs runs while it paints (a path effect,
+an artist's `draw`) paints into that renderer, as matplotlib's does.
+
 A draw stops where the program's code it runs before painting fails, as
 matplotlib's draw stops at an exception: a layout hook or draw hook of the
 package's that raises (`DrawHook::stopping`) leaves the figure laid out

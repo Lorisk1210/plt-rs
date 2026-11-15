@@ -436,8 +436,14 @@ def _line_callee(source: Source, line: int | None) -> str:
     return "?"
 
 
+#: The id of the process a warning names (Python's ``os.fork`` warns "This
+#: process (pid=...) is multi-threaded"), which differs from run to run.
+_PROCESS_ID = re.compile(r"\(pid=\d+\)")
+
+
 def _warning_key(warning: dict) -> tuple[str, str, Any]:
-    return warning["category"], warning["message"], warning["line"]
+    message = _PROCESS_ID.sub("(pid=N)", warning["message"])
+    return warning["category"], message, warning["line"]
 
 
 def _warning_counts(record: dict) -> Counter:
@@ -445,7 +451,7 @@ def _warning_counts(record: dict) -> Counter:
     those it only counted (``trace.py``'s ``MAX_WARNINGS``)."""
     counts = Counter(_warning_key(w) for w in record["warnings"])
     for category, message, line, count in record["warnings_dropped"]:
-        counts[category, message, line] += count
+        counts[_warning_key({"category": category, "message": message, "line": line})] += count
     return counts
 
 

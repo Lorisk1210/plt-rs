@@ -102,6 +102,12 @@ class Corpus:
     file_urls: tuple[str, ...]
     #: Code each program's cells start with, a cell of its own.
     prelude: str
+    #: The variables the programs run with, as the manifest spells them
+    #: (see `environment`).
+    environment: tuple[tuple[str, str], ...] = ()
+    #: ``"code"``, or ``"data"`` for an entry other corpora's programs read
+    #: (named in their `environment`), whose files never run.
+    kind: str = "code"
 
     def directory(self, out: pathlib.Path) -> pathlib.Path:
         """Where the corpus' tree and converted programs go."""
@@ -168,9 +174,29 @@ def load(manifest: pathlib.Path = MANIFEST) -> list[Corpus]:
             data_urls=tuple(table.get("data-urls", ())),
             file_urls=tuple(table.get("file-urls", ())),
             prelude=table.get("prelude", ""),
+            environment=tuple(table.get("environment", {}).items()),
+            kind=table.get("kind", "code"),
         )
         for name, table in tables.items()
     ]
+
+
+#: A corpus' tree named in a variable of the manifest's `environment`.
+_CORPUS_TREE = re.compile(r"\{corpus:([\w.-]+)\}")
+
+
+def environment(corpus: Corpus, out: pathlib.Path) -> dict[str, str]:
+    """The variables *corpus*' programs run with, the corpora they name
+    fetched first (into *out*)."""
+    by_name = {other.name: other for other in load()}
+
+    def tree_of(match: re.Match[str]) -> str:
+        named = by_name.get(match.group(1))
+        if named is None:
+            raise CorpusError(f"{corpus.name}: no corpus {match.group(1)!r} for its environment")
+        return str(fetch(named, out))
+
+    return {name: _CORPUS_TREE.sub(tree_of, value) for name, value in corpus.environment}
 
 
 def _git(*args: str | os.PathLike[str]) -> str:
@@ -427,7 +453,10 @@ def as_script(code_cells: list[str]) -> str:
 
 
 def programs(corpus: Corpus, out: pathlib.Path) -> list[CorpusProgram]:
-    """The corpus' programs (fetched first), converted where they need it."""
+    """The corpus' programs (fetched first), converted where they need it;
+    none for a data-only entry."""
+    if corpus.kind == "data":
+        return []
     tree = fetch(corpus, out)
     converted = corpus.directory(out) / "converted"
     found = []

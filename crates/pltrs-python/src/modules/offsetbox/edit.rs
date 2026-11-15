@@ -59,18 +59,23 @@ fn origin(owner: RawHandle, index: usize) -> PyResult<Option<(f64, f64)>> {
 }
 
 /// The bounds of a text area holding `text`, relative to its origin
-/// (matplotlib's `TextArea.get_bbox`), at the resolution of the text's
-/// figure.
-fn text_area_extent(text: RawHandle, multilinebaseline: bool) -> PyResult<(f64, f64, f64, f64)> {
-    let extent = text_area_bbox(&text, multilinebaseline)
+/// (matplotlib's `TextArea.get_bbox`), at the resolution `dpi`, else that
+/// of the text's figure.
+fn text_area_extent(
+    text: RawHandle,
+    multilinebaseline: bool,
+    dpi: Option<f64>,
+) -> PyResult<(f64, f64, f64, f64)> {
+    let extent = text_area_bbox(&text, multilinebaseline, dpi)
         .map_err(|err| PyErr::value_error(err.to_string()))?;
     Ok(bounds(extent))
 }
 
 /// How far a text area holding `text` moves it up from its origin
-/// (`TextArea._baseline_transform`).
-fn text_area_baseline(text: RawHandle, multilinebaseline: bool) -> PyResult<f64> {
-    text_area_baseline_shift(&text, multilinebaseline)
+/// (`TextArea._baseline_transform`), at the resolution `dpi`, else that of
+/// the text's figure.
+fn text_area_baseline(text: RawHandle, multilinebaseline: bool, dpi: Option<f64>) -> PyResult<f64> {
+    text_area_baseline_shift(&text, multilinebaseline, dpi)
         .map_err(|err| PyErr::value_error(err.to_string()))
 }
 

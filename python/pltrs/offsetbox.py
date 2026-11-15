@@ -1233,11 +1233,22 @@ class TextArea(_FollowsLayout, OffsetBox):
         # its text.
         self._set_baseline()
 
+    def _measured_dpi(self):
+        """The dpi matplotlib measures the text at where pltrs (Rust) does
+        not: that of the figure the area's box was given (a box a program
+        makes and draws in its own `draw`, matplotlib-scalebar's) for a
+        text in no figure, else None (its figure's)."""
+        given = self.__dict__.get("_figure_given")
+        if given is None or self._area_text.get_figure(root=False) is not None:
+            return None
+        return float(given.get_figure(root=True).dpi)
+
     def _set_baseline(self):
         """Shift the text as matplotlib's `get_bbox` does: multi-line text
         centred on the baseline with *multilinebaseline*, else not."""
         shift = _offsetbox.text_area_baseline(
-            self._area_text._native, bool(self._multilinebaseline))
+            self._area_text._native, bool(self._multilinebaseline),
+            self._measured_dpi())
         self._baseline.clear()
         if shift:
             self._baseline.translate(0, shift)
@@ -1324,7 +1335,8 @@ class TextArea(_FollowsLayout, OffsetBox):
             return laid_out
         self._set_baseline()
         return Bbox.from_bounds(*_offsetbox.text_area_extent(
-            self._area_text._native, bool(self._multilinebaseline)))
+            self._area_text._native, bool(self._multilinebaseline),
+            self._measured_dpi()))
 
     def draw(self, renderer):
         # docstring inherited

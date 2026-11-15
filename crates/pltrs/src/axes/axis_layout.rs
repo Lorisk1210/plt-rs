@@ -541,17 +541,20 @@ impl<'a> AxisPainter<'a> {
         let spine = outline.extent();
         let mut bbox = spine;
         let layout = cx.read();
-        let ticks = self.axis.ticks.as_ref().ok()?;
-        for (present, style) in [
-            (!ticks.major.is_empty(), &self.axis.major_style),
-            (!ticks.minor.is_empty(), &self.axis.minor_style),
-        ] {
+        if self.axis.ticks.is_err() {
+            return None;
+        }
+        // matplotlib pads by one drawn major tick and one drawn minor one,
+        // each with what it has of its own (a mark hidden on it), taken
+        // from a set of them: by any drawn tick showing its mark, which is
+        // the same whenever the drawn ticks agree.
+        for (_, style) in self.styled_ticks() {
             let marked = if side.is_high() {
                 style.ticks.second
             } else {
                 style.ticks.first
             };
-            if !(present && marked) {
+            if !marked {
                 continue;
             }
             let length = layout.points_to_pixels(style.size);

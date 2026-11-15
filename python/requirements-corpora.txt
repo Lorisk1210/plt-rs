@@ -209,3 +209,33 @@ pysmithchart==0.9.0
 # mpltern's projection through a library of its own):
 pyrolite==0.3.9
 periodictable==2.1.0
+# The libraries of the corpora added on 2026-11-13 (galleries, examples and
+# notebooks of libraries over matplotlib, CORP9), and what they bring along,
+# as uv resolved them with every pin above held:
+arch==9.0.0
+celluloid==0.2.0
+dna-features-viewer==3.1.5
+flexitext==0.4.0
+imbalanced-learn==0.14.2
+matplotlib-scalebar==0.8.1
+mlxtend==0.25.0
+mpl-scatter-density==0.8
+pmdarima==2.1.1
+py-pde==0.60.0
+pydmd==2025.8.1
+pygtc==0.5.0
+pyroomacoustics==0.10.1
+pyts==0.14.1
+salib==1.6.0
+scikit-dsp-comm==2.1.2
+seaborn-image==0.11.0
+statannotations==0.7.2
+tslearn==0.10.0
+cython==3.3.1
+fast-histogram==0.14
+h5netcdf==1.8.3
+llvmlite==0.50.0
+multiprocess==0.70.19
+numba==0.68.1
+palettable==3.3.3
+sklearn-compat==0.1.6

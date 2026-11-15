@@ -300,6 +300,13 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         if rect is None:
             rect = [0.0, 0.0, 1.0, 1.0]
+        # matplotlib's takes the keyword of its former versions away, false
+        # (pyroomacoustics passes it), and refuses it true.
+        if kwargs.pop('auto_add_to_figure', False):
+            raise AttributeError(
+                'auto_add_to_figure is no longer supported for Axes3D. '
+                'Use fig.add_axes(ax) instead.'
+            )
         options, kwargs = self._native_options({
             **kwargs, 'elev': elev, 'azim': azim, 'roll': roll,
             'shareview': shareview, 'sharez': sharez, 'proj_type': proj_type,

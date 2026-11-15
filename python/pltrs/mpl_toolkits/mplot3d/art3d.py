@@ -607,8 +607,9 @@ class _Loose3D:
         verts = self.__dict__.pop('_verts3d_pending')
         if self._zsort is None:
             return ("lines", (verts,))
-        return ("polygons", (verts, self._zsort, bool(self._closed),
-                             self.__dict__.pop('_lifted_from_2d', False)))
+        lifted = self.__dict__.pop('_lifted_from_2d', False)
+        faded = self.__dict__.pop('_edges_faded', False)
+        return ("polygons", (verts, self._zsort, bool(self._closed), lifted or faded))
 
     def _adopt_into(self, axes, autolim, axlim_clip):
         """Join *axes* (a 3-D axes) with the 3-D geometry; return self."""
@@ -1321,6 +1322,13 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
             super().set_edgecolor(colors)
         finally:
             self._record_projection_problem()
+        if _axes3d(self) is None:
+            # matplotlib's takes the edge colours with the alpha set by
+            # then (``PolyCollection.get_edgecolor``), as no later
+            # `set_alpha` does: faded when it was set before (a colour
+            # given after ``alpha=`` in the constructor, pyroomacoustics'
+            # walls), not when the constructor gave both.
+            self.__dict__["_edges_faded"] = self.get_alpha() is not None
         self._refresh_colors(False, True)
 
     def _array_set(self):

@@ -10,7 +10,10 @@
 # './.git' | sort | xargs sha256sum | sha256sum`, in the tree, under the C
 # locale). Only corpora whose licence allows
 # running and fixing against them are listed, and no program naming a URL
-# but those of its repository's files.
+# but those of its repository's files. Corpora are permissively licensed
+# code; a data-only entry (`kind = "data"`) is input fetched at test time,
+# as the programs reading it would download it, and may lack a licence
+# statement: nothing of it runs, is copied as a corpus or is redistributed.
 #
 # * `programs`: the programs, globs in the tree. A `.py` file runs whole, as
 #   a gallery example does; a notebook (`.ipynb`, nbformat 3 or 4) or a
@@ -33,6 +36,10 @@
 #   'file'`) is joined into one literal first, for both lists.
 # * `prelude`: code a program run cell by cell runs first, as a cell of its
 #   own: what a documentation build runs before each page (pandas' header).
+# * `environment`: variables the programs run with, `{corpus:NAME}` standing
+#   for the fetched tree of corpus NAME (seaborn's `SEABORN_DATA`, where
+#   `load_dataset` finds the datasets it would download); a `PYTHONPATH`
+#   comes before the harness' own.
 #
 # The programs run offline: what they would download fails under both.
 #
@@ -938,5 +945,317 @@ licence = "MIT (LICENSE)"
 fetch = ["/LICENSE", "/docs/source/gallery/"]
 sha256 = "9907faed913b63a94ea2fb4ed437dccb2cac0e0a22eedbf453cabb44cab2d6ba"
 programs = ["docs/source/gallery/**/*.py"]
+exclude = []
+outputs = []
+
+[seaborn]
+title = "seaborn (statistical graphics over matplotlib, its objects interface too), its example gallery and the notebooks of its tutorial and API documentation"
+repository = "https://github.com/mwaskom/seaborn"
+commit = "c1cb287835852406691aed60ea0c62710f2c6b18"
+licence = "BSD-3-Clause (LICENSE.md)"
+fetch = ["/LICENSE.md", "/examples/", "/doc/_tutorial/", "/doc/_docstrings/"]
+sha256 = "5ab9c7335b52839d8cecd0de89c006affc3c349206b1f6c7a7b2dfa9cba70bdd"
+programs = ["examples/*.py", "doc/_tutorial/*.ipynb", "doc/_docstrings/*.ipynb"]
+exclude = []
+outputs = []
+environment = { SEABORN_DATA = "{corpus:seaborn-data}" }
+
+[shapely]
+title = "Shapely (planar geometry), the plotting scripts of its documentation"
+repository = "https://github.com/shapely/shapely"
+commit = "9ab6978eb2153a7781729fb303e0e35b119c1c2c"
+licence = "BSD-3-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/docs/code/"]
+sha256 = "2696a4cabc5899ff463fd2cc883fc184b7bb08a5c5ea2876569ec7bfd309ed1a"
+programs = ["docs/code/*.py"]
+exclude = []
+outputs = []
+
+[pywaffle]
+title = "PyWaffle (waffle charts, a Figure subclass), its documentation's examples and demo"
+repository = "https://github.com/gyli/PyWaffle"
+commit = "1cae0ff089e956b94c706abb0011913dd5d015f3"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/docs/examples/", "/docs/quickstart.md", "/demo.ipynb"]
+sha256 = "3ebf028440f102acb4c0ac1906aba7db7ceeebc42d0c31ff802cab662250a672"
+programs = ["docs/examples/*.md", "docs/quickstart.md", "demo.ipynb"]
+exclude = []
+outputs = []
+
+[wordcloud]
+title = "wordcloud (word clouds drawn with matplotlib's imshow), its examples"
+repository = "https://github.com/amueller/word_cloud"
+commit = "93c5e4cd50c5f2c56ec7eb624a620790dab5df6c"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "8ebf1aa183f41175ff893d226b19590926a9e5f1dc7d6012aaa75fdd99c76190"
+programs = ["examples/*.py"]
+exclude = []
+outputs = []
+
+[seaborn-image]
+title = "seaborn-image (image plots and grids over matplotlib), its examples and tutorial notebooks"
+repository = "https://github.com/SarthakJariwala/seaborn-image"
+commit = "d27df2241e53a26979301061f929715ba82e408d"
+licence = "MIT (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/examples/", "/docs/Tutorial/", "/data/"]
+sha256 = "b8e516fe2e2e77f4597f90270160914c0466267ef86a919731113db4acffa939"
+programs = ["examples/*.py", "docs/Tutorial/*.ipynb"]
+exclude = []
+outputs = []
+
+[mlxtend]
+title = "mlxtend (machine-learning extensions: decision regions, confusion matrices, learning curves), its user guide's notebooks"
+repository = "https://github.com/rasbt/mlxtend"
+commit = "1aee767ef57b84a8191511a08955c583b65de382"
+licence = "BSD-3-Clause (LICENSE-BSD3.txt)"
+fetch = ["/LICENSE-BSD3.txt", "/docs/sources/user_guide/"]
+sha256 = "b826bb2dbc9995b0a0a5716f4ac89f4749f271727a7ed89df38e365febb4efe2"
+programs = ["docs/sources/user_guide/**/*.ipynb"]
+exclude = []
+outputs = []
+
+[emcee]
+title = "emcee (MCMC sampling), its tutorials and the plots of its paper"
+repository = "https://github.com/dfm/emcee"
+commit = "ff3dc94006167397e4ee2814fea9cb9532caeecc"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/docs/tutorials/", "/document/plots/"]
+sha256 = "6512449eb2b8dd933439d1ed6de64f2e553b2088f9d9fdbcdff9048dd5cab849"
+programs = ["docs/tutorials/*.ipynb", "document/plots/*.py"]
+exclude = []
+outputs = []
+
+[aeropython]
+title = "AeroPython (Barba and Mesnard's aerodynamics course: potential flow, panel methods), its lessons"
+repository = "https://github.com/barbagroup/AeroPython"
+commit = "b87af31c9d591680d657801858ad0987ba74f5c6"
+licence = "CC BY 4.0 for the material, code BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/lessons/", "/styles/"]
+sha256 = "4bdbe35b75a4ddabfb75005349ed9be8f902867a9ec43d654b22630d6bf27150"
+programs = ["lessons/*.ipynb"]
+exclude = []
+outputs = []
+
+[prml]
+title = "ctgk's PRML (Bishop's Pattern Recognition and Machine Learning in numpy), its chapter notebooks"
+repository = "https://github.com/ctgk/PRML"
+commit = "b60a6853962df1ae1f12a9d676cfcd8edfe7fd38"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/notebooks/", "/prml/"]
+sha256 = "d9f057174def230fe6d901f5a4898ff0339bcfc1b692ff2f7f6ab0fb4d0b2f3c"
+programs = ["notebooks/*.ipynb"]
+exclude = []
+outputs = []
+environment = { PYTHONPATH = "{corpus:prml}" }  # its notebooks import the repository's prml package
+
+[pythia-foundations]
+title = "Project Pythia Foundations (geoscience Python: matplotlib, numpy, pandas, xarray, cartopy), its core notebooks"
+repository = "https://github.com/ProjectPythia/pythia-foundations"
+commit = "9f213f279cfc13babb7955c1152b5cf626121f61"
+licence = "Apache-2.0 (LICENSE)"
+fetch = ["/LICENSE", "/core/"]
+sha256 = "81f775b776bef5039d788eee4b79d47d0806769a79243b48dd4c8adbc0494173"
+programs = ["core/**/*.ipynb"]
+exclude = []
+outputs = []
+
+[dna-features-viewer]
+title = "DNA Features Viewer (sequence feature maps over matplotlib), its examples"
+repository = "https://github.com/Edinburgh-Genome-Foundry/DnaFeaturesViewer"
+commit = "049bbe4e3063e90ae9b0f88ac7e92f47b735d38a"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "3045a1f94b4669287382b9b8c67db0500ed0094d8e4392524e95bd6136f83d7e"
+programs = ["examples/**/*.py"]
+exclude = []
+outputs = []
+
+[flexitext]
+title = "flexitext (styled text in matplotlib), its documentation"
+repository = "https://github.com/tomicapretto/flexitext"
+commit = "989fa6b984da745d8eba64f4af08190a3f637dc1"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/README.md", "/docsite/docs/"]
+sha256 = "a92c38704bac8a4305de292d970af8319d10f3904ed49457e0df7bc8ce6c15bf"
+programs = ["README.md", "docsite/docs/usage/*.md"]
+exclude = []
+outputs = []
+
+[mpl-scatter-density]
+title = "mpl-scatter-density (fast density plots, a projection of matplotlib), its examples"
+repository = "https://github.com/astrofrog/mpl-scatter-density"
+commit = "6db1ca4cf7ac6e2963736126b958d508b4b55295"
+licence = "BSD (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "7de2bd53940043e5d5b62ed300a0e3c4dc44c49598c9c2a63d093601002404f8"
+programs = ["examples/*.py"]
+exclude = []
+outputs = []
+
+[matplotlib-scalebar]
+title = "matplotlib-scalebar (scale bars as artists), its examples"
+repository = "https://github.com/ppinard/matplotlib-scalebar"
+commit = "aff5f2c3d15a7a6f8c43bc053c2ef7f1a59619b4"
+licence = "BSD (LICENSE)"
+fetch = ["/LICENSE", "/doc/", "/README.md"]
+sha256 = "1cc36e35565887f7e539aa21069e7b04ea1136f8d91e8df874d667003c5dca05"
+programs = ["doc/*.py", "README.md"]
+exclude = []
+outputs = []
+
+[pmdarima]
+title = "pmdarima (ARIMA time series), its examples"
+repository = "https://github.com/alkaline-ml/pmdarima"
+commit = "4c2dfccb28f64d2c00a5e10b59c1d1a3e16576a9"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "f753586d447d5c94d25b1a6f6f1e6546f48d3c42e1864aad60b8367c607f0cff"
+programs = ["examples/**/*.py"]
+exclude = []
+outputs = []
+
+[salib]
+title = "SALib (sensitivity analysis), its examples"
+repository = "https://github.com/SALib/SALib"
+commit = "e860bc694ec5cd79d631c82bf91d1bee29521f3a"
+licence = "MIT (LICENSE.md)"
+fetch = ["/LICENSE.md", "/examples/", "/src/SALib/test_functions/params/"]
+sha256 = "a84521996ee525be9847fa25788fe32ede80dbe9f5c6c175921b9cc2f9ba1910"
+programs = ["examples/**/*.py"]
+exclude = []
+outputs = []
+
+[imbalanced-learn]
+title = "imbalanced-learn (resampling for imbalanced classes), its example gallery"
+repository = "https://github.com/scikit-learn-contrib/imbalanced-learn"
+commit = "8504e95f0160f61d1b617ca66f779646d2ee609e"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "3632c74a5d92ae9f556400d0458be0586e880f918efbc605698dcc16014a96a9"
+programs = ["examples/**/*.py"]
+exclude = []
+outputs = []
+
+[tslearn]
+title = "tslearn (time series machine learning), its example gallery"
+repository = "https://github.com/tslearn-team/tslearn"
+commit = "d848642f5c8219126a22b500a975611a38607f20"
+licence = "BSD-2-Clause (LICENSE)"
+fetch = ["/LICENSE", "/docs/examples/"]
+sha256 = "a01fd2315b53ba0314141d2731807c5e6b11c60974e5668ed1e076d859122f1f"
+programs = ["docs/examples/**/*.py"]
+exclude = []
+outputs = []
+
+[pyts]
+title = "pyts (time series classification and imaging), its example gallery"
+repository = "https://github.com/johannfaouzi/pyts"
+commit = "3a5c478463352aa6d7f2ba620d22eca396a94fa8"
+licence = "BSD-3-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/examples/"]
+sha256 = "d9c339ac87985c67086e0903ae380cd7bdadc8e1b5ae1029722d251275230358"
+programs = ["examples/**/*.py"]
+exclude = []
+outputs = []
+
+[arch]
+title = "arch (ARCH models and bootstraps for finance), its example notebooks"
+repository = "https://github.com/bashtage/arch"
+commit = "bbb3fba9252ed5ede94fa63191a378a7321a335e"
+licence = "NCSA (LICENSE.md)"
+fetch = ["/LICENSE.md", "/examples/"]
+sha256 = "470247fc58389b0f0b44a783bfd721c500e410d1dfaa651b05f70f6e6da8b49d"
+programs = ["examples/*.ipynb"]
+exclude = []
+outputs = []
+
+[pydmd]
+title = "PyDMD (dynamic mode decomposition), its tutorials"
+repository = "https://github.com/PyDMD/PyDMD"
+commit = "024464ff667e4b0226f9ecbe933bc67f3fe21e81"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/tutorials/"]
+sha256 = "9f8ea92161f30b7fef2f810eb701f440549a85ee588cdbc662f9d33bed14b9f5"
+programs = ["tutorials/**/*.ipynb"]
+exclude = []
+outputs = []
+
+[py-pde]
+title = "py-pde (partial differential equations on grids, its own plotting over matplotlib), its examples"
+repository = "https://github.com/zwicker-group/py-pde"
+commit = "4172b7d084cca8c8d5cac8c8fc9297fb7df0a1c8"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "c000dafe5ca5ac79749f1a4efcf07edd27dc4a731656da2d750149d908df9e0c"
+programs = ["examples/**/*.py", "examples/jupyter/*.ipynb"]
+exclude = []
+outputs = []
+
+[celluloid]
+title = "celluloid (animations from snapshots of a figure), its examples"
+repository = "https://github.com/jwkvam/celluloid"
+commit = "037ed04de428fed6f82203446fe43d5168db361b"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "72fdbab2674140b8b892f544638c8f5b313cdc2edfdf6971c3e5e91c87738c22"
+programs = ["examples/*.py"]
+exclude = []
+outputs = []
+
+[scikit-dsp-comm]
+title = "scikit-dsp-comm (signal processing for communications), its example notebooks"
+repository = "https://github.com/mwickert/scikit-dsp-comm"
+commit = "5a7982cfcb78963ea3a48424f977d465d2b7fa5a"
+licence = "BSD-2-Clause (LICENSE.md)"
+fetch = ["/LICENSE.md", "/docs/source/nb_examples/"]
+sha256 = "690181a8d0f358dc21720065caa0be8da3c452c7163c6cc7250ce159d074a622"
+programs = ["docs/source/nb_examples/**/*.ipynb"]
+exclude = []
+outputs = []
+
+[pyroomacoustics]
+title = "pyroomacoustics (room acoustics simulation), its examples and notebooks"
+repository = "https://github.com/LCAV/pyroomacoustics"
+commit = "08d16968f8db414affaf84771a650358a7961446"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/", "/notebooks/"]
+sha256 = "0ed53debd33ac5090adb0348cf32263e57ae1d36319b412d4b2245b0bd5f9b40"
+programs = ["examples/**/*.py", "notebooks/*.ipynb"]
+exclude = []
+outputs = []
+
+[pygtc]
+title = "pyGTC (giant triangle confusograms of MCMC samples), its notebooks"
+repository = "https://github.com/SebastianBocquet/pygtc"
+commit = "1a848897ba6d67b79d1572d977eaa1d53e2d6e73"
+licence = "MIT (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/demo.ipynb", "/Planck-vs-WMAP.ipynb"]
+sha256 = "3d80651755bee3933a02cd3d44c485cdd283a87beaba7aa322245091d7a2f126"
+programs = ["*.ipynb"]
+exclude = []
+outputs = []
+
+[statannotations]
+title = "statannotations (significance annotations on seaborn plots), its usage notebook"
+repository = "https://github.com/trevismd/statannotations"
+commit = "3f020ae631ca88a091b6ee3e9a9fd32158920879"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/usage/"]
+sha256 = "d116b4474290d5ebe9b8f0bb627d26288a9e02e80fade2e7c98726e5c2c2b02d"
+programs = ["usage/*.ipynb"]
+exclude = []
+outputs = []
+environment = { SEABORN_DATA = "{corpus:seaborn-data}" }
+
+[seaborn-data]
+title = "seaborn-data, the datasets seaborn's load_dataset downloads: no programs, read by the programs of seaborn and statannotations through SEABORN_DATA"
+kind = "data"
+repository = "https://github.com/mwaskom/seaborn-data"
+commit = "71e2436a092d714350de0fc409ca8a8714e7e78f"
+licence = "none stated upstream (README.md: a data repository for seaborn's documentation, the datasets' sources listed); data only, fetched at test time as load_dataset fetches it for every user"
+fetch = ["/README.md", "/*.csv"]
+sha256 = "680dc93a6124954ab953e69d0c6a3764f69ea61ceebf4f4f9fb7a077702a34ad"
+programs = []
 exclude = []
 outputs = []

@@ -137,11 +137,11 @@ fn smaller(tree: &[Node], depth: &[u8], n: usize, m: usize) -> bool {
 pub(super) struct Builder {
     /// The heap from 1 to `heap_len`; from `heap_max` up, the nodes in
     /// the order they left it (`heap`).
-    heap: [usize; HEAP_SIZE],
+    heap: Box<[usize; HEAP_SIZE]>,
     heap_len: usize,
     heap_max: usize,
     /// Each node's height, the tie-breaker (`depth`).
-    depth: [u8; HEAP_SIZE],
+    depth: Box<[u8; HEAP_SIZE]>,
     /// The codes of each length of the tree last built (`bl_count`).
     bl_count: [u16; MAX_BITS + 1],
     /// The block's bits with the dynamic codes (`opt_len`), modulo 2^64
@@ -151,17 +151,39 @@ pub(super) struct Builder {
     pub(super) static_len: u64,
 }
 
+/// `N` copies of `value` in an array on the heap, never on the stack: a
+/// stream's trees and heaps are kilobytes, more than a thread with a small
+/// stack (musl's 128 KiB) should spend on each frame holding one. An
+/// array, not a slice, so that indexing it knows its length.
+pub(super) fn on_heap<T: Copy, const N: usize>(value: T) -> Box<[T; N]> {
+    vec![value; N]
+        .into_boxed_slice()
+        .try_into()
+        .unwrap_or_else(|_| unreachable!("a vector of N elements is an array of N"))
+}
+
 impl Builder {
     pub(super) fn new() -> Self {
         Self {
-            heap: [0; HEAP_SIZE],
+            heap: on_heap(0),
             heap_len: 0,
             heap_max: 0,
-            depth: [0; HEAP_SIZE],
+            depth: on_heap(0),
             bl_count: [0; MAX_BITS + 1],
             opt_len: 0,
             static_len: 0,
         }
+    }
+
+    /// Back to what [`new`](Self::new) makes, without allocating.
+    pub(super) fn clear(&mut self) {
+        self.heap.fill(0);
+        self.heap_len = 0;
+        self.heap_max = 0;
+        self.depth.fill(0);
+        self.bl_count = [0; MAX_BITS + 1];
+        self.opt_len = 0;
+        self.static_len = 0;
     }
 
     /// Restores the heap below position `k` (`pqdownheap`).
@@ -169,10 +191,10 @@ impl Builder {
         let v = self.heap[k];
         let mut j = k << 1;
         while j <= self.heap_len {
-            if j < self.heap_len && smaller(tree, &self.depth, self.heap[j + 1], self.heap[j]) {
+            if j < self.heap_len && smaller(tree, &self.depth[..], self.heap[j + 1], self.heap[j]) {
                 j += 1;
             }
-            if smaller(tree, &self.depth, v, self.heap[j]) {
+            if smaller(tree, &self.depth[..], v, self.heap[j]) {
                 break;
             }
             self.heap[k] = self.heap[j];

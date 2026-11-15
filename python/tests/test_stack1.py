@@ -4,23 +4,28 @@ RecursionError, on any stack, and leave the interpreter usable.
 Each round of such a recursion runs native frames between CPython's own
 checks, so the native stack could end first and the process die (SIGSEGV
 on Linux; under Rosetta on macOS a hang no signal ends). pltrs refuses a
-nested native call, and a call back into Python from one, while little of
-the thread's stack is left (``binding/stack.rs``). Each program runs in a
+nested native call while little of the thread's stack is left
+(``binding/stack.rs``). Each program runs in a
 process of its own, so that a crash fails its test and no other; each is
 run on the main thread, on threads of 512 KiB and 16 MiB
 (`threading.stack_size`) and, where the system has them, under
 ``ulimit -s 1024`` and ``ulimit -s unlimited``. matplotlib 3.11 raises
 ``RecursionError: maximum recursion depth exceeded`` for every one of
 them, everywhere, and draws the figure again once the recursing part is
-gone.
+gone. pltrs' message starts with that line; on a thread whose stack is
+smaller than 1 MiB it goes on to say why and what to do.
 """
 
+import ast
 import os
+import re
 import subprocess
 import sys
 import textwrap
 
 import pytest
+
+import pltrs
 
 try:
     import resource
@@ -48,7 +53,7 @@ def run():
     try:
         trigger()
     except RecursionError as error:
-        outcome = f"RecursionError: {{error}}"
+        outcome = "RecursionError: " + str(error).splitlines()[0]
     else:
         outcome = "no error"
     undo()
@@ -243,10 +248,12 @@ def test_a_recursion_through_drawing_raises_recursion_error(program, stack, tmp_
         "RecursionError: maximum recursion depth exceeded | usable")
 
 
+@pytest.mark.parametrize("kib", [128, 512])
 @pytest.mark.parametrize("save", ["png", "pdf"])
-def test_nested_calls_on_a_small_stack_are_not_refused(save, tmp_path):
-    # The reserve leaves a thread of 512 KiB room for a formatter's own
-    # native calls during a tight save: only recursion is refused.
+def test_nested_calls_on_a_small_stack_are_not_refused(save, kib, tmp_path):
+    # The reserve leaves a thread of 128 KiB (musl's default) room for a
+    # formatter's own native calls during a tight save: only recursion is
+    # refused.
     source = textwrap.dedent(f"""
         import io, threading
         import pltrs
@@ -262,9 +269,47 @@ def test_nested_calls_on_a_small_stack_are_not_refused(save, tmp_path):
             fig.savefig(io.BytesIO(), format={save!r}, bbox_inches="tight")
             print([label.get_text() for label in ax.get_xticklabels()][:2])
 
-        threading.stack_size(512 << 10)
+        threading.stack_size({kib} << 10)
         thread = threading.Thread(target=run)
         thread.start()
         thread.join()
     """)
     assert _run(source, tmp_path) == "['-0.25/2.1', '0/2.1']"
+
+
+@pytest.mark.skipif(pltrs.__name__ != "pltrs", reason="pltrs' own message")
+def test_a_draw_inside_a_draw_on_a_small_stack_says_what_to_do(tmp_path):
+    # A formatter saving its figure once, on a thread of 128 KiB: pltrs'
+    # two draws need more stack than that (matplotlib's fit in it), and the
+    # error names the stack and the way to give threads more.
+    source = textwrap.dedent("""
+        import io, threading
+        import pltrs
+        pltrs.use("agg")
+        import pltrs.pyplot as plt
+        from pltrs import ticker
+
+        def run():
+            fig, ax = plt.subplots()
+            saved = []
+            def label(value, pos):
+                if not saved:
+                    saved.append(fig.savefig(io.BytesIO(), format="png"))
+                return f"{value:g}"
+            ax.xaxis.set_major_formatter(ticker.FuncFormatter(label))
+            try:
+                fig.savefig(io.BytesIO(), format="png")
+            except RecursionError as error:
+                print(repr(str(error)))
+
+        threading.stack_size(128 << 10)
+        thread = threading.Thread(target=run)
+        thread.start()
+        thread.join()
+    """)
+    first, rest = ast.literal_eval(_run(source, tmp_path)).split("\n", 1)
+    assert first == "maximum recursion depth exceeded"
+    # 128 KiB as asked, and what the C library adds to it (musl: 131).
+    size = re.search(r"pltrs: this thread's stack is (\d+) KiB", rest)
+    assert size is not None and 128 <= int(size.group(1)) <= 136, rest
+    assert "threading.stack_size(1048576)" in rest

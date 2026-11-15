@@ -22,6 +22,10 @@ impl Figure {
     /// # Errors
     ///
     /// When some artists cannot be drawn or the document cannot be written.
+    // Its own frame, not `to_format`'s: inlined there, every format's
+    // renderer would share one frame of tens of kilobytes, which a save in
+    // a thread of a small stack (musl's 128 KiB) cannot spare.
+    #[inline(never)]
     pub fn to_svg_with(&self, options: SaveOptions) -> Result<String, SaveError> {
         self.svg_document(&options, None)
             .map(|(document, _)| document)

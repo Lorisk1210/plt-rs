@@ -7,7 +7,7 @@ use pltrs_core::alloc::{self, OutOfMemory};
 use super::Output;
 use super::codes::{
     BL_CODES, Builder, Code, D_CODES, DISTANCE_TREE, END_BLOCK, HEAP_SIZE, L_CODES, LENGTH_TREE,
-    LITERAL_TREE, LITERALS, Node, STATIC_DTREE, STATIC_LTREE,
+    LITERAL_TREE, LITERALS, Node, STATIC_DTREE, STATIC_LTREE, on_heap,
 };
 use crate::deflate::tables::{
     CODE_LENGTH_ORDER, DIST_BASE, DIST_EXTRA, LENGTH_BASE, LENGTH_EXTRA, dist_index, length_index,
@@ -126,28 +126,42 @@ fn runs(tree: &[Node], max_code: usize, mut visit: impl FnMut(Run)) {
 /// `deflate_state`).
 #[derive(Debug)]
 pub(super) struct Trees {
-    ltree: [Node; HEAP_SIZE],
-    dtree: [Node; 2 * D_CODES + 1],
-    bltree: [Node; 2 * BL_CODES + 1],
-    lcodes: [Code; L_CODES],
-    dcodes: [Code; D_CODES],
-    blcodes: [Code; BL_CODES],
+    ltree: Box<[Node; HEAP_SIZE]>,
+    dtree: Box<[Node; 2 * D_CODES + 1]>,
+    bltree: Box<[Node; 2 * BL_CODES + 1]>,
+    lcodes: Box<[Code; L_CODES]>,
+    dcodes: Box<[Code; D_CODES]>,
+    blcodes: Box<[Code; BL_CODES]>,
     builder: Builder,
 }
 
 impl Trees {
     pub(super) fn new() -> Self {
         let mut trees = Self {
-            ltree: [Node::default(); HEAP_SIZE],
-            dtree: [Node::default(); 2 * D_CODES + 1],
-            bltree: [Node::default(); 2 * BL_CODES + 1],
-            lcodes: [Code::default(); L_CODES],
-            dcodes: [Code::default(); D_CODES],
-            blcodes: [Code::default(); BL_CODES],
+            ltree: on_heap(Node::default()),
+            dtree: on_heap(Node::default()),
+            bltree: on_heap(Node::default()),
+            lcodes: on_heap(Code::default()),
+            dcodes: on_heap(Code::default()),
+            blcodes: on_heap(Code::default()),
             builder: Builder::new(),
         };
         trees.init_block();
         trees
+    }
+
+    /// These trees as [`new`](Self::new) makes them, without allocating
+    /// (for a stream restarted on the tables of the last).
+    pub(super) fn cleared(mut self) -> Self {
+        self.ltree.fill(Node::default());
+        self.dtree.fill(Node::default());
+        self.bltree.fill(Node::default());
+        self.lcodes.fill(Code::default());
+        self.dcodes.fill(Code::default());
+        self.blcodes.fill(Code::default());
+        self.builder.clear();
+        self.init_block();
+        self
     }
 
     /// Starts a new block (`init_block`).
@@ -207,10 +221,10 @@ impl Trees {
         } else {
             let l_max_code =
                 self.builder
-                    .build_tree(&mut self.ltree, &mut self.lcodes, &LITERAL_TREE);
+                    .build_tree(&mut self.ltree[..], &mut self.lcodes[..], &LITERAL_TREE);
             let d_max_code =
                 self.builder
-                    .build_tree(&mut self.dtree, &mut self.dcodes, &DISTANCE_TREE);
+                    .build_tree(&mut self.dtree[..], &mut self.dcodes[..], &DISTANCE_TREE);
             let max_blindex = self.build_bl_tree(l_max_code, d_max_code);
             dynamic = Some((l_max_code, d_max_code, max_blindex));
             (
@@ -228,7 +242,7 @@ impl Trees {
             (_, Some((l_max_code, d_max_code, max_blindex))) if static_lenb != opt_lenb => {
                 send_block_header(out, DYN_TREES, last);
                 self.send_all_trees(out, l_max_code + 1, d_max_code + 1, max_blindex + 1);
-                compress_block(syms, out, &self.lcodes, &self.dcodes);
+                compress_block(syms, out, &self.lcodes[..], &self.dcodes[..]);
             }
             _ => {
                 send_block_header(out, STATIC_TREES, last);
@@ -246,10 +260,10 @@ impl Trees {
     /// in [`CODE_LENGTH_ORDER`] of the last length to send
     /// (`build_bl_tree`).
     fn build_bl_tree(&mut self, l_max_code: usize, d_max_code: usize) -> usize {
-        scan_tree(&mut self.bltree, &self.ltree, l_max_code);
-        scan_tree(&mut self.bltree, &self.dtree, d_max_code);
+        scan_tree(&mut self.bltree[..], &self.ltree[..], l_max_code);
+        scan_tree(&mut self.bltree[..], &self.dtree[..], d_max_code);
         self.builder
-            .build_tree(&mut self.bltree, &mut self.blcodes, &LENGTH_TREE);
+            .build_tree(&mut self.bltree[..], &mut self.blcodes[..], &LENGTH_TREE);
         let max_blindex = (3..BL_CODES)
             .rev()
             .find(|&index| self.bltree[CODE_LENGTH_ORDER[index]].len != 0)
@@ -270,8 +284,8 @@ impl Trees {
         for &symbol in &CODE_LENGTH_ORDER[..blcodes] {
             out.send_bits(u64::from(self.bltree[symbol].len), 3);
         }
-        self.send_tree(out, &self.ltree, lcodes - 1);
-        self.send_tree(out, &self.dtree, dcodes - 1);
+        self.send_tree(out, &self.ltree[..], lcodes - 1);
+        self.send_tree(out, &self.dtree[..], dcodes - 1);
     }
 
     /// Sends `tree`'s lengths with the code-length code (`send_tree`).

@@ -83,6 +83,10 @@ impl Figure {
     ///
     /// As [`Figure::render_raster_with`], or when encoding fails, a PNG
     /// keyword included (1 to 79 printable Latin-1 characters).
+    // Its own frame, not `to_format`'s: inlined there, every format's
+    // renderer would share one frame of tens of kilobytes, which a save in
+    // a thread of a small stack (musl's 128 KiB) cannot spare.
+    #[inline(never)]
     pub fn to_png_with(&self, options: SaveOptions) -> Result<Vec<u8>, SaveError> {
         let text = options
             .metadata
@@ -104,6 +108,10 @@ impl Figure {
     /// # Errors
     ///
     /// When some artists cannot be drawn or the document cannot be written.
+    // Its own frame, not `to_format`'s: inlined there, every format's
+    // renderer would share one frame of tens of kilobytes, which a save in
+    // a thread of a small stack (musl's 128 KiB) cannot spare.
+    #[inline(never)]
     pub fn to_pdf_with(&self, options: SaveOptions) -> Result<Vec<u8>, SaveError> {
         let pdf = pdf_options(options.metadata.clone().unwrap_or_default());
         // Text the backend draws in core fonts is laid out with their metrics.

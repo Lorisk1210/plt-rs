@@ -1,5 +1,6 @@
 //! `_native.numeric`: the processor level pltrs (Rust) computes at, which
-//! pltrs (Python) sets to numpy's.
+//! pltrs (Python) sets to numpy's, and numpy's own results where pltrs
+//! (Rust) asks for them.
 //!
 //! numpy picks one of the copies of its loops when it is imported: by the
 //! processor, by `NPY_DISABLE_CPU_FEATURES`, by how it was built. pltrs
@@ -7,7 +8,12 @@
 //! equal values in), so the package hands numpy's answer over when it is
 //! imported, before anything is computed; pltrs (Rust) on its own asks
 //! the processor.
-
+//!
+//! That order also changed between numpy's releases, in arrays of more
+//! than 64 values. The package registers numpy's `argsort` (as
+//! `"argsort"`: `ndarray.argsort`, numpy's C method), and pltrs (Rust)
+//! has it sort those, and asks it once how it sorts shorter ones, which
+//! it replays (`pltrs::numeric::sort_as_numpy`).
 //!
 //! The module also puts numpy's own ufuncs behind the few computations of
 //! pltrs (Rust) whose last bit decides something discrete
@@ -18,9 +24,10 @@
 
 use std::sync::OnceLock;
 
-use pltrs::numeric::{CpuLevel, argsort_at};
+use pltrs::numeric::{CpuLevel, SortRoute, argsort_at, sort_as_numpy, sort_route};
 use pltrs_core::numeric::{NumpyDispatch, Ufunc, UnknownLevel, evaluate_with};
 
+use crate::binding::lookup;
 use crate::binding::prelude::*;
 
 /// numpy's ufuncs, as the package hands them over (each wrapped to issue
@@ -105,21 +112,46 @@ fn use_ufuncs(
     Ok(())
 }
 
-/// Names the level the numpy of major version `major` runs at, from what
-/// its `__cpu_features__` hold for the groups `X86_V3` and `X86_V4`
-/// (`None` in a numpy without them) and the features `AVX2` and
-/// `AVX512_SKX` (`None` on another architecture), and returns the name
-/// of the level in force (`v2`, `v3` or `v4`): that one, unless the
-/// level was resolved before.
+/// The indices numpy's `argsort` (the object the package registers as
+/// `"argsort"`) sorts `values` by; `None` where none is registered, its
+/// call fails or it returns something else.
+fn numpy_argsorts(values: &[f64]) -> Option<Vec<usize>> {
+    Python::with_gil(|py| {
+        let order = lookup(py, "argsort")
+            .and_then(|argsort| {
+                argsort.call(&[NdArray::from_vec(values.to_vec()).into_py(py)?], &[])
+            })
+            .and_then(|order| order.extract::<NdArray<i64>>())
+            .and_then(NdArray::into_vec)
+            .ok()?;
+        order
+            .into_iter()
+            .map(|index| usize::try_from(index).ok())
+            .collect()
+    })
+}
+
+/// How pltrs (Rust) sorts short arrays without NaN and short arrays with
+/// NaN beside this numpy, once one came out with equal values: the level
+/// it replays numpy's sort at (`v4`), `numpy` where numpy itself sorts
+/// them, `None` until then.
+fn argsort_routes() -> PyResult<(Option<&'static str>, Option<&'static str>)> {
+    let name = |with_nan| sort_route(with_nan).map(SortRoute::name);
+    Ok((name(false), name(true)))
+}
+
+/// Names the level numpy runs at, from what its `__cpu_features__` hold
+/// for the groups `X86_V3` and `X86_V4` (`None` in a numpy without them)
+/// and the features `AVX2` and `AVX512_SKX` (`None` on another
+/// architecture), and returns the name of the level in force (`v2`, `v3`
+/// or `v4`): that one, unless the level was resolved before.
 fn follow_numpy(
-    major: u32,
     x86_v3: Option<bool>,
     x86_v4: Option<bool>,
     avx2: Option<bool>,
     avx512_skx: Option<bool>,
 ) -> PyResult<&'static str> {
     let numpy = NumpyDispatch {
-        major,
         x86_v3,
         x86_v4,
         avx2: avx2.unwrap_or(false),
@@ -133,22 +165,28 @@ fn cpu_level() -> PyResult<&'static str> {
     Ok(CpuLevel::current().name())
 }
 
-/// numpy's `argsort` of `values` as pltrs (Rust) replays it: at the level
-/// in force, or at the level named.
+/// numpy's `argsort` of `values` as pltrs (Rust) sorts: as the numpy
+/// beside it does (`pltrs::numeric::argsort`), or, with a level named,
+/// as the numpy of the goldens sorts at that level.
 fn argsort(values: Vec<f64>, level: Option<String>) -> PyResult<Vec<usize>> {
-    let level = match level {
-        Some(name) => name
-            .parse()
-            .map_err(|err: UnknownLevel| PyErr::value_error(err.to_string()))?,
-        None => CpuLevel::current(),
-    };
-    Ok(argsort_at(&values, level))
+    match level {
+        Some(name) => {
+            let level = name
+                .parse()
+                .map_err(|err: UnknownLevel| PyErr::value_error(err.to_string()))?;
+            Ok(argsort_at(&values, level))
+        }
+        None => Ok(pltrs::numeric::argsort(&values)),
+    }
 }
 
-/// Registers the module's functions.
+/// Registers the module's functions, and has pltrs (Rust) sort as the
+/// numpy of this interpreter does.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    sort_as_numpy(numpy_argsorts);
     module.add("follow_numpy", follow_numpy)?;
     module.add("use_ufuncs", use_ufuncs)?;
+    module.add("argsort_routes", argsort_routes)?;
     module.add("cpu_level", cpu_level)?;
     module.add("argsort", argsort)
 }

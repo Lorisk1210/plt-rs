@@ -18,7 +18,9 @@ mod number;
 pub mod numpy_arith;
 mod regions;
 
-pub use argsort::{argsort, argsort_at};
+pub use argsort::{
+    LONGEST_REPLAYED, NumpyArgsort, SortRoute, argsort, argsort_at, sort_as_numpy, sort_route,
+};
 pub(crate) use grid::cell_buffer;
 pub use grid::{Grid, GridShapeError};
 pub use interp::interp;

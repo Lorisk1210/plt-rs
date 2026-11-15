@@ -17,6 +17,8 @@ impl AxisState {
     /// Its axes no longer follows its changes of units (matplotlib's
     /// `Axis.clear` disconnects the axes' handler with its callbacks).
     pub(super) fn cleared(&self, rc: &RcParams) -> Self {
+        // matplotlib's clear sets the axis' scale anew, linear.
+        crate::scale::note_default_formatter(crate::scale::ScaleName::Linear);
         let mut fresh = Self::new(self.name, rc);
         fresh.follows_units = false;
         fresh.role = self.role;

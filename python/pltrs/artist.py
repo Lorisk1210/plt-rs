@@ -23,7 +23,7 @@ import numpy as np
 
 from . import _api, _artist_effects, _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
 from . import _live_transforms, _mirrors, _program_classes, _pybind, _python_drawing, _unusable, _values
-from . import _artist_staleness, _lazy_imports, _transform_trees
+from . import _artist_clipping, _artist_staleness, _lazy_imports, _transform_trees
 from ._artist_callbacks import CallbacksMixin
 from ._artist_children import ChildrenSearchMixin
 from ._artist_clipping import ClippingMixin
@@ -93,6 +93,12 @@ def allow_rasterization(draw):
 
     draw_wrapper._supports_rasterization = True
     return draw_wrapper
+
+
+#: The kinds of `Artist._add_to_axes` whose matplotlib add method clips an
+#: artist without a clip path to the Axes' patch (``add_image`` and
+#: ``_add_text`` leave that to ``imshow`` and ``text``).
+_CLIPPED_WHEN_ADDED = frozenset({"artist", "line", "patch", "collection"})
 
 
 def _check_alpha(alpha):
@@ -878,6 +884,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         _program_classes.set_artist_props(self, had_transform, axes)
         if kind == "patch":
             _transform_trees.patch_added(axes, self)
+        if "_clipbox" in self.__dict__ and kind in _CLIPPED_WHEN_ADDED:
+            # A box given before: matplotlib's add method clips an artist
+            # without a clip path to the Axes' patch, which a `.Rectangle`
+            # does by replacing the box with its own.
+            _artist_clipping.clipped_as_added(self, {"clip_box": self._clipbox})
         return self
 
     def _add_to_figure(self, figure, clip):

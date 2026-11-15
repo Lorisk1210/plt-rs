@@ -23,6 +23,9 @@ impl FigureCanvas {
     /// and clips it (a legend of this canvas's figure is placed anew),
     /// through its painter with `painted`.
     fn draw_one(&self, artist: &RawHandle, painted: bool) -> Result<(), CanvasError> {
+        // A removed artist (an Axes never added among them) draws all it
+        // owns, as matplotlib's `draw` does.
+        let _standing = artist.standing_in();
         if let Some(axes) = Axes::from_raw_handle(artist)
             && axes.visible()
         {
@@ -30,6 +33,9 @@ impl FigureCanvas {
             // first (`_unstale_viewLim`), which the view then keeps, and
             // ticks its axes where the axes is.
             axes.prepare_to_draw_alone();
+        }
+        if !self.holds(artist) && !painted {
+            return self.draw_handle(artist);
         }
         if !self.holds(artist) {
             return self.draw_foreign(|renderer| {
@@ -65,6 +71,35 @@ impl FigureCanvas {
         let drawn = draw(&mut kept.renderer);
         self.keep(kept);
         drawn.map_err(CanvasError::Draw)
+    }
+
+    /// Draws `artist` of another figure or of none onto the canvas, its
+    /// painter left out, as this figure's draw draws it when the program
+    /// draws it then (see [`DrawContext::draw_handle`]): an artist of no
+    /// figure resolves its transforms in this one.
+    fn draw_handle(&self, artist: &RawHandle) -> Result<(), CanvasError> {
+        self.paint_here(
+            |renderer| artist.prepare_painters(renderer, false, true),
+            |ctx| ctx.draw_handle(artist),
+        )
+    }
+
+    /// Draws what `draw` draws onto the canvas, over what it holds, in this
+    /// figure's last layout, once `prepare` has seen the renderer.
+    pub(crate) fn paint_here(
+        &self,
+        prepare: impl FnOnce(&dyn Renderer),
+        draw: impl FnOnce(&mut DrawContext<'_>),
+    ) -> Result<(), CanvasError> {
+        let mut kept = self.take()?;
+        prepare(&kept.renderer);
+        let ((), errors) = self.figure.state.paint(&mut kept.renderer, draw);
+        self.keep(kept);
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(CanvasError::Draw(DrawErrors(errors)))
+        }
     }
 
     /// Draws what `draw` draws of `artist` of this canvas's figure onto

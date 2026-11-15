@@ -463,11 +463,12 @@ such objects
                 continue
             p = patch[0]
             kwargs.update(next(style_gen))
-            p._made_with(kwargs)
+            # matplotlib's hist sets them on the patches its bar added.
+            p._internal_update(kwargs)
             if lbl is not None:
                 p.set_label(lbl)
             for p in patch[1:]:
-                p._made_with(kwargs)
+                p._internal_update(kwargs)
                 p.set_label('_nolegend_')
         if nx == 1:
             return tops[0], bins, patches[0]

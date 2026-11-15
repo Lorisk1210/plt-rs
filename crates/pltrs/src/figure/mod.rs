@@ -29,6 +29,7 @@ mod save;
 mod size;
 mod stale;
 mod standing_in;
+pub(crate) use standing_in::StandingIn;
 mod state;
 mod subfigure;
 mod subplots;

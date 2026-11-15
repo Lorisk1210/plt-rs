@@ -35,7 +35,7 @@ import numpy as np
 
 from . import (_api, _lazy_imports, _locators_as_matplotlib, _logit_reference,
                _program_classes, _qualnames, _tick_helpers, _tick_state, cbook)
-from ._native import axis as _axis, ticker as _ticker
+from ._native import axis as _axis, register as _register, ticker as _ticker
 
 _scalar_reference = _lazy_imports.module(globals(), "._scalar_reference")
 
@@ -61,6 +61,53 @@ def _rc(key):
     """The rcParam *key* (imported when first needed)."""
     from . import rcParams
     return rcParams[key]
+
+
+def _check_text_font():
+    """
+    What matplotlib's ``ScalarFormatter.set_useMathText(None)`` does while
+    :rc:`axes.formatter.use_mathtext` is off: look the font of
+    :rc:`font.family` up (logging, and caching the lookup, as matplotlib's
+    font manager does), and warn when it is cmr10, whose minus sign the
+    labels then lack. Every default `ScalarFormatter` is made so, pltrs
+    (Rust)'s among them (`_scalar_formatters_made`). Whether it warned.
+    """
+    if _rc('axes.formatter.use_mathtext') is not False:
+        return False
+    from . import font_manager
+    try:
+        ufont = font_manager.findfont(
+            font_manager.FontProperties(family=_rc("font.family")),
+            fallback_to_default=False)
+    except ValueError:
+        ufont = None
+    if ufont != str(cbook._get_data_path("fonts/ttf/cmr10.ttf")):
+        return False
+    _api.warn_external("cmr10 font should ideally be used with "
+                       "mathtext, set axes.formatter.use_mathtext to True")
+    return True
+
+
+def _scalar_formatters_made(count):
+    """
+    Check the text font as each of the *count* default scalar formatters
+    pltrs (Rust) made (a linear or function scale's, matplotlib's
+    ``Axis._set_scale``) did as matplotlib makes it (`_check_text_font`);
+    whether there was nothing to say, which the font manager's cache of
+    the lookup keeps so until the parameters change.
+    """
+    logs, cmr10 = _ticker.text_font_check()
+    if not (logs or cmr10):
+        # A lookup that logs nothing and finds no cmr10 says nothing.
+        return True
+    warned = _check_text_font()
+    if warned:
+        for _ in range(count - 1):
+            _check_text_font()
+    return not warned
+
+
+_register("scalar_formatters_made", _scalar_formatters_made)
 
 
 def _val_or_rc(val, key):
@@ -842,6 +889,8 @@ class ScalarFormatter(_NativeFormatter):
         """
         # (Kept as given, as matplotlib's; its truth tells.)
         self._useMathText = _val_or_rc(val, 'axes.formatter.use_mathtext')
+        if val is None:
+            _check_text_font()
 
     useMathText = property(fget=get_useMathText, fset=set_useMathText)
 

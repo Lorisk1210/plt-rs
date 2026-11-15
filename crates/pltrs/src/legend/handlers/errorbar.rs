@@ -34,7 +34,7 @@ pub(super) fn errorbar(
         copy_line(&mut line, data);
         line.drawstyle = DrawStyle::Default;
         line.recache();
-        line.marker = Marker::default();
+        line.set_marker_code(Marker::default());
         copy_line(&mut markers, data);
         markers.linestyle = LineStyle::None;
         scale_markers(ctx, &mut markers);
@@ -91,7 +91,7 @@ pub(super) fn errorbar(
                     ends.iter().map(|p| p.y).collect(),
                 );
                 copy_line(&mut capline, cap);
-                capline.marker = Marker::Symbol(symbol);
+                capline.set_marker_code(Marker::Symbol(symbol));
                 cap_artists.push(HandlerArtist::placed(capline));
             }
         }

@@ -522,6 +522,15 @@ impl CollectionArtist {
         style::resolve_colors(self)
     }
 
+    /// The hatch colour of each item, `edges` being the resolved edge
+    /// colours (matplotlib's `get_hatchcolor`).
+    pub(crate) fn hatch_colors(
+        &self,
+        edges: &[Rgba],
+    ) -> Result<Vec<Rgba>, crate::colors::ColorError> {
+        style::resolve_hatch_colors(self, edges)
+    }
+
     /// The face and edge colours as matplotlib's getters report them (see
     /// [`CollectionArtist::mapped_shown`]), or those of the last 3-D
     /// projection.

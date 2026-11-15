@@ -535,6 +535,7 @@ impl AxisState {
             major_formatter,
             minor_formatter,
         } = scale.default_tickers(self.name, &settings);
+        crate::scale::note_default_formatter(scale.name());
         self.major_locator = Rc::from(major_locator);
         self.major_formatter = Rc::from(major_formatter);
         self.minor_locator = Rc::from(minor_locator);

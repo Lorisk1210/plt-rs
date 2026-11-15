@@ -158,7 +158,7 @@ class FillsMixin:
                     and "linestyle" in _values.prop_cycle(self).keys):
                 # The style the cycle gave, as the cycle spells it.
                 polygon._linestyle = polygon._get("linestyle")
-            polygon._internal_update(props)
+            polygon._made_with(props)
             # None too, as matplotlib's ``_makefill`` gives the polygon the
             # label of its dataset.
             polygon.set_label(label)
@@ -286,7 +286,7 @@ class FillsMixin:
         if color is not None:
             # A colour given sets the hatches' too (`Collection.set_color`).
             collection.set_hatchcolor(color)
-        collection._internal_update(_in_given_order(given, {**per_polygon, **kwargs}))
+        collection._made_with(_in_given_order(given, {**per_polygon, **kwargs}))
         return collection
 
     def fill_between(self, x, y1, y2=0, where=None, interpolate=False,
@@ -438,7 +438,7 @@ class FillsMixin:
         collections = wrap_all(axes, natives, mcoll.FillBetweenPolyCollection)
         for collection in collections:
             style = next(style_gen)
-            collection._internal_update({**kwargs, **style})
+            collection._made_with({**kwargs, **style})
             label = next(labels, None)
             if label is not None:
                 collection.set_label(label)

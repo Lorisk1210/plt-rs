@@ -61,6 +61,10 @@ fn report_lookup(py: Python<'_>, run: &LookupRun) -> PyResult<()> {
         Some(keyword) => keyword.into_py(py)?,
         None => i64::from(query.weight.0).into_py(py)?,
     };
+    let stretch = match font.stretch_keyword {
+        Some(keyword) => keyword.into_py(py)?,
+        None => i64::from(query.stretch.0).into_py(py)?,
+    };
     lookup(py, "report_font_lookup")?.call(
         &[
             kind.into_py(py)?,
@@ -68,7 +72,7 @@ fn report_lookup(py: Python<'_>, run: &LookupRun) -> PyResult<()> {
             query.style.name().into_py(py)?,
             query.variant.name().into_py(py)?,
             weight,
-            i64::from(query.stretch.0).into_py(py)?,
+            stretch,
             query.size.into_py(py)?,
             run.times.into_py(py)?,
         ],

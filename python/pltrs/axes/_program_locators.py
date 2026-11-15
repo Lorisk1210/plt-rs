@@ -172,4 +172,3 @@ def _locate(figure):
         renderer = figure._get_renderer()
         for label in labels:
             label.place_by_program(renderer)
-

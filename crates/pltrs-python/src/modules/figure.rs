@@ -362,6 +362,15 @@ fn add_axes(figure: Figure, (left, bottom, width, height): (f64, f64, f64, f64))
     Ok(figure.add_axes([left, bottom, width, height])?)
 }
 
+/// `axes`, made for the constructor of an Axes class, whose `clear` (run
+/// next, as matplotlib's `__init__` runs it) makes its default formatters:
+/// those of the making are not counted (see
+/// `pltrs::scale::take_scalar_formatters_made`).
+fn for_constructor(axes: Axes) -> Axes {
+    pltrs::scale::take_scalar_formatters_made();
+    axes
+}
+
 /// An axes of `figure` at `[left, bottom, width, height]` in its
 /// fractions, made outside it until `add_axes(ax)` adds it (matplotlib's
 /// `Axes(fig, rect)`).
@@ -369,13 +378,15 @@ fn removed_axes(
     figure: Figure,
     (left, bottom, width, height): (f64, f64, f64, f64),
 ) -> PyResult<Axes> {
-    Ok(figure.removed_axes([left, bottom, width, height])?)
+    Ok(for_constructor(
+        figure.removed_axes([left, bottom, width, height])?,
+    ))
 }
 
 /// An axes of `figure` on the block `spec`, made outside it until
 /// `add_subplot(ax)` adds it (matplotlib's `Axes(fig, subplotspec)`).
 fn removed_subplot(figure: Figure, spec: SubplotSpec) -> PyResult<Axes> {
-    Ok(figure.removed_subplot(&spec)?)
+    Ok(for_constructor(figure.removed_subplot(&spec)?))
 }
 
 /// Axes with the projection `projection` at `[left, bottom, width,
@@ -389,6 +400,7 @@ fn removed_axes_projection(
     let kind = projection_kind(&projection)?;
     figure
         .removed_axes_with_projection([left, bottom, width, height], kind)
+        .map(for_constructor)
         .map_err(|err| PyErr::value_error(err.to_string()))
 }
 
@@ -403,6 +415,7 @@ fn removed_subplot_projection(
     let kind = projection_kind(&projection)?;
     figure
         .removed_subplot_with_projection(&spec, kind)
+        .map(for_constructor)
         .map_err(|err| PyErr::value_error(err.to_string()))
 }
 

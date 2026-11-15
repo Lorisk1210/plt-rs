@@ -1,12 +1,13 @@
 //! Handles to a table and to its cells (matplotlib's `Table` and the
 //! `Cell`s of `table[row, col]`).
 
-use pltrs_core::Path;
+use pltrs_core::{Bbox, Path};
 use pltrs_text::HAlign;
 
 use super::TableArtist;
 use super::cell::{Cell, CellEdges};
-use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
+use crate::artist::{Artist, ArtistHandle, LayoutContext, RawHandle, TypedHandle};
+use crate::axes::Axes;
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 
@@ -29,6 +30,32 @@ impl TypedHandle for Table {
 }
 
 impl Table {
+    /// The table's box in display space where the figure of `axes` places
+    /// it as it is now, for a table made for `axes` but not added
+    /// (matplotlib's table takes the figure of its axes when it is made,
+    /// and measures itself there); `None` when it takes no space.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::table::{Table, TableLoc};
+    /// let ax = Figure::with_size(3.0, 3.0, 50.0).subplot();
+    /// let table = Table::loose(Some(&ax), TableLoc::Center, None);
+    /// table.add_cell(0, 0, 0.5, 0.1);
+    /// let extent = table.extent_for(&ax).expect("a box");
+    /// assert!(extent.width() > 0.0 && extent.height() > 0.0);
+    /// ```
+    pub fn extent_for(&self, axes: &Axes) -> Option<Bbox> {
+        let raw = self.raw();
+        let _standing = raw.standing_in();
+        let table = raw
+            .figure_state()
+            .borrow()
+            .store
+            .shared_as::<TableArtist>(raw.id())?;
+        let state = axes.raw().figure_state().borrow();
+        table.window_extent(&LayoutContext::new(&state))
+    }
+
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
     }

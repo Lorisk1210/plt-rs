@@ -15,6 +15,7 @@ from ..._native import patches as _patches, plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import BarContainer, ErrorbarContainer
 from ... import _lazy_imports
+from ... import _unusable
 from ._helpers import floats, record_container, wrap, wrap_all
 from .errorbar import _error_bounds
 
@@ -519,10 +520,17 @@ class BarsMixin:
         patches = wrap_all(self, rectangles, mpatches.Rectangle)
         # matplotlib cycles the hatches as numpy strings.
         hatch_cycle = itertools.cycle(np.atleast_1d(hatch))
+        # (The kinds read without a Python call: most bars are of floats.)
+        kinds = (np.asarray(position).dtype.kind, np.asarray(value).dtype.kind,
+                 np.asarray(thickness).dtype.kind, np.asarray(base).dtype.kind)
+        complex_extents = _complex_extents(kinds, align) if "c" in kinds else 0
         for patch in patches:
             if hatch is not None:
                 _values.remember(patch, "hatch", next(hatch_cycle))
             patch._made_with(kwargs)
+            if complex_extents:
+                _unusable.keep(patch, "complex extents", complex_extents,
+                               _cast_complex_extents, measured=False)
         if patches:
             # matplotlib's ``r.get_path()._interpolation_steps = 100``,
             # through the path all rectangles share.
@@ -1060,3 +1068,26 @@ or pandas.DataFrame
                                      label='_nolegend_' if label is None else str(label))
             containers.append(record_container(self, container, native))
         return _GroupedBarReturn(containers)
+
+
+def _complex_extents(kinds, align):
+    """
+    How many of each bar's four extents are complex numbers, of the arrays
+    `bar` made its bars from (the dtype kinds *kinds* of their positions,
+    values, widths and bases): matplotlib's `.Rectangle` keeps them, and
+    casts them to floats each time it computes its box (``get_bbox``, as
+    its draw does), numpy warning of each (`_cast_complex_extents`). The
+    near edge is complex with a complex position (or a complex width
+    centred on it), the far one with the near one or a complex width; the
+    base with a complex base, the top with it or a complex value.
+    """
+    position, value, thickness, base = (kind == "c" for kind in kinds)
+    near = position or (align == "center" and thickness)
+    return near + (near or thickness) + base + (base or value)
+
+
+def _cast_complex_extents(count):
+    """numpy's casts of the *count* complex extents of a bar to floats,
+    which matplotlib's `.Rectangle` makes each time it is drawn
+    (``Bbox.from_extents``), each warning that the imaginary part goes."""
+    np.asarray([np.complex128(0)] * count, dtype=float)

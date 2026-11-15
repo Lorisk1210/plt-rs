@@ -98,6 +98,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
         text_helpers::warn_missing_glyphs,
         text_helpers::report_font_notes,
         text_helpers::log_mathtext_messages,
+        ticker::report_scalar_formatters,
         transforms::sync_watched,
     ]);
     annotation::register(&module.submodule("annotation")?)?;

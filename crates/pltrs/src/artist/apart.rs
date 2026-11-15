@@ -6,7 +6,7 @@
 use pltrs_core::Bbox;
 
 use super::{ArtistHandle, ArtistLookup, LayoutContext, RawHandle, Renderer};
-use crate::figure::DrawErrors;
+use crate::figure::{DrawErrors, FigureState};
 
 impl RawHandle {
     /// The artist's extent in display coordinates in its figure's current
@@ -31,6 +31,38 @@ impl RawHandle {
     pub fn measured_extent(&self) -> Option<Bbox> {
         let _standing = self.standing_in();
         let state = self.figure_state().prepared();
+        let ctx = LayoutContext::new(&state);
+        state.artist(self.id())?.window_extent(&ctx)
+    }
+
+    /// [`measured_extent`](Self::measured_extent) with the figure brought up
+    /// to date as matplotlib computes ticks between draws (its views
+    /// autoscaled, its ticks placed where its axes stand, neither the
+    /// layout engine nor an aspect run): what matplotlib's
+    /// `Spine.get_window_extent` measures, which ticks its axis first.
+    /// A figure being drawn is measured as laid out.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::axes::Aspect;
+    /// use pltrs::prelude::*;
+    /// use pltrs::spines::SpineSide;
+    /// let fig = Figure::with_size(4.0, 3.0, 100.0);
+    /// let ax = fig.subplot();
+    /// ax.set_aspect(Aspect::Equal)?;
+    /// let spine = ax.spines().get(SpineSide::Bottom).clone();
+    /// let standing = spine.raw().measured_extent_as_is().expect("measured");
+    /// let applied = spine.raw().measured_extent().expect("measured");
+    /// assert!(standing.width() > applied.width(), "the aspect not applied");
+    /// # Ok::<(), pltrs::axes::AspectError>(())
+    /// ```
+    pub fn measured_extent_as_is(&self) -> Option<Bbox> {
+        let _standing = self.standing_in();
+        let cell = self.figure_state();
+        if !cell.is_painted() && cell.try_borrow_mut().is_some() {
+            cell.work_on(FigureState::prepare_as_is);
+        }
+        let state = cell.borrow();
         let ctx = LayoutContext::new(&state);
         state.artist(self.id())?.window_extent(&ctx)
     }

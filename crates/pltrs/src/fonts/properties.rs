@@ -215,6 +215,7 @@ impl FontProperties {
             last_resort: current.font_enable_last_resort,
             hinting: crate::text::hinting(rc),
             weight_keyword: self.weight.name(),
+            stretch_keyword: self.stretch.name(),
             file: self
                 .file
                 .as_ref()

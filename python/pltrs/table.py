@@ -683,7 +683,11 @@ class Table(Artist):
         # Return the table's box in display space, where pltrs (Rust) lays it
         # out in the figure as it is (matplotlib computes it from the table's
         # layout, placing its cells).
-        self._check_figure_renderer(renderer)
+        # Made for its Axes and not added, a table has the Axes' figure from
+        # then on in matplotlib, and measures itself there.
+        unadded = self._figure is None and self._axes is not None
+        if not unadded:
+            self._check_figure_renderer(renderer)
         if renderer is not None and self.__dict__.get("_autoFontsize", True):
             # matplotlib's table fits the fonts of its cells first, their
             # texts measured with *renderer*.
@@ -691,6 +695,9 @@ class Table(Artist):
                 cell._measure_text_with(renderer)
         _unusable.check(self, measuring=True)
         self._place_cells()
+        if unadded:
+            extents = _table.extent_for(self._native, self._axes._native)
+            return Bbox([[0, 0], [0, 0]]) if extents is None else Bbox.from_extents(*extents)
         return self._extent_as_is(renderer)
 
     def _kept_order(self):

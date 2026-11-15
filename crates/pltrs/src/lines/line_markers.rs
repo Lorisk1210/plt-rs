@@ -16,6 +16,16 @@ use crate::rc::ColorOrAuto;
 use crate::transforms::ResolvedTransform;
 
 impl LineArtist {
+    /// Gives the line the marker `marker` as matplotlib's `set_marker`
+    /// gives a line a marker code: a style made anew, without the
+    /// transform, cap and join styles of the one before.
+    pub(crate) fn set_marker_code(&mut self, marker: Marker) {
+        self.marker = marker;
+        self.marker_transform = None;
+        self.marker_capstyle = None;
+        self.marker_joinstyle = None;
+    }
+
     /// Draws the markers at `points` mapped by `resolved` (its non-affine
     /// part already applied when `mapped` is given).
     pub(super) fn draw_markers(

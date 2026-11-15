@@ -127,7 +127,7 @@ def eventplot(axes, positions, orientation='horizontal', lineoffsets=1,
                                      alpha=alpha_,
                                      linestyle=linestyle)
         axes.add_collection(coll, autolim=False)
-        coll._made_with(kwargs)
+        coll._internal_update(kwargs)
         colls.append(coll)
 
     if len(positions) > 0:

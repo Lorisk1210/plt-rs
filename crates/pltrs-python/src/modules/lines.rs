@@ -498,6 +498,8 @@ fn get(line: Line2D, name: String) -> PyResult<Owned> {
                 .map(matrix)
                 .transpose()?
                 .into_py(py)?,
+            "marker_capstyle" => line.marker_capstyle().map(CapStyle::name).into_py(py)?,
+            "marker_joinstyle" => (line.marker_joinstyle()).map(JoinStyle::name).into_py(py)?,
             _ => {
                 return Err(PyErr::new(
                     ExceptionKind::AttributeError,

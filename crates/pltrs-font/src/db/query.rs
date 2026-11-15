@@ -148,6 +148,24 @@ impl Default for Weight {
     }
 }
 
+/// matplotlib's stretch names (`font_manager.stretch_dict`) and their
+/// stretches.
+const STRETCH_NAMES: [(&str, u16); 13] = [
+    ("ultra-condensed", 100),
+    ("extra-condensed", 200),
+    ("condensed", 300),
+    ("semi-condensed", 400),
+    ("normal", 500),
+    ("semi-expanded", 600),
+    ("semi-extended", 600),
+    ("expanded", 700),
+    ("extended", 700),
+    ("extra-expanded", 800),
+    ("extra-extended", 800),
+    ("ultra-expanded", 900),
+    ("ultra-extended", 900),
+];
+
 /// A CSS font stretch, 0–1000 (500 normal).
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub struct Stretch(pub u16);
@@ -163,6 +181,22 @@ impl Stretch {
     pub const SEMI_CONDENSED: Self = Self(400);
     /// `expanded` (700).
     pub const EXPANDED: Self = Self(700);
+
+    /// `text` if it is one of matplotlib's stretch names, which
+    /// `FontProperties.set_stretch` keeps as given (and its font manager's
+    /// lookups are cached by); `None` for anything else, a number included.
+    ///
+    /// ```
+    /// use pltrs_font::Stretch;
+    /// assert_eq!(Stretch::keyword("normal"), Some("normal"));
+    /// assert_eq!(Stretch::keyword("500"), None);
+    /// ```
+    pub fn keyword(text: &str) -> Option<&'static str> {
+        STRETCH_NAMES
+            .iter()
+            .find(|(name, _)| *name == text)
+            .map(|&(name, _)| name)
+    }
 }
 
 impl FromStr for Stretch {
@@ -172,17 +206,9 @@ impl FromStr for Stretch {
     /// with `extended` synonyms), ignoring case, or a number in 0–1000.
     fn from_str(text: &str) -> Result<Self, FontError> {
         let lower = text.trim().to_ascii_lowercase();
-        let named = match lower.as_str() {
-            "ultra-condensed" => 100,
-            "extra-condensed" => 200,
-            "condensed" => 300,
-            "semi-condensed" => 400,
-            "normal" => 500,
-            "semi-expanded" | "semi-extended" => 600,
-            "expanded" | "extended" => 700,
-            "extra-expanded" | "extra-extended" => 800,
-            "ultra-expanded" | "ultra-extended" => 900,
-            number => number
+        let named = match STRETCH_NAMES.iter().find(|(name, _)| *name == lower) {
+            Some(&(_, stretch)) => stretch,
+            None => lower
                 .parse()
                 .ok()
                 .filter(|&value| value <= 1000)

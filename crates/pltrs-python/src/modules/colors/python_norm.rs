@@ -14,12 +14,15 @@ use pltrs::scale::{ScaleOptions, scale_factory};
 use super::super::scale::scale_options;
 use super::mapping::extend;
 use crate::binding::prelude::*;
-use crate::binding::{dict_value, lookup};
+use crate::binding::{IntoPy, dict_value, lookup};
 
 /// A Python norm, with the limits and clipping it had when it was read.
 #[derive(Clone, Debug)]
 pub(crate) struct PythonNorm {
-    /// The Python norm (what an archive holds in place of this copy).
+    /// The Python norm, as `native_norm` gives it: held weakly (a
+    /// `Held`, which an archive holds as the norm) for a norm the
+    /// program's colorizer holds, strongly for one read back from an
+    /// archive.
     object: Owned,
     vmin: Option<f64>,
     vmax: Option<f64>,
@@ -54,10 +57,11 @@ struct Hooks {
 
 impl PythonNorm {
     /// The norm `norm`, through the callables the package's
-    /// `native_norm` gives for it.
-    pub(crate) fn of(norm: &Bound<'_>) -> PyResult<Self> {
+    /// `native_norm` gives for it, which hold it `weak`ly unless it is
+    /// read back from an archive (nothing else holds it then).
+    pub(crate) fn of(norm: &Bound<'_>, weak: bool) -> PyResult<Self> {
         let py = norm.py();
-        let hooks = lookup(py, "native_norm")?.call(std::slice::from_ref(norm), &[])?;
+        let hooks = lookup(py, "native_norm")?.call(&[norm.clone(), weak.into_py(py)?], &[])?;
         let hook = |name: &str| dict_value::<Bound<'_>>(&hooks, name);
         let (vmin, vmax, clip): (Option<f64>, Option<f64>, bool) =
             hook("state")?.call(&[], &[])?.extract()?;
@@ -73,7 +77,7 @@ impl PythonNorm {
             None => None,
         };
         Ok(Self {
-            object: norm.clone().unbind(),
+            object: hook("object")?.unbind(),
             vmin,
             vmax,
             clip,
@@ -262,14 +266,14 @@ mod tests {
 class Half:
     n_components = 1
     vmin, vmax, clip = 0.0, 1.0, False
-def hooks(norm):
+def hooks(norm, weak):
     def set_limits(vmin, vmax):
         norm.vmin, norm.vmax = vmin, vmax
     def state():
         return norm.vmin, norm.vmax, norm.clip
     return {'normalize': print, 'normalize_scalar': print, 'autoscale_none': print,
             'inverse': print, 'set_limits': set_limits, 'state': state, 'scale': None,
-            'boundary': getattr(norm, 'bins', None)}
+            'boundary': getattr(norm, 'bins', None), 'object': norm}
 class Bins(Half):
     bins = ([0.0, 0.5, 2.0], 2, 'neither')
 ";

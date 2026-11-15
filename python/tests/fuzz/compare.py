@@ -9,9 +9,11 @@ differ from there on.
 Differences are not bugs (the differential tester, ``cargo xtask diff``,
 is where pltrs is held to matplotlib's behaviour): they are grouped by
 the two exceptions in ``differences.md`` in the fuzzer's directory, each
-group with a program to look at.
+group with a program to look at, and listed one by one, with the line
+where each program diverged, in ``differences.json``.
 """
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 
 #: How many programs a reference worker runs before a new one takes over.
@@ -61,7 +63,8 @@ def differences(ran, directory, jobs):
 
 def write(found, directory):
     """Writes the differences *found*, grouped by exception, to
-    ``differences.md`` under *directory*."""
+    ``differences.md`` under *directory*, and each one, with the line it
+    diverged at, to ``differences.json``."""
     groups = {}
     for seed, lines, index, ours, theirs in found:
         groups.setdefault((str(ours), str(theirs)), []).append((seed, lines, index))
@@ -74,3 +77,8 @@ def write(found, directory):
         report += ["", f"## {ours} under pltrs, {theirs} under matplotlib (seed {seed})", "",
                    "```python", *lines[:index + 1], "```"]
     (directory / "differences.md").write_text("\n".join(report) + "\n", encoding="utf-8")
+    listed = [{"seed": seed, "line": lines[index] if index < len(lines) else None,
+               "index": index, "pltrs": str(ours), "matplotlib": str(theirs)}
+              for seed, lines, index, ours, theirs in found]
+    (directory / "differences.json").write_text(json.dumps(listed, indent=1) + "\n",
+                                                encoding="utf-8")

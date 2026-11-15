@@ -38,7 +38,7 @@ def main():
     arguments = parser.parse_args()
     work = arguments.work.resolve()
     if arguments.serve:
-        print(serve.compare(arguments.serve, work / "serve"))
+        print(serve.compare(arguments.serve, work / "serve", tuple(arguments.patterns)))
         return 0
     names = runner.selected(arguments.patterns, own=arguments.short or arguments.record)
     if arguments.record:

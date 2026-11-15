@@ -16,7 +16,7 @@ import numpy as np
 
 from . import _docstring
 from . import _api, _live_transforms, _mirrors, _unusable, _values, cbook, units
-from ._artist_kwargs import native_artist_kwargs
+from ._artist_kwargs import check_known, native_artist_kwargs
 from ._native import artist as _artist, lines as _lines
 from . import _program_classes
 from .artist import Artist, _check_alpha
@@ -196,14 +196,63 @@ def _marker_spec(marker, fillstyle=None):
             else style._user_joinstyle.name)
 
 
-def _native_kwargs(kwargs):
+#: The `.Line2D` properties pltrs (Rust) makes a line with (its
+#: ``line_prop``). A line made with others, which every artist has
+#: (``agg_filter``, ``snap``, ``in_layout``...), gets them through its
+#: setters once made (`_set_after`), as matplotlib's constructor sets the
+#: keywords it has no parameter for; so do its path effects, which the
+#: setter keeps as given (and the program's held where Python's collector
+#: sees them).
+_NATIVE_PROPERTIES = frozenset((
+    "color", "linewidth", "linestyle", "dashes", "drawstyle", "gapcolor", "marker",
+    "fillstyle", "markersize", "markeredgewidth", "markeredgecolor", "markerfacecolor",
+    "markerfacecoloralt", "markevery", "antialiased", "pickradius", "solid_capstyle",
+    "solid_joinstyle", "dash_capstyle", "dash_joinstyle", "label", "alpha", "zorder",
+    "visible", "clip_on", "animated", "rasterized", "gid", "url", "transform", "picker",
+    "clip_path"))
+
+#: The data a line's maker takes apart from its properties.
+_DATA = ("data", "xdata", "ydata")
+
+
+def _after_kwargs(kwargs):
+    """The keyword arguments of *kwargs* a line is given through its
+    setters once made (see `_NATIVE_PROPERTIES`; an alias stands for its
+    property). The clip box is not one of them: `.keep_python_kwargs`
+    gives it, clipped as matplotlib's add method leaves the line."""
+    to_property = Line2D._alias_to_prop
+    return {name: value for name, value in kwargs.items()
+            if to_property.get(name, name) not in _NATIVE_PROPERTIES
+            and name not in _DATA and name != "clip_box"}
+
+
+def _set_after(line, kwargs):
+    """Give *line*, made natively with *kwargs*, those of them pltrs (Rust)
+    makes no line with (see `_NATIVE_PROPERTIES`); returns *line*, which
+    may be None (no line made)."""
+    after = _after_kwargs(kwargs)
+    if after and line is not None:
+        line._internal_update(after)
+    return line
+
+
+def _native_kwargs(kwargs, holder=None):
     """
     *kwargs*, whose aliases are resolved, in the form the native line
     properties take: markers as `_marker_spec`, ``dashes`` as a line style,
     a transform as its native transform, ``data``/``xdata``/``ydata`` left
     to the caller, the properties of every artist as
-    `._artist_kwargs.native_artist_kwargs` makes them.
+    `._artist_kwargs.native_artist_kwargs` makes them. Those pltrs (Rust)
+    makes no line with are left out, once checked to be properties of a
+    line, as matplotlib's maker of the line fails before making it (the
+    caller sets them: `_set_after`). A transform of the program's is held
+    for *holder*, the root figure the line is made in (see
+    `._live_transforms.to_native`).
     """
+    after = _after_kwargs(kwargs)
+    if after:
+        check_known(Line2D, after)
+        kwargs = {name: value for name, value in kwargs.items() if name not in after}
     for name in ("color", "gapcolor"):
         if kwargs.get(name) is not None:
             # As matplotlib's `set_color` and `set_gapcolor` check them.
@@ -219,7 +268,7 @@ def _native_kwargs(kwargs):
               else value
               for name, value in kwargs.items()}
     if "transform" in kwargs:
-        kwargs["transform"] = _live_transforms.to_native(kwargs["transform"])
+        kwargs["transform"] = _live_transforms.to_native(kwargs["transform"], held_by=holder)
     fillstyle = kwargs.get("fillstyle")
     if "marker" in kwargs:
         kwargs["marker"] = _marker_spec(kwargs["marker"], fillstyle)

@@ -1148,14 +1148,24 @@ hours must not grow. Two rules keep it so.
   a scale among the axes sharing it; an artist in no figure yet keeps its
   own; a `Held` proxy's pickle holds the object itself), tick helpers
   through their adapters (the axis holds them), agg filters through
-  `_artist_effects.held_filter` (the artist holds them). Caches keyed by a class of the program's
+  `_artist_effects.held_filter` (the artist holds them), and the same for
+  those a plotting method's keyword gives (`_live_transforms.given_to_native`
+  and the lines' `_native_kwargs` hold a transform for the root figure of
+  the Axes, a line takes its path effects through its setter). A norm or a
+  colormap mapping in Python is held by the colorizer it was given to, and
+  weakly by pltrs (Rust) (`colors._native_norm` and `_native_colormap`; a
+  norm read back from an archive, which nothing else holds, strongly).
+  pltrs (Rust)'s memo of the answers of the program's maps holds the maps
+  weakly (`transforms::program_calls`). What the package makes for an
+  artist and keeps (`_live_transforms.kept`: a clip path, a transform) is
+  kept on the artist, not in a table keyed by it weakly: what it refers to
+  reaches the artist again (a clip path its Axes and figure), which a
+  weak key never lets go. Caches keyed by a class of the program's
   hold the class weakly (`_program_classes.class_cache`), and nothing the
   package shares between figures (a class attribute, a module's table)
   may refer to one figure's objects (`Rectangle.get_path`'s shared unit
-  rectangle refers to its rectangle weakly). Where a plotting method's
-  keyword gives pltrs (Rust) an object no Python object keeps (a
-  ``transform=``, ``path_effects=``, a norm), pltrs (Rust) still holds it
-  strongly; ``python/tests/leaks/scenes.py`` lists those (`KNOWN`).
+  rectangle refers to its rectangle weakly). The artist made gives back
+  the object given (``line.get_transform() is t``).
 * **A removed artist lives only while something reaches it.** pltrs
   (Rust) counts the handles of each artist (`FigureCell`'s census);
   before a draw a figure lets go of the removed artists no handle reaches
@@ -1172,7 +1182,10 @@ hours must not grow. Two rules keep it so.
 states, native objects and removed artists kept (`pltrs::diagnostics`).
 The leak harness, `python -m leaks` (from `python/tests`), makes, draws,
 saves and drops a few hundred scenes under pltrs and under matplotlib and
-reports what stays alive or grows under pltrs only; ``python -m
+reports what stays alive or grows under pltrs only, the scenes of
+figures that some forty libraries make (`leaks/libraries.py`, in the
+venvs of `cargo xtask ecosystem setup`) among them; ``--serve N
+[lib_seaborn]`` runs a request loop; ``python -m
 leaks.holders SCENE`` shows what holds a leaking scene's objects (on the
 Python side: the objects whose references Python's collector cannot
 account for, and the chain from a module to them). Its short mode runs
@@ -1456,7 +1469,12 @@ and the data limits of an artist added to an axes are measured apart from
 the figure (matplotlib's `_update_patch_limits` makes the path first,
 calling a box style even for a patch in axes fractions). A projection's
 data ratio is asked with the figure lent (`FigureState::data_ratio_of`,
-`Axes::apply_aspect` working on the figure apart). A tight box maps the
+`Axes::apply_aspect` working on the figure apart), and so are the spans of
+its spines (its `Spine._adjust_location`) once a layout settled the view,
+and again once the figure is laid out for a draw, asked anew while the
+program moves the axes answering (`FigureState::span_program_spines`):
+the layout and the draw use what it answered for that view
+(`AxesState::spine_interval`). A tight box maps the
 positions of the texts it measures through a transform of the program's
 with the figure lent, then measures them quietly
 (`program_texts_measured`).
@@ -1465,8 +1483,8 @@ Other code pltrs (Rust) runs while it lays a figure out or draws it with
 the figure held finds the figure in use: taken out while it is laid out,
 borrowed for reading while it is drawn. That is the code a transform's
 resolution runs (the hooks of a projection of the program's other than
-its data ratio: its transforms evaluated, its `get_view_interval`, its
-`Tick.draw` probe, its `Spine._adjust_location`), the grid finders of
+its data ratio and its spines' spans: its transforms evaluated, its
+`get_view_interval`, its `Tick.draw` probe), the grid finders of
 axisartist where an axis artist or its gridlines draw (but
 `AxisArtist._init_line`), and texts measured through transforms of the
 program's outside tight boxes. matplotlib's may still change it, so a

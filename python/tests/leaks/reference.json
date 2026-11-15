@@ -329,52 +329,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 98799
+    "objects": 99279
    },
    "15": {
-    "objects": 98825
+    "objects": 99305
    },
    "20": {
-    "objects": 98851
+    "objects": 99331
    },
    "25": {
-    "objects": 98877
+    "objects": 99357
    },
    "30": {
-    "objects": 98903
+    "objects": 99383
    },
    "35": {
-    "objects": 98929
+    "objects": 99409
    },
    "40": {
-    "objects": 98955
+    "objects": 99435
    },
    "45": {
-    "objects": 98971
+    "objects": 99451
    },
    "5": {
-    "objects": 98773
+    "objects": 99253
    },
    "50": {
-    "objects": 98987
+    "objects": 99467
    },
    "55": {
-    "objects": 99003
+    "objects": 99483
    },
    "60": {
-    "objects": 99019
+    "objects": 99499
    },
    "65": {
-    "objects": 99035
+    "objects": 99515
    },
    "70": {
-    "objects": 99051
+    "objects": 99531
    },
    "75": {
-    "objects": 99067
+    "objects": 99547
    },
    "80": {
-    "objects": 99083
+    "objects": 99563
    }
   },
   "scene": "kept_annotations"
@@ -384,52 +384,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 99386
+    "objects": 99866
    },
    "15": {
-    "objects": 99387
+    "objects": 99867
    },
    "20": {
-    "objects": 99388
+    "objects": 99868
    },
    "25": {
-    "objects": 99389
+    "objects": 99869
    },
    "30": {
-    "objects": 99390
+    "objects": 99870
    },
    "35": {
-    "objects": 99391
+    "objects": 99871
    },
    "40": {
-    "objects": 99392
+    "objects": 99872
    },
    "45": {
-    "objects": 99393
+    "objects": 99873
    },
    "5": {
-    "objects": 99385
+    "objects": 99865
    },
    "50": {
-    "objects": 99394
+    "objects": 99874
    },
    "55": {
-    "objects": 99395
+    "objects": 99875
    },
    "60": {
-    "objects": 99396
+    "objects": 99876
    },
    "65": {
-    "objects": 99397
+    "objects": 99877
    },
    "70": {
-    "objects": 99398
+    "objects": 99878
    },
    "75": {
-    "objects": 99399
+    "objects": 99879
    },
    "80": {
-    "objects": 99400
+    "objects": 99880
    }
   },
   "scene": "kept_blit"
@@ -439,52 +439,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 102812
+    "objects": 103292
    },
    "15": {
-    "objects": 102630
+    "objects": 103110
    },
    "20": {
-    "objects": 102855
+    "objects": 103335
    },
    "25": {
-    "objects": 102664
+    "objects": 103144
    },
    "30": {
-    "objects": 102675
+    "objects": 103155
    },
    "35": {
-    "objects": 102900
+    "objects": 103380
    },
    "40": {
-    "objects": 102911
+    "objects": 103391
    },
    "45": {
-    "objects": 103126
+    "objects": 103606
    },
    "5": {
-    "objects": 102566
+    "objects": 103046
    },
    "50": {
-    "objects": 102711
+    "objects": 103191
    },
    "55": {
-    "objects": 102712
+    "objects": 103192
    },
    "60": {
-    "objects": 102713
+    "objects": 103193
    },
    "65": {
-    "objects": 102928
+    "objects": 103408
    },
    "70": {
-    "objects": 102929
+    "objects": 103409
    },
    "75": {
-    "objects": 102930
+    "objects": 103410
    },
    "80": {
-    "objects": 102931
+    "objects": 103411
    }
   },
   "scene": "kept_clear_replot"
@@ -494,52 +494,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 102540
+    "objects": 103020
    },
    "15": {
-    "objects": 102358
+    "objects": 102838
    },
    "20": {
-    "objects": 102583
+    "objects": 103063
    },
    "25": {
-    "objects": 102392
+    "objects": 102872
    },
    "30": {
-    "objects": 102403
+    "objects": 102883
    },
    "35": {
-    "objects": 102628
+    "objects": 103108
    },
    "40": {
-    "objects": 102639
+    "objects": 103119
    },
    "45": {
-    "objects": 102854
+    "objects": 103334
    },
    "5": {
-    "objects": 102294
+    "objects": 102774
    },
    "50": {
-    "objects": 102439
+    "objects": 102919
    },
    "55": {
-    "objects": 102440
+    "objects": 102920
    },
    "60": {
-    "objects": 102441
+    "objects": 102921
    },
    "65": {
-    "objects": 102656
+    "objects": 103136
    },
    "70": {
-    "objects": 102657
+    "objects": 103137
    },
    "75": {
-    "objects": 102658
+    "objects": 103138
    },
    "80": {
-    "objects": 102659
+    "objects": 103139
    }
   },
   "scene": "kept_clf"
@@ -549,52 +549,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 104561
+    "objects": 105041
    },
    "15": {
-    "objects": 104572
+    "objects": 105052
    },
    "20": {
-    "objects": 104583
+    "objects": 105063
    },
    "25": {
-    "objects": 104594
+    "objects": 105074
    },
    "30": {
-    "objects": 104605
+    "objects": 105085
    },
    "35": {
-    "objects": 104616
+    "objects": 105096
    },
    "40": {
-    "objects": 104627
+    "objects": 105107
    },
    "45": {
-    "objects": 104628
+    "objects": 105108
    },
    "5": {
-    "objects": 104550
+    "objects": 105030
    },
    "50": {
-    "objects": 104629
+    "objects": 105109
    },
    "55": {
-    "objects": 104630
+    "objects": 105110
    },
    "60": {
-    "objects": 104631
+    "objects": 105111
    },
    "65": {
-    "objects": 104632
+    "objects": 105112
    },
    "70": {
-    "objects": 104633
+    "objects": 105113
    },
    "75": {
-    "objects": 104634
+    "objects": 105114
    },
    "80": {
-    "objects": 104635
+    "objects": 105115
    }
   },
   "scene": "kept_colorbar_replaced"
@@ -604,52 +604,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 101790
+    "objects": 102270
    },
    "15": {
-    "objects": 101791
+    "objects": 102271
    },
    "20": {
-    "objects": 101792
+    "objects": 102272
    },
    "25": {
-    "objects": 101793
+    "objects": 102273
    },
    "30": {
-    "objects": 101794
+    "objects": 102274
    },
    "35": {
-    "objects": 101795
+    "objects": 102275
    },
    "40": {
-    "objects": 101796
+    "objects": 102276
    },
    "45": {
-    "objects": 101797
+    "objects": 102277
    },
    "5": {
-    "objects": 101789
+    "objects": 102269
    },
    "50": {
-    "objects": 101798
+    "objects": 102278
    },
    "55": {
-    "objects": 101799
+    "objects": 102279
    },
    "60": {
-    "objects": 101800
+    "objects": 102280
    },
    "65": {
-    "objects": 101801
+    "objects": 102281
    },
    "70": {
-    "objects": 101802
+    "objects": 102282
    },
    "75": {
-    "objects": 101803
+    "objects": 102283
    },
    "80": {
-    "objects": 101804
+    "objects": 102284
    }
   },
   "scene": "kept_connect_disconnect"
@@ -659,52 +659,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 99393
+    "objects": 99873
    },
    "15": {
-    "objects": 99393
+    "objects": 99873
    },
    "20": {
-    "objects": 99394
+    "objects": 99874
    },
    "25": {
-    "objects": 99395
+    "objects": 99875
    },
    "30": {
-    "objects": 99396
+    "objects": 99876
    },
    "35": {
-    "objects": 99397
+    "objects": 99877
    },
    "40": {
-    "objects": 99398
+    "objects": 99878
    },
    "45": {
-    "objects": 99399
+    "objects": 99879
    },
    "5": {
-    "objects": 99425
+    "objects": 99904
    },
    "50": {
-    "objects": 99400
+    "objects": 99880
    },
    "55": {
-    "objects": 99401
+    "objects": 99881
    },
    "60": {
-    "objects": 99402
+    "objects": 99882
    },
    "65": {
-    "objects": 99403
+    "objects": 99883
    },
    "70": {
-    "objects": 99404
+    "objects": 99884
    },
    "75": {
-    "objects": 99405
+    "objects": 99885
    },
    "80": {
-    "objects": 99406
+    "objects": 99886
    }
   },
   "scene": "kept_events"
@@ -714,52 +714,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 102256
+    "objects": 102736
    },
    "15": {
-    "objects": 102267
+    "objects": 102747
    },
    "20": {
-    "objects": 102278
+    "objects": 102758
    },
    "25": {
-    "objects": 102289
+    "objects": 102769
    },
    "30": {
-    "objects": 102300
+    "objects": 102780
    },
    "35": {
-    "objects": 102311
+    "objects": 102791
    },
    "40": {
-    "objects": 102322
+    "objects": 102802
    },
    "45": {
-    "objects": 102323
+    "objects": 102803
    },
    "5": {
-    "objects": 102245
+    "objects": 102725
    },
    "50": {
-    "objects": 102324
+    "objects": 102804
    },
    "55": {
-    "objects": 102325
+    "objects": 102805
    },
    "60": {
-    "objects": 102326
+    "objects": 102806
    },
    "65": {
-    "objects": 102327
+    "objects": 102807
    },
    "70": {
-    "objects": 102328
+    "objects": 102808
    },
    "75": {
-    "objects": 102329
+    "objects": 102809
    },
    "80": {
-    "objects": 102330
+    "objects": 102810
    }
   },
   "scene": "kept_images_replaced"
@@ -769,52 +769,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 102896
+    "objects": 103376
    },
    "15": {
-    "objects": 102922
+    "objects": 103402
    },
    "20": {
-    "objects": 102948
+    "objects": 103428
    },
    "25": {
-    "objects": 102974
+    "objects": 103454
    },
    "30": {
-    "objects": 103000
+    "objects": 103480
    },
    "35": {
-    "objects": 103026
+    "objects": 103506
    },
    "40": {
-    "objects": 103052
+    "objects": 103532
    },
    "45": {
-    "objects": 103068
+    "objects": 103548
    },
    "5": {
-    "objects": 102873
+    "objects": 103353
    },
    "50": {
-    "objects": 103084
+    "objects": 103564
    },
    "55": {
-    "objects": 103100
+    "objects": 103580
    },
    "60": {
-    "objects": 103116
+    "objects": 103596
    },
    "65": {
-    "objects": 103132
+    "objects": 103612
    },
    "70": {
-    "objects": 103148
+    "objects": 103628
    },
    "75": {
-    "objects": 103164
+    "objects": 103644
    },
    "80": {
-    "objects": 103180
+    "objects": 103660
    }
   },
   "scene": "kept_legend_remade"
@@ -824,52 +824,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 146555
+    "objects": 147035
    },
    "15": {
-    "objects": 168371
+    "objects": 168851
    },
    "20": {
-    "objects": 190187
+    "objects": 190667
    },
    "25": {
-    "objects": 212003
+    "objects": 212483
    },
    "30": {
-    "objects": 233819
+    "objects": 234299
    },
    "35": {
-    "objects": 255635
+    "objects": 256115
    },
    "40": {
-    "objects": 277451
+    "objects": 277931
    },
    "45": {
-    "objects": 299267
+    "objects": 299747
    },
    "5": {
-    "objects": 124739
+    "objects": 125219
    },
    "50": {
-    "objects": 321083
+    "objects": 321563
    },
    "55": {
-    "objects": 342899
+    "objects": 343379
    },
    "60": {
-    "objects": 364715
+    "objects": 365195
    },
    "65": {
-    "objects": 386531
+    "objects": 387011
    },
    "70": {
-    "objects": 408347
+    "objects": 408827
    },
    "75": {
-    "objects": 430163
+    "objects": 430643
    },
    "80": {
-    "objects": 451979
+    "objects": 452459
    }
   },
   "scene": "kept_pickled"
@@ -879,52 +879,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 102298
+    "objects": 102778
    },
    "15": {
-    "objects": 102309
+    "objects": 102789
    },
    "20": {
-    "objects": 102320
+    "objects": 102800
    },
    "25": {
-    "objects": 102331
+    "objects": 102811
    },
    "30": {
-    "objects": 102342
+    "objects": 102822
    },
    "35": {
-    "objects": 102353
+    "objects": 102833
    },
    "40": {
-    "objects": 102364
+    "objects": 102844
    },
    "45": {
-    "objects": 102365
+    "objects": 102845
    },
    "5": {
-    "objects": 102287
+    "objects": 102767
    },
    "50": {
-    "objects": 102366
+    "objects": 102846
    },
    "55": {
-    "objects": 102367
+    "objects": 102847
    },
    "60": {
-    "objects": 102368
+    "objects": 102848
    },
    "65": {
-    "objects": 102369
+    "objects": 102849
    },
    "70": {
-    "objects": 102370
+    "objects": 102850
    },
    "75": {
-    "objects": 102371
+    "objects": 102851
    },
    "80": {
-    "objects": 102372
+    "objects": 102852
    }
   },
   "scene": "kept_pyplot_imshow"
@@ -934,52 +934,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 102813
+    "objects": 103293
    },
    "15": {
-    "objects": 102839
+    "objects": 103319
    },
    "20": {
-    "objects": 102856
+    "objects": 103336
    },
    "25": {
-    "objects": 102873
+    "objects": 103353
    },
    "30": {
-    "objects": 102884
+    "objects": 103364
    },
    "35": {
-    "objects": 102901
+    "objects": 103381
    },
    "40": {
-    "objects": 102912
+    "objects": 103392
    },
    "45": {
-    "objects": 102919
+    "objects": 103399
    },
    "5": {
-    "objects": 102567
+    "objects": 103047
    },
    "50": {
-    "objects": 102920
+    "objects": 103400
    },
    "55": {
-    "objects": 102921
+    "objects": 103401
    },
    "60": {
-    "objects": 102922
+    "objects": 103402
    },
    "65": {
-    "objects": 102929
+    "objects": 103409
    },
    "70": {
-    "objects": 102930
+    "objects": 103410
    },
    "75": {
-    "objects": 102931
+    "objects": 103411
    },
    "80": {
-    "objects": 102932
+    "objects": 103412
    }
   },
   "scene": "kept_remove_readd"
@@ -989,52 +989,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 102634
+    "objects": 103114
    },
    "15": {
-    "objects": 102470
+    "objects": 102950
    },
    "20": {
-    "objects": 102544
+    "objects": 103024
    },
    "25": {
-    "objects": 102637
+    "objects": 103117
    },
    "30": {
-    "objects": 102473
+    "objects": 102953
    },
    "35": {
-    "objects": 102547
+    "objects": 103027
    },
    "40": {
-    "objects": 102640
+    "objects": 103120
    },
    "45": {
-    "objects": 102476
+    "objects": 102956
    },
    "5": {
-    "objects": 102542
+    "objects": 103022
    },
    "50": {
-    "objects": 102550
+    "objects": 103030
    },
    "55": {
-    "objects": 102643
+    "objects": 103123
    },
    "60": {
-    "objects": 102479
+    "objects": 102959
    },
    "65": {
-    "objects": 102553
+    "objects": 103033
    },
    "70": {
-    "objects": 102646
+    "objects": 103126
    },
    "75": {
-    "objects": 102482
+    "objects": 102962
    },
    "80": {
-    "objects": 102556
+    "objects": 103036
    }
   },
   "scene": "kept_savefig"
@@ -1044,52 +1044,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 99437
+    "objects": 99917
    },
    "15": {
-    "objects": 99438
+    "objects": 99918
    },
    "20": {
-    "objects": 99439
+    "objects": 99919
    },
    "25": {
-    "objects": 99440
+    "objects": 99920
    },
    "30": {
-    "objects": 99441
+    "objects": 99921
    },
    "35": {
-    "objects": 99442
+    "objects": 99922
    },
    "40": {
-    "objects": 99443
+    "objects": 99923
    },
    "45": {
-    "objects": 99444
+    "objects": 99924
    },
    "5": {
-    "objects": 99436
+    "objects": 99916
    },
    "50": {
-    "objects": 99445
+    "objects": 99925
    },
    "55": {
-    "objects": 99446
+    "objects": 99926
    },
    "60": {
-    "objects": 99447
+    "objects": 99927
    },
    "65": {
-    "objects": 99448
+    "objects": 99928
    },
    "70": {
-    "objects": 99449
+    "objects": 99929
    },
    "75": {
-    "objects": 99450
+    "objects": 99930
    },
    "80": {
-    "objects": 99451
+    "objects": 99931
    }
   },
   "scene": "kept_scatter_offsets"
@@ -1099,52 +1099,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 102525
+    "objects": 103005
    },
    "15": {
-    "objects": 102526
+    "objects": 103006
    },
    "20": {
-    "objects": 102527
+    "objects": 103007
    },
    "25": {
-    "objects": 102528
+    "objects": 103008
    },
    "30": {
-    "objects": 102529
+    "objects": 103009
    },
    "35": {
-    "objects": 102530
+    "objects": 103010
    },
    "40": {
-    "objects": 102531
+    "objects": 103011
    },
    "45": {
-    "objects": 102532
+    "objects": 103012
    },
    "5": {
-    "objects": 102524
+    "objects": 103004
    },
    "50": {
-    "objects": 102533
+    "objects": 103013
    },
    "55": {
-    "objects": 102534
+    "objects": 103014
    },
    "60": {
-    "objects": 102535
+    "objects": 103015
    },
    "65": {
-    "objects": 102536
+    "objects": 103016
    },
    "70": {
-    "objects": 102537
+    "objects": 103017
    },
    "75": {
-    "objects": 102538
+    "objects": 103018
    },
    "80": {
-    "objects": 102539
+    "objects": 103019
    }
   },
   "scene": "kept_set_data"
@@ -1154,52 +1154,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 101746
+    "objects": 102226
    },
    "15": {
-    "objects": 101807
+    "objects": 102287
    },
    "20": {
-    "objects": 101868
+    "objects": 102348
    },
    "25": {
-    "objects": 101929
+    "objects": 102409
    },
    "30": {
-    "objects": 101990
+    "objects": 102470
    },
    "35": {
-    "objects": 102006
+    "objects": 102486
    },
    "40": {
-    "objects": 102022
+    "objects": 102502
    },
    "45": {
-    "objects": 102038
+    "objects": 102518
    },
    "5": {
-    "objects": 101685
+    "objects": 102165
    },
    "50": {
-    "objects": 102054
+    "objects": 102534
    },
    "55": {
-    "objects": 102055
+    "objects": 102535
    },
    "60": {
-    "objects": 102056
+    "objects": 102536
    },
    "65": {
-    "objects": 102057
+    "objects": 102537
    },
    "70": {
-    "objects": 102058
+    "objects": 102538
    },
    "75": {
-    "objects": 102059
+    "objects": 102539
    },
    "80": {
-    "objects": 102060
+    "objects": 102540
    }
   },
   "scene": "kept_texts"
@@ -1209,52 +1209,52 @@
   "kept": true,
   "samples": {
    "10": {
-    "objects": 104407
+    "objects": 104887
    },
    "15": {
-    "objects": 104418
+    "objects": 104898
    },
    "20": {
-    "objects": 104429
+    "objects": 104909
    },
    "25": {
-    "objects": 104440
+    "objects": 104920
    },
    "30": {
-    "objects": 104451
+    "objects": 104931
    },
    "35": {
-    "objects": 104462
+    "objects": 104942
    },
    "40": {
-    "objects": 104473
+    "objects": 104953
    },
    "45": {
-    "objects": 104474
+    "objects": 104954
    },
    "5": {
-    "objects": 104396
+    "objects": 104876
    },
    "50": {
-    "objects": 104475
+    "objects": 104955
    },
    "55": {
-    "objects": 104476
+    "objects": 104956
    },
    "60": {
-    "objects": 104477
+    "objects": 104957
    },
    "65": {
-    "objects": 104478
+    "objects": 104958
    },
    "70": {
-    "objects": 104479
+    "objects": 104959
    },
    "75": {
-    "objects": 104480
+    "objects": 104960
    },
    "80": {
-    "objects": 104481
+    "objects": 104961
    }
   },
   "scene": "kept_twins_removed"

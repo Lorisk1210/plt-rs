@@ -51,10 +51,12 @@ _OWN_LEVELS = weakref.WeakKeyDictionary()
 _OWN_LEVELS_KEPT = 8
 
 
-def install(figure):
-    """Have the axes of the root figure of *figure* whose helpers or scale
-    are Python's ticked as matplotlib ticks them (once per figure)."""
-    root = getattr(figure, "_figure", None)
+def install(owner):
+    """Have the axes of the root figure of *owner* (a figure, or Axes, also
+    removed ones, which keep their figure) whose helpers or scale are
+    Python's ticked as matplotlib ticks them (once per figure)."""
+    from ._live_transforms import root_figure
+    root = root_figure(owner)
     if root is None or root in _INSTALLED:
         return
     _INSTALLED.add(root)
@@ -68,7 +70,7 @@ def follow_program_update(axis):
     if not isinstance(axis, Axis) or axis.axis_name not in ("x", "y"):
         return
     _axis.set_program_update(*axis._args(), True)
-    install(axis.axes.figure)
+    install(axis.axes)
 
 
 #: The tick labels of each axis given the position setter of the

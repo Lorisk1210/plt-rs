@@ -43,12 +43,19 @@ MARKER = "@@pltrs-fuzz-task"
 
 #: The memory a worker may use, in bytes: its address space (Linux) or
 #: its committed memory (Windows) where the system caps it, its resident
-#: memory, which the runner watches, where it cannot (macOS).
-MEMORY_LIMIT = 6 << 30
+#: memory, which the runner watches, where it cannot (macOS). At most
+#: 6 GiB, less where the runner runs many workers on a machine of less
+#: memory (``PLTRS_FUZZ_MEMORY``, which it sets: `.runner.memory_limit`),
+#: so that runaway programs together never take the machine.
+MEMORY_LIMIT = int(os.environ.get("PLTRS_FUZZ_MEMORY", 6 << 30))
 
 #: Whether the system caps a process's memory (macOS refuses
 #: `RLIMIT_AS`).
 CAPS_ADDRESS_SPACE = sys.platform != "darwin"
+
+#: The packages of the plotting library a worker runs (pltrs's, or
+#: matplotlib's in a reference worker).
+LIBRARIES = ("pltrs", "matplotlib", "mpl_toolkits")
 
 #: The memory past which a worker's `MemoryError` counts as runaway.
 RUNAWAY = 2 << 30
@@ -73,7 +80,7 @@ def _run_line(line, namespace):
         exec(compile(line, "<fuzz>", "exec"), namespace)  # noqa: S102 - the fuzzed program
     except MemoryError as error:
         raised = "MemoryError"
-        if _raised_by_pltrs(error) and _ran_away():
+        if _raised_by_library(error) and _ran_away():
             _send("bug", kind="memory", line=line, message="MemoryError")
     except KeyboardInterrupt:
         raise
@@ -99,12 +106,14 @@ def _ran_away():
     return memory.peak_resident() > RUNAWAY
 
 
-def _raised_by_pltrs(error):
-    """Whether pltrs raised *error*, rather than numpy making the
-    program's absurd data."""
+def _raised_by_library(error):
+    """Whether the plotting library raised *error* (pltrs, or matplotlib
+    in a reference worker, whose shared runaways are told apart so),
+    rather than numpy making the program's absurd data."""
     traceback = error.__traceback__
     while traceback is not None:
-        if f"{os.sep}pltrs{os.sep}" in traceback.tb_frame.f_code.co_filename:
+        filename = traceback.tb_frame.f_code.co_filename
+        if any(f"{os.sep}{name}{os.sep}" in filename for name in LIBRARIES):
             return True
         traceback = traceback.tb_next
     return False

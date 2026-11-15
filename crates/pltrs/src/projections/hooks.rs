@@ -84,12 +84,65 @@ impl AxesState {
     }
 
     /// The data interval the spine on `side` spans when it is not bounded:
-    /// the one a projection defined by the program gives, or the view
-    /// interval of its axis.
+    /// the one a projection defined by the program gives (as it gave it at
+    /// the last layout, while the view stays the same: see
+    /// [`spine_spans`](Self::spine_spans)), or the view interval of its
+    /// axis.
     pub(crate) fn spine_interval(&self, side: SpineSide) -> (f64, f64) {
+        let view = self.projection_view();
         self.projection
             .custom()
-            .and_then(|custom| custom.spine_interval(&self.projection_view(), side))
+            .and_then(|custom| {
+                match (self.program_spine_spans.as_ref()).filter(|kept| kept.holds_for(&view)) {
+                    Some(kept) => kept.span(side),
+                    None => custom.spine_interval(&view, side),
+                }
+            })
             .unwrap_or_else(|| self.view_interval(side.axis()))
+    }
+
+    /// Whether `spans` were given for the current view.
+    pub(crate) fn spans_hold(&self, spans: &SpineSpans) -> bool {
+        spans.holds_for(&self.projection_view())
+    }
+
+    /// The spans the projection defined by the program gives every spine
+    /// at the current view (matplotlib's `Spine._adjust_location`), which
+    /// a layout asks with the figure lent, as the program's code may read
+    /// and change the figure; `None` for another projection.
+    pub(crate) fn spine_spans(&self) -> Option<SpineSpans> {
+        let custom = self.projection.custom()?;
+        let view = self.projection_view();
+        let spans = (SpineSide::ALL.iter())
+            .filter_map(|&side| Some((side, custom.spine_interval(&view, side)?)))
+            .collect();
+        Some(SpineSpans {
+            view: (view.limits(), view.position()),
+            spans,
+        })
+    }
+}
+
+/// The spans a projection defined by the program gave the spines of an
+/// axes, by side (those it gives a span of their own), with the view
+/// (limits and position) they were given for.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct SpineSpans {
+    view: (Bbox, Bbox),
+    spans: Vec<(SpineSide, (f64, f64))>,
+}
+
+impl SpineSpans {
+    /// The span the spine on `side` was given, if any.
+    fn span(&self, side: SpineSide) -> Option<(f64, f64)> {
+        self.spans
+            .iter()
+            .find(|(at, _)| *at == side)
+            .map(|&(_, span)| span)
+    }
+
+    /// Whether the spans were given for `view`.
+    fn holds_for(&self, view: &ProjectionView<'_>) -> bool {
+        self.view == (view.limits(), view.position())
     }
 }

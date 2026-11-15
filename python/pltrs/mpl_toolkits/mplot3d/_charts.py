@@ -7,7 +7,8 @@ signatures.
 
 import numpy as np
 
-from pltrs import _api, cbook, colors as mcolors, lines as mlines
+from pltrs import _api, _live_transforms, cbook, colors as mcolors, lines as mlines
+from pltrs._artist_kwargs import keep_python_kwargs
 from pltrs._native import mplot3d as _mplot3d
 from pltrs._preprocess import _preprocess_data
 from pltrs.axes import Axes
@@ -269,10 +270,13 @@ class ChartsMixin:
             elinewidth, capthick)
         data_line, errlines, caplines = _mplot3d.errorbar(
             self._native, (axis_values(x), axis_values(y), axis_values(z)),
-            errors, (fmt, line_kwargs(kwargs)),
+            errors, (fmt, line_kwargs(kwargs, _live_transforms.root_figure(self))),
             (ecolor, elinewidth, capsize, capthick, bool(barsabove)), lims,
             (everymask.tolist(), bool(axlim_clip)))
         data_line = wrap(self, data_line, art3d.Line3D)
+        if data_line is not None:
+            # As matplotlib's ``plot`` of the data line makes it.
+            mlines._set_after(keep_python_kwargs(data_line, kwargs), kwargs)
         errlines = wrap_all(self, errlines, art3d.Line3DCollection)
         caplines = wrap_all(self, caplines, art3d.Line3D)
         for artists, problem in zip((errlines, caplines), problems):

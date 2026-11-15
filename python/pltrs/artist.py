@@ -181,8 +181,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     def __getstate__(self):
         # The native handle pickles as its figure's state and the artist's
-        # id (`._pickling`), a transform of the trees as a reference.
-        return _pickling.referring_to_trees(self, self.__dict__.copy())
+        # id (`._pickling`), a transform of the trees as a reference; what
+        # the artist keeps made from its native state is made again.
+        state = self.__dict__.copy()
+        state.pop(_live_transforms.KEPT, None)
+        return _pickling.referring_to_trees(self, state)
 
     def __setstate__(self, state):
         # Its figure, read back first when the pickle reached it from this

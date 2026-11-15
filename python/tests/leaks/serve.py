@@ -2,13 +2,14 @@
 A long-running process: a server answering requests for figures, as a
 web service drawing per request does. Each request makes a figure of a
 random kind (a scene of `scenes.PLOTS`, `scenes.PLOTS_3D` or
-`scenes.DECORATIONS`), saves it as PNG to bytes and closes it.
+`scenes.DECORATIONS`, or the scenes of one library of `.libraries` the
+patterns name: ``lib_seaborn``), saves it as PNG to bytes and closes it.
 
 `compare` runs it under pltrs and under matplotlib and tabulates the
 resident memory after 500, 1,000, 2,500 and 5,000 requests (or the
 quarters of fewer) and the time per request over the first and the
-last hundred. ``python -m leaks.serve N`` runs it in this process and
-prints its JSON record.
+last hundred. ``python -m leaks.serve N [PATTERN...]`` runs it in this
+process and prints its JSON record.
 """
 
 import io
@@ -28,8 +29,16 @@ CHECKPOINTS = (500, 1000, 2500, 5000)
 TIMED = 100
 
 
-def _kinds():
-    every = {**catalogue.PLOTS, **catalogue.PLOTS_3D, **catalogue.DECORATIONS}
+def _kinds(patterns=()):
+    """The scenes requested: the harness's plots and decorations, or the
+    library scenes matching *patterns* (all of one library)."""
+    if patterns:
+        every = {name: scene for name, scene in catalogue.all_scenes().items()
+                 if any(pattern in name for pattern in patterns)}
+        if len({scene.library for scene in every.values()}) != 1:
+            raise ValueError(f"{patterns} name no scenes of one library")
+    else:
+        every = {**catalogue.PLOTS, **catalogue.PLOTS_3D, **catalogue.DECORATIONS}
     return {name: scene for name, scene in sorted(every.items())
             if not scene.usetex and not scene.kept and name not in catalogue.KNOWN}
 
@@ -41,14 +50,15 @@ def checkpoints(requests):
     return tuple(max(1, requests * share // 4) for share in (1, 2, 3, 4))
 
 
-def serve(requests, seed=0):
-    """Answers *requests* requests; the record of memory and time."""
+def serve(requests, seed=0, patterns=()):
+    """Answers *requests* requests for the scenes *patterns* name (see
+    `_kinds`); the record of memory and time."""
     import pltrs
     pltrs.use("agg")
     import pltrs.pyplot as plt
     import warnings
     warnings.simplefilter("ignore")
-    kinds = _kinds()
+    kinds = _kinds(patterns)
     names = list(kinds)
     rng = random.Random(seed)
     base = probe._base_namespace()
@@ -74,22 +84,24 @@ def serve(requests, seed=0):
             "bytes": sizes}
 
 
-def _run_under(requests, work, reference):
+def _run_under(requests, work, reference, patterns):
     work.mkdir(parents=True, exist_ok=True)
-    command = [runner._interpreter(reference), "-m", "leaks.serve", str(requests)]
+    library = next(iter(_kinds(patterns).values())).library
+    command = [runner._interpreter(reference, library), "-m", "leaks.serve", str(requests),
+               *patterns]
     done = subprocess.run(command, capture_output=True, text=True, cwd=work,
-                          env=runner._environment(work, reference), check=False)
+                          env=runner._environment(work, reference, library), check=False)
     lines = [line for line in done.stdout.splitlines() if line.startswith("{")]
     if not lines:
         raise RuntimeError(f"the server failed: {done.stderr[-2000:]}")
     return json.loads(lines[-1])
 
 
-def compare(requests, work):
-    """Runs the server under pltrs and matplotlib; a Markdown table of
-    both."""
-    records = {"pltrs": _run_under(requests, work / "pltrs", False),
-               "matplotlib": _run_under(requests, work / "matplotlib", True)}
+def compare(requests, work, patterns=()):
+    """Runs the server for the scenes *patterns* name under pltrs and
+    matplotlib; a Markdown table of both."""
+    records = {"pltrs": _run_under(requests, work / "pltrs", False, patterns),
+               "matplotlib": _run_under(requests, work / "matplotlib", True, patterns)}
     (work / "serve.json").write_text(json.dumps(records, indent=1), "utf-8")
     lines = ["| | " + " | ".join(f"after {count:,}" for count in checkpoints(requests))
              + " | ms/request first 100 | ms/request last 100 |",
@@ -106,4 +118,4 @@ def compare(requests, work):
 
 
 if __name__ == "__main__":
-    print(json.dumps(serve(int(sys.argv[1]))))
+    print(json.dumps(serve(int(sys.argv[1]), patterns=tuple(sys.argv[2:]))))

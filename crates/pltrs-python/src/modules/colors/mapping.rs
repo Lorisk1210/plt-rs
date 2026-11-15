@@ -172,7 +172,7 @@ impl FromPy<'_> for Box<dyn Norm> {
                     "The {module}.{kind} of {components} variates cannot map data of 1 variate"
                 )));
             }
-            return Ok(Box::new(PythonNorm::of(object)?));
+            return Ok(Box::new(PythonNorm::of(object, true)?));
         };
         norm.set_vmin(attr(object, "vmin")?);
         norm.set_vmax(attr(object, "vmax")?);

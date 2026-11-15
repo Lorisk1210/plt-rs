@@ -2505,7 +2505,25 @@ class Norm(ABC):
         pass
 
 
-def _native_norm(norm):
+def _referring(target, weak):
+    """A callable giving *target*: a weak reference with *weak* (raising
+    `ReferenceError` once the target is gone, through `_alive`), else one
+    holding it."""
+    return weakref.ref(target) if weak else functools.partial(_itself, target)
+
+
+def _itself(target):
+    return target
+
+
+def _alive(target):
+    """*target*, a weak reference's object, unless it is gone (None)."""
+    if target is None:
+        raise ReferenceError("the norm or colormap of the program's pltrs mapped with is gone")
+    return target
+
+
+def _native_norm(norm, weak=True):
     """
     The callables through which pltrs (Rust) maps data with *norm*, a norm
     of a class it has no copy of, by name: ``normalize(values, mask, clip,
@@ -2515,14 +2533,23 @@ def _native_norm(norm):
     ``autoscale_none(values, mask, shape)``, ``inverse(values)``,
     ``set_limits(vmin, vmax)`` and ``state()``; ``scale``, the name and
     options of pltrs (Rust)'s scale matching the scale the norm is made
-    from (``norm._scale``), if any; and ``boundary``, the boundaries,
-    colour count and extension of a norm deriving from `BoundaryNorm`.
+    from (``norm._scale``), if any; ``boundary``, the boundaries,
+    colour count and extension of a norm deriving from `BoundaryNorm`; and
+    ``object``, what pltrs (Rust) keeps of the norm (and archives as it).
     They take and give plain arrays, the
     mask apart. pltrs (Rust) calls them while it draws, when the norm's
     changes must not reach its mappables (which pltrs (Rust) is drawing),
     so they change the norm without its callbacks.
+
+    With *weak*, they hold the norm weakly (``object`` is a
+    `._program_classes.Held`): the colorizer the norm was given to holds
+    it, where Python's collector sees it, as pltrs (Rust)'s references are
+    not (a norm keeping its Axes would keep the figure alive). A norm read
+    back from an archive, which nothing else holds, is held by them.
     """
     from .axis import _native_scale_of
+    from ._program_classes import Held
+    reference = _referring(norm, weak)
 
     def masked(values, mask):
         return np.ma.masked_array(values, mask)
@@ -2533,6 +2560,7 @@ def _native_norm(norm):
                 np.ma.getmaskarray(result).ravel())
 
     def normalize(values, mask, clip, shape):
+        norm = _alive(reference())
         if mask is not None:
             values = masked(values, mask)
         if shape is not None:
@@ -2541,9 +2569,10 @@ def _native_norm(norm):
         return plain(norm(values) if clip is None else norm(values, clip=clip))
 
     def normalize_scalar(value):
-        return plain(norm(np.float64(value)))
+        return plain(_alive(reference())(np.float64(value)))
 
     def autoscale_none(values, mask, shape=None):
+        norm = _alive(reference())
         values = masked(values, mask)
         if shape is not None:
             values = values.reshape(shape)
@@ -2552,13 +2581,15 @@ def _native_norm(norm):
         return norm.vmin, norm.vmax
 
     def inverse(values):
-        return plain(norm.inverse(values))
+        return plain(_alive(reference()).inverse(values))
 
     def set_limits(vmin, vmax):
+        norm = _alive(reference())
         with norm.callbacks.blocked():
             norm.vmin, norm.vmax = vmin, vmax
 
     def state():
+        norm = _alive(reference())
         return norm.vmin, norm.vmax, bool(norm.clip)
 
     scale = getattr(norm, "_scale", None)
@@ -2578,7 +2609,7 @@ def _native_norm(norm):
             "autoscale_none": autoscale_none, "inverse": inverse,
             "set_limits": set_limits, "state": state,
             "scale": None if scale is None else _native_scale_of(scale),
-            "boundary": boundary}
+            "boundary": boundary, "object": Held(norm) if weak else norm}
 
 
 _register("native_norm", _native_norm)
@@ -2593,12 +2624,15 @@ def _native_colormap(cmap):
     hands *cmap* the values as matplotlib does, a masked array of *shape*
     (integers for the indices of a ``BoundaryNorm``), with *alpha* (a
     number or None) or *alpha_values* (one per value), and gives its RGBA
-    rows as a float array of four columns.
+    rows as a float array of four columns. It holds *cmap* weakly: the
+    colorizer the colormap was given to holds it, where Python's collector
+    sees it (see `_native_norm`).
     """
     from ._program_classes import takes_from_program
     if not any(takes_from_program(type(cmap), name)
                for name in ("__call__", "_get_rgba_and_mask")):
         return None
+    reference = weakref.ref(cmap)
 
     def call(values, mask, integers, shape, alpha, alpha_values, bytes):
         values = np.asarray(values)
@@ -2611,7 +2645,7 @@ def _native_colormap(cmap):
             X = np.ma.masked_array(values, mask).reshape(shape)
         if alpha_values is not None:
             alpha = np.asarray(alpha_values).reshape(shape)
-        rgba = cmap(X, alpha=alpha, bytes=bytes)
+        rgba = _alive(reference())(X, alpha=alpha, bytes=bytes)
         return np.asarray(rgba, dtype=float).reshape(-1, 4)
 
     return call

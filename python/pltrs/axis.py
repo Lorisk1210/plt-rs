@@ -611,7 +611,7 @@ class Axis(DrawnWith, Artist):
             # matplotlib's tick updates ask the program's view interval.
             _axis.set_program_view(axes._native, self.axis_name, True)
             from . import _tick_updates
-            _tick_updates.install(axes.figure)
+            _tick_updates.install(axes)
         self.callbacks = cbook.CallbackRegistry(signals=["units"])
         #: The description pltrs (Rust) gave of the axis while its tick
         #: helpers tick it (see `._tick_helpers.drawing`).
@@ -1212,7 +1212,7 @@ class Axis(DrawnWith, Artist):
             # The scale's transform is the program's: matplotlib's tick
             # updates call it.
             from . import _tick_updates
-            _tick_updates.install(self.axes.figure)
+            _tick_updates.install(self.axes)
         return native is None
 
     def _set_axes_scale(self, value, **kwargs):

@@ -25,7 +25,7 @@ use crate::geo::GeoState;
 use crate::gridspec::SubplotSpec;
 use crate::patches::PatchStyle;
 use crate::polar::{PolarState, PolarView};
-use crate::projections::SharedOptions;
+use crate::projections::{SharedOptions, SpineSpans};
 use crate::rc::{AxisBelow, RcParams};
 use crate::scale::ScaleName;
 use crate::spines::SpineSide;
@@ -158,6 +158,10 @@ pub(crate) struct AxesState {
     /// layouts moving the axes keep the margins it measured (see
     /// `tight_bbox`).
     pub(crate) measured_at: Option<Bbox>,
+    /// The spans the spines of a projection of the program's took, as its
+    /// hook gave them with the figure lent at the last layout (see
+    /// `FigureState::span_program_spines`).
+    pub(crate) program_spine_spans: Option<SpineSpans>,
 }
 
 pltrs_core::archive_struct!(AxesState {
@@ -203,7 +207,7 @@ pltrs_core::archive_struct!(AxesState {
     rasterization_zorder,
     current_image,
     rc
-} skip { scale_box, measured_at, view_sets });
+} skip { scale_box, measured_at, view_sets, program_spine_spans });
 
 /// How the height of an axes' titles is chosen (matplotlib's
 /// `_autotitlepos`, and an `Axes` subclass' `_update_title_position`).
@@ -412,6 +416,7 @@ impl AxesState {
             rc,
             scale_box: RefCell::new(None),
             measured_at: None,
+            program_spine_spans: None,
         }
     }
 

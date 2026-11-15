@@ -476,7 +476,8 @@ class LinesMixin:
             if not fmt and "marker" not in props:
                 mlines._check_rc_marker("lines.marker")
             try:
-                native = _plotting.plot(self._native, *data, fmt, mlines._native_kwargs(props),
+                native = _plotting.plot(self._native, *data, fmt,
+                                        mlines._native_kwargs(props, _live_transforms.root_figure(self)),
                                         (bool(scalex), bool(scaley)))
             except AttributeError:
                 if props.get("color") is None and (not fmt or _format_parts(fmt)[2] is None):
@@ -494,7 +495,7 @@ class LinesMixin:
             whole = _format_color(fmt)
             mlines._remember_given(
                 line, props if whole is None else {"color": whole, **props})
-            lines.append(keep_data(keep_python_kwargs(line, props), x, y))
+            lines.append(keep_data(mlines._set_after(keep_python_kwargs(line, props), props), x, y))
         return lines
 
     @_docstring.interpd
@@ -573,7 +574,8 @@ class LinesMixin:
         _ = (yy < ymin) or (yy > ymax)
         native = _axes.axline(self._native, "h", float(yy), (xmin, xmax),
                               made_line_kwargs(kwargs))
-        line = keep_python_kwargs(wrap(self, native, mlines.Line2D), kwargs)
+        line = mlines._set_after(keep_python_kwargs(wrap(self, native, mlines.Line2D), kwargs),
+                                 kwargs)
         # matplotlib's line keeps the data it was made with.
         line._xorig, line._yorig = [xmin, xmax], [y, y]
         return line
@@ -654,7 +656,8 @@ class LinesMixin:
         _ = (xx < xmin) or (xx > xmax)
         native = _axes.axline(self._native, "v", float(xx), (ymin, ymax),
                               made_line_kwargs(kwargs))
-        line = keep_python_kwargs(wrap(self, native, mlines.Line2D), kwargs)
+        line = mlines._set_after(keep_python_kwargs(wrap(self, native, mlines.Line2D), kwargs),
+                                 kwargs)
         line._xorig, line._yorig = [x, x], [ymin, ymax]
         return line
 
@@ -732,7 +735,8 @@ class LinesMixin:
         native = _plotting.axline(
             self._native, tuple(map(float, xy1)),
             None if xy2 is None else tuple(map(float, xy2)),
-            None if slope is None else float(slope), made_line_kwargs(kwargs))
+            None if slope is None else float(slope),
+            made_line_kwargs(kwargs, _live_transforms.root_figure(self)))
         line = wrap(self, native, mlines.AxLine)
         line._remember_geometry(xy1, xy2, slope)
         if not hasattr(self, "transLimits"):
@@ -740,7 +744,7 @@ class LinesMixin:
             # ``transLimits``, which Axes of other projections lack (polar
             # ones): its draw fails there.
             _python_drawing.draw_through_python(line, False)
-        return keep_python_kwargs(line, kwargs)
+        return mlines._set_after(keep_python_kwargs(line, kwargs), kwargs)
 
     @_docstring.interpd
     def axhspan(self, ymin, ymax, xmin=0, xmax=1, **kwargs):

@@ -70,6 +70,12 @@ class Scene:
     #: The names the update leaves which must be gone at the next
     #: iteration (weak references are taken to them).
     removed: tuple = field(default=())
+    #: The library of the ecosystem's venvs the scene runs with ("": none,
+    #: see `.libraries`).
+    library: str = ""
+    #: The packages whose objects the scene's names hold must go with it,
+    #: besides the plotting library's.
+    packages: tuple = ()
 
     @property
     def kept(self):
@@ -474,22 +480,7 @@ KEPT = {
 #: The scenes that leak under pltrs (or fail) for a cause not fixed yet:
 #: what holds what, by scene. The harness reports them as known; the
 #: smoke test lets them be.
-KNOWN = {
-    **dict.fromkeys(
-        ("transform_keyword_keeping_axes", "path_effect_keyword_keeping_axes"),
-        "pltrs (Rust) holds the program's object given as a plotting method's keyword "
-        "(``transform=``, ``path_effects=``) strongly, and the object keeps its Axes: a "
-        "cycle through native state, which Python's collector cannot see (objects a Python "
-        "object of the figure holds are held weakly, `_program_classes.Held`; nothing holds "
-        "these)"),
-    **dict.fromkeys(
-        ("override_transforms_Transform_inverted", "override_colors_Normalize_inverse"),
-        "the last transform or norm of the program's mapped stays held by pltrs (Rust)'s "
-        "process-wide memo of the program's answers (one object, not its figure: nothing "
-        "grows)"),
-    "kept_blit": "pltrs refuses to restore a region saved before the canvas was drawn "
-                 "again (`CanvasError::StaleRegion`); matplotlib restores it",
-}
+KNOWN = {}
 
 
 def _to_pltrs(statement):
@@ -563,5 +554,7 @@ def own_scenes():
 
 
 def all_scenes():
-    """Every scene, by name: the harness's own, then the generated ones."""
-    return {**own_scenes(), **_generated()}
+    """Every scene, by name: the harness's own, the generated ones, then
+    those of the libraries (`.libraries`)."""
+    from .libraries import library_scenes
+    return {**own_scenes(), **_generated(), **library_scenes()}

@@ -73,6 +73,10 @@ impl Placement {
 /// aspect asked for.
 pub(crate) type AspectInputs = [u64; 9];
 
+/// How many times a layout asks a projection of the program's for the
+/// spans of its spines while the program moves its axes answering.
+const SPANNING_ROUNDS: usize = 3;
+
 impl FigureState {
     /// The [`AspectInputs`] of `axes` as they are now (zeros for what is
     /// no axes).
@@ -109,7 +113,42 @@ impl FigureState {
     pub(crate) fn lay_out_axes_at(&mut self, axes: ArtistId, placement: Placement) -> bool {
         self.run_measured_layout();
         self.unstale_axes(axes);
-        self.apply_aspect_reporting(axes, placement)
+        let applied = self.apply_aspect_reporting(axes, placement);
+        self.span_program_spines(axes);
+        applied
+    }
+
+    /// Asks a projection of the program's of `axes` for the spans of its
+    /// spines at the view the layout settled on, with the figure lent (its
+    /// `Spine._adjust_location` may read and change the figure, as
+    /// matplotlib's draw lets it), the axes held apart meanwhile; the
+    /// layout and the draw after it use them (see
+    /// [`AxesState::spine_interval`]). Asked again while the program moves
+    /// the axes as it answers (a layout of its own), up to
+    /// `SPANNING_ROUNDS` times, so that the spans kept are those of the
+    /// view the axes is left at.
+    pub(crate) fn span_program_spines(&mut self, axes: ArtistId) {
+        let custom = (self.store.get_as::<AxesState>(axes))
+            .is_some_and(|state| state.projection.custom().is_some());
+        if !custom {
+            return;
+        }
+        for _ in 0..SPANNING_ROUNDS {
+            let held = (self.lendable())
+                .then(|| self.store.shared_as::<AxesState>(axes))
+                .flatten();
+            // Without the figure to lend, the hook is asked where the spans
+            // are used, as before.
+            let spans = held.and_then(|held| self.lend(|_| held.spine_spans()).flatten());
+            let Some(state) = self.store.get_as_mut::<AxesState>(axes) else {
+                return;
+            };
+            let settled = spans.as_ref().is_none_or(|spans| state.spans_hold(spans));
+            state.program_spine_spans = spans;
+            if settled {
+                return;
+            }
+        }
     }
 
     /// matplotlib's `apply_aspect`: sets the active position of `axes`

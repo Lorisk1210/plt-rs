@@ -467,4 +467,6 @@ class Bins2dMixin:
         mesh = wrap(self, native, mcoll.QuadMesh)
         mesh._attach_native_mapping(colorizer=made)
         mesh._made_with(cbook.normalize_kwargs(kwargs, mcoll.QuadMesh))
+        # As matplotlib's QuadMesh constructor ends.
+        mesh.set_mouseover(False)
         return h, xedges, yedges, mesh

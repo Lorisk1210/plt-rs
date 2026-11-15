@@ -102,9 +102,9 @@ def _run(statements, namespace):
         exec(compile(statement, "<scene>", "exec"), namespace)  # noqa: S102
 
 
-def _is_library_object(value, scene_classes):
-    module = type(value).__module__ or ""
-    return module.split(".")[0] in LIBRARIES or type(value) in scene_classes
+def _is_library_object(value, scene_classes, packages=()):
+    module = (type(value).__module__ or "").split(".")[0]
+    return module in LIBRARIES or module in packages or type(value) in scene_classes
 
 
 def _forget(namespace):
@@ -142,9 +142,9 @@ def _draw_and_save(figures, formats):
             figure.savefig(io.BytesIO(), format=kind)
 
 
-def _references(figures, namespace, scene_classes):
+def _references(figures, namespace, scene_classes, packages=()):
     """Weak references to everything the scene made that must go with
-    it, with each one's class name."""
+    it (the objects of *packages* too), with each one's class name."""
     objects = {}
     for figure in figures:
         objects[id(figure)] = figure
@@ -156,7 +156,7 @@ def _references(figures, namespace, scene_classes):
             for axis in (axes.xaxis, axes.yaxis):
                 objects[id(axis)] = axis
     for value in namespace.values():
-        if _is_library_object(value, scene_classes):
+        if _is_library_object(value, scene_classes, packages):
             objects[id(value)] = value
     references = []
     for value in objects.values():
@@ -190,7 +190,8 @@ def survivors_of_dropped(scene, base):
     """The objects of the dropped *scene* alive once it is dropped, by
     class name."""
     namespace, figures = _once(scene, base)
-    references = _references(figures, namespace, _scene_classes(namespace, base))
+    references = _references(figures, namespace, _scene_classes(namespace, base),
+                             scene.packages)
     _forget(namespace)
     del namespace, figures
     _close_all()

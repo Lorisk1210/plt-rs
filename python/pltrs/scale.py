@@ -1020,6 +1020,11 @@ if scale_factory.__doc__:
     scale_factory.__doc__ = scale_factory.__doc__ % {
         "names": ", ".join(map(repr, get_scale_names()))}
 
+#: pltrs' own `scale_factory`, which proplot and ultraplot replace in the
+#: module: an axis then makes its scales when matplotlib's does, through
+#: the replacement (`.axis.Axis`).
+_own_scale_factory = scale_factory
+
 
 def _program_scale(scale, three_d):
     """

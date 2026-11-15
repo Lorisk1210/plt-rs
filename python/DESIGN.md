@@ -2270,7 +2270,22 @@ it asks:
   reach it leaves the artist out of the Axes, as matplotlib does.
 * **Constructors' setters.** `.Text`'s constructor calls the class'
   ``set_text`` and the setters of its explicit keywords it overrides,
-  given or not; `.Legend`'s calls its ``set_loc``.
+  given or not; `.Legend`'s calls its ``set_loc``. The others call the
+  setters matplotlib's constructors call (`Line2D`'s styles and data,
+  ``Polygon.set_xy``, the collections' ``set_verts``, ``set_segments``
+  and ``set_transform``, the images' resampling settings, the legend's
+  anchor, title and dragging) with matplotlib's arguments, when the class
+  overrides them (`._program_classes.replay_setters`). Which setters a
+  class takes from the program is found once, as the class is made
+  (``Artist._program_setters``, empty for the package's classes, told
+  apart by module name, so that making them costs nothing).
+* **Linear spines** of a class overriding ``_adjust_location``,
+  ``get_patch_transform``, ``get_spine_transform``,
+  ``_ensure_position_is_set``, ``get_path``, ``get_transform`` or
+  ``get_window_extent`` in a plain Axes are drawn and measured through
+  Python: the class lays the spine out as matplotlib's draw does, and
+  pltrs (Rust) draws the path in display pixels it leaves
+  (`Spine._push_layout`).
 * **Picking** goes through the children a class gives (``get_children``),
   which pltrs (Rust) holds no tree of, as matplotlib's ``Artist.pick``.
 * **Prints.** A figure class's ``draw`` also runs in the draw matplotlib
@@ -2296,6 +2311,23 @@ it asks:
 `python/tests/test_gen5.py` and `test_gen6.py` check each with a subclass
 of the kind the libraries write; ``cargo xtask diff --generated overrides`` runs the
 family (``spec/diff/generators/overrides*.py``).
+
+Libraries also replace methods and functions by assignment, on a class
+(mplcursors' ``Axes.scatter``), on one object (ultraplot's
+``axis._update_ticks``, pygtc's tick labels' ``set_x``) or on a module
+(proplot's and ultraplot's ``scale.scale_factory``); the census is
+``spec/diff/patches_census.json`` (``patches_census.py``) and ``cargo
+xtask diff --generated patches`` runs the family. A replacement on a class
+is a class' member like an override (`takes_from_program` reads it). One
+on an object is seen as it is assigned (`.Artist.__setattr__`): an axis
+given ``_update_ticks`` is ticked by the program's tick updater
+(`._tick_updates.follow_program_update`) where matplotlib calls the
+method (``UpdateSite.Matplotlib``; where pltrs needs ticks besides, it
+computes them without it), and the ticks the replacement returns are
+those drawn. A module function is called where matplotlib calls it:
+``scale_factory`` makes each shared axis' scale, and when replaced, the
+scales each new axis and each clear make (`.axis.Axis`, `.axes._clear`).
+`python/tests/test_gen7.py` checks them.
 
 ### pyplot's state
 

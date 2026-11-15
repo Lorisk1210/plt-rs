@@ -491,7 +491,9 @@ mod tests {
 
     use pltrs_core::archive::External;
 
-    use crate::axes::{Axes, SpineAxis, TickLevels, TickUpdater, UpdatedLevel, UpdatedTicks};
+    use crate::axes::{
+        Axes, SpineAxis, TickLevels, TickUpdater, UpdateSite, UpdatedLevel, UpdatedTicks,
+    };
     use crate::figure::Figure;
     use crate::scale::{ArrayLayout, FuncScale, FuncTransform};
     use crate::ticker::{AxisInfo, AxisName, TickerError};
@@ -507,6 +509,7 @@ mod tests {
             _: AxisName,
             _: &AxisInfo,
             levels: TickLevels,
+            _: UpdateSite,
         ) -> Result<UpdatedTicks, TickerError> {
             Ok(UpdatedTicks {
                 major: levels.major.then(|| UpdatedLevel {

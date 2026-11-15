@@ -56,7 +56,10 @@ compared on their own. The generators are the modules of ``generators/``:
   locators, transforms, scales, norms, colormaps, unit converters, path
   effects, artists' and figures' ``draw``, measures, filters, events,
   axes locators, layout engines, legend handlers) entering its figure
-  once: reading it, changing it or drawing it.
+  once: reading it, changing it or drawing it;
+* ``patches``: matplotlib's methods and functions replaced by
+  assignment, on a class, an object or a module, as libraries replace
+  them (``patches_census.json``), the replacement's calls recorded.
 
 Programs are written to ``OUT_DIR/<generator>/<name>.py``; the directory
 is emptied first. What the generators' own runs of statements write goes
@@ -79,7 +82,7 @@ matplotlib.use("agg")
 
 from generators import (  # noqa: E402
     api, artists, hostile, interaction, modules, offsetboxes, orders, pickling, plotting, pyplot, randomized,
-    overrides, rcparams, reentry, rest, three_d, unreached)
+    overrides, patches, rcparams, reentry, rest, three_d, unreached)
 
 GENERATORS = {
     "artists": artists.programs,
@@ -99,6 +102,7 @@ GENERATORS = {
     "interaction": interaction.programs,
     "overrides": overrides.programs,
     "reentry": reentry.programs,
+    "patches": patches.programs,
 }
 
 

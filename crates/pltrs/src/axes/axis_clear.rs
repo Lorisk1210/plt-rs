@@ -30,15 +30,21 @@ impl AxisState {
 
     /// Takes what matplotlib's `Axis.clear` leaves the axis of `old`, its
     /// own or its axes': its tick parameters (`keep_tick_styles`), how it
-    /// is drawn (`keep_drawing`) and, for x, the side of its offset text
+    /// is drawn (`keep_drawing`), for x the side of its offset text
     /// (matplotlib's `XAxis._tick_position`, which no clear resets; the
-    /// clear resets the offset texts' alignment, and y's to the left).
+    /// clear resets the offset texts' alignment, and y's to the left), and
+    /// whether the program ticks it (its class or the object's own
+    /// `_update_ticks`).
     pub(super) fn keep_through_clear(&mut self, old: &Self) {
         self.keep_tick_styles(old);
         self.keep_drawing(old);
         if self.name == AxisName::X {
             self.offset_side = old.offset_side;
         }
+        // The program's class of the axis, and what the program gave the
+        // object, stay through a clear.
+        self.program_view = old.program_view;
+        self.program_update = old.program_update;
     }
 
     /// Takes whether `old` is shown, laid out and animated, and its image

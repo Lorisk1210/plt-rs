@@ -119,6 +119,20 @@ impl Axis {
         self
     }
 
+    /// Has the program's tick updater tick the axis (see
+    /// [`TickUpdater`](super::TickUpdater)) because the program gave the
+    /// axis object an `_update_ticks` of its own, which matplotlib's draws
+    /// and measures call, or pltrs again with `false`. The figure is not
+    /// stale for it: nothing drawn changes (matplotlib's object is given
+    /// an attribute).
+    pub fn set_program_update(&self, program: bool) -> &Self {
+        let name = self.name;
+        (self.axes.raw()).with_mut_unseen::<AxesState, _>(|axes| {
+            axes.axis_mut(name).program_update = program;
+        });
+        self
+    }
+
     /// Whether minor ticks falling on major ticks are dropped
     /// (matplotlib's `get_remove_overlapping_locs`).
     pub fn remove_overlapping_locs(&self) -> bool {

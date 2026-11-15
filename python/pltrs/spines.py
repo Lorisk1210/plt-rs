@@ -16,6 +16,7 @@ from . import _docstring
 from . import _api, _handles, _python_drawing, _unusable, _values, rcParams
 from .colors import to_rgba
 from ._native import artist as _artist, spines as _spines
+from ._program_classes import takes_from_program
 from .artist import Artist, allow_rasterization
 from .cbook import _str_equal
 from .lines import _get_dash_pattern
@@ -73,6 +74,13 @@ def _check_position(position):
     if position[0] not in ['outward', 'axes', 'data']:
         raise ValueError("position[0] should be one of 'outward', "
                          "'axes', or 'data' ")
+
+
+#: The hooks of a linear spine matplotlib's draws and measures call, which
+#: a class of the program's may override: pltrs then lays the spine out
+#: through them (`Spine._push_layout`).
+_LAYOUT_HOOKS = ("_adjust_location", "get_patch_transform", "get_spine_transform",
+                 "_ensure_position_is_set", "get_path", "get_transform", "get_window_extent")
 
 
 class Spine(Patch):
@@ -380,18 +388,38 @@ class Spine(Patch):
             _unusable.drop(axes, "spine locations")
 
     def _adjust_before_draws(self):
-        """Have each draw of the spine, one of a type naming no side whose
-        class adjusts its location itself, run that ``_adjust_location``
-        first and draw the path it leaves, as matplotlib's `draw` does
-        (mpltern's spines span the limits of their ternary axis so)."""
+        """Have each draw of the spine, one whose class adjusts its location
+        itself, run that ``_adjust_location`` first and draw the path it
+        leaves, as matplotlib's `draw` does (mpltern's spines of no side
+        span the limits of their ternary axis so; a linear spine spans
+        what the path it leaves spans along its axis, `_push_span`)."""
         self._adjusts_itself = True
-        _python_drawing.draw_through_python(self, measures=False)
+        if self._is_linear and self.__dict__.get("_made") and not self.__dict__.get("_placed"):
+            # As matplotlib's new spine, placed where first asked
+            # (`_ensure_position_is_set`, which a class may override).
+            self._position_set = False
+        # A linear spine is measured through its class too (its
+        # `get_window_extent` adjusts it first, as matplotlib's).
+        _python_drawing.draw_through_python(self, measures=self._is_linear)
+
+    def _push_layout(self):
+        """Have pltrs (Rust) lay the linear spine out as its class does,
+        as matplotlib's draw and measure: its ``_adjust_location``, then
+        its path through its transform (`get_patch_transform` and the
+        transform its position gave it, `get_spine_transform`)."""
+        self._ensure_position_is_set()
+        self._adjust_location()
+        path = self.get_transform().transform_path(self.get_path())
+        _spines.set_program_path(self._native, path)
 
     @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
         if self.__dict__.get("_adjusts_itself"):
-            self._adjust_location()
+            if self._is_linear:
+                self._push_layout()
+            else:
+                self._adjust_location()
         if "_pushed_path" in self.__dict__:
             self._push_path()
         return super().draw(renderer)
@@ -408,8 +436,19 @@ class Spine(Patch):
 
     @property
     def _position(self):
-        # matplotlib's field: the position as given, None while unset.
-        return self.get_position() if self._position_set else None
+        # matplotlib's field: the position as given (or set by a class
+        # before it places the spine), None while unset.
+        if not self._position_set:
+            return None
+        given = self.__dict__.get("_given_position")
+        return self._given_or_placed() if given is None else given
+
+    @_position.setter
+    def _position(self, position):
+        # A class of the program's sets it before it places the spine
+        # (`set_position`), as in its `_ensure_position_is_set`.
+        self._position_set = position is not None
+        self._given_position = position
 
     def clear(self):
         """Clear the current spine."""
@@ -432,6 +471,10 @@ class Spine(Patch):
         never placed is placed there only now: until then it is drawn
         with the transform it was made with, ``transData``."""
         if _reading:
+            return
+        if not self._position_set and takes_from_program(type(self), "get_spine_transform"):
+            # matplotlib's places it, taking the transform its class gives.
+            self.set_position(("outward", 0.0))
             return
         self._placed = True
         if _spines.unplaced(self._native):
@@ -476,15 +519,19 @@ class Spine(Patch):
         """
         Have the spine's path (``_path``: two points in data coordinates
         along its axis and axes fractions across it) span its axis' view
-        interval, as matplotlib's linear spines do; what the projection of
-        a program's class asks of a spine class overriding it (bounds set
-        on the spine are taken by pltrs (Rust) first).
+        interval, or its bounds when set, as matplotlib's linear spines do;
+        what the projection of a program's class asks of a spine class
+        overriding it, and what such a class' draws and measures run in a
+        plain Axes.
         """
         vertices = self._kept_path.vertices
+        # (A projection of the program's lays the spine out while pltrs
+        # (Rust) holds the figure, having taken the bounds first.)
+        bounds = self.get_bounds() if self.__dict__.get("_adjusts_itself") else None
         if self.spine_type in ('left', 'right'):
-            vertices[:, 1] = self.axes.viewLim.intervaly
+            vertices[:, 1] = self.axes.viewLim.intervaly if bounds is None else bounds
         else:
-            vertices[:, 0] = self.axes.viewLim.intervalx
+            vertices[:, 0] = self.axes.viewLim.intervalx if bounds is None else bounds
 
     def _span_path(self):
         """Have the spine's path span its bounds, else its axis' view
@@ -581,6 +628,9 @@ class Spine(Patch):
         # The spine takes the transform of its position again.
         self.__dict__.pop("_given_transform", None)
         self._position_set = True
+        if takes_from_program(type(self), "get_spine_transform"):
+            # As matplotlib's, the one its class gives.
+            self.set_transform(self.get_spine_transform())
         if self.axis is not None:
             # The ticks of its axis are made anew, as matplotlib's.
             self.axis.reset_ticks()
@@ -589,6 +639,10 @@ class Spine(Patch):
     def get_position(self):
         """Return the spine position."""
         self._ensure_position_is_set()
+        return self._given_or_placed()
+
+    def _given_or_placed(self):
+        """The position the spine is placed at, as given if it was."""
         position = _spines.get_position(self._native)
         given = self.__dict__.get("_given_position")
         return given if given is not None and _position_pair(given) == position else position
@@ -694,7 +748,10 @@ class Spine(Patch):
         matplotlib.axes.Axes.get_window_extent
         """
         _unusable.check(self, measuring=True)
-        if self._is_linear:
+        if self._is_linear and self.__dict__.get("_adjusts_itself"):
+            # As matplotlib's, laid out by the class' own hooks.
+            self._push_layout()
+        elif self._is_linear:
             # Measuring spans the path over the view, as drawing does.
             self._linear_path()
             self._span_path()
@@ -915,6 +972,13 @@ def _watch_tick_spines(spines, spine):
         _unusable.drop(axes, "spines")
 
 
+def _in_program_projection(spine):
+    """Whether *spine* frames Axes of a projection of the program's."""
+    from .projections import _program
+    axes = spine.__dict__.get("_spine_axes")
+    return axes is not None and _program.is_program_class(type(axes))
+
+
 class SpinesProxy:
     """
     A proxy to broadcast ``set_*()`` and ``set()`` method calls to contained `.Spines`.
@@ -1021,6 +1085,13 @@ class Spines(MutableMapping):
             if not value.__dict__.get("_placed"):
                 _spines.leave_unplaced(value._native)
         _replace_drawn(self._dict.get(key), value)
+        if (isinstance(value, Spine) and value._is_linear
+                and any(takes_from_program(type(value), hook) for hook in _LAYOUT_HOOKS)
+                and not _in_program_projection(value)):
+            # Laid out by its class' own hooks when drawn and measured, as
+            # matplotlib's Axes draws and measures it (a projection of the
+            # program's asks them itself, `.projections._program`).
+            value._adjust_before_draws()
         if not isinstance(value, Artist):
             # Among the children of the Axes, on which its draws fail
             # (`.axes._foreign_children.check_drawable`).

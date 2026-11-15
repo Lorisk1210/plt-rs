@@ -145,6 +145,11 @@ pub(crate) struct SpineArtist {
     pub(crate) position: SpinePosition,
     /// Data interval the spine spans; `None` follows the view limits.
     pub(crate) bounds: Option<(f64, f64)>,
+    /// The path in display pixels a class of the program's laid the
+    /// linear spine out as when it was last drawn or measured (its
+    /// `_adjust_location` and transforms, matplotlib's), in place of
+    /// pltrs' layout; `None` for a spine laid out by pltrs.
+    pub(crate) program_path: Option<Path>,
     /// The shape the spine is drawn with.
     pub(crate) patch: SpinePatch,
     /// Whether the program made the spine and nothing placed it yet
@@ -168,7 +173,7 @@ pltrs_core::archive_struct!(SpineArtist {
     patch,
     unplaced,
     rc
-});
+} skip { program_path });
 
 impl SpineArtist {
     /// A spine styled from `rc` (`axes.edgecolor`, `axes.linewidth`,
@@ -195,6 +200,7 @@ impl SpineArtist {
             style,
             position: SpinePosition::default(),
             bounds: None,
+            program_path: None,
             patch: SpinePatch::Line,
             unplaced: false,
             rc,
@@ -364,6 +370,12 @@ impl SpineArtist {
             return Some(OutlineThrough::new(
                 axes.patch_path(),
                 ResolvedTransform::affine(frame),
+            ));
+        }
+        if let Some(path) = &self.program_path {
+            return Some(OutlineThrough::new(
+                path.clone(),
+                ResolvedTransform::identity(),
             ));
         }
         let interval = self
@@ -548,6 +560,18 @@ impl Spine {
     /// Limits the spine to a data interval (`None` spans the view).
     pub fn set_bounds(&self, bounds: Option<(f64, f64)>) -> &Self {
         self.raw.with_mut::<SpineArtist, _>(|s| s.bounds = bounds);
+        self
+    }
+
+    /// Lays the linear spine out as `path`, in display pixels, as a class
+    /// of the program's laid it out for the draw or measure in progress
+    /// (matplotlib's `_adjust_location`, then its path through its
+    /// transforms), in place of pltrs' layout; `None` gives the layout
+    /// back to pltrs. Nothing is made stale: the program's class sets it
+    /// where matplotlib's draw lays the spine out.
+    pub fn set_program_path(&self, path: Option<Path>) -> &Self {
+        self.raw
+            .with_mut_unseen::<SpineArtist, _>(|s| s.program_path = path);
         self
     }
 

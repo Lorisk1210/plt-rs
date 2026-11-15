@@ -43,6 +43,7 @@ pub trait TickUpdater: fmt::Debug {
     /// One `Axis._update_ticks` of axis `axis` of `axes`, which `info`
     /// describes as it is now, computing the levels `levels` shows: the
     /// locations and labels of each level and which of them are drawn.
+    /// `site` says whether matplotlib calls `_update_ticks` there.
     ///
     /// # Errors
     ///
@@ -53,6 +54,7 @@ pub trait TickUpdater: fmt::Debug {
         axis: AxisName,
         info: &AxisInfo,
         levels: TickLevels,
+        site: UpdateSite,
     ) -> Result<UpdatedTicks, TickerError>;
 
     /// The offset text of the axis' major formatter once its ticks are
@@ -87,6 +89,17 @@ pub struct SpineAxis {
     pub shown: bool,
     /// The axis registered with it, if any.
     pub axis: Option<AxisName>,
+}
+
+/// Where the program's updater ticks an axis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UpdateSite {
+    /// Where matplotlib calls `Axis._update_ticks`: an `_update_ticks` the
+    /// program gave the axis object is called.
+    Matplotlib,
+    /// Where pltrs needs the ticks besides (its own layout), which only
+    /// the program's helpers can compute.
+    Pltrs,
 }
 
 /// The levels of ticks an axis shows (matplotlib's `_tick_group_visible`
@@ -185,8 +198,18 @@ pub(crate) struct ProgramTicked {
 
 impl AxisState {
     /// Whether the axis' tick helpers or scale run code of the program's,
-    /// or the program's class of the axis answers its view interval.
+    /// or the program's class of the axis answers its view interval, or
+    /// the program gave it an `_update_ticks` of its own.
     pub(crate) fn calls_program(&self) -> bool {
+        self.program_update || self.computed_by_program()
+    }
+
+    /// Whether only the program can compute the axis' ticks: its tick
+    /// helpers or scale run code of the program's, or the program's class
+    /// of the axis answers its view interval. (An `_update_ticks` the
+    /// program gave the object is called where matplotlib calls it, not
+    /// where pltrs needs the ticks besides.)
+    fn computed_by_program(&self) -> bool {
         self.program_view
             || self.major_locator.calls_program()
             || self.minor_locator.calls_program()
@@ -266,7 +289,7 @@ impl FigureState {
     /// program ticks it: its updater ticks the axis where it is now, lent
     /// the figure. Returns whether it did.
     pub(crate) fn update_program_ticks(&mut self, axes: ArtistId, name: AxisName) -> bool {
-        self.update_program_levels(axes, name, None)
+        self.update_program_levels(axes, name, None, UpdateSite::Matplotlib)
     }
 
     /// [`update_program_ticks`](Self::update_program_ticks) for the
@@ -278,17 +301,18 @@ impl FigureState {
         name: AxisName,
         minor: bool,
     ) -> bool {
-        self.update_program_levels(axes, name, Some(minor))
+        self.update_program_levels(axes, name, Some(minor), UpdateSite::Matplotlib)
     }
 
     /// [`update_program_ticks`](Self::update_program_ticks) for both levels
     /// the axis shows, or for the one level `only` names (`true` for the
-    /// minor one).
+    /// minor one), at `site`.
     fn update_program_levels(
         &mut self,
         axes: ArtistId,
         name: AxisName,
         only: Option<bool>,
+        site: UpdateSite,
     ) -> bool {
         let Some(updater) = self.program_ticker(axes, name) else {
             return false;
@@ -310,8 +334,8 @@ impl FigureState {
             },
             None => shown,
         };
-        let Some(updated) =
-            self.lend(|cell| updater.update_ticks(&axes_handle(cell, axes), name, &info, levels))
+        let Some(updated) = self
+            .lend(|cell| updater.update_ticks(&axes_handle(cell, axes), name, &info, levels, site))
         else {
             return false;
         };
@@ -382,7 +406,9 @@ impl FigureState {
     /// The ticks of axis `name` of `axes`, at `extent` in display pixels
     /// at `dpi`, brought up to date where pltrs needs them: computed by
     /// its helpers, or for an axis the program ticks, those it gave last
-    /// while they were for the same geometry, else the program's anew. An
+    /// while they were for the same geometry, else the program's anew
+    /// when only the program can compute them (see
+    /// [`AxisState::calls_program`]). An
     /// animated axis (see [`axis_left_out`](Self::axis_left_out)) is
     /// never ticked by the program meanwhile; measuring it
     /// (`get_tightbbox`) ticks it with its helpers.
@@ -395,12 +421,18 @@ impl FigureState {
         bound: Option<BoundAxis>,
     ) {
         if !self.axis_left_out(axes, name) && self.program_ticker(axes, name).is_some() {
-            let current = self.store.get_as::<AxesState>(axes).map(|state| {
-                let geometry = state.axis_geometry(name, extent, dpi, bound);
-                let axis = state.axis(name);
-                axis.program_ticked.as_ref() == Some(&axis.program_record(geometry))
-            });
-            if current == Some(true) || self.update_program_ticks(axes, name) {
+            let (current, computed) =
+                (self.store.get_as::<AxesState>(axes)).map_or((false, false), |state| {
+                    let geometry = state.axis_geometry(name, extent, dpi, bound);
+                    let axis = state.axis(name);
+                    (
+                        axis.program_ticked.as_ref() == Some(&axis.program_record(geometry)),
+                        axis.computed_by_program(),
+                    )
+                });
+            if current
+                || (computed && self.update_program_levels(axes, name, None, UpdateSite::Pltrs))
+            {
                 return;
             }
         }

@@ -678,7 +678,11 @@ class LimitsMixin:
         matplotlib's measures the collections it counts (one of a class of
         the program's giving its own paths, whose extent pltrs (Rust)
         cannot measure), while it is a child of the Axes."""
-        self.__dict__.setdefault("_measured_in_relim", weakref.WeakSet()).add(collection)
+        measured = self.__dict__.get("_measured_in_relim")
+        if not isinstance(measured, weakref.WeakSet):
+            # (A list once read back from a pickle.)
+            measured = self.__dict__["_measured_in_relim"] = weakref.WeakSet(measured or ())
+        measured.add(collection)
 
     def _update_collection_limits(self, collection):
         """Update the data limits for the given collection."""

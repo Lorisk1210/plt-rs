@@ -269,8 +269,14 @@ class SubclassingMixin:
         '3d_properties',  # cannot be used as a keyword due to leading digit
     ]
 
+    #: The setters the class takes from the program, which its constructor
+    #: calls where matplotlib's does (`._program_classes.replay_setters`).
+    _program_setters = frozenset()
+
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
+        from ._program_classes import program_setters
+        cls._program_setters = program_setters(cls)
         zorder = vars(cls).get("zorder")
         if isinstance(zorder, (int, float)) and not isinstance(zorder, bool):
             cls.zorder = ClassZOrder(zorder)

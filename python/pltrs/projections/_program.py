@@ -782,6 +782,10 @@ def set_up(ax):
     # `ax.spines` gives the class' spines from now on.
     ax.__dict__.pop("_spines_kept", None)
     _projections.install(ax._native, _Adapter(ax))
+    if ax._axes_measure_themselves():
+        # Measured in Python, asking the axis as matplotlib's tight box does.
+        from .. import _python_drawing
+        _python_drawing.draw_through_python(ax, measures=True)
 
 
 def maker(projection_class):

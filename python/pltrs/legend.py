@@ -638,6 +638,9 @@ class Legend(Artist):
         elif own_axes or not self.isaxes:
             _artist.remove(native)
         made.adopt(self)
+        if type(self) is not Legend:
+            # A class of the program's drawing or measuring legends itself.
+            _python_drawing.attach(self)
         overridden = self._program_setters
         if overridden:
             _program_classes.replay_setters(self, [
@@ -1397,7 +1400,7 @@ def _parse_legend_args(axs, *args, handles=None, labels=None, **kwargs):
 # import from it.
 import itertools  # noqa: E402, F401
 import logging  # noqa: E402, F401
-from . import cbook, legend_handler, offsetbox  # noqa: E402, F401
+from . import _python_drawing, cbook, legend_handler, offsetbox  # noqa: E402, F401
 from .artist import allow_rasterization  # noqa: E402, F401
 from .offsetbox import (  # noqa: E402, F401
     AnchoredOffsetbox, DrawingArea, HPacker, TextArea, VPacker)

@@ -124,9 +124,21 @@ class ChildAxesMixin:
     @child_axes.setter
     def child_axes(self, axes_list):
         # matplotlib's list, which its draws follow: the Axes left out of it
-        # are drawn no more, those it adds are drawn with this one. (Later
-        # changes made to the list in place are read back alone.)
+        # are drawn no more, those it adds are drawn with this one, and so
+        # are the changes made to it in place, before each draw.
         _values.assign(self, "child_axes", axes_list)
+        self._follow_child_axes()
+        figure = self.get_figure(root=True)
+        if figure is not None:
+            from . import _program_locators
+            _program_locators.follow_child_axes(self, figure)
+
+    def _follow_child_axes(self):
+        """Have pltrs (Rust) draw as the child Axes those of the list the
+        program assigned (`child_axes`), as it is now."""
+        axes_list = _values.assigned(self, "child_axes", lambda: None)
+        if axes_list is None:
+            return
         wanted = {_artist.id(ax._native): ax for ax in axes_list if hasattr(ax, "_native")}
         held = set()
         from ._axes import Axes
@@ -139,11 +151,12 @@ class ChildAxesMixin:
                 position = dropped.get_position()
                 _artist.remove(native)
                 dropped._set_position(position, which="active")
+                self.stale = True
         for key, ax in wanted.items():
             if key not in held:
                 _insets.add_child_axes(self._native, ax._native)
                 ax._child_of = self
-        self.stale = True
+                self.stale = True
 
     def add_child_axes(self, ax):
         """

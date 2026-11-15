@@ -342,7 +342,11 @@ impl AxisPainter<'_> {
         let (points, affine) = resolved.split_points(&points);
         TickMark {
             marker: &marker,
-            transform: marker.transform(),
+            transform: style
+                .mark_transform
+                .as_deref()
+                .copied()
+                .unwrap_or_else(|| marker.transform()),
             style,
         }
         .draw(ctx, self.axes_id, &points, &affine);

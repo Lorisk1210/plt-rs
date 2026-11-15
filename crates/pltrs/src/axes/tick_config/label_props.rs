@@ -55,6 +55,10 @@ pub struct TickLabelProps {
     /// axis' side transform, in place of its side (matplotlib's
     /// `Tick.label1.set_x` on a y tick, `set_y` on an x tick).
     pub across: Option<f64>,
+    /// Where the label is along the axis, in data coordinates, in place of
+    /// its tick's location (a position setter of the program's that
+    /// matplotlib's tick update calls with the location).
+    pub along: Option<f64>,
     /// The box behind the label (matplotlib's `set_bbox` on a tick's
     /// label).
     pub bbox: Option<TextBoxPatch>,
@@ -83,6 +87,7 @@ pltrs_core::archive_struct!(TickLabelProps {
     label1_visible,
     label2_visible,
     across,
+    along,
     bbox,
     antialiased,
     path_effects
@@ -116,6 +121,7 @@ impl TickLabelProps {
             label1_visible: newer.label1_visible.or(self.label1_visible),
             label2_visible: newer.label2_visible.or(self.label2_visible),
             across: newer.across.or(self.across),
+            along: newer.along.or(self.along),
             bbox: newer.bbox.clone().or_else(|| self.bbox.clone()),
             antialiased: newer.antialiased.or(self.antialiased),
             path_effects: (newer.path_effects.clone()).or_else(|| self.path_effects.clone()),
@@ -169,6 +175,9 @@ impl TickLabelProps {
         }
         if self.across.is_some() {
             style.label_across = self.across;
+        }
+        if self.along.is_some() {
+            style.label_along = self.along;
         }
         if self.bbox.is_some() {
             style.label_bbox.clone_from(&self.bbox);

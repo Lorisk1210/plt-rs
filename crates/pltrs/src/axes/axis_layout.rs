@@ -462,8 +462,8 @@ impl<'a> AxisPainter<'a> {
     }
 
     /// Where a tick label of rectilinear axes goes: beyond the tick on
-    /// its side (or where across the axis its program moved it), with the
-    /// side's default alignment.
+    /// its side (or where along and across the axis its program moved
+    /// it), with the side's default alignment.
     fn cartesian_label_anchor(
         &self,
         cx: &mut impl FigureReader,
@@ -490,7 +490,8 @@ impl<'a> AxisPainter<'a> {
             .unwrap_or(if first_side { 0.0 } else { 1.0 });
         let resolved = cx.read().resolve(&transform)?;
         cx.release_for(&resolved);
-        let anchor = resolved.transform_point(self.tick_point(tick.loc, across));
+        let along = style.label_along.unwrap_or(tick.loc);
+        let anchor = resolved.transform_point(self.tick_point(along, across));
         Some((anchor, align))
     }
 

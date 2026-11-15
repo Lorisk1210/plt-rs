@@ -443,3 +443,22 @@ api/module_matplotlib_pyplot_0$ | ^warning missing: RuntimeWarning: overflow enc
 ^generated/overrides/Axes-update_datalim$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | mne's topomap (its _NoOpAxes) is the same under both, plain and tight, with the same limits; only how often update_datalim is called differs
 ^generated/overrides/Text-get_usetex$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | MetPy's TextCollection (scattertext), the class overriding get_usetex, fails to draw under matplotlib 3.11 itself (its draw unpacks four values from Text._get_layout, which returns three) and fails the same under pltrs
 ^generated/overrides/Text-get_text$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | ultraplot's curved polar labels (CurvedText, whose get_text answers the curve's text while it holds " ") draw and measure the same figure under both, plain and tight, now that pltrs draws and measures a text as its class' getters answer; only how often get_text is called differs
+# A collection made directly with data-coordinate offsets and added to an
+# Axes keeps sensible limits where matplotlib computes limits in pixels.
+# matplotlib's `Collection.get_datalim` takes, for a collection whose
+# transform contains transData (`add_collection` gives it transData) and
+# whose offsets are in transData, its paths scaled by its item transforms
+# (the sizes at 72 dpi) and its offsets mapped through transData's whole
+# affine at the view of the moment, in display pixels. Constructions
+# reaching it: a PathCollection made directly (with or without sizes), a
+# PolyCollection or a LineCollection given offsets, each with its default
+# transform; for data in 1..9 matplotlib's limits are x 99..1341 and y
+# 163..787 (the like for each), and every one of its images is an empty
+# Axes. pltrs keeps the data's limits. scatter, EllipseCollection,
+# CircleCollection, RegularPolyCollection, collections without offsets
+# and the gallery's collections (offsets in data, paths in pixels) are
+# equal under both. The overrides programs build such a PathCollection:
+# `contains` at the data point and the unpickled copy's image (figure 2)
+# follow from the limits.
+^generated/overrides/PathCollection- | ^value\[contains\]: bool$ @ ^112:0$ | matplotlib's limits of a directly made PathCollection with transData offsets are in display pixels (x 99..1341 for data in 1..9, an empty Axes); pltrs keeps the data's, so the point the program asks about is inside the collection under pltrs only
+^generated/overrides/PathCollection- | ^image: RMS > 1$ @ ^figure 2$ | the unpickled copy autoscales to matplotlib's limits in display pixels (an empty Axes) and to the data's under pltrs

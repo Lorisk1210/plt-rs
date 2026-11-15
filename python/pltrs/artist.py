@@ -154,7 +154,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             _artist_staleness.set_by_program()
         elif name in _POSITION_SETTERS:
             # An axis label's (ultraplot's spanning labels follow them).
-            _axis_artists.follow_program_setters(self)
+            _axis_artists.follow_program_setters(self, name)
         elif name == "_update_ticks":
             # An axis' (ultraplot's tick cache).
             _tick_updates.follow_program_update(self)

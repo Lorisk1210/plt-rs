@@ -2413,7 +2413,7 @@ class Axis(DrawnWith, Artist):
         """
         from .transforms import Bbox
         if _program_classes.takes_from_program(type(self), "_get_ticklabel_bboxes"):
-            return self._tightbbox_by_class(renderer, for_layout_only)
+            return self._tightbbox_of_program_labels(renderer, for_layout_only)
         with _measured_by_given(renderer, self):
             extent = _axis.get_tightbbox(*self._args(), bool(for_layout_only))
         if extent is None:
@@ -2422,23 +2422,31 @@ class Axis(DrawnWith, Artist):
         x0, y0, x1, y1 = extent
         return Bbox([[x0, y0], [x1, y1]])
 
-    def _tightbbox_by_class(self, renderer, for_layout_only):
-        """matplotlib's `get_tightbbox`, for a class of the program's
-        giving the boxes of its tick labels itself (MetPy's skewed x axis
-        leaves out those beyond its bounds)."""
+    def _tightbbox_of_program_labels(self, renderer, for_layout_only):
+        """matplotlib's `get_tightbbox` of an axis whose class gives the
+        boxes of its tick labels (``_get_ticklabel_bboxes``: MetPy's
+        `SkewXAxis` leaves out the labels beyond its skewed limits): the
+        offset text, those boxes and the label, measured where they stand
+        once the axis placed them, as matplotlib's places its ticks
+        (``_update_ticks``), its label (``_update_label_position``) and its
+        offset text (``_update_offset_text_position``) first."""
         from .transforms import Bbox
+        # pltrs (Rust) places the axis' ticks, label and offset text as it
+        # measures the axis.
+        with _measured_by_given(renderer, self):
+            _axis.get_tightbbox(*self._args(), bool(for_layout_only))
         if not self.get_visible() or for_layout_only and not self.get_in_layout():
             return None
         if renderer is None:
             renderer = self.get_figure(root=True)._get_renderer()
-        ticks_to_draw = self._update_ticks()
-        tlb1, tlb2 = self._get_ticklabel_bboxes(ticks_to_draw, renderer)
-        bboxes = [*(text.get_window_extent(renderer) for text in [self.offsetText]
-                    if text.get_visible()), *tlb1, *tlb2]
+        ticks = self._update_ticks()
+        tlb1, tlb2 = self._get_ticklabel_bboxes(ticks, renderer)
+        bboxes = [*(text.get_window_extent(renderer)
+                    for text in [self.offsetText] if text.get_visible()),
+                  *tlb1, *tlb2]
         if self.label.get_visible():
             bb = self.label.get_window_extent(renderer)
-            # Collapse the label's long side to a pixel for layouts, as
-            # matplotlib's does.
+            # Collapsed along the axis for a layout, as matplotlib's.
             if for_layout_only:
                 if self.axis_name == "x" and bb.width > 0:
                     bb.x0 = (bb.x0 + bb.x1) / 2 - 0.5
@@ -2447,7 +2455,7 @@ class Axis(DrawnWith, Artist):
                     bb.y0 = (bb.y0 + bb.y1) / 2 - 0.5
                     bb.y1 = bb.y0 + 1.0
             bboxes.append(bb)
-        bboxes = [b for b in bboxes if 0 < b.width < np.inf and 0 < b.height < np.inf]
+        bboxes = [b for b in bboxes if b._is_finite()]
         return Bbox.union(bboxes) if bboxes else None
 
     def get_pickradius(self):

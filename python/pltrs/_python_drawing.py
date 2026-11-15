@@ -156,11 +156,14 @@ def _draws_from_program(cls):
 @class_cache
 def _measures(cls):
     """Whether the class *cls* measures its artists itself (its
-    ``get_window_extent`` or ``get_tightbbox`` is the program's, or a getter
-    matplotlib's measure reads, ``_measured_reads``; kept per class, as
-    `.takes_from_program` keeps its answers)."""
+    ``get_window_extent`` or ``get_tightbbox`` is the program's, for an
+    Axes the artists its tight box takes in,
+    ``get_default_bbox_extra_artists``, or a getter matplotlib's measure
+    reads, ``_measured_reads``; kept per class, as `.takes_from_program`
+    keeps its answers)."""
     return any(takes_from_program(cls, name)
                for name in ("get_window_extent", "get_tightbbox",
+                            "get_default_bbox_extra_artists",
                             *getattr(cls, "_measured_reads", ())))
 
 
@@ -440,10 +443,17 @@ def measure_artist(artist, for_layout_only=False):
         return ()
     if _left_out_of_axes_box(artist):
         return None
+    axes = getattr(artist, "axes", None)
+    if axes is not None:
+        # matplotlib's transData reads the view limits autoscaled first.
+        axes._unstale_viewLim()
     if figure is None:
         bbox = _tight_box(artist, None, for_layout_only)
     else:
-        renderer = figure._get_renderer()
+        # That of the print running (a vector format's mixed-mode one), as
+        # matplotlib's tight box of a print and its draw hand it, else the
+        # canvas'.
+        renderer = drawing_renderer(artist)
         # What measuring draws with a renderer of this package (astropy's
         # WCSAxes draws its ticks to measure them) is dropped, as what
         # matplotlib's layouts draw is drawn over.

@@ -8,7 +8,7 @@ use super::axis_layout::{AxisPainter, PlacedText};
 use super::{Axes, AxesState, Axis};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ClipPathSpec, LayoutContext, MeasuredExtent,
-    tight_extent_of,
+    measured_extent_of, tight_extent_of,
 };
 use crate::axes_grid1::parasites_of;
 use crate::figure::FigureState;
@@ -192,12 +192,8 @@ impl FigureState {
     /// their passes, and it applies its aspect first); unmeasured without
     /// such a painter.
     fn measured_axes_extent(&mut self, axes: ArtistId) -> MeasuredExtent {
-        let measured = (self.store.get(axes))
-            .and_then(|artist| artist.base().painter.as_ref())
-            .map_or(MeasuredExtent::Unmeasured, |painter| {
-                painter.get().extent_taken();
-                painter.get().measured_extent()
-            });
+        let measured =
+            (self.store.get(axes)).map_or(MeasuredExtent::Unmeasured, measured_extent_of);
         let MeasuredExtent::Extent(extent) = measured else {
             return measured;
         };
@@ -472,10 +468,16 @@ fn child_tight_bbox(
         return None;
     }
     if let Some(spine) = layout.store().get_as::<SpineArtist>(child) {
-        return state
-            .decorations
-            .framed()
-            .then(|| spine.window_extent(&layout))?;
+        if !state.decorations.framed() {
+            return None;
+        }
+        // A spine of a class of the program's measuring itself counts as it
+        // measured (matplotlib asks each spine for its tight box).
+        return match measured_extent_of(artist) {
+            MeasuredExtent::Unmeasured => spine.window_extent(&layout),
+            MeasuredExtent::Empty => None,
+            MeasuredExtent::Extent(extent) => Some(extent),
+        };
     }
     // A spine of no side (a colorbar's outline) counts while the axes is
     // framed, as the side spines do.

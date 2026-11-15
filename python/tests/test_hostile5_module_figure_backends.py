@@ -15,6 +15,7 @@ import warnings
 import numpy as np
 import pytest
 
+import build_facts
 import pltrs
 import pltrs.pyplot as plt
 from pltrs import bezier, collections, colorbar, colors, contour, hatch, image, lines, mathtext, offsetbox, patches, quiver
@@ -808,8 +809,13 @@ def test_hsv_of_no_finite_numbers_warns_as_numpy():
 def test_kernel_density_estimates_of_no_numbers_fail_as_numpy():
     with pytest.raises(np.exceptions.DTypePromotionError):
         mlab.GaussianKDE(np.datetime64('2024-01-01') + np.arange(7))
-    with pytest.warns(RuntimeWarning, match="^invalid value encountered in det$"):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         mlab.GaussianKDE(np.array([np.nan, 1.0, 4.0, 1.5, 5.0, 9.0, 2.5]))
+    # numpy's own warning, where its determinant warns of a NaN.
+    expected = (["invalid value encountered in det"]
+                if build_facts.DETERMINANT_OF_NAN_WARNS else [])
+    assert [str(warning.message) for warning in caught] == expected
 
 
 def test_spectra_of_signals_of_two_dimensions_as_matplotlib():

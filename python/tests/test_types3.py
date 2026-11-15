@@ -94,7 +94,8 @@ def test_an_assigned_arrow_is_drawn_as_the_arrow():
 
 
 #: Copying ``rcParams`` resolves its "auto" backend (``copy``'s protocol
-#: reads the items), as recorded from matplotlib 3.11.2.
+#: reads the items), as recorded from matplotlib 3.11.2: to Agg without a
+#: display, to the native backend on a Mac, which always has one.
 RC_COPY = """
 import copy, sys
 import pltrs
@@ -112,4 +113,5 @@ def test_copies_of_rcparams_resolve_the_auto_backend(tmp_path):
     environment["MPLCONFIGDIR"] = environment["PLTRSCONFIGDIR"] = str(tmp_path)
     done = subprocess.run([sys.executable, "-c", RC_COPY], env=environment, cwd=tmp_path,
                           capture_output=True, text=True, check=True)
-    assert done.stdout.split() == ["True", "agg", "True", "agg", "True"]
+    backend = "macosx" if sys.platform == "darwin" else "agg"
+    assert done.stdout.split() == ["True", backend, "True", backend, "True"]

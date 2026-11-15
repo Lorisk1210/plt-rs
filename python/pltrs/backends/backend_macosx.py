@@ -11,8 +11,12 @@ matplotlib's does without its extension.
 
 import os
 
-from .. import rcParams
+from .. import cbook, rcParams  # noqa: F401 (matplotlib's module has cbook)
+from .._pylab_helpers import Gcf  # noqa: F401
+from ..backend_bases import (  # noqa: F401 (the names matplotlib's module imports)
+    FigureCanvasBase, FigureManagerBase, NavigationToolbar2, ResizeEvent, TimerBase)
 from . import _macosx
+from .backend_agg import FigureCanvasAgg  # noqa: F401
 from .backend_pltrs import (
     FigureCanvasPltrs, FigureManagerPltrs, NavigationToolbar2Pltrs, TimerPltrs,
     _BackendPltrs)
@@ -50,8 +54,13 @@ class FigureManagerMac(FigureManagerPltrs):
 FigureCanvasMac.manager_class = FigureManagerMac
 
 
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package
+
+
 @_BackendPltrs.export
 class _BackendMac(_BackendPltrs):
+    # matplotlib's macOS backend names no version: `_Backend`'s.
+    backend_version = "unknown"
     FigureCanvas = FigureCanvasMac
     FigureManager = FigureManagerMac
     mainloop = FigureManagerMac.start_main_loop

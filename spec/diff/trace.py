@@ -383,6 +383,57 @@ class _ChangedImportsLoader(importlib.machinery.SourceFileLoader):
         return self.source_to_code(self.get_data(self.path), self.path)
 
 
+#: The recorder of the run, which `_record` records with.
+_RECORDER: Recorder | None = None
+
+
+def _record(site: str, value: Any) -> Any:
+    """Record *value* at *site* (the call the instrumented program makes);
+    return it. In code numba compiles (py-pde compiles the program's
+    functions) it is *value* alone (`_NumbaTaught`)."""
+    assert _RECORDER is not None
+    return _RECORDER.record(site, value)
+
+
+class _NumbaTaught(importlib.abc.MetaPathFinder):
+    """Teaches numba, once the program imports it, to compile `_record` as
+    returning its value, so that the program's functions numba compiles
+    compile as they do uninstrumented (else numba fails on an untyped
+    global, under both implementations alike)."""
+
+    finding = False
+
+    def find_spec(self, name: str, path: Any = None, target: Any = None) -> Any:
+        """numba's own spec, its module taught once executed. (Libraries
+        ask for the spec to see whether numba is installed, py-pde's
+        ``importlib.util.find_spec``, before they import it.)"""
+        if name != "numba" or self.finding:
+            return None
+        self.finding = True
+        try:
+            spec = importlib.util.find_spec(name)
+        finally:
+            self.finding = False
+        if spec is None or spec.loader is None:
+            return spec
+        execute = spec.loader.exec_module
+
+        def execute_and_teach(module: Any) -> None:
+            execute(module)
+            if self in sys.meta_path:
+                sys.meta_path.remove(self)
+            from numba.extending import overload
+
+            # Unannotated: numba compares the typing signature with the
+            # implementation's, annotations included.
+            @overload(_record)
+            def _record_in_numba(site, value):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN202
+                return lambda site, value: value
+
+        spec.loader.exec_module = execute_and_teach  # type: ignore[method-assign]
+        return spec
+
+
 def _seed_random_generators() -> None:
     """The global generators start alike in both runs, and a generator made
     without a seed (``np.random.default_rng()``, ``random.Random()``, as the
@@ -495,7 +546,8 @@ def main() -> int:
     package = __import__(args.impl)
     package_dirs = [str(pathlib.Path(package.__file__).parent)]
     names = Names(NAME_PREFIXES[args.impl], package_dirs, os.environ.get("MPLCONFIGDIR"), str(workdir), sys.prefix)
-    recorder = Recorder(names, program)
+    global _RECORDER
+    recorder = _RECORDER = Recorder(names, program)
     code = compile(instrument(args.program.read_text(), program, args.impl, args.mode), program, "exec")
     plt = __import__(f"{args.impl}.pyplot", fromlist=["pyplot"])
     figures: list[dict[str, Any]] = []
@@ -510,7 +562,7 @@ def main() -> int:
         "__name__": "__main__",
         "__file__": program,
         "__builtins__": __builtins__,
-        REC: recorder.record,
+        REC: _record,
         EXC: recorder.exception,
         SITE: recorder.site,
         CELL_END: cell_end,
@@ -519,8 +571,20 @@ def main() -> int:
     if args.mode == "cells":
         namespace["display"] = _display
     sys.argv = [program]
-    sys.path[0] = str(args.program.resolve().parent)
+    # The program's directory in place of the harness', whose modules
+    # (coverage.py, kinds.py...) would hide the libraries of their names
+    # (numba imports coverage when it is importable).
+    # The harness' own modules leave sys.modules too, so that the program
+    # importing a library named as one (describe) imports the library.
+    harness = str(pathlib.Path(__file__).resolve().parent)
+    sys.path[:] = [str(args.program.resolve().parent),
+                   *(entry for entry in sys.path[1:] if entry != harness)]
+    for name, module in list(sys.modules.items()):
+        if module is not sys.modules["__main__"] and str(getattr(module, "__file__", "")).startswith(harness + os.sep):
+            del sys.modules[name]
     sys.meta_path.insert(0, _ChangedImports(sys.path[0], args.impl))
+    if "numba" not in sys.modules:
+        sys.meta_path.insert(0, _NumbaTaught())
     _seed_random_generators()
     _fix_the_calendar()
     stdout = io.StringIO()

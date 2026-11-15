@@ -77,8 +77,18 @@ def _ecosystem():
 
 
 def _corpora():
+    # Code corpora: a data-only entry (kind = "data") holds no programs.
     with open(ROOT / "spec/diff/corpora.toml", "rb") as file:
-        return _number(len(tomllib.load(file)))
+        manifest = tomllib.load(file)
+    return _number(sum(entry.get("kind", "code") != "data" for entry in manifest.values()))
+
+
+def _corpus_compared(key):
+    """Of the corpus programs the last full run of every corpus found
+    matplotlib running to their end, drawing or writing a figure (those
+    compared in full, ``spec/diff/corpus-outcomes.json``), how many there
+    were (``ran``) or how many were clean (``clean``)."""
+    return _number(_json("spec/diff/corpus-outcomes.json")["total"]["runs"]["ended, drew"][key])
 
 
 def _probes():
@@ -209,6 +219,8 @@ EXACT = {
     "ecosystem.complete-libraries":
         lambda: _number(len(_ecosystem()[0]) - len(_ecosystem()[3])),
     "corpora": _corpora,
+    "corpora.compared": lambda: _corpus_compared("ran"),
+    "corpora.compared-clean": lambda: _corpus_compared("clean"),
     "examples.graphs": _example_graphs,
     "mpl-tests": _matplotlib_tests,
     "python.minimum": _minimum_python,

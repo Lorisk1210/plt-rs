@@ -2,6 +2,8 @@
 Pseudocolour plots: `~.Axes.pcolor` and `~.Axes.pcolormesh`.
 """
 
+import inspect
+
 import numpy as np
 
 from ... import _docstring
@@ -158,6 +160,38 @@ def _first_variate(values):
         return values[values.dtype.names[0]].astype(float)
     return values
 
+
+def _set_in_order(kwargs, cls, polygons):
+    """
+    *kwargs* under the names of the properties they set, as matplotlib's
+    collection sets them: its constructor's own parameters first
+    (``linewidths``, ``edgecolors``...), then the rest in the order given
+    (``_internal_update``), so that an alias set later replaces them
+    (seaborn's ``heatmap`` passes ``linewidths`` and a program's
+    ``linewidth``, which wins); ``pcolor`` takes ``linewidth`` and
+    ``edgecolor`` over ``linewidths`` and ``edgecolors`` first.
+    """
+    kwargs = dict(kwargs)
+    if polygons:
+        for alias, name in (("linewidth", "linewidths"), ("edgecolor", "edgecolors")):
+            if alias in kwargs:
+                kwargs[name] = kwargs.pop(alias)
+    own = _COLLECTION_PARAMETERS
+    to_property = cls._alias_to_prop
+    resolved = {}
+    for key, value in [*((k, v) for k, v in kwargs.items() if k in own),
+                       *((k, v) for k, v in kwargs.items() if k not in own)]:
+        name = to_property.get(key, key)
+        resolved.pop(name, None)
+        resolved[name] = value
+    return resolved
+
+
+#: The parameters matplotlib's `.Collection` constructor sets before the
+#: other keyword arguments.
+_COLLECTION_PARAMETERS = frozenset(
+    inspect.signature(mcoll.Collection.__init__).parameters) - {"self", "kwargs"}
+
 class MeshMixin:
     """`pcolor` and `pcolormesh`."""
 
@@ -185,7 +219,7 @@ class MeshMixin:
         C, coords, dtype = _mesh_args(self, fn, args, shading)
         if polygons and shading == 'gouraud':
             _refuse_gouraud_cells(np.shape(args[-1]))
-        kwargs = cbook.normalize_kwargs(kwargs, cls)
+        kwargs = _set_in_order(kwargs, cls, polygons)
         if (polygons and "antialiased" not in kwargs
                 and not cbook._str_lower_equal(kwargs.get("edgecolor", "none"), "none")):
             # matplotlib's pcolor turns antialiasing off only for unstroked

@@ -167,18 +167,21 @@ impl<A: ArtistRef> TextArea<A> {
 }
 
 /// The extent of a text area holding `text`, a text of a figure or a
-/// loose one, relative to the area's origin, in display pixels at its
-/// figure's resolution (matplotlib's `TextArea.get_bbox`).
+/// loose one, relative to the area's origin, in display pixels at the
+/// resolution `dpi`, else its figure's (matplotlib's `TextArea.get_bbox`,
+/// which measures a loose text at the dpi of the figure its box was given).
 ///
 /// ```
 /// use pltrs::artist::ArtistHandle;
 /// use pltrs::offsetbox::text_area_bbox;
 /// use pltrs::prelude::*;
 /// let text = Figure::new().text(0.0, 0.0, "one\ntwo");
-/// let single = text_area_bbox(text.raw(), false)?;
-/// let centred = text_area_bbox(text.raw(), true)?;
+/// let single = text_area_bbox(text.raw(), false, None)?;
+/// let centred = text_area_bbox(text.raw(), true, None)?;
 /// assert_eq!(single.height(), centred.height());
 /// assert!(centred.y0() < single.y0(), "centred on the baseline");
+/// let doubled = text_area_bbox(text.raw(), false, Some(200.0))?;
+/// assert!((doubled.width() - 2.0 * single.width()).abs() < 2.0, "at twice the dpi");
 /// # Ok::<(), pltrs::offsetbox::OffsetBoxError>(())
 /// ```
 ///
@@ -189,12 +192,14 @@ impl<A: ArtistRef> TextArea<A> {
 pub fn text_area_bbox(
     text: &crate::artist::RawHandle,
     multilinebaseline: bool,
+    dpi: Option<f64>,
 ) -> Result<Bbox, OffsetBoxError> {
-    Ok(text_area_extent(text, multilinebaseline)?.bbox)
+    Ok(text_area_extent(text, multilinebaseline, dpi)?.bbox)
 }
 
 /// How far a text area holding `text` moves it up from the area's origin,
-/// in display pixels at its figure's resolution: multi-line text centred
+/// in display pixels at the resolution `dpi`, else its figure's
+/// (as [`text_area_bbox`]): multi-line text centred
 /// on the baseline with `multilinebaseline`, else none (matplotlib's
 /// `TextArea._baseline_transform`, which its `get_bbox` sets).
 ///
@@ -203,8 +208,8 @@ pub fn text_area_bbox(
 /// use pltrs::offsetbox::text_area_baseline_shift;
 /// use pltrs::prelude::*;
 /// let text = Figure::new().text(0.0, 0.0, "one\ntwo");
-/// assert_eq!(text_area_baseline_shift(text.raw(), false)?, 0.0);
-/// assert!(text_area_baseline_shift(text.raw(), true)? < 0.0, "lowered");
+/// assert_eq!(text_area_baseline_shift(text.raw(), false, None)?, 0.0);
+/// assert!(text_area_baseline_shift(text.raw(), true, None)? < 0.0, "lowered");
 /// # Ok::<(), pltrs::offsetbox::OffsetBoxError>(())
 /// ```
 ///
@@ -214,18 +219,26 @@ pub fn text_area_bbox(
 pub fn text_area_baseline_shift(
     text: &crate::artist::RawHandle,
     multilinebaseline: bool,
+    dpi: Option<f64>,
 ) -> Result<f64, OffsetBoxError> {
-    Ok(text_area_extent(text, multilinebaseline)?.baseline_shift)
+    Ok(text_area_extent(text, multilinebaseline, dpi)?.baseline_shift)
 }
 
-/// The extent of a text area holding `text` and the shift of its text.
+/// The extent of a text area holding `text` and the shift of its text, at
+/// the resolution `dpi` (its figure's for `None`, which is restored after).
 fn text_area_extent(
     text: &crate::artist::RawHandle,
     multilinebaseline: bool,
+    dpi: Option<f64>,
 ) -> Result<TextExtent, OffsetBoxError> {
     let state = text.figure_state().borrow();
-    let ctx = LayoutContext::new(&state);
-    TextArea::new(text.id(), multilinebaseline).extent(ctx)
+    let own = state.dpi();
+    if let Some(dpi) = dpi {
+        state.set_dpi(dpi);
+    }
+    let extent = TextArea::new(text.id(), multilinebaseline).extent(LayoutContext::new(&state));
+    state.set_dpi(own);
+    extent
 }
 
 /// Artists in any coordinate system, shifted so that the lower-left corner

@@ -51,6 +51,7 @@ contain it.
 from __future__ import annotations
 
 import argparse
+import ast
 import concurrent.futures
 import hashlib
 import json
@@ -114,6 +115,8 @@ class Setup:
         self.gallery = pathlib.Path(args.gallery).resolve()
         self.pltrs_python = args.pltrs_python
         self.mpl_python = args.mpl_python or sys.executable
+        #: The variables of each corpus' manifest table (`corpora.environment`).
+        self._corpus_environments: dict[str, dict[str, str]] = {}
 
     def command(self, impl: str, program: Program, out: pathlib.Path) -> list[str]:
         """The command tracing *program* under *impl* into *out* (a corpus'
@@ -128,7 +131,8 @@ class Setup:
     def environment(self, impl: str, program: Program | None = None) -> dict[str, str]:
         """The environment of a run of *program* under *impl*: offline
         (`OFFLINE`, whatever proxy the tester's own environment names), and
-        for a corpus' program with its home directory (`home`)."""
+        for a corpus' program with its home directory (`home`) and the
+        variables of its corpus' table (`corpora.environment`)."""
         env = {k: v for k, v in os.environ.items()
                if not k.startswith(("MPL", "PLTRS", "PYTHON")) and k != "CARGO_TARGET_DIR"
                and k.lower() not in ("http_proxy", "https_proxy", "all_proxy", "no_proxy")}
@@ -143,6 +147,10 @@ class Setup:
         env["MPLCONFIGDIR"] = str(self.config(impl, program))
         env["PYTHONHASHSEED"] = "0"
         path = [str(HEADLESS)] if NEEDS_HEADLESS else []
+        if program is not None and program.corpus is not None:
+            own = dict(self._corpus_environments.get(program.corpus.corpus.name, {}))
+            path += [part for part in own.pop("PYTHONPATH", "").split(os.pathsep) if part]
+            env.update(own)
         if impl == "pltrs":
             env["PLTRS_LOOK"] = "matplotlib"
             # pltrs, and the `matplotlib` distribution's aliases of it, so
@@ -153,6 +161,14 @@ class Setup:
         if path:
             env["PYTHONPATH"] = os.pathsep.join(path)
         return env
+
+    def prepare_environments(self, programs: list[Program]) -> None:
+        """Resolve the variables of the corpora of *programs* (fetching
+        the corpora they name) before the programs run side by side."""
+        for program in programs:
+            corpus = program.corpus.corpus if program.corpus else None
+            if corpus is not None and corpus.name not in self._corpus_environments:
+                self._corpus_environments[corpus.name] = corpora.environment(corpus, self.out)
 
     def config(self, impl: str, program: Program | None = None) -> pathlib.Path:
         """The configuration directory of *impl*'s runs: the one they
@@ -227,7 +243,8 @@ class Program:
         harness = b"".join((HERE / name).read_bytes() for name in ("trace.py", "describe.py", "corpora.py"))
         if NEEDS_HEADLESS:
             harness += (HEADLESS / "sitecustomize.py").read_bytes()
-        tree = self.corpus.corpus.sha256.encode() + CORPUS_REQUIREMENTS.read_bytes() if self.corpus else b""
+        tree = (self.corpus.corpus.sha256.encode() + CORPUS_REQUIREMENTS.read_bytes()
+                + json.dumps(self.corpus.corpus.environment).encode()) if self.corpus else b""
         network = json.dumps(OFFLINE).encode()
         # The copy of its loops numpy runs, and its BLAS' kernels, where a
         # run is held to another processor level (`cargo xtask ... --level`).
@@ -360,9 +377,66 @@ def run_program(setup: Setup, program: Program) -> dict[str, Any]:
             failure).as_json()]
         return result
     result["seconds"] = {"matplotlib": mpl["seconds"], "pltrs": pltrs["seconds"]}
+    result["matplotlib"] = how_it_ran(program.path, mpl)
     found = compare.differences(program.name, program.path, mpl, pltrs, reference, directory / "pltrs")
     result["differences"] = [dict(d.as_json(), program_path=str(program.path)) for d in found]
     return result
+
+
+def how_it_ran(path: pathlib.Path, record: dict[str, Any]) -> dict[str, Any]:
+    """How much of a program matplotlib ran, from its *record*: whether it
+    ran to its end (no statement or cell stopped at an exception), whether
+    it drew or wrote a figure, and the exceptions it stopped at, those of
+    a failed import naming the module. A program both implementations stop
+    alike at an exception compares clean though nothing after it ran: a
+    cell program goes on to its next cell, and a library a shadowed module
+    breaks fails the same under both (task CORP9)."""
+    stops = [*record["errors"], *([record["uncaught"]] if record.get("uncaught") else [])]
+    imports = _import_statements(path) if stops else {}
+    raised = []
+    for error in stops:
+        stop = {"type": error["type"].rsplit(".", 1)[-1], "line": error.get("statement_line")}
+        module = _failed_import(error, imports.get(error.get("statement_line")))
+        if module is not None:
+            stop["import"] = module
+        raised.append(stop)
+    return {"ended": not stops, "drew": bool(record["figures"] or record.get("written")), "raised": raised}
+
+
+def _import_statements(path: pathlib.Path) -> dict[int, str]:
+    """The top-level import statements of the program at *path*, by line,
+    each with the first module it imports."""
+    try:
+        tree = ast.parse(path.read_text(errors="replace"))
+    except (OSError, SyntaxError, ValueError):
+        return {}
+    found = {}
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            found[node.lineno] = node.names[0].name
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            found[node.lineno] = node.module
+    return found
+
+
+#: The module an ImportError names: ``No module named 'x'``, ``cannot
+#: import name 'y' from 'x'``.
+_IMPORTED = re.compile(r"(?:No module named|from) '([\w.]+)'")
+
+
+def _failed_import(error: dict[str, Any], statement: str | None) -> str | None:
+    """The module whose import *error* is, an exception of the ImportError
+    kind or any raised by an import statement (importing *statement*'s
+    module), else None."""
+    kind = error["type"].rsplit(".", 1)[-1]
+    if kind in ("ImportError", "ModuleNotFoundError") or "ImportError" in error.get("mro", ()):
+        named = _IMPORTED.search(error["message"])
+        if named:
+            return named[1]
+        # A library's own ImportError for an optional dependency, named
+        # by its message (pywaffle's "requires Font Awesome").
+        return statement or f"{kind}: {error['message'].strip()[:60]}"
+    return statement
 
 
 def _environmental(error: dict[str, Any]) -> bool:
@@ -449,12 +523,27 @@ def write_report(setup: Setup, results: list[dict[str, Any]], baseline: dict[str
             lines += [f"* {cause} (before {baseline[cause]})" for cause in gone]
     corpus_counts = _corpus_counts(results)
     if corpus_counts:
-        lines += ["", "## Corpora (programs, ran under both, clean" + (", clean before" if baseline else "") + ")",
-                  ""]
+        total = _corpus_totals(corpus_counts)
+        compared = total["runs"]["ended, drew"]
+        lines += [
+            "", "## Corpora", "",
+            f"Of the {compared['ran']} corpus programs matplotlib runs to their end, drawing or writing "
+            f"a figure, {compared['clean']} are clean. A program matplotlib stops at an exception "
+            "(a cell of a notebook, a failed import) compares clean when pltrs raises alike, "
+            "though what follows did not run: clean of programs by how far matplotlib ran them: "
+            + _runs_line(total) + f". Clean of those that ran under both: {total['clean']}/{total['ran']}.",
+        ]
+        if total["failed_imports"]:
+            lines += ["", "Failed imports in clean programs (module: programs): " + ", ".join(
+                f"{module} {n}" for module, n in total["failed_imports"].items()) + "."]
+        lines += ["", "Per corpus (programs, ran under both, clean" + (", clean before" if baseline else "")
+                  + "; clean/ran by how far matplotlib ran them; failed imports):", ""]
         for name, counts in corpus_counts.items():
             before = (baseline_corpora or {}).get(name, {}).get("clean")
+            imports = ", ".join(f"{module} {n}" for module, n in sorted(counts["failed_imports"].items()))
             lines.append(f"* {name}: {counts['programs']}, {counts['ran']}, {counts['clean']}"
-                         + (f", before {before}" if before is not None else ""))
+                         + (f", before {before}" if before is not None else "")
+                         + f"; {_runs_line(counts)}" + (f"; imports failed: {imports}" if imports else ""))
     gallery = [r for r in ran if r["program"].startswith(("gallery/", "corpus/")) and r.get("differences")]
     if gallery:
         lines += ["", "## Gallery examples and corpus programs with differences", ""]
@@ -471,22 +560,95 @@ def write_report(setup: Setup, results: list[dict[str, Any]], baseline: dict[str
     (setup.out / "report.json").write_text(json.dumps({
         "groups": {cause: len(found) for cause, found in groups.items()},
         "corpora": corpus_counts,
+        "corpora_total": _corpus_totals(corpus_counts) if corpus_counts else None,
         "results": results,
     }, indent=1))
     return report
 
 
-def _corpus_counts(results: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
-    """Per corpus: its programs, those that ran under both, the clean ones."""
-    counts: dict[str, dict[str, int]] = {}
+#: How far matplotlib ran a program (`how_it_ran`): to its end or not,
+#: drawing or writing a figure or not; the report's rows, the first the
+#: programs that were compared in full.
+RUNS = {
+    "ended, drew": (True, True),
+    "ended, no figure": (True, False),
+    "raised, drew": (False, True),
+    "raised, no figure": (False, False),
+}
+
+
+def _run_kind(result: dict[str, Any]) -> str | None:
+    """The row of `RUNS` *result* counts in, None for a program skipped
+    or one whose matplotlib run the harness lost."""
+    ran = result.get("matplotlib")
+    if ran is None:
+        return None
+    return next(name for name, kind in RUNS.items() if kind == (ran["ended"], ran["drew"]))
+
+
+#: The committed counts of the last run of every corpus, which the README
+#: states (`python/tests/test_readme_facts.py`).
+OUTCOMES = HERE / "corpus-outcomes.json"
+
+
+def write_outcomes(results: list[dict[str, Any]]) -> None:
+    """Write `OUTCOMES`: per corpus and in all, the programs, those that
+    ran under both, the clean ones, and the rows of `RUNS`."""
+    counts = _corpus_counts(results)
+    OUTCOMES.write_text(json.dumps({
+        "total": _corpus_totals(counts),
+        "corpora": counts,
+    }, indent=1, sort_keys=True) + "\n")
+
+
+def _corpus_counts(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Per corpus: its programs, those that ran under both, the clean ones;
+    of those that ran, how many (and how many clean) matplotlib ran to
+    their end or not and drew in or not (`RUNS`); and the modules whose
+    import failed in clean programs, with how many programs each."""
+    counts: dict[str, dict[str, Any]] = {}
     for result in results:
         if result["program"].startswith("corpus/"):
-            entry = counts.setdefault(result["program"].split("/")[1], {"programs": 0, "ran": 0, "clean": 0})
+            entry = counts.setdefault(result["program"].split("/")[1], {
+                "programs": 0, "ran": 0, "clean": 0,
+                "runs": {name: {"ran": 0, "clean": 0} for name in RUNS}, "failed_imports": {}})
             entry["programs"] += 1
-            if "skipped" not in result:
-                entry["ran"] += 1
-                entry["clean"] += not result.get("differences")
+            if "skipped" in result:
+                continue
+            clean = not result.get("differences")
+            entry["ran"] += 1
+            entry["clean"] += clean
+            kind = _run_kind(result)
+            if kind is not None:
+                entry["runs"][kind]["ran"] += 1
+                entry["runs"][kind]["clean"] += clean
+            if clean:
+                imports = {stop["import"] for stop in result.get("matplotlib", {}).get("raised", ())
+                           if "import" in stop}
+                for module in imports:
+                    entry["failed_imports"][module] = entry["failed_imports"].get(module, 0) + 1
     return counts
+
+
+def _corpus_totals(counts: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """The sums of `_corpus_counts` over the corpora."""
+    total: dict[str, Any] = {"programs": 0, "ran": 0, "clean": 0,
+                             "runs": {name: {"ran": 0, "clean": 0} for name in RUNS},
+                             "failed_imports": Counter()}
+    for entry in counts.values():
+        for key in ("programs", "ran", "clean"):
+            total[key] += entry[key]
+        for name, row in entry["runs"].items():
+            for key in ("ran", "clean"):
+                total["runs"][name][key] += row[key]
+        total["failed_imports"].update(entry["failed_imports"])
+    total["failed_imports"] = dict(total["failed_imports"].most_common())
+    return total
+
+
+def _runs_line(entry: dict[str, Any]) -> str:
+    """The rows of `RUNS` of a count: clean of programs, each."""
+    return "; ".join(f"{name} {row['clean']}/{row['ran']}" for name, row in entry["runs"].items())
 
 
 def main() -> int:
@@ -517,6 +679,7 @@ def main() -> int:
     if args.suite == "corpus":
         programs += corpus_programs(setup, args.patterns)
         setup.prepare_configs()
+        setup.prepare_environments(programs)
     if args.patterns:
         programs = [p for p in programs if any(pattern in p.name for pattern in args.patterns)]
 
@@ -546,6 +709,8 @@ def main() -> int:
         earlier = json.loads(pathlib.Path(args.baseline).read_text())
         baseline, baseline_corpora = earlier["groups"], earlier.get("corpora")
     report = write_report(setup, results, baseline, args.failures, baseline_corpora)
+    if args.suite == "corpus" and not args.patterns:
+        write_outcomes(results)
     print(report)
     return 0
 

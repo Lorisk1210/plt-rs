@@ -16,6 +16,7 @@ import numpy as np
 from ... import _api, _tick_helpers, _values, cbook, collections as mcoll, colors as mcolors
 from ... import lines as mlines, patches as mpatches, ticker as mticker
 from ... import _transform_trees
+from ..._program_classes import takes_any_from_program
 from ..._native import axes_base as _axes_base, plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import PieContainer
@@ -25,6 +26,11 @@ from ._helpers import check_format, keep_data, takes_properties, wrap, wrap_all
 
 _boxplot_reference = _lazy_imports.module(globals(), "._boxplot_reference")
 _pie_reference = _lazy_imports.module(globals(), "._pie_reference")
+_violin_reference = _lazy_imports.module(globals(), "._violin_reference")
+_composed_reference = _lazy_imports.module(globals(), "._composed_reference")
+
+#: What matplotlib's `~.Axes.violin` draws the violins through.
+_VIOLIN_PARTS = ("fill_between", "fill_betweenx", "vlines", "hlines")
 
 
 def _rcParams():
@@ -636,6 +642,12 @@ class StatsMixin:
         --------
         boxplot : Draw a boxplot from data instead of pre-computed statistics.
         """
+        if takes_any_from_program(type(self), ('plot',)):
+            # matplotlib's makes what it plots through it.
+            return _composed_reference.bxp(self, bxpstats, positions, widths, vert, orientation,
+                patch_artist, shownotches, showmeans, showcaps, showbox, showfliers, boxprops,
+                whiskerprops, flierprops, medianprops, capprops, meanprops, meanline,
+                manage_ticks, zorder, capwidths, label)
         if vert is None:
             vert = _rcParams()['boxplot.vertical']
         else:
@@ -1030,6 +1042,11 @@ class StatsMixin:
         .cbook.violin_stats:
             Calculate a *vpstats* dictionary from data, suitable for passing to violin.
         """
+        if takes_any_from_program(type(self), _VIOLIN_PARTS):
+            # matplotlib's draws the bodies and lines through these.
+            return _violin_reference.violin(
+                self, vpstats, positions, vert, orientation, widths, showmeans,
+                showextrema, showmedians, side, facecolor, linecolor)
         N = len(vpstats)
         datashape_message = ("List of violinplot statistics and `{0}` "
                              "values must have the same length")
@@ -1210,7 +1227,9 @@ class StatsMixin:
                      textprops, center, frame, rotatelabels, normalize, hatch)
         if not (_pie_plain(colors, pctdistance, labeldistance, startangle, radius,
                            wedgeprops, textprops, center, hatch, explode)
-                and _pie_props_taken(wedgeprops, textprops)):
+                and _pie_props_taken(wedgeprops, textprops)
+                and not takes_any_from_program(type(self), ("text",))):
+            # (matplotlib's writes the labels through `text`.)
             return _pie_reference.pie(self, *arguments)
         position = _axes_base.cycle_position(self._native, "patches")
         try:

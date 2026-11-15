@@ -4088,6 +4088,22 @@ class ConnectionPatch(FancyArrowPatch):
         super().draw(renderer)
 
 
+def _shadow_setters(patch):
+    """The setters matplotlib's `Shadow` constructor calls before it
+    updates the shade's properties, in its order, with what it gives them:
+    `Patch`'s with its defaults, then those ``update_from(patch)`` calls
+    (for `._program_classes.replay_setters`)."""
+    return [
+        ("set_edgecolor", (None,)), ("set_hatchcolor", (None,)), ("set_facecolor", (None,)),
+        ("set_linestyle", ("solid",)), ("set_linewidth", (None,)),
+        ("set_antialiased", (None,)), ("set_hatch", (None,)),
+        ("set_capstyle", (CapStyle.butt,)), ("set_joinstyle", (JoinStyle.miter,)),
+        ("set_edgegapcolor", (None,)),
+        ("set_linewidth", (patch.get_linewidth(),)),
+        ("set_transform", (patch.get_data_transform(),)),
+    ]
+
+
 class Shadow(Patch):
 
     # matplotlib's draw of the class is not decorated with
@@ -4142,6 +4158,12 @@ class Shadow(Patch):
             self._given_transform = Artist.get_transform(patch)
         # Just below the patch, as matplotlib's numpy float.
         _values.remember(self, "zorder", np.nextafter(patch.get_zorder(), -np.inf))
+        if self._program_setters:
+            # matplotlib's constructor sets the shade through `update`.
+            _program_classes.replay_setters(self, _shadow_setters(patch))
+            color = (1 - shade) * np.asarray(mcolors.to_rgb(patch.get_facecolor()))
+            kwargs = {"facecolor": color, "edgecolor": color, "alpha": 0.5,
+                      "zorder": np.nextafter(patch.zorder, -np.inf), **kwargs}
         self.update(kwargs)
 
     def _offset_in_pixels(self, offset):

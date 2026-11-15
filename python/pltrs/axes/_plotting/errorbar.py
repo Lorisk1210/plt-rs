@@ -11,9 +11,13 @@ from ... import _docstring
 from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
+from ..._program_classes import takes_any_from_program
 from ...container import ErrorbarContainer
 from ._helpers import (keep_data, line_data, line_kwargs, record_container, wrap,
                        wrap_all)
+from ... import _lazy_imports
+
+_errorbar_reference = _lazy_imports.module(globals(), "._errorbar_reference")
 
 
 def _errorevery_to_mask(x, errorevery):
@@ -303,6 +307,11 @@ class ErrorbarMixin:
 
             %(Line2D:kwdoc)s
         """
+        if takes_any_from_program(type(self), ("vlines", "hlines")):
+            # matplotlib's draws the bars through these.
+            return _errorbar_reference.errorbar(
+                self, x, y, yerr, xerr, fmt, ecolor, elinewidth, capsize, barsabove,
+                lolims, uplims, xlolims, xuplims, errorevery, capthick, elinestyle, **kwargs)
         kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
         # Drop anything that comes in as None to use the default instead.
         kwargs = {k: v for k, v in kwargs.items() if v is not None}

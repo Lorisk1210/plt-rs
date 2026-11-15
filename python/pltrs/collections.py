@@ -1716,6 +1716,13 @@ def _check_step(step, curves, where):
         cbook.STEP_LOOKUP_MAP["steps-" + step]
 
 
+def _open_polygons(collection):
+    """The polygons of *collection*, each without the point closing it, as
+    matplotlib's ``set_verts`` is given them."""
+    return [path.vertices[:-1] if path.codes is not None and path.codes[-1] == Path.CLOSEPOLY
+            else path.vertices for path in collection.get_paths()]
+
+
 class FillBetweenPolyCollection(PolyCollection):
     """
     `.PolyCollection` that fills the area between two x- or y-curves.
@@ -1806,6 +1813,11 @@ class FillBetweenPolyCollection(PolyCollection):
         self._native = _collections.new_fill_between_collection(
             t_direction == "y", curves, mask, bool(interpolate), step)
         Collection.__init__(self, **kwargs)
+        if self._program_setters:
+            # matplotlib's `PolyCollection` constructor sets the polygons
+            # the data makes.
+            _program_classes.replay_setters(
+                self, [("set_sizes", (None,)), ("set_verts", (_open_polygons(self),))])
 
     @staticmethod
     def _f_dir_from_t(t_direction):
@@ -2217,8 +2229,8 @@ class EventCollection(LineCollection):
             # matplotlib's line collection is made empty, then oriented and
             # placed.
             _program_classes.replay_setters(self, [
-                ("set_segments", ([],)), ("set_orientation", (orientation,)),
-                ("set_positions", (given,))])
+                ("set_colors", (color,)), ("set_segments", ([],)),
+                ("set_orientation", (orientation,)), ("set_positions", (given,))])
         if color is not None:
             self.set_color(color)
 
@@ -3006,6 +3018,12 @@ class PolyQuadMesh(_MeshData, PolyCollection):
         self._native = _collections.new_poly_quad_mesh(
             self._native_coordinates(coordinates))
         Collection.__init__(self, **kwargs)
+        if self._program_setters:
+            # matplotlib's `PolyCollection` constructor sets no cells, then
+            # the mesh sets those its mask leaves.
+            _program_classes.replay_setters(self, [
+                ("set_sizes", (None,)), ("set_verts", ([],)),
+                ("set_verts", (_open_polygons(self),))])
 
     def _keep_given_array(self, given):
         """

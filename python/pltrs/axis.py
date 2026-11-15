@@ -1426,6 +1426,8 @@ class Axis(DrawnWith, Artist):
         #: How many ticks of each level matplotlib's axis made since its
         #: list was made anew (see `_tick_objects`).
         self._ticks_seen = {False: 0, True: 0}
+        # Made anew, they take their transforms from the spines there now.
+        _axis.forget_tick_spines(*self._args())
 
     def _retire_ticks(self):
         """Leave the ticks made so far as matplotlib's `clear` and

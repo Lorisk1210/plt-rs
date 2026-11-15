@@ -140,6 +140,23 @@ fn set_program_update(owner: AxisOwner, name: String, program: bool) -> PyResult
     Ok(())
 }
 
+/// Has the ticks on the low or `high` side of the axis keep the transform of
+/// the spine there now, which the program replaces.
+fn keep_tick_spine(owner: AxisOwner, name: String, high: bool) -> PyResult<()> {
+    if let AnyAxis::Flat(axis) = owner.axis(&name)? {
+        axis.keep_tick_spine(high);
+    }
+    Ok(())
+}
+
+/// Has the ticks of the axis follow the spines of their sides again.
+fn forget_tick_spines(owner: AxisOwner, name: String) -> PyResult<()> {
+    if let AnyAxis::Flat(axis) = owner.axis(&name)? {
+        axis.forget_tick_spines();
+    }
+    Ok(())
+}
+
 /// How far the tick marks reach out of the axes, in points.
 fn get_tick_padding(axes: Axes, name: String) -> PyResult<f64> {
     Ok(axis(&axes, &name)?.tick_padding())
@@ -449,6 +466,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_remove_overlapping_locs", set_remove_overlapping_locs)?;
     module.add("set_program_view", set_program_view)?;
     module.add("set_program_update", set_program_update)?;
+    module.add("keep_tick_spine", keep_tick_spine)?;
+    module.add("forget_tick_spines", forget_tick_spines)?;
     module.add("get_tick_padding", get_tick_padding)?;
     module.add("get_labelpad", get_labelpad)?;
     module.add("set_labelpad", set_labelpad)?;

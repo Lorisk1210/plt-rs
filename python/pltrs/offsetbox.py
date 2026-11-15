@@ -45,6 +45,7 @@ from ._offsetbox_trees import (
     PACK_ALIGNS, PACK_MODES, TreeOwner, TreeSetting, Unusable, adopt_part,
     artist_handle, box_tree, children, choice, follow, joinable, number,
     optional_number)
+from . import _program_classes
 from ._program_classes import takes_from_program
 from .artist import Artist
 from .font_manager import FontManager, FontProperties
@@ -2244,6 +2245,8 @@ or callable, default: value of *xycoords*
         self.xy = x, y
         self.xycoords = xycoords
         self._annotation_clip = annotation_clip
+        if self._program_setters:
+            _program_classes.replay_setters(self, [("set_annotation_clip", (annotation_clip,))])
         self.offsetbox = offsetbox
         self.arrowprops = arrowprops.copy() if arrowprops is not None else None
         self.set_fontsize(fontsize)

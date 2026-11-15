@@ -66,6 +66,11 @@ def _native_placement(loc, bbox_to_anchor, bbox_transform, borderpad):
 
 
 class AnchoredLocatorBase(AnchoredOffsetbox):
+    # The axes pltrs (Rust) places with the locator, and how often it had
+    # been drawn then; a class default, as the box goes stale while it is
+    # made, which reads `axes` once a program set a stale callback.
+    _located = None
+
     def __init__(self, bbox_to_anchor, offsetbox, loc,
                  borderpad=0.5, bbox_transform=None):
         super().__init__(
@@ -73,9 +78,6 @@ class AnchoredLocatorBase(AnchoredOffsetbox):
             bbox_to_anchor=bbox_to_anchor, bbox_transform=bbox_transform
         )
         self._anchor_args = (loc, bbox_to_anchor, bbox_transform, borderpad)
-        # The axes pltrs (Rust) places with the locator, and how often it
-        # had been drawn then.
-        self._located = None
         # What pltrs (Rust) was told to place the axes with.
         self._placed = None
 

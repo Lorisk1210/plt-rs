@@ -291,6 +291,35 @@ def _rotation_degrees(s):
                      f"a number, not {s}")
 
 
+
+def _set_text_unwrapped(native, held):
+    """Give pltrs (Rust) the text and the wrapping *held* (as
+    `_held_text_unwrapped` reads them)."""
+    _text.set_text(native, held[0])
+    _text.set_wrap(native, held[1])
+
+
+def _held_text_unwrapped(native):
+    """The text and the wrapping pltrs (Rust) holds."""
+    return _text.get_text(native), _text.get_wrap(native)
+
+
+#: For each getter of `Text._measured_reads`: how what pltrs (Rust) holds
+#: is read and given, what the getter's answer gives it, and whether only
+#: matplotlib's measuring reads it (not its draw).
+_CLASS_READS = {
+    "get_text": (_text.get_text, _text.set_text, lambda s: '' if s is None else str(s), False),
+    "get_rotation": (_text.get_rotation, _text.set_rotation, _rotation_degrees, False),
+    "get_color": (_text.get_color, _text.set_color, lambda color: color, False),
+    "get_wrap": (_text.get_wrap, _text.set_wrap, bool, False),
+    # The text as drawn, already wrapped.
+    "_get_wrapped_text": (_held_text_unwrapped, _set_text_unwrapped,
+                          lambda s: (str(s), False), False),
+    "get_unitless_position": (_text.get_position, lambda native, xy: _text.set_position(native, *xy),
+                              lambda xy: (float(xy[0]), float(xy[1])), True),
+}
+
+
 @_docstring.interpd
 @_api.define_aliases({
     "color": ["c"],
@@ -692,7 +721,34 @@ class Text(Artist):
     #: compute (`_push_computed`): the rotation (``_rotation`` as a
     #: property: matplotlib-label-lines turns its labels with the line as
     #: drawn).
-    _computed = ("_rotation",)
+    _computed = ("_rotation", "get_text", "get_rotation", "get_color", "get_wrap",
+                 "_get_wrapped_text")
+
+    #: The getters matplotlib's ``draw`` and ``get_window_extent`` read,
+    #: which a class of the program's may answer otherwise than what the
+    #: text holds (ultraplot's ``CurvedText`` answers "" holding " "): the
+    #: text is then drawn and measured as they answer (`_as_class_reads`).
+    _measured_reads = ("get_text", "get_rotation", "get_color", "get_wrap",
+                       "_get_wrapped_text", "get_unitless_position")
+
+    @contextlib.contextmanager
+    def _as_class_reads(self, measuring=False):
+        """While pltrs (Rust) holds the text as the getters of its class of
+        the program's (`_measured_reads`) answer, those *measuring* reads
+        too or only those drawing reads, then again as it was."""
+        kept = []
+        try:
+            for name in self._measured_reads:
+                read, write, given, measured = _CLASS_READS[name]
+                if (measured and not measuring) or not _program_classes.takes_from_program(
+                        type(self), name):
+                    continue
+                kept.append((write, read(self._native)))
+                write(self._native, given(getattr(self, name)()))
+            yield
+        finally:
+            for write, held in reversed(kept):
+                write(self._native, held)
 
     def _push_computed(self):
         """Hand pltrs (Rust) the rotation a class of the program's computes,
@@ -983,7 +1039,7 @@ class Text(Artist):
             # The renderer's metrics are looked up in a weak cache.
             weakref.ref(renderer)
             laid_out_at = dpi if figure is None else figure.dpi
-            with _measured_by(renderer, laid_out_at):
+            with _measured_by(renderer, laid_out_at), self._as_class_reads(measuring=True):
                 return self._native_extent(self._text_extent)
 
     def _measuring_renderer(self, renderer, figure, weakly=True):
@@ -1056,7 +1112,8 @@ class Text(Artist):
         # matplotlib draws no empty text, which it returns from before it
         # converts the position.
         if self.get_text() != '':
-            super().draw(renderer)
+            with self._as_class_reads():
+                super().draw(renderer)
 
     def _draws_snapped(self):
         # docstring inherited: matplotlib draws each line of a text that is

@@ -9,6 +9,7 @@ import numpy as np
 from ... import _docstring
 from ... import _api, _values, artist as martist, cbook, collections as mcoll, colors as mcolors
 from ... import lines as mlines
+from ..._program_classes import takes_any_from_program
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import StemContainer
@@ -375,8 +376,10 @@ class EventsMixin:
             locs, heads = self._process_unit_info([("x", locs), ("y", heads)])
         else:
             heads, locs = self._process_unit_info([("x", heads), ("y", locs)])
-        if not isinstance(bottom, Real):
-            # A bottom in units, or none: as matplotlib's `vlines` takes it.
+        if (not isinstance(bottom, Real)
+                or takes_any_from_program(type(self), ("plot", "vlines", "hlines"))):
+            # A bottom in units, or none: as matplotlib's `vlines` takes it;
+            # or a class overriding what matplotlib's draws the stems with.
             return _events_reference.stem(self, locs, heads, args, linefmt, markerfmt,
                                           basefmt, bottom, label, orientation)
         heads = cbook._check_1d(heads)

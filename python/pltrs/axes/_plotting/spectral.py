@@ -22,10 +22,12 @@ from ... import collections as mcoll
 from ..._artist_kwargs import check_known
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
+from ..._program_classes import takes_any_from_program
 from ._helpers import wrap
 from .scatter import _mapping
 
 _mlab_reference = _lazy_imports.module(globals(), "..._mlab_reference")
+_composed_reference = _lazy_imports.module(globals(), "._composed_reference")
 
 
 def _welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides, scale_by_freq,
@@ -212,6 +214,10 @@ class SpectralMixin:
         Bendat & Piersol -- Random Data: Analysis and Measurement Procedures,
         John Wiley & Sons (1986)
         """
+        if takes_any_from_program(type(self), ('plot',)):
+            # matplotlib's makes what it plots through it.
+            return _composed_reference.psd(self, x, NFFT, Fs, Fc, detrend, window, noverlap,
+                pad_to, sides, scale_by_freq, return_line, **kwargs)
         Fc = 0 if Fc is None else Fc
         _shift_in_place(lambda: _mlab_reference.csd(
             x, None, NFFT, Fs, detrend, window, noverlap, pad_to, sides, scale_by_freq)[1], Fc)
@@ -309,6 +315,10 @@ class SpectralMixin:
         Bendat & Piersol -- Random Data: Analysis and Measurement Procedures,
         John Wiley & Sons (1986)
         """
+        if takes_any_from_program(type(self), ('plot',)):
+            # matplotlib's makes what it plots through it.
+            return _composed_reference.csd(self, x, y, NFFT, Fs, Fc, detrend, window, noverlap,
+                pad_to, sides, scale_by_freq, return_line, **kwargs)
         Fc = 0 if Fc is None else Fc
         _shift_in_place(lambda: _mlab_reference.csd(
             x, y, NFFT, Fs, detrend, window, noverlap, pad_to, sides, scale_by_freq)[1], Fc)
@@ -381,6 +391,10 @@ class SpectralMixin:
         Bendat & Piersol -- Random Data: Analysis and Measurement Procedures,
         John Wiley & Sons (1986)
         """
+        if takes_any_from_program(type(self), ('plot',)):
+            # matplotlib's makes what it plots through it.
+            return _composed_reference.cohere(self, x, y, NFFT, Fs, Fc, detrend, window,
+                noverlap, pad_to, sides, scale_by_freq, **kwargs)
         _shift_in_place(lambda: _mlab_reference.cohere(
             x, y, NFFT, Fs, detrend, window, noverlap, pad_to, sides, scale_by_freq)[1], Fc)
         cxy, freqs = _as_matplotlib(
@@ -487,6 +501,10 @@ class SpectralMixin:
             Can plot the magnitude spectrum of segments within the signal in a
             colormap.
         """
+        if takes_any_from_program(type(self), ('plot',)):
+            # matplotlib's makes what it plots through it.
+            return _composed_reference.magnitude_spectrum(self, x, Fs, Fc, window, pad_to, sides,
+                scale, **kwargs)
         return self._single_spectrum("magnitude", x, Fs, Fc, window, pad_to, sides,
                                      scale, kwargs)
 
@@ -547,6 +565,10 @@ class SpectralMixin:
             Can plot the angle spectrum of segments within the signal in a
             colormap.
         """
+        if takes_any_from_program(type(self), ('plot',)):
+            # matplotlib's makes what it plots through it.
+            return _composed_reference.angle_spectrum(self, x, Fs, Fc, window, pad_to, sides,
+                **kwargs)
         return self._single_spectrum("angle", x, Fs, Fc, window, pad_to, sides,
                                      "linear", kwargs)
 
@@ -607,6 +629,10 @@ class SpectralMixin:
             Can plot the phase spectrum of segments within the signal in a
             colormap.
         """
+        if takes_any_from_program(type(self), ('plot',)):
+            # matplotlib's makes what it plots through it.
+            return _composed_reference.phase_spectrum(self, x, Fs, Fc, window, pad_to, sides,
+                **kwargs)
         return self._single_spectrum("phase", x, Fs, Fc, window, pad_to, sides,
                                      "linear", kwargs)
 

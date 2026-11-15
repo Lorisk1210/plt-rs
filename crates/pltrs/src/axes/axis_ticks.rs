@@ -15,7 +15,7 @@ use super::{Axes, AxesState, PlotError, TickLabelProps};
 use crate::artist::{ArtistHandle, LayoutContext};
 use crate::figure::FigureState;
 use crate::polar::RadialLocator;
-use crate::spines::SpineSide;
+use crate::spines::{SpineArtist, SpineSide};
 use crate::ticker::{AxisName, FixedFormatter, FixedLocator, Formatter, FuncFormatter, Locator};
 use crate::ticker::{NullFormatter, NullLocator, TickerError};
 use crate::transforms::Bbox;
@@ -129,6 +129,39 @@ impl Axis {
         let name = self.name;
         (self.axes.raw()).with_mut_unseen::<AxesState, _>(|axes| {
             axes.axis_mut(name).program_update = program;
+        });
+        self
+    }
+
+    /// Has the ticks on the low or `high` side keep the transform of the
+    /// spine there now, which the program is about to replace: matplotlib's
+    /// ticks keep the transform their spine gave them when they were made,
+    /// until they are made anew ([`forget_tick_spines`](Self::forget_tick_spines)).
+    pub fn keep_tick_spine(&self, high: bool) -> &Self {
+        let side = SpineSide::of(self.name, high);
+        let axes_id = self.axes.id();
+        let name = self.name;
+        let mut state = self.axes.raw().figure_state().borrow_mut();
+        let spine = (state.store.get_as::<AxesState>(axes_id))
+            .and_then(|axes| {
+                let index = SpineSide::ALL.iter().position(|s| *s == side)?;
+                axes.spines.get(index).copied()
+            })
+            .and_then(|id| state.store.get_as::<SpineArtist>(id))
+            .map(|spine| spine.spine_transform(axes_id));
+        if let Some(axes) = state.store.get_as_mut::<AxesState>(axes_id) {
+            axes.axis_mut(name).kept_tick_sides[usize::from(high)] = spine;
+        }
+        self
+    }
+
+    /// Has the ticks follow the spines of their sides again, as
+    /// matplotlib's ticks made anew (`reset_ticks`) take their transforms
+    /// from them.
+    pub fn forget_tick_spines(&self) -> &Self {
+        let name = self.name;
+        (self.axes.raw()).with_mut_unseen::<AxesState, _>(|axes| {
+            axes.axis_mut(name).kept_tick_sides = [None, None];
         });
         self
     }

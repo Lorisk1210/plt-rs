@@ -18,10 +18,9 @@ matplotlib's plotting methods use nothing it returns. Objects of the
 package's classes never get here.
 """
 
-import functools
 import threading
 
-from .._program_classes import takes_from_program
+from .._program_classes import class_cache, takes_from_program
 
 
 class _Announced(threading.local):
@@ -35,10 +34,10 @@ class _Announced(threading.local):
 _announced = _Announced()
 
 
-@functools.cache
-def _add_method(axes_class, artist_class):
+@class_cache
+def _add_name(artist_class):
     """The name of the method matplotlib adds an artist of *artist_class*
-    with, if *axes_class* takes it from the program; else None."""
+    with, or None (kept per class, which it holds weakly)."""
     from ..collections import Collection
     from ..image import AxesImage
     from ..lines import Line2D
@@ -49,7 +48,7 @@ def _add_method(axes_class, artist_class):
                        (AxesImage, "add_image"), (Patch, "add_patch"),
                        (Text, "_add_text"), (Table, "add_table")):
         if issubclass(artist_class, kind):
-            return name if takes_from_program(axes_class, name) else None
+            return name
     return None
 
 
@@ -58,8 +57,9 @@ def announce(axes, artist):
     matplotlib's plotting method adds *artist* (just made and added) with,
     if the class overrides it; take *artist* out of the Axes again if the
     method does not reach the package's."""
-    name = _add_method(type(axes), type(artist))
-    if name is None or vars(artist).get("_announced_to") is axes:
+    name = _add_name(type(artist))
+    if (name is None or not takes_from_program(type(axes), name)
+            or vars(artist).get("_announced_to") is axes):
         return
     artist.__dict__["_announced_to"] = axes
     _announced.ids.add(id(artist))

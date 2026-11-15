@@ -10,7 +10,12 @@ import numpy as np
 
 from ... import _api
 from ..._native import plotting as _plotting
+from ..._program_classes import takes_any_from_program
 from ._helpers import takes_properties, wrap
+from ... import _lazy_imports
+
+_pie_reference = _lazy_imports.module(globals(), "._pie_reference")
+_composed_reference = _lazy_imports.module(globals(), "._composed_reference")
 
 
 def _label_places(xy, offset, pad, label_type, vertical):
@@ -88,6 +93,10 @@ class LabelsMixin:
         list of `.Annotation`
             A list of `.Annotation` instances for the labels.
         """
+        if takes_any_from_program(type(self), ('annotate',)):
+            # matplotlib's makes what it plots through it.
+            return _composed_reference.bar_label(self, container, labels, fmt=fmt,
+                label_type=label_type, padding=padding, **kwargs)
         from ...text import Annotation
         for key in ['horizontalalignment', 'ha', 'verticalalignment', 'va']:
             if key in kwargs:
@@ -182,6 +191,10 @@ class LabelsMixin:
         _api.check_in_list(['center', 'outer', 'auto'], alignment=alignment)
         if alignment == 'auto':
             alignment = 'outer' if distance > 1 else 'center'
+        if takes_any_from_program(type(self), ("text",)):
+            # matplotlib's writes the labels through it.
+            return _pie_reference.pie_label(self, container, labels, distance, rotate,
+                                            alignment, textprops)
         if not isinstance(labels, str) and (
                 (nw := len(container.wedges)) != (nl := len(labels))):
             raise ValueError(

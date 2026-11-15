@@ -10,6 +10,7 @@ import numpy as np
 from ... import _docstring, _transform_trees
 from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, lines as mlines
 from ... import patches as mpatches, units as munits
+from ..._program_classes import takes_any_from_program
 from ..._native import patches as _patches, plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import BarContainer, ErrorbarContainer
@@ -1020,7 +1021,9 @@ or pandas.DataFrame
             heights = list(heights.values())
         elif hasattr(heights, 'shape'):  # numpy array
             heights = heights.T
-        if not _plain_groups(heights, positions, colors):
+        if (not _plain_groups(heights, positions, colors)
+                or takes_any_from_program(type(self), ("bar", "barh"))):
+            # (matplotlib's makes the bars through these.)
             return _GroupedBarReturn(_bars_reference.grouped_bar(
                 self, heights, positions, (group_spacing, bar_spacing), tick_labels,
                 labels, orientation, colors, kwargs))

@@ -1998,6 +1998,14 @@ None}, default: None
         -----
         The size in pixels can be obtained by multiplying with `Figure.dpi`.
         """
+        window = _figure.print_window(self._native)
+        if window is not None:
+            # matplotlib's print cut to a window (a tight box, a
+            # ``bbox_inches`` given) gives the figure the window's size
+            # meanwhile (``_tight_bbox.adjust_bbox``), which the program's
+            # drawing reads (mpl_scatter_density sizes its bins by it).
+            x0, y0, x1, y1 = window
+            return np.array([x1 - x0, y1 - y0])
         return np.array(_figure.get_size_inches(self._native))
 
     def set_size_inches(self, w, h=None, forward=True):

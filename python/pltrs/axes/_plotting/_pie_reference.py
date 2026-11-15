@@ -147,6 +147,51 @@ def pie(axes, x, explode, labels, colors, autopct, pctdistance, shadow, labeldis
     return pc
 
 
+def pie_label(axes, container, labels, distance, rotate, alignment, textprops):
+    """`~.Axes.pie_label` of *axes* as matplotlib makes it: each label
+    written through its `~.Axes.text` (for a class of the program's
+    overriding it), *alignment* checked."""
+    if textprops is None:
+        textprops = {}
+
+    if isinstance(labels, str):
+        # Assume we have a format string
+        labels = [labels.format(absval=val, frac=frac) for val, frac in
+                  zip(container.values, container.fracs)]
+        if _val_or_rc(textprops.get("usetex"), "text.usetex"):
+            # escape % (i.e. \%) if it is not already escaped
+            labels = [re.sub(r"([^\\])%", r"\1\\%", s) for s in labels]
+    elif (nw := len(container.wedges)) != (nl := len(labels)):
+        raise ValueError(
+            f'The number of labels ({nl}) must match the number of wedges ({nw})')
+
+    texts = []
+
+    for wedge, label in zip(container.wedges, labels):
+        thetam = 2 * np.pi * 0.5 * (wedge.theta1 + wedge.theta2) / 360
+        xt = wedge.center[0] + distance * wedge.r * math.cos(thetam)
+        yt = wedge.center[1] + distance * wedge.r * math.sin(thetam)
+        if alignment == 'outer':
+            label_alignment_h = 'left' if xt > 0 else 'right'
+        else:
+            label_alignment_h = 'center'
+        label_alignment_v = 'center'
+        label_rotation = 'horizontal'
+        if rotate:
+            if alignment == 'outer':
+                label_alignment_v = 'bottom' if yt > 0 else 'top'
+            label_rotation = (np.rad2deg(thetam) + (0 if xt > 0 else 180))
+        t = axes.text(xt, yt, label, clip_on=False, rotation=label_rotation,
+                      horizontalalignment=label_alignment_h,
+                      verticalalignment=label_alignment_v)
+        t.set(**textprops)
+        texts.append(t)
+
+    container.add_texts(texts)
+
+    return texts
+
+
 def _val_or_rc(val, rc_name):
     """*val*, or the rcParam *rc_name* for None (matplotlib's
     ``_val_or_rc``)."""

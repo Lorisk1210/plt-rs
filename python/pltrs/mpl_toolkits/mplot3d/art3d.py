@@ -12,7 +12,8 @@ from numbers import Real
 
 import numpy as np
 
-from pltrs import _api, _unusable, _values, cbook, collections as mcoll, colors as mcolors, lines
+from pltrs import (_api, _program_classes, _unusable, _values, cbook, collections as mcoll,
+                   colors as mcolors, lines)
 from pltrs import rcParams  # noqa: F401  (matplotlib's art3d has it)
 from pltrs import _docstring, _lazy_imports, patches as mpatches, text as mtext
 from pltrs._native import artist as _artist, lines as _lines, mplot3d as _mplot3d
@@ -1254,6 +1255,8 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         self._zsort = zsort
         self._closed = closed
         self._axlim_clip = axlim_clip
+        if self._program_setters:
+            _program_classes.replay_setters(self, [("set_zsort", (zsort,))])
 
     def _refresh_colors(self, faces, edges):
         """Draw the polygons with the face (*faces*) and edge (*edges*)

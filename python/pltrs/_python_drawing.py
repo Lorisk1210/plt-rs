@@ -156,10 +156,12 @@ def _draws_from_program(cls):
 @class_cache
 def _measures(cls):
     """Whether the class *cls* measures its artists itself (its
-    ``get_window_extent`` or ``get_tightbbox`` is the program's; kept per
-    class, as `.takes_from_program` keeps its answers)."""
+    ``get_window_extent`` or ``get_tightbbox`` is the program's, or a getter
+    matplotlib's measure reads, ``_measured_reads``; kept per class, as
+    `.takes_from_program` keeps its answers)."""
     return any(takes_from_program(cls, name)
-               for name in ("get_window_extent", "get_tightbbox"))
+               for name in ("get_window_extent", "get_tightbbox",
+                            *getattr(cls, "_measured_reads", ())))
 
 
 def _readies_itself(artist):

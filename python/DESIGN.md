@@ -2324,6 +2324,31 @@ it asks:
   class takes from the program is found once, as the class is made
   (``Artist._program_setters``, empty for the package's classes, told
   apart by module name, so that making them costs nothing).
+* **Texts.** A `.Text` class answering a getter matplotlib's draw and
+  measuring read (``get_text``, ``get_rotation``, ``get_color``,
+  ``get_wrap``, ``_get_wrapped_text``; ``get_unitless_position`` for
+  measuring) is drawn and measured as it answers: pltrs (Rust) holds the
+  answers meanwhile (`.Text._as_class_reads`; ultraplot's ``CurvedText``).
+* **Plotting methods made of plotting methods.** matplotlib's
+  ``errorbar`` draws its bars through ``vlines`` and ``hlines``, ``bxp``
+  its boxes through ``plot``, ``hist`` through ``bar`` or ``fill``,
+  ``violin`` through ``fill_between(x)``, ``vlines`` and ``hlines``,
+  ``stackplot`` through ``fill_between``, ``stem`` through ``plot`` and
+  ``vlines``, ``pie`` and ``pie_label`` through ``text``, ``bar_label``
+  through ``annotate``, ``grouped_bar`` through ``bar``, the spectra and
+  ``ecdf`` through ``plot``. For a class overriding the inner method
+  (`._program_classes.takes_any_from_program`, a native cache hit for the
+  others) the outer method runs matplotlib's code (the ``_*_reference``
+  modules of `.axes._plotting`).
+* **Prints cut to a window** (a tight box, a ``bbox_inches`` given): while
+  pltrs (Rust) prints, the figure has the window's size
+  (``get_size_inches``, ``bbox_inches``, ``bbox``) and ``transFigure`` is
+  moved by its corner, as matplotlib's ``adjust_bbox`` leaves them for the
+  print's draw (mpl_scatter_density sizes its bins by it).
+* **Spines replaced.** Ticks keep the transform of the spine they were
+  made on when the program puts another in its place
+  (``ax.spines['bottom'] = spine``), until they are made anew, as
+  matplotlib's ticks do.
 * **Linear spines** of a class overriding ``_adjust_location``,
   ``get_patch_transform``, ``get_spine_transform``,
   ``_ensure_position_is_set``, ``get_path``, ``get_transform`` or

@@ -218,11 +218,14 @@ def test_python_calls_at_import_and_per_draw_stay_under_their_ceiling(tmp_path):
 #: were (task PERF9, 2026-11-14): an ordinary argument must cost one type
 #: test, and a dispatch no program class asked for nothing after the first
 #: question per class. They are the same on Python 3.12 to 3.14 (the
-#: constrained grid makes 4 fewer on 3.14).
+#: constrained grid makes 4 fewer on 3.14), and with numpy 1.26, the
+#: lowest the package allows, as with 2.5 (task PERF10a: a bar no longer
+#: goes through numpy's broadcasting, whose Python calls differ between
+#: the two, `.axes._plotting.bars._broadcast`).
 BUILD_CALLS_CEILING = {
     "grid_16x16": 105_000,          # 102,262 (b414751d: 94,214; edf9a0a2: 149,380)
     "constrained_8x8": 37_700,      # 36,587 (31,527; 48,563)
-    "bars_300": 71_500,             # 69,314 (62,933; 76,409)
+    "bars_300": 68_000,             # 66,014 (62,933; 76,409; 69,614 before PERF10a)
     "texts_2000": 118_000,          # 114,609 (156,533; 182,809)
     "annotations_1000": 98_500,     # 95,739 (82,649; 122,934)
 }

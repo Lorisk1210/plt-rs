@@ -49,6 +49,17 @@ def _aligned_span(y0, dy, align):
     return y0 - dy, y0
 
 
+def _broadcast(*values):
+    """``np.broadcast_arrays(*values)``, made at once for values of one
+    element and at most one dimension (a ``bar`` call per bar), where it is
+    each as a one-element array: numpy's broadcasting is Python code whose
+    calls differ from release to release."""
+    arrays = [np.asarray(value) for value in values]
+    if all(array.size == 1 and array.ndim <= 1 for array in arrays):
+        return [array.reshape(1) for array in arrays]
+    return np.broadcast_arrays(*arrays)
+
+
 def _bar_geometry(patches, vertical, align, x, y, width, height):
     """
     Keep the geometry of the bars *patches* as matplotlib types it (the
@@ -57,7 +68,7 @@ def _bar_geometry(patches, vertical, align, x, y, width, height):
     `.BarContainer` keeps them (*height*, or *width* for horizontal bars).
     """
     try:
-        x, height, width, y = np.broadcast_arrays(np.atleast_1d(x), height, width, y)
+        x, height, width, y = _broadcast(np.atleast_1d(x), height, width, y)
         if align == 'center' and vertical:
             x = x - width / 2
         elif align == 'center':

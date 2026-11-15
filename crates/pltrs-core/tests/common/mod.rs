@@ -4,8 +4,8 @@
 //! are not stored but regenerated here with the same `SplitMix64` stream.
 //! They are matplotlib's on Linux x86-64; where matplotlib's build fuses
 //! products into sums and pltrs with it
-//! ([`FUSES_PRODUCTS`](pltrs_core::numeric::FUSES_PRODUCTS)), the tests
-//! read the fixtures the same script wrote there.
+//! ([`CONTRACTION`](pltrs_core::numeric::CONTRACTION)), the tests read the
+//! fixtures the same script wrote there.
 
 #![allow(dead_code, reason = "each test binary uses a different subset")]
 
@@ -13,21 +13,28 @@ pub(crate) mod json;
 
 use std::path::PathBuf;
 
+use pltrs_core::numeric::Contraction;
 use pltrs_core::rng::SplitMix64;
 use pltrs_core::{Affine2D, Bbox, Path, PathCode, Point};
 
 pub(crate) use json::{Fixture, Json};
 
-/// The directory below `tests/fixtures` of the fixtures of the one
-/// platform whose matplotlib fuses products.
-const FUSING_PLATFORM: &str = "aarch64-apple-darwin";
+/// The directory below `tests/fixtures` of the fixtures of the platforms
+/// whose matplotlib fuses products, each with its compiler's pattern.
+fn fusing_platform() -> Option<&'static str> {
+    match pltrs_core::numeric::CONTRACTION {
+        Contraction::Unfused => None,
+        Contraction::Clang => Some("aarch64-apple-darwin"),
+        Contraction::Gcc => Some("aarch64-unknown-linux-gnu"),
+    }
+}
 
 /// Loads `tests/fixtures/<name>`, as matplotlib computes it on this
 /// platform.
 pub(crate) fn load(name: &str) -> Json {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
-    if pltrs_core::numeric::FUSES_PRODUCTS {
-        path.push(FUSING_PLATFORM);
+    if let Some(platform) = fusing_platform() {
+        path.push(platform);
     }
     path.push(name);
     let text = std::fs::read_to_string(&path)

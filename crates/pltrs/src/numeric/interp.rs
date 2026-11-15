@@ -1,6 +1,6 @@
 //! One-dimensional linear interpolation (numpy's `interp`).
 
-use pltrs_core::numeric::fused;
+use pltrs_core::numeric::fused_iso_c;
 
 /// numpy's `interp(x, xp, fp, left, right)` for non-decreasing `xp`:
 /// `bounds` replaces the end values used outside the range.
@@ -50,12 +50,13 @@ pub fn interp(x: f64, xp: &[f64], fp: &[f64], bounds: Option<(f64, f64)>) -> f64
         return fp[j];
     }
     let slope = (fp[j + 1] - fp[j]) / (xp[j + 1] - xp[j]);
-    // numpy's build for arm64 macOS fuses the product into the sum.
-    let value = fused(slope, x - xp[j], fp[j]);
+    // numpy's build for arm64 macOS (clang) fuses the product into the
+    // sum, even in its ISO C; GCC's aarch64 Linux build does not.
+    let value = fused_iso_c(slope, x - xp[j], fp[j]);
     if !value.is_nan() {
         return value;
     }
-    let other = fused(slope, x - xp[j + 1], fp[j + 1]);
+    let other = fused_iso_c(slope, x - xp[j + 1], fp[j + 1]);
     #[expect(clippy::float_cmp, reason = "numpy's fallback for equal neighbours")]
     let flat = fp[j] == fp[j + 1];
     if other.is_nan() && flat { fp[j] } else { other }
@@ -141,9 +142,10 @@ mod tests {
             "duplicates take the last sample"
         );
         assert_eq!(interp(2.0, &xp, &fp, None), 30.0);
-        // numpy 2.5.4 on x86-64 and, the product fused, on arm64 macOS.
+        // numpy 2.5.4 on x86-64 and aarch64 Linux and, the product fused,
+        // on arm64 macOS.
         let rounded = interp(1.7, &[0.1, 2.3, 4.1], &[0.33, 0.71, 0.12], None);
-        let expected = if pltrs_core::numeric::FUSES_PRODUCTS {
+        let expected = if pltrs_core::numeric::CONTRACTION.fuses_iso_c() {
             0.606_363_636_363_636_3
         } else {
             0.606_363_636_363_636_4

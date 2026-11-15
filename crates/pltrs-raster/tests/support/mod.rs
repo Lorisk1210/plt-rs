@@ -138,13 +138,18 @@ pub(crate) fn cases() -> Vec<Case> {
 }
 
 /// matplotlib's renderings of the cases on Linux x86-64.
-#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+#[cfg(not(all(any(target_os = "macos", target_os = "linux"), target_arch = "aarch64")))]
 const REFERENCE: &[u8] = include_bytes!("../fixtures/agg_reference.bin");
 
 /// matplotlib's renderings of the cases on arm64 macOS, where its build
-/// fuses products into sums and pltrs with it.
+/// fuses products into sums (clang's) and pltrs with it.
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 const REFERENCE: &[u8] = include_bytes!("../fixtures/aarch64-apple-darwin/agg_reference.bin");
+
+/// matplotlib's renderings of the cases on aarch64 Linux, where its build
+/// fuses products into sums (GCC's) and pltrs with it.
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+const REFERENCE: &[u8] = include_bytes!("../fixtures/aarch64-unknown-linux-gnu/agg_reference.bin");
 
 /// Decodes the reference of this platform into named pixmaps.
 pub(crate) fn references() -> HashMap<String, Pixmap> {

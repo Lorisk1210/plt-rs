@@ -12,9 +12,10 @@ stored: they are regenerated on both sides from a SplitMix64 stream with
 plain arithmetic, so they are bit-identical.
 
 The fixtures next to this script are matplotlib's on Linux x86-64.
-matplotlib's wheel for arm64 macOS fuses products into sums, which pltrs
-follows there: run there, this writes that platform's fixtures, into
-``aarch64-apple-darwin/``, which the tests built for it read instead.
+matplotlib's wheels for arm64 macOS and aarch64 Linux fuse products into
+sums, which pltrs follows there: run there, this writes that platform's
+fixtures, into ``aarch64-apple-darwin/`` or ``aarch64-unknown-linux-gnu/``,
+which the tests built for it read instead.
 
 ``--scale K`` multiplies the number of random cases and ``--seed`` picks
 another random stream (for local fuzzing; the committed fixtures use the
@@ -37,8 +38,11 @@ from matplotlib.transforms import Affine2D, Bbox
 
 HERE = pathlib.Path(__file__).resolve().parent
 #: Where this machine's fixtures go: arm64 macOS has its own.
-OUT = (HERE / "aarch64-apple-darwin"
-       if sys.platform == "darwin" and platform.machine() == "arm64" else HERE)
+#: Where this platform's output goes: the platforms whose matplotlib fuses
+#: products into sums (arm64 macOS, clang; aarch64 Linux, GCC) have their own.
+OUT = {("darwin", "arm64"): HERE / "aarch64-apple-darwin",
+       ("linux", "aarch64"): HERE / "aarch64-unknown-linux-gnu"}.get(
+           (sys.platform, platform.machine()), HERE)
 M, L, C3, C4, CL = 1, 2, 3, 4, 79
 MASK64 = (1 << 64) - 1
 

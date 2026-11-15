@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use pltrs_core::numeric::{difference_of_products, fused, sum_of_products};
+use pltrs_core::numeric::{CONTRACTION, Contraction, FusedProduct, difference_of_products};
 use pltrs_core::{Path, Point};
 
 use super::edge_map::EdgeMap;
@@ -449,26 +449,40 @@ pub(super) fn cross_z(a: Point, b: Point) -> f64 {
     difference_of_products(a.x, b.y, a.y, b.x)
 }
 
-/// The plane through three `[x, y, z]` points (matplotlib's C++ formula,
-/// with its build's fused products: of each sum of products the first is
-/// fused into the second, and every later one into the sum so far).
-fn plane([p0, p1, p2]: [[f64; 3]; 3]) -> [f64; 3] {
+/// The plane through three `[x, y, z]` points (matplotlib's C++ formula),
+/// as the reference's compiler builds it.
+fn plane(points: [[f64; 3]; 3]) -> [f64; 3] {
+    plane_as(CONTRACTION, points)
+}
+
+/// [`plane`] with `contraction`'s fused products: of each sum of products
+/// the first is fused into the second, and every later one into the sum
+/// so far, but for the normal's x and y components, where GCC fuses the
+/// second product (its `widening_mul` GIMPLE of `XYZ::cross`, confirmed
+/// against matplotlib's aarch64 Linux wheel).
+fn plane_as(contraction: Contraction, [p0, p1, p2]: [[f64; 3]; 3]) -> [f64; 3] {
+    let fused = |a: f64, b: f64, c: f64| contraction.fused(a, b, c);
+    let x_and_y = if contraction == Contraction::Gcc {
+        FusedProduct::Second
+    } else {
+        FusedProduct::First
+    };
     let s1 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
     let s2 = [p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]];
     let normal = [
-        difference_of_products(s1[1], s2[2], s1[2], s2[1]),
-        difference_of_products(s1[2], s2[0], s1[0], s2[2]),
-        difference_of_products(s1[0], s2[1], s1[1], s2[0]),
+        contraction.difference_of_products(x_and_y, s1[1], s2[2], s1[2], s2[1]),
+        contraction.difference_of_products(x_and_y, s1[2], s2[0], s1[0], s2[2]),
+        contraction.difference_of_products(FusedProduct::First, s1[0], s2[1], s1[1], s2[0]),
     ];
     if normal[2] == 0.0 {
-        let sum2 = sum_of_products(s1[0], s1[0], s1[1], s1[1]);
+        let sum2 = fused(s1[0], s1[0], s1[1] * s1[1]);
         let sum2 = fused(s2[0], s2[0], sum2);
         let sum2 = fused(s2[1], s2[1], sum2);
-        let a = sum_of_products(s1[0], s1[2], s2[0], s2[2]) / sum2;
-        let b = sum_of_products(s1[1], s1[2], s2[1], s2[2]) / sum2;
+        let a = fused(s1[0], s1[2], s2[0] * s2[2]) / sum2;
+        let b = fused(s1[1], s1[2], s2[1] * s2[2]) / sum2;
         [a, b, fused(-b, p0[1], fused(-a, p0[0], p0[2]))]
     } else {
-        let dot = sum_of_products(normal[0], p0[0], normal[1], p0[1]);
+        let dot = fused(normal[0], p0[0], normal[1] * p0[1]);
         let dot = fused(normal[2], p0[2], dot);
         [
             -normal[0] / normal[2],
@@ -480,8 +494,6 @@ fn plane([p0, p1, p2]: [[f64; 3]; 3]) -> [f64; 3] {
 
 #[cfg(test)]
 mod tests {
-    use pltrs_core::numeric::FUSES_PRODUCTS;
-
     use super::*;
 
     fn grid3() -> Triangulation {
@@ -542,32 +554,56 @@ mod tests {
         );
     }
 
-    /// matplotlib 3.11.2's `calculate_plane_coefficients` on x86-64 and on
-    /// arm64 macOS, whose build fuses products: a last digit, and for
-    /// collinear points the branch taken (a fused cross product of
+    /// The points of triangle `t` of a triangulation of the points
+    /// `(x, y)` with `z`, as `plane` takes them.
+    fn corners(tri: &Triangulation, t: usize, z: &[f64]) -> [[f64; 3]; 3] {
+        tri.triangles()[t].map(|i| [tri.x()[i], tri.y()[i], z[i]])
+    }
+
+    /// matplotlib 3.11.2's `calculate_plane_coefficients` on x86-64, on
+    /// arm64 macOS (clang's fused products) and on aarch64 Linux (GCC's,
+    /// which fuses other products of the cross product): a last digit, and
+    /// for collinear points the branch taken (a fused cross product of
     /// dependent sides keeps a residue, so the plane is steep, not flat).
     #[test]
-    fn plane_coefficients_round_as_matplotlib_rounds_them_here() {
+    fn plane_coefficients_round_as_each_build_of_matplotlib() {
         let z = [0.3, 0.7, 0.1, 0.9];
         let (x, y) = ([0.1, 0.9, 0.3, 0.7], [0.2, 0.1, 0.8, 0.9]);
         let tri = Triangulation::new(&x, &y, vec![[0, 1, 2], [1, 3, 2]]).unwrap();
-        let constant = tri.plane_coefficients(&z).unwrap()[1][2];
-        let expected = if FUSES_PRODUCTS {
-            -1.011_764_705_882_353_1
-        } else {
-            -1.011_764_705_882_353_3
-        };
-        assert_eq!(constant.to_bits(), f64::to_bits(expected));
+        let points = corners(&tri, 1, &z);
+        for (contraction, expected) in [
+            (Contraction::Unfused, -1.011_764_705_882_353_3_f64),
+            (Contraction::Clang, -1.011_764_705_882_353_1),
+            (Contraction::Gcc, -1.011_764_705_882_352_7),
+        ] {
+            assert_eq!(
+                plane_as(contraction, points)[2].to_bits(),
+                expected.to_bits()
+            );
+        }
+        let here = tri.plane_coefficients(&z).unwrap()[1];
+        assert_eq!(here, plane_as(CONTRACTION, points));
 
         let (x, y) = ([0.0, 0.3, 0.6, 0.1], [0.0, 0.1, 0.2, 0.7]);
         let tri = Triangulation::new(&x, &y, vec![[0, 1, 2], [0, 2, 3]]).unwrap();
-        let collinear = tri.plane_coefficients(&z).unwrap()[0];
-        let expected = if FUSES_PRODUCTS {
-            [2f64.powi(54) * 5.0 / 3.0, -(2f64.powi(56) * 1.25), 0.3]
-        } else {
-            [0.0, 0.0, 0.3]
-        };
-        assert_eq!(collinear, expected);
+        let points = corners(&tri, 0, &z);
+        for (contraction, expected) in [
+            (Contraction::Unfused, [0.0, 0.0, 0.3]),
+            (
+                Contraction::Clang,
+                [2f64.powi(54) * 5.0 / 3.0, -(2f64.powi(56) * 1.25), 0.3],
+            ),
+            (
+                Contraction::Gcc,
+                [3.002_399_751_580_330_4e16, -9.007_199_254_740_99e16, 0.3],
+            ),
+        ] {
+            assert_eq!(plane_as(contraction, points), expected, "{contraction:?}");
+        }
+        assert_eq!(
+            tri.plane_coefficients(&z).unwrap()[0],
+            plane_as(CONTRACTION, points)
+        );
     }
 
     #[test]

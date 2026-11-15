@@ -25,7 +25,9 @@ use crate::path::PathCode;
 use crate::path::convert::{Vertex, VertexSource};
 
 pub(crate) use contour::Contour;
-pub use math::{INTERSECTION_EPSILON, calc_distance, calc_intersection, cross_product};
+pub use math::{
+    INTERSECTION_EPSILON, calc_distance, calc_intersection, calc_intersection_fusing, cross_product,
+};
 pub(crate) use stroke::Stroke;
 pub use stroke_math::{InnerJoin, LineCap, LineJoin, StrokeMath, StrokeShape};
 pub use vertex_seq::{VERTEX_DIST_EPSILON, VertexDist, VertexSequence};

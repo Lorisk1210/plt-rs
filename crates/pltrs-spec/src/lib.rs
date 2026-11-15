@@ -67,8 +67,9 @@ pub fn probe_goldens_dir() -> PathBuf {
 /// goldens alone: Linux x86-64, where they are recorded, and every target
 /// without goldens of its own so far.
 ///
-/// matplotlib does not compute the same everywhere (its arm64 macOS wheel
-/// fuses products into sums, each platform has its own maths library), so
+/// matplotlib does not compute the same everywhere (its arm64 macOS and
+/// aarch64 Linux wheels fuse products into sums, each with its compiler's
+/// pattern; each platform has its own maths library), so
 /// where its output on a platform differs from a common golden, the
 /// reference runner records it there under the same relative path (only
 /// what differs; see `spec/reference/spec_support/golden.py`, whose
@@ -77,6 +78,9 @@ pub const PLATFORM: Option<&str> = if cfg!(all(target_os = "macos", target_arch 
     Some("aarch64-apple-darwin")
 } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
     Some("x86_64-apple-darwin")
+} else if cfg!(all(target_os = "linux", target_arch = "aarch64")) {
+    // glibc's and musl's alike: matplotlib's goldens there are its wheel's.
+    Some("aarch64-unknown-linux-gnu")
 } else {
     None
 };

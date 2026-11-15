@@ -1,7 +1,9 @@
 //! Affine transformations of the plane.
 
 use crate::Point;
-use crate::numeric::{ACCELERATE_BLAS, difference_of_products, sum_of_products};
+use crate::numeric::{
+    ACCELERATE_BLAS, CONTRACTION, Contraction, difference_of_products, sum_of_products,
+};
 
 /// An affine transformation `x' = a·x + c·y + e`, `y' = b·x + d·y + f`.
 ///
@@ -322,12 +324,35 @@ impl Affine2D {
         Point::new(self.e, self.f)
     }
 
-    /// Applies the transformation to a point.
+    /// Applies the transformation to a point as matplotlib's
+    /// `_path.affine_transform` does, which every affine transform of
+    /// matplotlib's Python maps arrays with (`Affine2D.transform`,
+    /// `transform_path`).
+    #[inline]
     pub fn transform_point(&self, p: Point) -> Point {
-        Point::new(
-            self.a * p.x + self.c * p.y + self.e,
-            self.b * p.x + self.d * p.y + self.f,
-        )
+        self.transform_point_as(CONTRACTION, p)
+    }
+
+    /// [`transform_point`](Self::transform_point) as the build of
+    /// `_path.affine_transform` by `contraction`'s compiler computes it.
+    /// The function keeps each product in a variable (`t0 = sx * x;
+    /// t1 = shx * y; t = t0 + t1 + tx`): clang rounds both, GCC fuses the
+    /// first into their sum, across the statements (its `widening_mul`
+    /// GIMPLE). That is Agg's `trans_affine::transform` as clang builds it,
+    /// so under GCC this equals [`agg_transform_point`](Self::agg_transform_point)
+    /// bit for bit, and the callers mirroring either agree.
+    #[inline]
+    pub fn transform_point_as(&self, contraction: Contraction, p: Point) -> Point {
+        match contraction {
+            Contraction::Gcc => Point::new(
+                contraction.fused(self.a, p.x, self.c * p.y) + self.e,
+                contraction.fused(self.b, p.x, self.d * p.y) + self.f,
+            ),
+            Contraction::Unfused | Contraction::Clang => Point::new(
+                self.a * p.x + self.c * p.y + self.e,
+                self.b * p.x + self.d * p.y + self.f,
+            ),
+        }
     }
 
     /// Applies only the linear part (no translation), as for a displacement.
@@ -482,6 +507,21 @@ mod tests {
             t.transform_point(Point::new(2.0, 3.0)),
             Point::new(2.0, 3.0)
         ));
+    }
+
+    #[test]
+    fn points_map_as_each_compilers_affine_transform() {
+        // 0.1 * 10 is 1 + 2^-54 before rounding: GCC fuses it into the sum
+        // with the second product, clang and the x86-64 build round it.
+        let t = Affine2D::from_values(0.1, 0.0, 1.0, 1.0, 0.0, 0.0);
+        let p = Point::new(10.0, -1.0);
+        assert_eq!(t.transform_point_as(Contraction::Gcc, p).x, 2f64.powi(-54));
+        assert_eq!(t.transform_point_as(Contraction::Clang, p).x, 0.0);
+        assert_eq!(t.transform_point_as(Contraction::Unfused, p).x, 0.0);
+        assert_eq!(t.transform_point(p), t.transform_point_as(CONTRACTION, p));
+        if CONTRACTION == Contraction::Gcc {
+            assert_eq!(t.transform_point(p), t.agg_transform_point(p));
+        }
     }
 
     #[test]

@@ -54,6 +54,9 @@ def _platform() -> str | None:
                                                          platform.machine().lower())
     if sys.platform == "darwin" and machine in ("aarch64", "x86_64"):
         return f"{machine}-apple-darwin"
+    if sys.platform == "linux" and machine == "aarch64":
+        # matplotlib's aarch64 Linux wheel is GCC's, which fuses products.
+        return "aarch64-unknown-linux-gnu"
     return None
 
 

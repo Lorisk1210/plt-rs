@@ -10,6 +10,7 @@
 
 use std::collections::HashMap;
 
+use pltrs_core::numeric::{CONTRACTION, Contraction};
 use pltrs_core::{Path, Point};
 
 use super::Triangulation;
@@ -153,10 +154,11 @@ impl TriContourGenerator {
         let (p1, p2) = (corners[edge], corners[(edge + 1) % 3]);
         let (z1, z2) = (self.point_z(p1), self.point_z(p2));
         let fraction = (z2 - level) / (z2 - z1);
-        let (a, b) = (self.tri.point(p1), self.tri.point(p2));
-        Point::new(
-            a.x * fraction + b.x * (1.0 - fraction),
-            a.y * fraction + b.y * (1.0 - fraction),
+        interp_point(
+            CONTRACTION,
+            self.tri.point(p1),
+            self.tri.point(p2),
+            fraction,
         )
     }
 
@@ -426,9 +428,39 @@ impl Generator for TriContourGenerator {
     }
 }
 
+/// `a * fraction + b * (1 - fraction)`, matplotlib's `XY` arithmetic in
+/// `TriContourGenerator::interp` as `contraction`'s compiler builds it:
+/// clang rounds both products (they pass through `XY::operator*`), GCC
+/// inlines the operators and fuses the first into the sum (its
+/// `widening_mul` GIMPLE).
+fn interp_point(contraction: Contraction, a: Point, b: Point, fraction: f64) -> Point {
+    let rest = 1.0 - fraction;
+    match contraction {
+        Contraction::Gcc => Point::new(
+            contraction.fused(a.x, fraction, b.x * rest),
+            contraction.fused(a.y, fraction, b.y * rest),
+        ),
+        Contraction::Unfused | Contraction::Clang => {
+            Point::new(a.x * fraction + b.x * rest, a.y * fraction + b.y * rest)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn crossings_interpolate_as_each_compiler_builds_matplotlib() {
+        let (a, b) = (Point::new(1.0 / 3.0, 0.0), Point::new(0.2, 0.0));
+        // a.x * 0.6 is fused under GCC only.
+        assert_eq!(
+            interp_point(Contraction::Gcc, a, b, 0.6).x,
+            0.279_999_999_999_999_97
+        );
+        assert_eq!(interp_point(Contraction::Clang, a, b, 0.6).x, 0.28);
+        assert_eq!(interp_point(Contraction::Unfused, a, b, 0.6).x, 0.28);
+    }
 
     /// A unit square split around a centre peak.
     fn fan() -> (Triangulation, Vec<f64>) {

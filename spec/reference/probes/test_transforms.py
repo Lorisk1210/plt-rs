@@ -284,6 +284,8 @@ Scalar helpers
 """
 
 import math
+import platform
+import sys
 
 import numpy as np
 import pytest
@@ -414,7 +416,29 @@ def _matrix_and_points(t, points):
 # reference arithmetic used for hand-written assertions
 # ---------------------------------------------------------------------------
 
+#: Whether matplotlib's `_path.affine_transform` fuses its first product
+#: into the sum here: GCC builds the aarch64 Linux wheel and contracts
+#: `t0 = sx * x; t1 = shx * y; t = t0 + t1 + tx` across the statements;
+#: clang (arm64 macOS) and the x86-64 builds round both products.
+AFFINE_TRANSFORM_FUSES = sys.platform == "linux" and platform.machine() == "aarch64"
+
+
+def _fma(a, b, c):
+    """`a * b + c` rounded once, with IEEE's results where Python's
+    `math.fma` raises (an invalid operation is NaN, an overflow the
+    infinity the product and the sum round to)."""
+    try:
+        return math.fma(a, b, c)
+    except ValueError:
+        return math.nan
+    except OverflowError:
+        return a * b + c
+
+
 def _naive_apply(m, points):
+    if AFFINE_TRANSFORM_FUSES:
+        return [[_fma(m[0][0], x, m[0][1] * y) + m[0][2],
+                 _fma(m[1][0], x, m[1][1] * y) + m[1][2]] for x, y in points]
     return [[(m[0][0] * x + m[0][1] * y) + m[0][2], (m[1][0] * x + m[1][1] * y) + m[1][2]]
             for x, y in points]
 

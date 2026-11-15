@@ -2949,6 +2949,84 @@ running into its cell limit on saturated coordinates, numpy failing to
 allocate what a saturated date asks for, and the sign of rounding noise
 in numpy's arm64 build of pocketfft.
 
+### aarch64 Linux
+
+Docker on an Apple-silicon Mac, Graviton and the Raspberry Pi run
+aarch64 Linux, whose reference is again its own binaries: matplotlib
+3.11.2's and contourpy 1.4.0's `manylinux_2_28_aarch64` wheels, built by
+GCC 14.2.1 (Red Hat 14.2.1-11, the compiler of the
+`quay.io/pypa/manylinux_2_28_aarch64` image), and numpy 2.5.4's. GCC
+contracts products into sums too, but by other rules than clang, so the
+contraction is named per platform, `pltrs_core::numeric::Contraction`
+(`Unfused`, `Clang`, `Gcc`, the constant `CONTRACTION`), and
+`FUSES_PRODUCTS` is `CONTRACTION.fuses()`. For musl the same holds:
+matplotlib has no musl aarch64 wheel, and a source build there is GCC's.
+
+* **Across statements and inlined operators.** GCC's default for C++ and
+  GNU C (`-ffp-contract=fast`) fuses a product into the sum that uses it
+  wherever they meet after inlining, where clang only fuses within one
+  expression. `_path.affine_transform`, through which every affine
+  transform of matplotlib's Python maps arrays, keeps its products in
+  variables (`t0 = sx * x; t1 = shx * y; t = t0 + t1 + tx`): clang
+  rounds them, GCC fuses the first. So `Affine2D::transform_point`
+  follows `CONTRACTION` (`transform_point_as`), and under GCC it is
+  Agg's `trans_affine::transform` (`agg_transform_point`) bit for bit:
+  a caller mirroring either agrees there, and the split between the two
+  matters on arm64 macOS alone. `_tri`'s `XY` arithmetic is fused through
+  its operators: the crossing of a tricontour
+  (`TriContourGenerator::interp`, `tri::contour::interp_point`) and the
+  trapezoid map's enclosing box (`tri::finder::expanded`).
+* **Another operand.** Which product of a sum GCC fuses follows the order
+  its `widening_mul` pass meets them, not the syntax, and depends on the
+  function a computation is inlined into: in
+  `Triangulation::calculate_plane_coefficients` the cross product's x and
+  y components fuse their second product and the z component its first,
+  where the out-of-line `XYZ::cross` fuses each first
+  (`tri::triangulation::plane_as`), and Agg's `calc_intersection` fuses
+  its numerator's second product where `_draw_gouraud_triangle` dilates a
+  triangle (`outline::calc_intersection_fusing`, `pltrs-raster`'s
+  `render::gouraud`). `numeric::FusedProduct` names the product a port
+  fuses (`Contraction::difference_of_products`).
+* **Not in ISO C.** GCC does not contract ISO C at all, and numpy builds
+  its C as C11: `arange`'s fill and `interp` are not fused on aarch64
+  Linux (`numeric::fused_iso_c`, fused on arm64 macOS only, as clang
+  contracts ISO C too). numpy fuses there only in its SIMD kernels
+  (`tanh`, float32 `sin` and `cos`, complex `multiply`, einsum's sums of
+  products), as on every aarch64 (`mlab::Complex::mul_at`).
+* **The same as clang** where GCC's GIMPLE says so: qhull's distances and
+  hyperplanes (built as GNU C, so contracted), contourpy's interpolation
+  of a crossing in its three algorithms, `XY::cross_z`, the dot product of
+  the planes and Agg's `trans_affine::transform`.
+
+Found as for macOS, then confirmed: `python/tools/fused_sites.py gimple
+SOURCE...`, run in the image above (it has the compiler), compiles
+matplotlib's sources with the wheels' flags (`-O3`,
+`-fvisibility=hidden`) and prints GCC's `.FMA`/`.FMS`/`.FNMA`/`.FNMS`
+statements per source line and function, with the debug binds that name
+their operands; a reading is settled by an exact emulation of it
+(`Fraction`: one rounding per fused operation) against the wheel on
+seeded inputs under emulation (the plane coefficients: 3,596 of 3,596
+triangles, against at most 2,663 for any other pattern). The tests of
+each such site evaluate all three compilers' patterns
+(`Contraction::fused`, `plane_as`, `transform_point_as`, `interp_point`,
+`expanded`), with matplotlib's own values where it has them. The arm64
+casts (`numeric::np_int`) and the Neon IDCT of libjpeg-turbo
+(`pltrs-codec`) follow the processor and hold on aarch64 Linux too;
+Accelerate does not (numpy links OpenBLAS there, whose kernels are not
+followed). Goldens of the target are in
+`spec/goldens/platforms/aarch64-unknown-linux-gnu/` (`PLATFORM` in
+`pltrs-spec`), and the fixtures of `pltrs-core` and `pltrs-raster` in
+their `tests/fixtures/aarch64-unknown-linux-gnu/`, written by the same
+scripts run there. Not followed there: Gouraud shading, where
+matplotlib's aarch64 build interpolates the colours otherwise than its
+x86-64 one in most triangles for a reason that is no fused product (a
+rebuild of its `_backend_agg` with the wheel's flags reproduces the
+wheel, one with `-ffp-contract=off` and `-fsigned-char` still differs;
+`agg_reference`'s tolerance for `gouraud_clip_path`), the extrema of
+curves (`np.roots`, LAPACK) and OpenBLAS's kernels. The release
+workflow's containers compare `python/tools/drop_in.py`'s drawings with
+matplotlib's there (`check_dist.py --compare-drawings`), pixel for pixel.
+
 The same holds across the Pythons and the dependency versions pltrs
 supports (CPython 3.12 to 3.14, `pyproject.toml`'s lower bounds to
 today's releases), which the release workflow runs the smoke tests on.
@@ -3051,6 +3129,17 @@ pltrs computes at numpy's level, `pltrs_core::numeric::CpuLevel`
   products where its AVX2 and AVX-512 loops fuse one
   (`pltrs::mlab::Complex::mul_at`: `psd`, `csd`, `cohere`), and float32
   `exp`, `log`, `sin` and `cos` come from the C library.
+* **aarch64.** numpy's aarch64 wheel dispatches too, from its ASIMD
+  baseline to `ASIMDHP`, `ASIMDDP`, `ASIMDFHM` and `SVE`, but none of
+  these copies computes another value than the baseline: with each of
+  them switched off in turn (`NPY_DISABLE_CPU_FEATURES`, under emulation
+  of a processor that has them all) its `argsort`, `sort` and `partition`
+  of ties, its maths ufuncs, products and reductions are the same bits.
+  Its `argsort` is the generic introsort, whose ties fall as at x86-64's
+  baseline, and pltrs computes at `Baseline` there, as it does on arm64
+  macOS. Its maths differ from x86-64's at every level (they are the C
+  library's of the platform), and OpenBLAS picks kernels per core there
+  as well, which is not followed.
 
 The spec's goldens are recorded at `X86_V4`. What matplotlib computes
 otherwise at a lower level, and pltrs' check refuses, is that level's

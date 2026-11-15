@@ -89,6 +89,21 @@ RECURSING = {
             return (lambda: fig.savefig(io.BytesIO(), format="png"),
                     lambda: ax.xaxis.set_major_formatter(ticker.ScalarFormatter()))
     """,
+    # The same, with tick labels that are formulas nesting fractions as
+    # deep as matplotlib's parser takes them (20 levels), each new, so
+    # that each round typesets one (fuzzer seed 600278 overflowed the
+    # stack typesetting a formula at the bottom of a nested draw).
+    "a formatter saving its figure, labelled by deep formulas": """
+        def recursing(fig, ax):
+            made = []
+            def label(value, pos):
+                made.append(value)
+                fig.savefig(io.BytesIO(), format="svg")
+                return "$" + r"\\frac{" * 20 + str(len(made)) + "}{x}" * 20 + "$"
+            ax.xaxis.set_major_formatter(ticker.FuncFormatter(label))
+            return (lambda: fig.savefig(io.BytesIO(), format="png"),
+                    lambda: ax.xaxis.set_major_formatter(ticker.ScalarFormatter()))
+    """,
     # Recorded and replayed natively, the artist's draw nests no Python
     # frames: CPython's limit does not end it.
     "an artist drawing its Axes": """
@@ -277,6 +292,33 @@ def test_nested_calls_on_a_small_stack_are_not_refused(save, kib, tmp_path):
     assert _run(source, tmp_path) == "['-0.25/2.1', '0/2.1']"
 
 
+@pytest.mark.parametrize("levels", [10, 20])
+def test_a_deep_formula_on_a_small_stack_is_drawn(levels, tmp_path):
+    # Typesetting a formula goes deeper the more it nests (pltrs: about 7
+    # KiB a level of fractions); matplotlib's parser takes 20 levels and
+    # refuses 30, and draws 20 on a thread of 128 KiB (musl's). pltrs
+    # typesets a formula on a stack of its own where the thread's has too
+    # little left for its nesting (`pltrs_text::deep`).
+    source = textwrap.dedent(f"""
+        import io, threading
+        import pltrs
+        pltrs.use("agg")
+        import pltrs.pyplot as plt
+
+        def run():
+            fig, ax = plt.subplots()
+            ax.set_title("$" + r"\\frac{{" * {levels} + "x" + "}}{{y}}" * {levels} + "$")
+            fig.savefig(io.BytesIO(), format="png")
+            print("drawn")
+
+        threading.stack_size(128 << 10)
+        thread = threading.Thread(target=run)
+        thread.start()
+        thread.join()
+    """)
+    assert _run(source, tmp_path) == "drawn"
+
+
 @pytest.mark.skipif(pltrs.__name__ != "pltrs", reason="pltrs' own message")
 def test_a_draw_inside_a_draw_on_a_small_stack_says_what_to_do(tmp_path):
     # A formatter saving its figure once, on a thread of 128 KiB: pltrs'
@@ -313,3 +355,26 @@ def test_a_draw_inside_a_draw_on_a_small_stack_says_what_to_do(tmp_path):
     size = re.search(r"pltrs: this thread's stack is (\d+) KiB", rest)
     assert size is not None and 128 <= int(size.group(1)) <= 136, rest
     assert "threading.stack_size(1048576)" in rest
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux") or pltrs.__name__ != "pltrs",
+                    reason="pltrs' report of a fault, on Linux")
+def test_the_fuzzer_keeps_a_crashs_fault_address_and_first_lines(tmp_path):
+    # A fuzz worker sets PLTRS_REPORT_FAULTS: pltrs writes the address a
+    # fatal fault touched before faulthandler says where the program was,
+    # and the runner places it against the worker's stack.
+    from fuzz import runner
+
+    worker = runner.Worker(tmp_path)
+    _, bugs = worker.run({"id": 0, "lines": ["import ctypes", "ctypes.string_at(16)"]})
+    assert [bug.signature for bug in bugs] == ["crash:-11"]
+    first = bugs[0].detail.splitlines()[:4]
+    assert first[0] == "fault at 0x10, outside the main thread's stack", first
+    assert "pltrs: fatal signal 11 at address 0x10" in first, first
+    assert "Fatal Python error: Segmentation fault" in first, first
+    lowest, highest = worker.stack
+    assert highest - lowest == 1024 << 10
+    below = runner._fault_note("pltrs: fatal signal 11 at address 0x1000\n", [0x3000, 0x5000])
+    assert below == "fault at 0x1000, 8.0 KiB below the main thread's stack limit: a stack overflow\n"
+    kept = runner._kept([str(n) for n in range(100)])
+    assert kept[:2] == ["0", "1"] and kept[-1] == "99" and "[45 lines left out]" in kept

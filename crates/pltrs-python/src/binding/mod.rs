@@ -41,6 +41,8 @@ mod containers;
 mod convert;
 mod deferred;
 mod error;
+#[cfg(target_os = "linux")]
+mod fault;
 mod function;
 mod gil;
 mod home;

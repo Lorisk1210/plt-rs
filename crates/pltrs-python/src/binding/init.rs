@@ -45,6 +45,8 @@ pub(crate) fn init_module(fill: fn(&Module<'_>) -> PyResult<()>) -> *mut ffi::Py
     unsafe {
         entry(|py| {
             home::init(py)?;
+            #[cfg(target_os = "linux")]
+            super::fault::install_if_asked();
             reentrant::install_draw_end();
             let module = Module::create(py, DEFINITION.0.get())?;
             native::add_type(&module)?;

@@ -43,6 +43,7 @@ crates/pltrs-python/            the native extension (a cdylib, no crates)
     home.rs                     other threads' calls on windows, run by the main thread
     blocking.rs                 the windows' event loop waiting without the GIL
     stack.rs, stack/            the stack guard: RecursionError before a thread's stack ends
+    fault.rs                    the address of a fatal fault, on stderr (PLTRS_REPORT_FAULTS)
     watched.rs                  package attributes a program may replace, read by native code
     allocator.rs                the allocator on Linux (huge pages for large blocks)
     testing.rs                  the embedded interpreter of the unit tests
@@ -325,9 +326,31 @@ it expects, and goes on to name the thread's stack size, what pltrs needs
 and `threading.stack_size`. pltrs does not change `threading.stack_size`
 itself: a library has no business setting it for the whole process, and
 Alpine's own Python, Docker's `python:alpine` and the `musllinux` images'
-CPython 3.14 already give threads 1 to 2 MiB. Tests:
-`python/tests/test_stack1.py` (every recursion on every stack, small
-threads drawing).
+CPython 3.14 already give threads 1 to 2 MiB.
+
+The reserve must hold everything a call does below the check that let it
+in, including what it goes on doing after a call it makes is refused (a
+draw measures its tick labels after their formatter failed). Two kinds of
+work at the bottom of a draw go deeper than any measurement of warm draws
+shows, and the fuzzer met both: shaping a line of text the engine
+has not shaped (the font chain made, faces parsed, a cold one read from
+its file: 12 KiB in the development build) and typesetting a formula,
+whose depth grows with its nesting (about 7 KiB a level of fractions;
+pltrs' parser takes 100 levels, matplotlib's 20 but not 30). Both are pure
+Rust, so `pltrs_text::deep` runs them where the stack has room for them:
+on a thread of its own, with a stack of the size they need, where less is
+left (`pltrs_core::stack::with_room`; the binding tells pltrs (Rust) where
+each thread's stack ends). A formula's need is counted from its text: a
+level opens at `{`, `\`, `^` or `_`, and no opening costs more than 8 KiB.
+The font lookups and mathtext messages the work notes there are handed
+back to the caller's thread; it reads the font database without writing it
+and takes no lock its callers hold. Without them below it, the deepest
+nested draw measured goes 61 KiB below the check that let it in
+(development build; 58 KiB optimised: the fuzzer's seed 22, an SVG save
+under constrained layout measuring its tick labels), which the reserve of
+64 KiB holds. Tests: `python/tests/test_stack1.py` (every recursion on
+every stack, formulas as deep as matplotlib takes them, small threads
+drawing).
 
 ## The Python package
 

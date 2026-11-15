@@ -34,6 +34,9 @@ use crate::error::TextError;
 use crate::mathtext_log;
 use crate::run::{TextRun, TextSource};
 
+/// The deepest nesting a formula may have (`deep` sizes the stack for it).
+pub(crate) const MAX_NESTING: usize = parser::MAX_NESTING;
+
 /// Whether matplotlib treats `text` as math: it contains an even, non-zero
 /// number of dollar signs not escaped as `\$`.
 pub fn is_math_text(text: &str) -> bool {
@@ -151,23 +154,26 @@ impl TextEngine {
     /// was typeset with, to `then`: what `then` gives, with the messages
     /// matplotlib's mathtext logs typesetting it. A parse that fails logs
     /// what it noted before failing, as matplotlib's does.
-    fn parse_math<T>(
+    fn parse_math<T: Send>(
         &self,
         source: &str,
         style: &MathStyle,
-        then: impl FnOnce(&boxes::List, &mut fonts::Fonts<'_>) -> Result<T, TextError>,
+        then: impl FnOnce(&boxes::List, &mut fonts::Fonts<'_>) -> Result<T, TextError> + Send,
     ) -> Result<(T, Vec<String>), TextError> {
-        let (result, logged) = mathtext_log::collecting(|| {
-            let db = self.database();
-            let text_font = style.font.font(db)?;
-            let mut fonts = fonts::Fonts::new(db, style, text_font)?;
-            let root = parser::parse(
-                source,
-                &mut fonts,
-                style.font.query.size,
-                style.default.into(),
-            )?;
-            then(&root, &mut fonts)
+        // As deep as the formula nests: where it has room on the stack.
+        let (result, logged) = crate::deep::with_room(crate::deep::formula_need(source), || {
+            mathtext_log::collecting(|| {
+                let db = self.database();
+                let text_font = style.font.font(db)?;
+                let mut fonts = fonts::Fonts::new(db, style, text_font)?;
+                let root = parser::parse(
+                    source,
+                    &mut fonts,
+                    style.font.query.size,
+                    style.default.into(),
+                )?;
+                then(&root, &mut fonts)
+            })
         });
         match result {
             Ok(value) => Ok((value, logged)),

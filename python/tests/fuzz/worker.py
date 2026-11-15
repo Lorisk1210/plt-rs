@@ -140,6 +140,22 @@ def _reset(saved_rc):
             pass
 
 
+def _main_stack():
+    """The lowest and the highest address the main thread's stack may
+    span under its limit (``ulimit -s``), on Linux; else None. A crash's
+    fault address (``PLTRS_REPORT_FAULTS``) just below the lowest is a
+    stack overflow."""
+    try:
+        import resource
+        with open("/proc/self/maps") as maps:
+            line = next(line for line in maps if line.rstrip().endswith("[stack]"))
+    except (ImportError, OSError, StopIteration):
+        return None
+    top = int(line.split("-")[1].split()[0], 16)
+    limit = resource.getrlimit(resource.RLIMIT_STACK)[0]
+    return None if limit == resource.RLIM_INFINITY else [top - limit, top]
+
+
 def main():
     """Runs the tasks read from stdin until it closes."""
     global _EVENTS
@@ -147,8 +163,8 @@ def main():
     # out of the way of the events.
     _EVENTS = os.fdopen(os.dup(sys.stdout.fileno()), "w")
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
-    # Which process the runner watches.
-    _send("ready", pid=os.getpid())
+    # Which process the runner watches, and where its stack may reach.
+    _send("ready", pid=os.getpid(), stack=_main_stack())
     if CAPS_ADDRESS_SPACE:
         memory.cap(MEMORY_LIMIT)
     # A crash prints where Python was, for the bug's report.

@@ -21,6 +21,7 @@
 
 mod afm;
 mod block;
+mod deep;
 mod engine;
 mod error;
 pub mod fontconfig;

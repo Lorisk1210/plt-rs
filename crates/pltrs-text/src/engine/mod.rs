@@ -254,7 +254,12 @@ impl TextEngine {
                 shaping: shaping.clone(),
                 dpi_bits,
             },
-            || self.shape_line(text, request, shaping, dpi),
+            // At the bottom of a figure's layout: where it has room.
+            || {
+                crate::deep::with_room(crate::deep::SHAPING, || {
+                    self.shape_line(text, request, shaping, dpi)
+                })
+            },
         )
     }
 

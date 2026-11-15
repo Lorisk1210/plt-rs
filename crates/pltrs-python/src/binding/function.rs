@@ -223,6 +223,9 @@ unsafe fn call_here(
     args: &[*mut ffi::PyObject],
 ) -> *mut ffi::PyObject {
     let nested = gil_held();
+    if !nested {
+        stack::measure();
+    }
     // SAFETY: (caller) the GIL is held and the objects are live.
     unsafe {
         entry(|py| {

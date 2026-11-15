@@ -21,12 +21,12 @@ use std::rc::Rc;
 
 use pltrs_core::Bbox;
 
-use super::axis::{AxisGeometry, AxisState};
+use super::axis::{AxisGeometry, AxisState, BoundAxis};
 use super::tick_set::{Tick, TickSet};
 use super::{Axes, AxesState};
 use crate::artist::{ArtistId, RawHandle};
 use crate::figure::{Figure, FigureState};
-use crate::ticker::{AxisInfo, AxisName, TickSpace, TickerError};
+use crate::ticker::{AxisInfo, AxisName, TickerError};
 use crate::transforms::TransformContext;
 
 /// The program's code ticking the axes whose tick helpers or scale call
@@ -256,9 +256,9 @@ impl FigureState {
     /// helpers know of it.
     fn tick_args(&self, axes: ArtistId, name: AxisName) -> Option<(AxisGeometry, AxisInfo)> {
         let extent = self.axes_bbox(axes)?;
-        let tick_space = self.shared_tick_spaces(axes)[usize::from(name == AxisName::Y)];
+        let bound = self.bound_axes(axes)[usize::from(name == AxisName::Y)];
         let state = self.store.get_as::<AxesState>(axes)?;
-        let geometry = state.axis_geometry(name, &extent, self.dpi(), tick_space);
+        let geometry = state.axis_geometry(name, &extent, self.dpi(), bound);
         Some((geometry, state.axis(name).info(&geometry)))
     }
 
@@ -392,11 +392,11 @@ impl FigureState {
         name: AxisName,
         extent: &Bbox,
         dpi: f64,
-        tick_space: Option<TickSpace>,
+        bound: Option<BoundAxis>,
     ) {
         if !self.axis_left_out(axes, name) && self.program_ticker(axes, name).is_some() {
             let current = self.store.get_as::<AxesState>(axes).map(|state| {
-                let geometry = state.axis_geometry(name, extent, dpi, tick_space);
+                let geometry = state.axis_geometry(name, extent, dpi, bound);
                 let axis = state.axis(name);
                 axis.program_ticked.as_ref() == Some(&axis.program_record(geometry))
             });
@@ -405,7 +405,7 @@ impl FigureState {
             }
         }
         if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
-            state.update_axis_ticks(name, extent, dpi, tick_space);
+            state.update_axis_ticks(name, extent, dpi, bound);
         }
     }
 
@@ -415,10 +415,10 @@ impl FigureState {
         axes: ArtistId,
         extent: &Bbox,
         dpi: f64,
-        shared: [Option<TickSpace>; 2],
+        bound: [Option<BoundAxis>; 2],
     ) {
-        for (name, tick_space) in [AxisName::X, AxisName::Y].into_iter().zip(shared) {
-            self.tick_axis_now(axes, name, extent, dpi, tick_space);
+        for (name, bound) in [AxisName::X, AxisName::Y].into_iter().zip(bound) {
+            self.tick_axis_now(axes, name, extent, dpi, bound);
         }
     }
 }

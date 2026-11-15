@@ -27,6 +27,7 @@ use std::thread::{self, ThreadId};
 
 use super::cell::FigureCell;
 use super::state::FigureState;
+use crate::events::PickedAxes;
 
 /// Where a figure's state is, for its handles.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -130,6 +131,16 @@ impl FigureCell {
     /// whether a point hits an artist (`contains`, picking).
     pub(crate) fn as_is(self: &Rc<Self>) -> std::cell::RefMut<'_, FigureState> {
         self.work_on(FigureState::prepare_as_is);
+        self.borrow_mut()
+    }
+
+    /// [`as_is`](Self::as_is) for a pick reaching the children of the
+    /// axes `reached` says ([`FigureState::prepare_for_pick`]).
+    pub(crate) fn as_is_for_pick(
+        self: &Rc<Self>,
+        reached: PickedAxes,
+    ) -> std::cell::RefMut<'_, FigureState> {
+        self.work_on(|state| state.prepare_for_pick(reached));
         self.borrow_mut()
     }
 }

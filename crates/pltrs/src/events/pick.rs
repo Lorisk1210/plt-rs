@@ -120,10 +120,10 @@ impl Figure {
         if self.widgets_locked() {
             return;
         }
-        let inaxes = mouse.location.inaxes.as_ref().map(ArtistHandle::id);
+        let reached = self.picked_axes(mouse.location.inaxes.as_ref());
         let candidates = {
-            let state = self.state_cell().as_is();
-            pickable_artists(&state, self.raw().id(), inaxes, &|_| false)
+            let state = self.state_cell().as_is_for_pick(reached);
+            pickable_artists(&state, self.raw().id(), reached, &|_| false)
         };
         let at = Point::new(mouse.location.x, mouse.location.y);
         for candidate in candidates {
@@ -202,10 +202,10 @@ impl Figure {
         also: &[RawHandle],
     ) -> Vec<RawHandle> {
         let ids: Vec<ArtistId> = also.iter().map(RawHandle::id).collect();
-        let inaxes = inaxes.map(ArtistHandle::id);
+        let reached = self.picked_axes(inaxes);
         let candidates = {
-            let state = self.state_cell().as_is();
-            pickable_artists(&state, root.id(), inaxes, &|id| ids.contains(&id))
+            let state = self.state_cell().as_is_for_pick(reached);
+            pickable_artists(&state, root.id(), reached, &|id| ids.contains(&id))
         };
         candidates
             .into_iter()
@@ -216,20 +216,56 @@ impl Figure {
             .collect()
     }
 
+    /// The axes whose children a pick over `inaxes`, the axes under the
+    /// pointer, reaches: an axes of another figure is none of this one's.
+    fn picked_axes(&self, inaxes: Option<&Axes>) -> PickedAxes {
+        match inaxes {
+            None => PickedAxes::Every,
+            Some(axes) if Rc::ptr_eq(axes.raw().figure_state(), self.raw().figure_state()) => {
+                PickedAxes::Only(axes.id())
+            }
+            Some(_) => PickedAxes::Neither,
+        }
+    }
+
     fn handle(&self, id: ArtistId) -> RawHandle {
         RawHandle::new(Rc::clone(self.raw().figure_state()), id)
+    }
+}
+
+/// The axes whose children a pick reaches (matplotlib's `Artist.pick`
+/// picks a child of an axes only when the event's `inaxes` is that axes,
+/// and every child when the event is over no axes).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PickedAxes {
+    /// The event is over no axes.
+    Every,
+    /// The event is over this axes of the figure.
+    Only(ArtistId),
+    /// The event is over an axes of another figure.
+    Neither,
+}
+
+impl PickedAxes {
+    /// Whether the pick reaches the children of `axes`.
+    pub(crate) fn reaches(self, axes: ArtistId) -> bool {
+        match self {
+            Self::Every => true,
+            Self::Only(inaxes) => inaxes == axes,
+            Self::Neither => false,
+        }
     }
 }
 
 /// The pickable artists under `root` (those with a picker, and those
 /// `also` accepts), parents before children, and the pickable axes of each
 /// axes after its children (matplotlib's `Artist.pick` recursion):
-/// children belonging to another axes than `inaxes`, the axes under the
-/// pointer, are skipped with their own children.
+/// children belonging to an axes the pick does not reach are skipped with
+/// their own children.
 fn pickable_artists(
     state: &FigureState,
     root: ArtistId,
-    inaxes: Option<ArtistId>,
+    reached: PickedAxes,
     also: &dyn Fn(ArtistId) -> bool,
 ) -> Vec<Candidate> {
     let layout = LayoutContext::new(state);
@@ -260,11 +296,7 @@ fn pickable_artists(
             children
                 .into_iter()
                 .rev()
-                .filter(|&child| {
-                    inaxes.is_none_or(|inaxes| {
-                        axes_of(layout, child).is_none_or(|axes| axes == inaxes)
-                    })
-                })
+                .filter(|&child| axes_of(layout, child).is_none_or(|axes| reached.reaches(axes)))
                 .map(Candidate::Artist),
         );
     }

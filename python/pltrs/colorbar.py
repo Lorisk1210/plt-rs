@@ -97,6 +97,41 @@ def _leave_unfinished_locator(cax, extend, mappable, cmap, norm):
         cax.set_axes_locator(_UnfinishedColorbarLocator(cax))
 
 
+def _redraw_while_limiting(norm, cax, orientation):
+    """
+    The limits matplotlib's colorbar gives *cax*, the Axes it is made in,
+    while its constructor gives the unscaled *norm* the limits (0, 1): it is
+    connected to its mappable already, so each limit that changes redraws
+    it (``update_normal``, which limits the norm again, nested), and each
+    redraw sets the short axis to (0, 1) and the long one to the norm's
+    limits, through the scales *cax* has then (a log-scaled one warns of
+    a limit of zero).
+    """
+    vertical = orientation == 'vertical'
+    set_long, set_short = ((cax.set_ylim, cax.set_xlim) if vertical
+                           else (cax.set_xlim, cax.set_ylim))
+    inverted = (cax.yaxis if vertical else cax.xaxis).get_inverted()
+    limits = {"vmin": norm.vmin, "vmax": norm.vmax}
+
+    def assign(name, value):
+        if limits[name] != value:
+            limits[name] = value
+            redraw()
+
+    def redraw():
+        if limits["vmin"] is None or limits["vmax"] is None:
+            assign("vmin", 0)
+            assign("vmax", 1)
+        lower, upper = limits["vmin"], limits["vmax"]
+        if inverted:
+            lower, upper = upper, lower
+        set_short(0, 1)
+        set_long(lower, upper)
+
+    assign("vmin", 0)
+    assign("vmax", 1)
+
+
 def _remove_cbar_axes(ax, cbar):
     """
     Replacement remove method for a colorbar's axes, so that the colorbar is
@@ -595,7 +630,7 @@ class Colorbar:
                              else _get_ticklocation_from_orientation(orientation))
         self.set_alpha(alpha)
         spec['alpha'] = None if self.alpha is None else float(self.alpha)
-        self._scale_norm()
+        self._scale_norm(drawn_in=None if cax is None else (cax, orientation))
         if isinstance(parents, list):
             parents = [ax._native for ax in parents]
         elif parents is not None:
@@ -701,7 +736,7 @@ class Colorbar:
         """
         self.alpha = None if isinstance(alpha, np.ndarray) else alpha
 
-    def _scale_norm(self):
+    def _scale_norm(self, drawn_in=None):
         """
         Give the norm the limits the colorbar shows, as matplotlib's
         ``_process_values`` does to the norm the colorbar shares with its
@@ -709,13 +744,19 @@ class Colorbar:
         widened when they coincide. pltrs (Rust) settles on the same limits
         for the copy of the norm it draws; a norm it maps through in
         Python, it autoscales and limits itself, as often as matplotlib's
-        colorbar does.
+        colorbar does. *drawn_in*, ``(cax, orientation)``, is the Axes a
+        colorbar being made is given, which matplotlib's colorbar redraws
+        into as it limits the norm (see `_redraw_while_limiting`).
         """
         if self.values is not None or _colorbar.maps_through_python(self.norm):
             return
         if self.mappable.get_array() is not None:
             self.mappable.autoscale_None()
         if not self.norm.scaled():
+            if drawn_in is not None and getattr(self.norm, "_scale", None) is None:
+                # (A norm of a scale, a logarithm's say, refuses to invert
+                # the limits it is given first, which ends the redraw.)
+                _redraw_while_limiting(self.norm, *drawn_in)
             # If we still aren't scaled after autoscaling, use 0, 1 as default
             self.norm.vmin = 0
             self.norm.vmax = 1

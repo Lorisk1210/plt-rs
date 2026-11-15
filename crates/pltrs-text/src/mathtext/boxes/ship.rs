@@ -13,13 +13,19 @@ pub(crate) struct Shipped {
     pub(crate) rects: Vec<(f64, f64, f64, f64)>,
 }
 
-/// Ships `root` out with its top-left corner at the origin.
-pub(crate) fn ship(root: &List, fonts: &mut Fonts<'_>) -> Result<Shipped, GlyphError> {
+/// Ships `root` out with its top-left corner at `(x, y)` (matplotlib's
+/// `ship(box, xy)`, whose positions add the corner in that order).
+pub(crate) fn ship(
+    root: &List,
+    fonts: &mut Fonts<'_>,
+    (x, y): (f64, f64),
+) -> Result<Shipped, GlyphError> {
     let mut shipper = Shipper {
         fonts,
         cur_h: 0.0,
         cur_v: 0.0,
-        off_v: root.height,
+        off_h: x,
+        off_v: y + root.height,
         phantom: Vec::new(),
         out: Shipped::default(),
     };
@@ -31,6 +37,7 @@ struct Shipper<'a, 'e> {
     fonts: &'a mut Fonts<'e>,
     cur_h: f64,
     cur_v: f64,
+    off_h: f64,
     off_v: f64,
     phantom: Vec<bool>,
     out: Shipped,
@@ -98,7 +105,7 @@ impl Shipper<'_, '_> {
         for node in &list.children {
             match node {
                 Node::Char(c) => {
-                    self.glyph(node, self.cur_h, self.cur_v + self.off_v)?;
+                    self.glyph(node, self.cur_h + self.off_h, self.cur_v + self.off_v)?;
                     self.cur_h += c.width;
                 }
                 Node::Kern { width, .. } => self.cur_h += width,
@@ -125,7 +132,7 @@ impl Shipper<'_, '_> {
                         self.cur_v = base_line + depth;
                         self.rule(
                             node,
-                            self.cur_h,
+                            self.cur_h + self.off_h,
                             self.cur_v + self.off_v,
                             dims.width,
                             height,
@@ -174,7 +181,13 @@ impl Shipper<'_, '_> {
                     let height = dims.height + dims.depth;
                     if height > 0.0 && dims.depth > 0.0 {
                         self.cur_v += height;
-                        self.rule(node, self.cur_h, self.cur_v + self.off_v, width, height);
+                        self.rule(
+                            node,
+                            self.cur_h + self.off_h,
+                            self.cur_v + self.off_v,
+                            width,
+                            height,
+                        );
                     }
                 }
                 Node::Glue { spec, .. } => {

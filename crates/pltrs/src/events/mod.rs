@@ -62,6 +62,7 @@ use crate::transforms::TransformError;
 pub use drag::{DragTarget, Dragger};
 pub use lock::{CursorShape, LockError, LockOwner};
 pub use pick::PickEvent;
+pub(crate) use pick::PickedAxes;
 pub(crate) use registry::CallbackRegistry;
 pub use registry::{CallbacksBlocked, ConnectionId};
 pub use source::EventSource;

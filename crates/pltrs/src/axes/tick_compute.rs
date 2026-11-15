@@ -41,13 +41,13 @@ impl Axis {
         let ticks = self.axes().raw().figure_state().work_on(|state| {
             state.unstale_axes(id);
             let extent = state.axes_bbox(id)?;
-            let tick_space = state.shared_tick_spaces(id)[usize::from(name == AxisName::Y)];
+            let bound = state.bound_axes(id)[usize::from(name == AxisName::Y)];
             let dpi = state.dpi();
             // (Those of a removed axes too, which an `Axes` subclass reads
             // in its constructor, before its figure adds it.)
             let locate = |state: &FigureState| {
                 (state.artist_as::<AxesState>(id))
-                    .map(|axes| axes.level_locs_for(name, &extent, dpi, tick_space, minor))
+                    .map(|axes| axes.level_locs_for(name, &extent, dpi, bound, minor))
             };
             // The locators run with the figure free to read, as the
             // program's may.

@@ -11,7 +11,8 @@ use pltrs_core::Point;
 use pltrs_font::FontSource;
 use pltrs_render::{GlyphBitmap, GlyphShape, render_glyph};
 use pltrs_text::mathtext::{
-    MathGlyph, MathLayout, MathNode, MathRect, accent_map, unicode_index, wide_accents,
+    MathGlyph, MathNode, MathRect, MathStyle, RasterExtents, accent_map, unicode_index,
+    wide_accents,
 };
 use pltrs_text::{GlyphChars, TextEngine, TextSource};
 
@@ -88,15 +89,21 @@ fn parse_raster(
     let rc = pltrs::rc::params();
     let font = props.map_or_else(|| FontProperties::from_rc(&rc), |props| props.0);
     let hinting = font.request(&rc).hinting;
-    let layout = TextEngine::global()
-        .typeset_math(&s, &math_style(&font, dpi, &rc))
-        .map_err(|err| math_error(&err))?;
-    pltrs_text::log_mathtext(&layout.logged);
-    let raster = RasterImage::of(&layout);
-    let mut image = raster.blank();
+    // matplotlib's raster output loads glyphs hinted (`load_glyph_flags`),
+    // and their boxes are those of the hinted glyphs.
+    let style = MathStyle {
+        hinting,
+        ..math_style(&font, dpi, &rc)
+    };
     let engine = TextEngine::global();
+    let raster = engine
+        .typeset_math_raster(&s, &style)
+        .map_err(|err| math_error(&err))?;
+    pltrs_text::log_mathtext(&raster.layout.logged);
+    let image = RasterImage::new(raster.rows, raster.columns);
+    let mut pixels = image.blank();
     let glyph_error = |err: &dyn std::fmt::Display| PyErr::value_error(err.to_string());
-    for glyph in &layout.glyphs {
+    for glyph in &raster.layout.glyphs {
         let (font, id, size) = (glyph.font, glyph.glyph, glyph.size);
         let outline = engine
             .scan_glyph_outline(font, id, size, dpi, hinting, true)
@@ -108,59 +115,32 @@ fn parse_raster(
         };
         let bitmap = render_glyph(&shape, 0.0, Point::ORIGIN).map_err(|err| glyph_error(&err))?;
         if let Some(bitmap) = bitmap {
-            raster.draw_glyph(&mut image, glyph, &bitmap, antialiased);
+            image.draw_glyph(&mut pixels, glyph, &bitmap, antialiased);
         }
     }
-    for rect in &layout.rects {
-        raster.fill_rect(&mut image, rect);
+    for rect in &raster.layout.rects {
+        image.fill_rect(&mut pixels, rect);
     }
-    let shape = vec![raster.rows, raster.columns];
-    Ok((raster.metrics, NdArray::with_shape(image, shape)?))
+    let RasterExtents {
+        width,
+        height,
+        depth,
+    } = raster.extents;
+    let shape = vec![image.rows, image.columns];
+    Ok(((width, height, depth), NdArray::with_shape(pixels, shape)?))
 }
 
-/// The image `Output.to_raster` draws an expression into: its size and
-/// metrics, and the offset of the box in it.
+/// The image `Output.to_raster` draws an expression into, which the
+/// expression is shipped to with its top-left corner at the origin.
 struct RasterImage {
-    /// `(width, height, depth)` as `RasterParse` reports them.
-    metrics: (f64, f64, f64),
     rows: usize,
     columns: usize,
-    /// The left and top edges of the image in the box's coordinates.
-    xmin: f64,
-    ymin: f64,
 }
 
 impl RasterImage {
-    /// The image of `layout`: the ink of its glyphs and rules, and the
-    /// origin, with a one-pixel margin.
-    fn of(layout: &MathLayout) -> Self {
-        let glyph_x = layout
-            .glyphs
-            .iter()
-            .flat_map(|g| [g.x + g.ink.xmin(), g.x + g.ink.xmax()]);
-        let glyph_y = layout
-            .glyphs
-            .iter()
-            .flat_map(|g| [g.y - g.ink.ymax(), g.y - g.ink.ymin()]);
-        let rect_x = layout.rects.iter().flat_map(|r| [r.x, r.x + r.width]);
-        let rect_y = layout.rects.iter().flat_map(|r| [r.y, r.y + r.height]);
-        let bounds = |values: &mut dyn Iterator<Item = f64>| {
-            values.fold((0.0_f64, 0.0_f64), |(lo, hi), v| (lo.min(v), hi.max(v)))
-        };
-        let (xmin, xmax) = bounds(&mut glyph_x.chain(rect_x));
-        let (ymin, ymax) = bounds(&mut glyph_y.chain(rect_y));
-        let (xmin, ymin, xmax, ymax) = (xmin - 1.0, ymin - 1.0, xmax + 1.0, ymax + 1.0);
-        let width = xmax - xmin;
-        let height = ymax - ymin - layout.depth;
-        let depth = ymax - ymin - layout.height;
-        let size = |v: f64| v.ceil().max(0.0) as usize;
-        Self {
-            metrics: (width, height + depth, depth),
-            rows: size(height + depth.max(0.0)),
-            columns: size(width),
-            xmin,
-            ymin,
-        }
+    /// An image of `rows` and `columns`.
+    fn new(rows: usize, columns: usize) -> Self {
+        Self { rows, columns }
     }
 
     /// An all-zero image.
@@ -169,7 +149,8 @@ impl RasterImage {
     }
 
     /// Or-s `bitmap`, the rendering of `glyph`, into `image` with its top
-    /// edge at the glyph's ascent (`draw_glyph_to_bitmap`).
+    /// edge at the glyph's iceberg (`draw_glyph_to_bitmap` at `oy -
+    /// metrics.iceberg`).
     fn draw_glyph(
         &self,
         image: &mut [u8],
@@ -177,8 +158,8 @@ impl RasterImage {
         bitmap: &GlyphBitmap,
         antialiased: bool,
     ) {
-        let left = (glyph.x - self.xmin) as i64 + i64::from(bitmap.left);
-        let top = (glyph.y - self.ymin - glyph.ink.ymax()) as i64;
+        let left = glyph.x as i64 + i64::from(bitmap.left);
+        let top = (glyph.y - glyph.iceberg) as i64;
         let scale = if antialiased { 1 } else { 0xff };
         for (row, line) in bitmap
             .buffer
@@ -196,7 +177,7 @@ impl RasterImage {
     /// Fills `rect` (a rule of the box) as `to_raster` does: at least one
     /// row high, centred on the rule when it is thinner than two pixels.
     fn fill_rect(&self, image: &mut [u8], rect: &MathRect) {
-        let (x, y) = (rect.x - self.xmin, rect.y - self.ymin);
+        let (x, y) = (rect.x, rect.y);
         let height = ((rect.height as i64) - 1).max(0);
         let top = if height == 0 {
             (y + rect.height / 2.0 - 0.5) as i64

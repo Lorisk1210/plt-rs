@@ -4,7 +4,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use pltrs_font::{FontQuery, FontStyle, FontVariant, Stretch, Weight};
+use pltrs_font::{FontQuery, FontStyle, FontVariant, Hinting, Stretch, Weight};
 
 use crate::TextError;
 use crate::engine::FontRequest;
@@ -282,6 +282,11 @@ pub struct MathStyle {
     pub pattern_defaults: PatternDefaults,
     /// Output resolution in dots per inch.
     pub dpi: f64,
+    /// The hinting glyphs are loaded with, which their boxes take: none
+    /// for paths and vector output (matplotlib's `MathTextParser("path")`,
+    /// whose fonts load glyphs with `NO_HINTING`), `text.hinting` for an
+    /// image (`MathTextParser("agg")`, its `load_glyph_flags`).
+    pub hinting: Hinting,
 }
 
 impl Default for MathStyle {
@@ -296,6 +301,7 @@ impl Default for MathStyle {
             font: FontRequest::new(FontQuery::default()),
             pattern_defaults: PatternDefaults::default(),
             dpi: 72.0,
+            hinting: Hinting::None,
         }
     }
 }

@@ -15,6 +15,8 @@ use pltrs_text::PathSink;
 use super::{FaceData, Ft2Font, ft_error};
 use crate::binding::prelude::*;
 
+/// `FT_LOAD_NO_SCALE`: the glyph in font units, unhinted.
+pub(super) const NO_SCALE: u32 = 1;
 /// `FT_LOAD_NO_HINTING`.
 const NO_HINTING: u32 = 1 << 1;
 /// `FT_LOAD_FORCE_AUTOHINT`.
@@ -51,12 +53,37 @@ fn hinting_flag() -> PyResult<u32> {
     Ok(load_flag(pltrs::rc::params().text_hinting.hinting()))
 }
 
+/// The size a glyph is loaded at, which it keeps: `FreeType`'s glyph
+/// holds the outline scaled when it was loaded, whatever size the font
+/// has since.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum LoadSize {
+    /// Unscaled, in font units (`FT_LOAD_NO_SCALE`, or a face with no
+    /// size yet: "undefined scale means no scale").
+    Unscaled,
+    /// At `points` and `dpi` (`set_size`).
+    Scaled { points: f64, dpi: f64 },
+}
+
+impl LoadSize {
+    /// The size glyphs of `face` load at: font units as 26.6 pixels
+    /// (`units_per_EM / 64` points at 72 dpi) when unscaled.
+    pub(super) fn of(self, face: &Face<'_>) -> Size {
+        match self {
+            Self::Unscaled => Size::new(face, f64::from(face.units_per_em()) / 64.0, 72.0),
+            Self::Scaled { points, dpi } => Size::new(face, points, dpi),
+        }
+    }
+}
+
 /// A glyph loaded into the `FT2Font`'s list.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Loaded {
     /// The face: 0 for the font itself, `i` for its fallback `i - 1`.
     pub(super) face: usize,
     pub(super) glyph: GlyphId,
+    /// The size it was loaded at.
+    pub(super) size: LoadSize,
     pub(super) hinting: Hinting,
     /// Where `set_text` placed it (26.6); the origin otherwise.
     pub(super) pen: (i64, i64),
@@ -70,17 +97,18 @@ pub(super) struct Loaded {
 }
 
 impl Loaded {
-    /// A glyph of `face` not drawn yet.
+    /// A glyph of `face` loaded at `size`, not drawn yet.
     pub(super) fn new(
         face: usize,
         glyph: GlyphId,
-        hinting: Hinting,
+        (size, hinting): (LoadSize, Hinting),
         pen: (i64, i64),
         angle: f64,
     ) -> Self {
         Self {
             face,
             glyph,
+            size,
             hinting,
             pen,
             angle,
@@ -287,20 +315,14 @@ fn load(
     glyph: GlyphId,
     flags: u32,
 ) -> PyResult<(Metrics, usize, usize)> {
-    let hinting = font.hinting(flags);
+    let (size, hinting) = font.loading(flags);
     let metrics = {
         let face = font.chain_face(face_index)?;
-        let mut metrics = metrics(
-            font,
-            (face_index, &face),
-            &font.size_of(&face),
-            glyph,
-            hinting,
-        )?;
+        let mut metrics = metrics(font, (face_index, &face), &size.of(&face), glyph, hinting)?;
         metrics.1.1 = font.linear_advance(&face, glyph);
         metrics
     };
-    let loaded = Loaded::new(face_index, glyph, hinting, (0, 0), 0.0);
+    let loaded = Loaded::new(face_index, glyph, (size, hinting), (0, 0), 0.0);
     font.glyphs.loaded.push(loaded);
     font.glyphs.slot = Some(loaded);
     Ok((metrics, font.glyphs.loaded.len() - 1, face_index))
@@ -363,7 +385,7 @@ fn get_path(font: Native<Ft2Font>) -> PyResult<(NdArray, NdArray<u8>)> {
         ));
     };
     let face = font.chain_face(glyph.face)?;
-    let size = font.size_of(&face);
+    let size = glyph.size.of(&face);
     let mut sink = PathSink::default();
     match font.load_hinted(glyph.face, &face, &size, glyph.glyph, glyph.hinting)? {
         Some(hinted) => hinted.outline(&mut sink),

@@ -26,7 +26,7 @@ mod pattern;
 mod style;
 
 pub use boxes::MathNode;
-pub use output::{MathGlyph, MathLayout, MathRect, RasterExtents};
+pub use output::{MathGlyph, MathLayout, MathRect, RasterExtents, RasterMath};
 pub use style::{CustomFonts, Fontset, MathFallback, MathFont, MathStyle, PatternDefaults};
 
 use crate::engine::{FormulaKey, TextEngine};
@@ -82,7 +82,7 @@ impl TextEngine {
     /// parser parses the formula.
     pub fn typeset_math(&self, source: &str, style: &MathStyle) -> Result<MathLayout, TextError> {
         let (layout, logged) = self.parse_math(source, style, |root, fonts| {
-            let shipped = boxes::ship(root, fonts)?;
+            let shipped = boxes::ship(root, fonts, (0.0, 0.0))?;
             Ok(MathLayout::new(
                 root.width,
                 root.height,
@@ -92,6 +92,41 @@ impl TextEngine {
             ))
         })?;
         Ok(MathLayout { logged, ..layout })
+    }
+
+    /// Typesets `source` for an image, as matplotlib's `Output.to_raster`
+    /// does: the box shipped at the origin gives the image's extents, then
+    /// it is shipped again with the image's top-left corner at the origin.
+    /// Logged messages are kept as [`typeset_math`](Self::typeset_math)
+    /// keeps them.
+    ///
+    /// # Errors
+    ///
+    /// As [`typeset_math`](Self::typeset_math).
+    pub fn typeset_math_raster(
+        &self,
+        source: &str,
+        style: &MathStyle,
+    ) -> Result<RasterMath, TextError> {
+        let (raster, logged) = self.parse_math(source, style, |root, fonts| {
+            let typeset =
+                |shipped| MathLayout::new(root.width, root.height, root.depth, shipped, style.dpi);
+            let first = typeset(boxes::ship(root, fonts, (0.0, 0.0))?);
+            let (extents, (rows, columns), corner) = first.raster_image();
+            Ok(RasterMath {
+                extents,
+                rows,
+                columns,
+                layout: typeset(boxes::ship(root, fonts, corner)?),
+            })
+        })?;
+        Ok(RasterMath {
+            layout: MathLayout {
+                logged,
+                ..raster.layout
+            },
+            ..raster
+        })
     }
 
     /// The box tree `source` is typeset into, before it is shipped out

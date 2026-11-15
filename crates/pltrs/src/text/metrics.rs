@@ -88,6 +88,75 @@ pub(crate) fn with_afm_metrics<R>(directory: Option<AfmDirectory>, f: impl FnOnc
     with_mode(&AFM_METRICS, directory, f)
 }
 
+/// How a renderer measures the lines of text it lays out (matplotlib's
+/// `get_text_width_height_descent` of each backend's renderer).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RendererMetrics {
+    /// Agg's, and pltrs (Rust)'s: hinted as `text.hinting` says.
+    #[default]
+    Raster,
+    /// The PDF backend's: unhinted, in the AFM metrics of the PDF core
+    /// fonts while `pdf.use14corefonts` is set.
+    Pdf,
+    /// The PostScript backend's: unhinted, in the AFM metrics of the
+    /// standard PostScript fonts while `ps.useafm` is set.
+    PostScript,
+    /// The SVG backend's: `TextToPath`'s.
+    Svg,
+}
+
+impl RendererMetrics {
+    /// Runs `measure` with the lines it measures measured as the renderer
+    /// measures them.
+    pub fn measuring<R>(self, measure: impl FnOnce() -> R) -> R {
+        match self {
+            Self::Raster => measure(),
+            Self::Pdf | Self::PostScript => {
+                let afm = self.afm_directory(&crate::rc::params());
+                without_hinting(|| with_afm_metrics(afm, measure))
+            }
+            Self::Svg => with_text_path_metrics(measure),
+        }
+    }
+
+    /// Whether the renderer lays text out unhinted.
+    fn unhinted(self) -> bool {
+        matches!(self, Self::Pdf | Self::PostScript)
+    }
+
+    /// The AFM fonts the renderer measures text that is not mathtext with
+    /// under `rc`, if any.
+    fn afm_directory(self, rc: &RcParams) -> Option<AfmDirectory> {
+        match self {
+            Self::Pdf => rc.pdf_use14corefonts.then_some(AfmDirectory::PdfCore),
+            Self::PostScript => rc.ps_useafm.then_some(AfmDirectory::PostScript),
+            Self::Raster | Self::Svg => None,
+        }
+    }
+}
+
+/// How the renderer whose metrics cache is installed on the thread
+/// measures text: the text pltrs (Rust) lays out meanwhile, a whole layout
+/// with the program's renderer, is measured so.
+fn installed_metrics() -> RendererMetrics {
+    super::metrics_cache::installed_metrics()
+}
+
+/// The AFM fonts text that is not mathtext is measured with now, if any:
+/// those [`with_afm_metrics`] asks for, else those of the installed
+/// renderer's metrics.
+fn afm_now() -> Option<AfmDirectory> {
+    AFM_METRICS
+        .get()
+        .or_else(|| installed_metrics().afm_directory(&crate::rc::params()))
+}
+
+/// Whether text is measured as `TextToPath` measures it now (inside
+/// [`with_text_path_metrics`], or with an SVG renderer installed).
+fn text_path_now() -> bool {
+    TEXT_PATH_METRICS.get() || installed_metrics() == RendererMetrics::Svg
+}
+
 /// Runs `f` with every line, TeX lines included, measured by `measure`,
 /// as matplotlib's PGF backend has the TeX system measure the text it
 /// draws (the font's own height metrics still space the lines).
@@ -110,14 +179,14 @@ pub(super) fn measures_afm() -> bool {
 /// The directory of the AFM fonts text that is not mathtext is measured
 /// with, if it is (inside [`with_afm_metrics`]).
 pub(super) fn afm_directory() -> Option<AfmDirectory> {
-    AFM_METRICS.get()
+    afm_now()
 }
 
 /// The hinting text is laid out and rasterized with: `text.hinting` as
 /// matplotlib's Agg backend maps it (`get_hinting_flag`), or none inside
 /// [`without_hinting`].
 pub(crate) fn hinting(rc: &RcParams) -> Hinting {
-    if UNHINTED.get() {
+    if UNHINTED.get() || installed_metrics().unhinted() {
         Hinting::None
     } else {
         rc.text_hinting.hinting()
@@ -136,14 +205,14 @@ pub fn clear_text_caches() {
 /// `run` (laid out at `dpi`) with the width, height and descent the
 /// current measuring mode reports.
 pub(super) fn measured(mut run: TextRun, dpi: f64) -> Result<TextRun, TextError> {
-    if let Some(directory) = AFM_METRICS.get()
+    if let Some(directory) = afm_now()
         && let Some(TextSource::Plain { text, font, .. }) = &run.source
     {
         let line = font.afm_line_metrics(text, directory, dpi)?;
         (run.width, run.height, run.descent) = (line.width, line.height, line.descent);
         return Ok(run);
     }
-    if !TEXT_PATH_METRICS.get() {
+    if !text_path_now() {
         return Ok(run);
     }
     let Some(source) = &run.source else {
@@ -165,7 +234,7 @@ pub(super) fn font_height_metrics(
     font: &FontRequest,
     dpi: f64,
 ) -> Result<FontHeightMetrics, TextError> {
-    match AFM_METRICS.get() {
+    match afm_now() {
         Some(directory) => font.afm_height_metrics(directory, dpi),
         None => TextEngine::global().font_height_metrics(font, dpi),
     }

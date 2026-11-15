@@ -9,7 +9,7 @@ use pltrs_render::ClipPath;
 
 use super::DataLimits;
 use super::aspect::{AspectState, AxesLocatorFn};
-use super::axis::{AxisGeometry, AxisState};
+use super::axis::{AxisGeometry, AxisState, BoundAxis};
 use super::axis_intervals::widened;
 use super::current_image::CurrentImage;
 use super::limits::{AxisAutoscale, autoscale_axis};
@@ -733,9 +733,9 @@ impl AxesState {
         name: AxisName,
         extent: &Bbox,
         dpi: f64,
-        tick_space: Option<TickSpace>,
+        bound: Option<BoundAxis>,
     ) {
-        let geometry = self.axis_geometry(name, extent, dpi, tick_space);
+        let geometry = self.axis_geometry(name, extent, dpi, bound);
         self.axis_mut(name).update_ticks(&geometry);
     }
 
@@ -746,29 +746,33 @@ impl AxesState {
         name: AxisName,
         extent: &Bbox,
         dpi: f64,
-        tick_space: Option<TickSpace>,
+        bound: Option<BoundAxis>,
         minor: bool,
     ) -> Result<Vec<f64>, TickerError> {
         self.axis(name)
-            .level_locs(&self.axis_geometry(name, extent, dpi, tick_space), minor)
+            .level_locs(&self.axis_geometry(name, extent, dpi, bound), minor)
     }
 
     /// What the ticks of axis `name` are computed from for an axes
-    /// `extent` in display pixels at `dpi`.
+    /// `extent` in display pixels at `dpi`, with what its tick helpers read
+    /// from the axis they are `bound` to, if it is another axes'.
     pub(crate) fn axis_geometry(
         &self,
         name: AxisName,
         extent: &Bbox,
         dpi: f64,
-        tick_space: Option<TickSpace>,
+        bound: Option<BoundAxis>,
     ) -> AxisGeometry {
-        let ((lo, hi), minpos) = self.data_interval(name);
+        let (data, minpos) = bound.map_or_else(
+            || self.data_interval(name),
+            |bound| (bound.data, bound.minpos),
+        );
         AxisGeometry {
             view: self.tick_interval(name),
-            data: (lo, hi),
+            data,
             minpos,
             length_points: axis_length_points(extent, dpi, name),
-            tick_space,
+            tick_space: bound.map(|bound| bound.tick_space),
             tick_floor: self.tick_floor(name),
         }
     }

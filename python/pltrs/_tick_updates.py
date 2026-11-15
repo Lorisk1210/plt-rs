@@ -81,12 +81,21 @@ class _Updater:
         levels it shows. The locations, labels and drawn flags of each
         level computed, None for the others. A *quiet* update stands for
         none of matplotlib's (a hidden axis, which matplotlib never ticks),
-        so numpy's warnings are not said."""
+        so numpy's warnings are not said, nor is a failure of the axis'
+        helpers raised (no levels then) but for running out of stack or
+        memory, which ends what recursed into it."""
         axis = self._axis(axes, name)
         if axis is None:
             return None, None
         with _ticking(axis, info), _quietly(quiet):
-            return _update_ticks(axis, info, major, minor)
+            if not quiet:
+                return _update_ticks(axis, info, major, minor)
+            try:
+                return _update_ticks(axis, info, major, minor)
+            except (RecursionError, MemoryError):
+                raise
+            except Exception:
+                return None, None
 
     def inverted(self, axes, name):
         """Whether the axis is inverted, as its class answers (an axis of

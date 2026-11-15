@@ -21,7 +21,8 @@ use pltrs::artist::RawHandle;
 use pltrs::fonts::FontProperties;
 use pltrs::text::{
     FontHeightMetrics, LineKind, LineMeasurer, LineMetrics, METRICS_CACHE_SIZE, MetricsCache,
-    TexError, Text, TextError, TextPainter, set_metrics_cache as install_metrics_cache,
+    RendererMetrics, TexError, Text, TextError, TextPainter,
+    set_metrics_cache as install_metrics_cache,
 };
 
 use super::font_manager::FontProps;
@@ -230,9 +231,22 @@ fn set_painter(paint: Option<Callback>, original: Option<Watched>) -> PyResult<(
 
 native_value!(Rc<MetricsCache>);
 
-/// A new, empty metrics cache for a renderer.
-fn new_metrics_cache() -> PyResult<Rc<MetricsCache>> {
-    Ok(Rc::new(MetricsCache::new()))
+/// A new, empty metrics cache for a renderer measuring as `metrics`
+/// says: `"raster"` (Agg's), `"pdf"`, `"ps"` or `"svg"` (a vector
+/// backend's renderer, see [`RendererMetrics`]).
+fn new_metrics_cache(metrics: String) -> PyResult<Rc<MetricsCache>> {
+    let metrics = match metrics.as_str() {
+        "raster" => RendererMetrics::Raster,
+        "pdf" => RendererMetrics::Pdf,
+        "ps" => RendererMetrics::PostScript,
+        "svg" => RendererMetrics::Svg,
+        other => {
+            return Err(PyErr::value_error(format!(
+                "no renderer measures text as {other:?}"
+            )));
+        }
+    };
+    Ok(Rc::new(MetricsCache::measuring_as(metrics)))
 }
 
 /// Calling a renderer's metrics cache with `(text, prop, ismath, dpi)`:

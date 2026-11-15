@@ -5,10 +5,11 @@
 use super::coords::{Axis3, roll};
 use super::error::Axes3DError;
 use super::math::{
-    Batch, Matrix4, Vec3, add, multiply, ortho_transformation, persp_transformation, scalar_divide,
-    scaled, view_axes, view_transformation, warn_world_transformation, world_transformation,
+    Batch, Matrix4, Vec3, add, multiply, ortho_transformation, persp_transformation, scaled,
+    view_axes, view_transformation, warn_world_transformation, world_transformation,
 };
 use super::scaling::AxisScale;
+use crate::numeric::numpy_arith;
 
 /// Distance of the camera from the centre of the box (matplotlib's
 /// `_dist`).
@@ -268,7 +269,7 @@ impl Camera {
         }
         let aspect = aspect.unwrap_or(DEFAULT_BOX_ASPECT);
         let length = super::math::blas_norm(aspect);
-        let factor = scalar_divide(BOX_SCALE * zoom, length);
+        let factor = numpy_arith::divide(BOX_SCALE * zoom, length);
         self.box_aspect = self.storage_order(multiply(aspect, factor));
         Ok(())
     }

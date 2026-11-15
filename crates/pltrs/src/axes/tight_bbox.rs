@@ -137,8 +137,8 @@ impl FigureState {
         }
         let extent = self.axes_bbox(axes)?;
         let dpi = self.dpi();
-        let shared = self.shared_tick_spaces(axes);
-        self.tick_axes_now(axes, &extent, dpi, shared);
+        let bound = self.bound_axes(axes);
+        self.tick_axes_now(axes, &extent, dpi, bound);
         self.measuring_evaluated(axes, |fig| {
             let state = fig.store.get_as::<AxesState>(axes);
             let measured = state.and_then(|s| AxisPainter::new(axes, s, name).evaluation(true));
@@ -169,6 +169,9 @@ impl FigureState {
         axes: ArtistId,
         for_layout_only: bool,
     ) -> Option<Bbox> {
+        // `get_tightbbox` applies the aspect first, which brings a parasite
+        // back to its own position.
+        self.reset_parasite_position(axes);
         match self.measured_axes_extent(axes) {
             MeasuredExtent::Extent(extent) => return Some(extent),
             MeasuredExtent::Empty => return None,
@@ -290,7 +293,9 @@ impl FigureState {
         }
         let for_layout_only = for_layout_only && parasites_of(&self.store, axes).is_empty();
         // `get_tightbbox` applies the aspect, with the axes' locator when
-        // it calls it, which brings a secondary axis to its host's limits.
+        // it calls it, which brings a secondary axis to its host's limits
+        // and a parasite back to its own position.
+        self.reset_parasite_position(axes);
         if matches!(placement, Placement::Located) {
             self.colorbar_located(axes);
         }
@@ -299,8 +304,8 @@ impl FigureState {
         let in_full = self.program_axes_measured(axes, for_layout_only, extras == Extras::Children);
         let extent = self.axes_bbox(axes)?;
         let dpi = self.dpi();
-        let shared = self.shared_tick_spaces(axes);
-        self.tick_axes_now(axes, &extent, dpi, shared);
+        let bound = self.bound_axes(axes);
+        self.tick_axes_now(axes, &extent, dpi, bound);
         let children = self.store.get_as::<AxesState>(axes)?.children.clone();
         self.update_title_position(axes);
         self.measuring_evaluated(axes, |fig| {
@@ -333,8 +338,7 @@ impl FigureState {
                     .filter(is_finite),
             );
         }
-        // A parasite is measured at its own position, not its host's.
-        boxes.push(self.parasite_own_extent(axes).unwrap_or(extent));
+        boxes.push(extent);
         boxes.extend(state.titles.iter().filter_map(|&title| {
             let text = layout.store().get_as::<TextArtist>(title)?;
             let bbox = text.base().visible.then(|| text.window_extent(&layout))??;

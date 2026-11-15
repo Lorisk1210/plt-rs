@@ -213,9 +213,9 @@ impl FigureState {
             return;
         };
         let dpi = self.dpi();
-        let tick_space = self.shared_tick_spaces(axes)[usize::from(name == AxisName::Y)];
+        let bound = self.bound_axes(axes)[usize::from(name == AxisName::Y)];
         if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
-            state.update_axis_ticks(name, &extent, dpi, tick_space);
+            state.update_axis_ticks(name, &extent, dpi, bound);
         }
     }
 

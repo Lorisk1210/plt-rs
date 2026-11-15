@@ -88,6 +88,24 @@ def _label_texts(fmt, levels):
     return [(float(lev), str(fmt % lev)) for lev in levels]
 
 
+
+def _warn_as_locating(line, labelwidth):
+    """
+    Issue the warnings numpy issues where matplotlib's ``locate_label``
+    measures how straight each block of *line* is (a vertex that is no
+    finite number makes its products and differences invalid); pltrs
+    (Rust) finds the place itself.
+    """
+    ctr_size = len(line)
+    n_blocks = int(np.ceil(ctr_size / labelwidth)) if labelwidth > 1 else 1
+    block_size = ctr_size if n_blocks == 1 else int(labelwidth)
+    xx = np.resize(line[:, 0], (n_blocks, block_size))
+    yy = np.resize(line[:, 1], (n_blocks, block_size))
+    yfirst, ylast = yy[:, :1], yy[:, -1:]
+    xfirst, xlast = xx[:, :1], xx[:, -1:]
+    (yfirst - yy) * (xlast - xfirst) - (xfirst - xx) * (ylast - yfirst)  # noqa: B018
+    np.hypot(xlast - xfirst, ylast - yfirst)
+
 class ContourLabeler:
     """Mixin to provide labelling capability to `.ContourSet`."""
 
@@ -471,9 +489,10 @@ class ContourLabeler:
         if not (_contour_reference.is_line(linecontour)
                 and _contour_reference.is_point(labelwidth)):
             return _contour_reference.locate_label(self, linecontour, labelwidth)
-        x, y, index = _contour.locate_label(
-            self._contour, np.asarray(linecontour, dtype=float).reshape(-1, 2),
-            float(labelwidth))
+        line = np.asarray(linecontour, dtype=float).reshape(-1, 2)
+        if not np.isfinite(line).all():
+            _warn_as_locating(line, float(labelwidth))
+        x, y, index = _contour.locate_label(self._contour, line, float(labelwidth))
         # matplotlib's: points of the line's own array, a numpy index.
         number = np.asarray(linecontour).dtype.type
         return number(x), number(y), np.int64(index)

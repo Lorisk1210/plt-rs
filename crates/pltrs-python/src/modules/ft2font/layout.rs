@@ -4,7 +4,7 @@
 
 use pltrs_font::{Face, FontChain, Hinting, ShapeOptions, TextLayout};
 
-use super::glyphs::{Loaded, TextBox, control_box};
+use super::glyphs::{LoadSize, Loaded, TextBox, control_box};
 use super::{Ft2Font, ft_error};
 use crate::binding::prelude::*;
 
@@ -50,11 +50,9 @@ fn chain_layout(
         .map(|index| font.chain_data(index).autohinter.get())
         .collect();
     let chain = FontChain::new(faces.to_vec()).with_autohinters(analyses);
-    let layout = if font.unscaled() {
-        chain.layout_unscaled(text, options)
-    } else {
-        let (ptsize, dpi) = font.points_and_dpi(&faces[0]);
-        chain.layout(text, ptsize, dpi, options, hinting)
+    let layout = match font.load_size() {
+        LoadSize::Unscaled => chain.layout_unscaled(text, options),
+        LoadSize::Scaled { points, dpi } => chain.layout(text, points, dpi, options, hinting),
     };
     layout.map_err(|err| ft_error("lay out text", &err))
 }
@@ -73,7 +71,7 @@ fn set_text(
     let mut font = font.borrow_mut();
     // matplotlib's layout starts by clearing what the font loaded.
     font.glyphs.clear();
-    let hinting = font.hinting(flags);
+    let (load_size, hinting) = font.loading(flags);
     let options = shape_options(shaping)?;
     let faces = font.chain_faces()?;
     let layout = chain_layout(&font, &faces, &text, &options, hinting)?;
@@ -82,7 +80,7 @@ fn set_text(
     let mut placed = Vec::with_capacity(layout.glyphs.len());
     for glyph in &layout.glyphs {
         let face = &faces[glyph.face];
-        let size = font.size_of(face);
+        let size = load_size.of(face);
         let hinted = font.load_hinted(glyph.face, face, &size, glyph.glyph_id, hinting)?;
         let cbox = control_box(face, &size, glyph.glyph_id, hinted.as_ref())?;
         let pen = (i64::from(glyph.x), i64::from(glyph.y));
@@ -103,7 +101,13 @@ fn set_text(
                 Some((x0, y0, x1, y1)) => (x0.min(x), y0.min(y), x1.max(x), y1.max(y)),
             });
         }
-        placed.push(Loaded::new(glyph.face, glyph.glyph_id, hinting, pen, angle));
+        placed.push(Loaded::new(
+            glyph.face,
+            glyph.glyph_id,
+            (load_size, hinting),
+            pen,
+            angle,
+        ));
     }
     let text = TextBox {
         bbox: bbox.unwrap_or_default(),
@@ -181,7 +185,7 @@ fn layout(
     let font = font.borrow();
     let options = shape_options(shaping)?;
     let faces = font.chain_faces()?;
-    let layout = chain_layout(&font, &faces, &text, &options, font.hinting(flags))?;
+    let layout = chain_layout(&font, &faces, &text, &options, font.loading(flags).1)?;
     let mut clusters: Vec<usize> = layout.glyphs.iter().map(|glyph| glyph.cluster).collect();
     clusters.sort_unstable();
     clusters.dedup();

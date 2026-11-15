@@ -28,6 +28,11 @@ pub struct MathGlyph {
     pub offset: f64,
     /// Ink box relative to the glyph origin, y up, including `offset`.
     pub ink: Bbox,
+    /// The height above the origin the top row of the glyph's bitmap is
+    /// placed at, including `offset` (matplotlib's `metrics.iceberg`,
+    /// `FreeType`'s `horiBearingY`: the ink's top, grid-fitted for a
+    /// hinted glyph).
+    pub iceberg: f64,
 }
 
 /// A filled rectangle of typeset math (fraction bars, radicals, ...), in
@@ -54,6 +59,24 @@ pub struct RasterExtents {
     pub height: f64,
     /// Depth below the baseline.
     pub depth: f64,
+}
+
+/// Math typeset for an image (matplotlib's `Output.to_raster`, which
+/// ships the box twice): the extents the image reports and its size, from
+/// the box shipped at the origin, and the math shipped again with the
+/// image's top-left corner at the origin, whose positions round as that
+/// second shipping adds them up.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RasterMath {
+    /// What `RasterParse` reports.
+    pub extents: RasterExtents,
+    /// The image's rows: its height and the depth below it, if any,
+    /// rounded up.
+    pub rows: usize,
+    /// The image's columns: its width rounded up.
+    pub columns: usize,
+    /// The math placed in the image.
+    pub layout: MathLayout,
 }
 
 /// Math typeset by the TeX box model, before any rounding: the outer box
@@ -99,6 +122,7 @@ impl MathLayout {
                     info.metrics.xmax,
                     info.metrics.ymax,
                 ),
+                iceberg: info.metrics.iceberg,
             })
             .collect();
         let rects = shipped
@@ -158,6 +182,34 @@ impl MathLayout {
     /// The extents matplotlib's raster output (`RasterParse`) reports: the
     /// ink of all glyphs and rules plus a one-pixel margin.
     pub fn raster_extents(&self) -> RasterExtents {
+        let (xmin, ymin, xmax, ymax) = self.raster_box();
+        let height = ymax - ymin - self.depth;
+        let depth = ymax - ymin - self.height;
+        RasterExtents {
+            width: xmax - xmin,
+            height: height + depth,
+            depth,
+        }
+    }
+
+    /// The image `to_raster` draws this math into: its extents and size,
+    /// and the corner it ships the box to again (the negated top-left
+    /// corner of the ink and its margin).
+    pub(crate) fn raster_image(&self) -> (RasterExtents, (usize, usize), (f64, f64)) {
+        let (xmin, ymin, xmax, ymax) = self.raster_box();
+        let height = ymax - ymin - self.depth;
+        let depth = ymax - ymin - self.height;
+        let size = |v: f64| v.ceil().max(0.0) as usize;
+        (
+            self.raster_extents(),
+            (size(height + depth.max(0.0)), size(xmax - xmin)),
+            (-xmin, -ymin),
+        )
+    }
+
+    /// `(xmin, ymin, xmax, ymax)` of the ink of all glyphs and rules and
+    /// the origin, with a one-pixel margin, y downwards.
+    fn raster_box(&self) -> (f64, f64, f64, f64) {
         let glyph_x = self
             .glyphs
             .iter()
@@ -170,14 +222,7 @@ impl MathLayout {
         let rect_y = self.rects.iter().flat_map(|r| [r.y, r.y + r.height]);
         let (xmin, xmax) = bounds(glyph_x.chain(rect_x));
         let (ymin, ymax) = bounds(glyph_y.chain(rect_y));
-        let (xmin, ymin, xmax, ymax) = (xmin - 1.0, ymin - 1.0, xmax + 1.0, ymax + 1.0);
-        let height = ymax - ymin - self.depth;
-        let depth = ymax - ymin - self.height;
-        RasterExtents {
-            width: xmax - xmin,
-            height: height + depth,
-            depth,
-        }
+        (xmin - 1.0, ymin - 1.0, xmax + 1.0, ymax + 1.0)
     }
 }
 

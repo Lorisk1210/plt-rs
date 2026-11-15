@@ -603,7 +603,7 @@ class Tick(Artist):
             # matplotlib's `allow_rasterization` filters the tick's draw.
             _axis.set_tick_agg_filter(
                 *self._gid_args(), None if filter_func is None else
-                functools.partial(_artist_effects.filtered, filter_func))
+                _artist_effects.held_filter(self))
 
     @allow_rasterization
     def draw(self, renderer):

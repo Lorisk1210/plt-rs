@@ -11,6 +11,7 @@ functions of its shape.
 
 import inspect
 import math
+import weakref
 from numbers import Number, Real
 
 import numpy as np
@@ -893,10 +894,16 @@ class Rectangle(Patch):
 
     def get_path(self):
         """Return the vertices of the rectangle."""
+        # The path may outlive the rectangle (the unit rectangle is shared
+        # by the class), so it refers to it weakly.
+        rectangle = weakref.ref(self)
+
         def steps():
             shared = _patches.get_shared_rectangle_steps()
-            return (_patches.get_interpolation_steps(self._native)
-                    if shared is None else shared)
+            if shared is not None:
+                return shared
+            alive = rectangle()
+            return 1 if alive is None else _patches.get_interpolation_steps(alive._native)
         vertices, codes = _patches.get_path(self._native)
         unit = Path.unit_rectangle()
         if (np.array_equal(vertices, unit.vertices)

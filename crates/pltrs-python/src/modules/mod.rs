@@ -30,6 +30,7 @@ mod axisartist;
 mod backends;
 mod bezier;
 mod c_internal_utils;
+mod caches;
 mod cbook;
 mod cm;
 mod collections;
@@ -37,6 +38,7 @@ mod colorbar;
 mod colors;
 mod contour;
 mod dates;
+mod diagnostics;
 mod drawing;
 mod dviread;
 mod figure;
@@ -159,6 +161,8 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     warnings::register(&module.submodule("warnings")?)?;
     web::register(&module.submodule("web")?)?;
     type1font::register(&module.submodule("type1font")?)?;
+    diagnostics::register(&module.submodule("diagnostics")?)?;
+    caches::register(&module.submodule("caches")?)?;
     Ok(())
 }
 

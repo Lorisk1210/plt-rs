@@ -37,18 +37,78 @@ pub(crate) struct FigureCell {
     watched: RefCell<Option<WeakFigure>>,
     /// Whether the figure is among the changed figures not yet taken.
     queued: Cell<bool>,
+    /// How many handles reach each artist, by the index of its id: a
+    /// removed artist no handle reaches is unreachable, and is let go
+    /// ([`release_unheld`](Self::release_unheld)).
+    handles: RefCell<Vec<u32>>,
+}
+
+/// Counted while alive (see [`crate::diagnostics`]).
+impl Drop for FigureCell {
+    fn drop(&mut self) {
+        crate::diagnostics::count_figure_state(false);
+    }
 }
 
 impl FigureCell {
     /// The cell of `state`.
     pub(crate) fn new(state: FigureState) -> Self {
+        crate::diagnostics::count_figure_state(true);
         Self {
             state: RefCell::new(state),
             lending: Cell::new(Lending::Home),
             paintings: Cell::new(0),
             watched: RefCell::new(None),
             queued: Cell::new(false),
+            handles: RefCell::new(Vec::new()),
         }
+    }
+
+    /// Counts a handle of artist `id` made (`made`) or dropped.
+    pub(crate) fn count_handle(&self, id: ArtistId, made: bool) {
+        let mut handles = self.handles.borrow_mut();
+        let index = id.index() as usize;
+        if index >= handles.len() {
+            handles.resize(index + 1, 0);
+        }
+        if made {
+            handles[index] += 1;
+        } else {
+            handles[index] -= 1;
+        }
+    }
+
+    /// Whether some handle reaches artist `id`.
+    fn is_held(&self, id: ArtistId) -> bool {
+        self.handles
+            .borrow()
+            .get(id.index() as usize)
+            .is_some_and(|&count| count > 0)
+    }
+
+    /// Lets go of the removed artists no handle reaches, with the artists
+    /// they own, and of the titles axes had before a clear that no handle
+    /// reaches (with their draw counts and limit callbacks), unless the
+    /// figure is in use: nothing can reach them any more (matplotlib's
+    /// removed artists go once Python forgets them).
+    /// Figures run it before they draw, so that a figure updated in place
+    /// for as long as a program runs (an animation clearing its Axes,
+    /// a window redrawn) keeps no more than what it shows.
+    pub(crate) fn release_unheld(&self) {
+        let released = match self.try_rearrange() {
+            Some(mut state) => {
+                // The former titles first: those of a removed axes let go
+                // below would be no axes' any more.
+                let mut released = state.release_former_titles(|id| self.is_held(id));
+                released.extend(state.detached.release_unheld(|id| self.is_held(id)));
+                let ids: Vec<ArtistId> = released.iter().map(|&(id, _)| id).collect();
+                state.fresh.forget(ids.iter().copied());
+                (released, state.limit_callbacks.forget(&ids))
+            }
+            None => return,
+        };
+        // Dropped once the state is free: what they hold may hold handles.
+        drop(released);
     }
 
     /// Read access to the state (as [`RefCell::borrow`]); a state that
@@ -266,6 +326,41 @@ mod tests {
         drop(fig.state_cell().borrow_mut());
         drop(fig);
         assert_eq!(take_changed_figures().len(), 0, "dropped");
+    }
+
+    #[test]
+    fn removed_artists_go_before_a_draw_once_no_handle_reaches_them() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let kept = ax.plot([0.0, 1.0], [1.0, 0.0]).expect("a line");
+        let dropped = ax.plot([0.0, 1.0], [0.0, 1.0]).expect("a line");
+        let (kept_id, dropped_id) = (kept.raw().id(), dropped.raw().id());
+        kept.remove();
+        dropped.remove();
+        drop(dropped);
+        let detached = |id| fig.state_cell().borrow().detached.contains(id);
+        assert!(detached(kept_id) && detached(dropped_id));
+        fig.canvas().draw().expect("drawn");
+        assert!(detached(kept_id), "a handle reaches it");
+        assert!(!detached(dropped_id), "let go");
+        assert!(!kept.raw().is_attached());
+    }
+
+    #[test]
+    fn a_removed_tree_stays_while_a_handle_reaches_any_of_its_artists() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let line = ax.plot([0.0, 1.0], [1.0, 0.0]).expect("a line");
+        let ax_id = ax.raw().id();
+        ax.remove();
+        drop(ax);
+        fig.canvas().draw().expect("drawn");
+        let detached = |id| fig.state_cell().borrow().detached.contains(id);
+        assert!(detached(ax_id), "the line holds its Axes");
+        assert_eq!(line.raw().removed_roots(&[line.raw().id()]), [Some(ax_id)]);
+        drop(line);
+        fig.canvas().draw().expect("drawn");
+        assert!(!detached(ax_id));
     }
 
     #[test]

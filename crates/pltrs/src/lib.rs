@@ -141,6 +141,7 @@ pub mod container;
 pub mod contour;
 pub mod coords;
 pub mod dates;
+pub mod diagnostics;
 pub mod events;
 pub mod figure;
 pub mod fonts;

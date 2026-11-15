@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use super::axis::Tickers;
 use super::{Axes, AxesState, AxisName, ProjectionKind, TitlePlacement};
-use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, KeptArtist};
 use crate::axes_grid1::parasites_of;
 use crate::figure::{FigureState, TITLE_PLACES, axes_title};
 use crate::rc::RcParams;
@@ -147,6 +147,38 @@ impl FigureState {
         }
         self.stale = true;
         self.layout.pending = true;
+    }
+
+    /// Takes out the former titles of every axes, removed or not, that
+    /// `held` says no handle reaches, for the caller to drop: matplotlib's
+    /// clear leaves its old title texts to whoever holds them, and an
+    /// axes cleared for every frame of an animation would keep three more
+    /// for every frame.
+    pub(crate) fn release_former_titles(
+        &mut self,
+        held: impl Fn(ArtistId) -> bool,
+    ) -> Vec<(ArtistId, KeptArtist)> {
+        let axes: Vec<ArtistId> = (self.store.ids().chain(self.detached.ids()))
+            .filter(|&id| {
+                self.artist_as::<AxesState>(id)
+                    .is_some_and(|state| !state.former_titles.is_empty())
+            })
+            .collect();
+        let mut released = Vec::new();
+        for id in axes {
+            let Some(state) = self.artist_as_mut::<AxesState>(id) else {
+                continue;
+            };
+            let (kept, gone): (Vec<ArtistId>, Vec<ArtistId>) =
+                state.former_titles.iter().partition(|&&title| held(title));
+            state.former_titles = kept;
+            for title in gone {
+                if let Some(artist) = self.store.take(title).or_else(|| self.detached.take(title)) {
+                    released.push((title, artist));
+                }
+            }
+        }
+        released
     }
 
     /// Gives the cleared axes `id` the first `count` of its titles anew,

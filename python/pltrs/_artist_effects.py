@@ -21,6 +21,7 @@ import contextlib
 import functools
 import weakref
 
+from . import _program_classes
 from ._native import artist as _artist
 from ._native import patheffects as _patheffects
 
@@ -40,7 +41,8 @@ class EffectsMixin:
         if self._kept_only:
             return
         # None draws as no effect, as an empty list does in matplotlib.
-        _patheffects.set_path_effects(self._native, _effect_specs(path_effects))
+        _patheffects.set_path_effects(self._native,
+                                      _effect_specs(path_effects, self._figure or self))
 
     def get_path_effects(self):
         if "_path_effects" in self.__dict__:
@@ -66,7 +68,7 @@ class EffectsMixin:
         self._agg_filter = filter_func
         _artist.set_agg_filter(
             self._native, None if filter_func is None or not _draws_filtered(self)
-            else functools.partial(filtered, filter_func, artist=weakref.ref(self)))
+            else held_filter(self, notes_failure=True))
 
     def get_agg_filter(self):
         """Return filter function to be used for agg filter."""
@@ -98,19 +100,24 @@ class _Iterated:
             effect.draw_path(renderer, gc, tpath, affine, rgbFace)
 
 
-def _effect_specs(path_effects):
+def _effect_specs(path_effects, figure=None):
     """What pltrs (Rust) draws *path_effects* with: each effect's own
     description, the effect itself (drawn through its ``draw_path``) for
-    any other object, and, for a value that is no list, one effect
-    iterating it when drawing."""
+    any other object, held for *figure* (`._program_classes.held`), and,
+    for a value that is no list, one effect iterating it when drawing."""
     if not path_effects:
         return []
     try:
         effects = list(path_effects)
     except TypeError:
-        return [("python", _Iterated(path_effects))]
-    return [effect._native_spec() if hasattr(effect, "_native_spec") else ("python", effect)
-            for effect in effects]
+        effects = [_Iterated(path_effects)]
+    specs = []
+    for effect in effects:
+        spec = effect._native_spec() if hasattr(effect, "_native_spec") else ("python", effect)
+        if spec[0] == "python":
+            spec = ("python", _program_classes.held(spec[1], figure))
+        specs.append(spec)
+    return specs
 
 
 @contextlib.contextmanager
@@ -133,6 +140,24 @@ def filter_applied(artist):
     """Whether a ``draw`` running now filters what *artist* draws, which
     pltrs (Rust) then draws without its own filter (`applying_filter`)."""
     return artist.__dict__.get("_filter_applied", 0) > 0
+
+
+def held_filter(artist, notes_failure=False):
+    """What pltrs (Rust) calls for the agg filter of *artist*: the filter
+    *artist* holds (``_agg_filter``), reached through a weak reference, so
+    that pltrs (Rust) keeps neither the filter nor what it refers to alive
+    (a filter whose code reaches the figure would keep the figure, past
+    what Python's collector sees). A failing filter is noted on *artist*
+    if *notes_failure* (see `filtered`)."""
+    return functools.partial(_filtered_by, weakref.ref(artist), notes_failure)
+
+
+def _filtered_by(reference, notes_failure, image, dpi):
+    artist = reference()
+    if artist is None:
+        return image, 0, 0
+    return filtered(artist.__dict__.get("_agg_filter"), image, dpi,
+                    artist=reference if notes_failure else None)
 
 
 def filtered(filter_func, image, dpi, *, artist=None):

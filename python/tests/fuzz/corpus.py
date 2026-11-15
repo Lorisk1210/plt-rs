@@ -42,9 +42,9 @@ STRESS = [
 
 
 def load(directory):
-    """The differential tester's programs, written into *directory*
-    (once, with the reference venv) and read from there; none without
-    the reference venv. They are written aside and moved in place once
+    """The differential tester's programs by family (lists of programs),
+    written into *directory* (once, with the reference venv) and read
+    from there; none without the reference venv. They are written aside and moved in place once
     all are, so that a generation that failed is made again."""
     corpus = directory / "corpus"
     if not corpus.is_dir():
@@ -54,7 +54,19 @@ def load(directory):
         subprocess.run([str(REFERENCE_PYTHON), str(ROOT / "spec" / "diff" / "generate.py"),
                         str(written)], cwd=directory, check=True, capture_output=True)
         written.rename(corpus)
-    return [path.read_text(encoding="utf-8") for path in sorted(corpus.rglob("*.py"))]
+    families = {}
+    for path in sorted(corpus.rglob("*.py")):
+        families.setdefault(path.parent.name, []).append(path.read_text(encoding="utf-8"))
+    return list(families.values())
+
+
+def chosen(families, number):
+    """Program *number* of the corpus' *families* (lists of programs): the
+    families in turn, so that every family is reached at any scale (the
+    overrides, reentry and pickling programs as much as the first
+    family's)."""
+    family = families[number % len(families)]
+    return family[(number // len(families)) % len(family)]
 
 
 def _to_pltrs(statement):

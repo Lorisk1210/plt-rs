@@ -75,6 +75,15 @@ impl FreshArtists {
     pub(crate) fn draw_count(&self, id: ArtistId) -> u64 {
         (self.draws.borrow().get(&id)).map_or(0, |draws| draws.count)
     }
+
+    /// Forgets the artists `ids`, gone from the figure for good.
+    pub(crate) fn forget(&mut self, ids: impl IntoIterator<Item = ArtistId>) {
+        let (fresh, draws) = (self.fresh.get_mut(), self.draws.get_mut());
+        for id in ids {
+            fresh.remove(&id);
+            draws.remove(&id);
+        }
+    }
 }
 
 impl FigureState {

@@ -14,13 +14,14 @@ ax.transData``). A transform pltrs (Rust) has that no Python object stands
 for (a map of a projection's) comes back as a `LiveTransform`.
 """
 
-import functools
 import weakref
 
 import numpy as np
 
 from . import _lazy_imports
 from ._native import artist as _artist, register as _register, transforms as _transforms
+from . import _program_classes
+from ._program_classes import class_cache
 from .transforms import (
     Affine2D, Affine2DBase, AffineDeltaTransform, BlendedAffine2D,
     BlendedGenericTransform, CompositeAffine2D, CompositeGenericTransform,
@@ -86,10 +87,13 @@ class LiveTransform(Transform):
         return self
 
 
-def to_native(transform):
+def to_native(transform, held_by=None):
     """The native transform of the matplotlib transform *transform* (None:
-    display coordinates)."""
-    return _transforms.native(_description(transform))
+    display coordinates). With *held_by*, the root figure of the artist
+    given *transform* (or the artist, in no figure yet), pltrs (Rust) holds
+    the transforms of the program's in it weakly, *held_by* strongly (see
+    `._program_classes.held`)."""
+    return _transforms.native(_description(transform, held=held_by))
 
 
 def given_to_native(transform, axes=None):
@@ -159,7 +163,7 @@ def follow_given(artist):
         # (The tree of a transform is made once.)
         computes = given.__dict__["_computes_matrix"] = _computes_matrix(given)
     if computes:
-        _transforms.set_transform(artist._native, to_native(given))
+        _transforms.set_transform(artist._native, to_native(given, held_by=artist._figure or artist))
 
 
 class _GivenWatcher(TransformNode):
@@ -212,39 +216,42 @@ def _takes_matrices(description):
                and _takes_matrices(part) for part in parts)
 
 
-def _description(t, by_matrix=False):
+def _description(t, by_matrix=False, held=None):
     """The nested tuples describing *t* to pltrs (Rust); *by_matrix* for a
     part of a composition matplotlib maps through its matrix
-    (``get_matrix``), whatever methods its class gives for points."""
+    (``get_matrix``), whatever methods its class gives for points; *held*
+    the figure holding the program's transforms (`to_native`'s
+    *held_by*)."""
     live = getattr(t, "_live", None)
     if live is not None:  # A transform pltrs (Rust) has.
         return ("native", live)
     if t is None or isinstance(t, IdentityTransform):
         return ("display",)
     if isinstance(t, TransformWrapper):
-        return _description(t._child, by_matrix)
+        return _description(t._child, by_matrix, held)
     if isinstance(t, (CompositeGenericTransform, CompositeAffine2D)):
         # matplotlib maps points through the first part's methods only
         # where a non-affine second part follows it; an affine part
         # otherwise goes into the composition's matrix.
         first_by_matrix = by_matrix or isinstance(t, CompositeAffine2D) or (
             _maps_points_itself(type(t._a)) and t._b.is_affine)
-        return ("composite", _description(t._a, first_by_matrix), _description(t._b, True))
+        return ("composite", _description(t._a, first_by_matrix, held),
+                _description(t._b, True, held))
     if isinstance(t, (BlendedGenericTransform, BlendedAffine2D)):
-        return ("blended", _description(t._x, True), _description(t._y, True))
+        return ("blended", _description(t._x, True, held), _description(t._y, True, held))
     if isinstance(t, ScaledTranslation):
         dx, dy = t._t
         return ("translation", float(dx), float(dy),
-                _description(t._scale_trans, True))
+                _description(t._scale_trans, True, held))
     if isinstance(t, AffineDeltaTransform):
-        return ("affine_delta", _description(t._base_transform, by_matrix))
+        return ("affine_delta", _description(t._base_transform, by_matrix, held))
     if (isinstance(t, Affine2DBase) or t.is_affine) and (
             by_matrix or not _maps_points_itself(type(t))):
         return ("affine", np.asarray(t.get_matrix(), dtype=float))
-    return ("python", _ProgramMap(t))
+    return ("python", _ProgramMap(_program_classes.held(t, held)))
 
 
-@functools.cache
+@class_cache
 def _maps_points_itself(cls):
     """Whether the affine class *cls* maps points through a method of the
     program's (``transform_affine``, ``transform``, ``transform_point``),
@@ -273,11 +280,17 @@ class _ProgramMap:
     _answers_alike = True
 
     def __init__(self, transform):
-        self._transform = transform
+        #: The transform, or what pltrs holds for it
+        #: (`._program_classes.held`).
+        self._held = transform
         self._cached = None
 
+    @property
+    def _transform(self):
+        return _program_classes.unheld(self._held)
+
     def __getstate__(self):
-        return {"_transform": self._transform, "_cached": None}
+        return {"_held": self._transform, "_cached": None}
 
     def transform(self, values):
         """*values*, a point or an ``(N, 2)`` array of points, through the
@@ -303,7 +316,7 @@ class _ProgramMap:
 
     def inverted(self):
         """The way back through the transform (`_InverseMap`)."""
-        return _InverseMap(self._transform)
+        return _InverseMap(self._held)
 
     def transform_path(self, vertices, codes, steps=1):
         """The `.Path` of *vertices* and *codes* (with *steps*
@@ -325,7 +338,11 @@ class _ProgramMap:
         key = (vertices.tobytes(), None if codes is None else codes.tobytes(), steps)
         if self._cached is None or self._cached[0] != key:
             path = Path(vertices, codes, _interpolation_steps=steps)
-            self._cached = (key, TransformedPath(path, self._transform))
+            transform = self._transform
+            if self._held is not transform:
+                # (Kept as weakly as the map keeps the transform.)
+                transform = weakref.proxy(transform)
+            self._cached = (key, TransformedPath(path, transform))
         return self._cached[1].get_fully_transformed_path()
 
     def transform_outline(self, vertices, codes, steps=1):
@@ -351,9 +368,14 @@ class _InverseMap:
     """
 
     def __init__(self, transform):
-        self._forward = transform
+        #: The transform, or what pltrs holds for it (`._program_classes.held`).
+        self._held = transform
         #: The map through the inverse once asked for; False without one.
         self._back = None
+
+    @property
+    def _forward(self):
+        return _program_classes.unheld(self._held)
 
     def transform(self, values):
         """*values*, a point or an ``(N, 2)`` array of points, back through

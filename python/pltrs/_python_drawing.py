@@ -44,7 +44,7 @@ import numpy as np
 from . import _live_transforms, _transform_trees, transforms as mtransforms
 from ._native import drawing as _drawing, register as _register
 from ._native import transforms as _transforms
-from ._program_classes import takes_from_program
+from ._program_classes import class_cache, takes_from_program
 from .path import Path
 
 
@@ -143,7 +143,7 @@ def attach(artist, again=False):
         _drawing.set_painter(artist._native, None, False, False)
 
 
-@functools.cache
+@class_cache
 def _draws_from_program(cls):
     """Whether the class *cls* takes ``draw``, or one of the attributes its
     package class computes for matplotlib's ``draw`` (``_computed``), from
@@ -153,7 +153,7 @@ def _draws_from_program(cls):
                for name in ("draw", *getattr(cls, "_computed", ())))
 
 
-@functools.cache
+@class_cache
 def _measures(cls):
     """Whether the class *cls* measures its artists itself (its
     ``get_window_extent`` or ``get_tightbbox`` is the program's; kept per
@@ -374,7 +374,7 @@ def evaluate_given_transform(artist):
             with np.errstate(all="ignore"):
                 artist.get_transform()
             return
-        _transforms.set_transform(artist._native, _live_transforms.to_native(given))
+        _transforms.set_transform(artist._native, _live_transforms.to_native(given, held_by=artist._figure or artist))
 
 
 def effect_draw_path(effect, target, gc_spec, geometry):
@@ -386,6 +386,8 @@ def effect_draw_path(effect, target, gc_spec, geometry):
     rgbFace)``: the path, the affine transform into display pixels and the
     fill."""
     from .backends._native_drawing import gc_from_native, native_gc
+    from ._program_classes import unheld
+    effect = unheld(effect)
     (vertices, codes), matrix, rgbFace = geometry
     renderer = _renderer_for(target, None)
     with _figure_drawn(), _recording(renderer, target[5]) as drawing:

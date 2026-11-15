@@ -9,8 +9,8 @@ aliases and validation, and its keyword handling.
 from collections.abc import Sequence
 import contextlib
 import datetime
-import functools
 import errno
+import functools  # noqa: F401  (a name of matplotlib's module)
 from numbers import Real
 import os
 import sys
@@ -49,7 +49,7 @@ _INIT_PROPERTIES = (
 _INIT_ATTRIBUTES = ("multialignment", "transform_rotates_text")
 
 
-@functools.cache
+@_program_classes.class_cache
 def _overridden_setters(cls):
     """The properties among the text and the explicit keywords of `Text`
     whose setter the class *cls* takes from the program."""

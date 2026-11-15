@@ -372,10 +372,27 @@ impl FigureState {
         auto: Option<bool>,
         emit: bool,
     ) {
-        let Some(state) = self.axes_state_mut(axes) else {
+        // (Of the figure or removed from it, as `axes_state_mut` finds it.)
+        let Some(state) = self.artist_as::<AxesState>(axes) else {
             return;
         };
-        let limits = state.validated_limits(name, v0, v1);
+        let limits = if state.axis(name).major_locator.calls_program() {
+            // The program's locator widens singular limits with the figure
+            // lent (matplotlib's `_set_lim` calls its `nonsingular`, which
+            // may read and change the figure); the axes is held apart
+            // from the figure meanwhile.
+            let held = self.store.shared_as::<AxesState>(axes);
+            held.and_then(|held| self.lend(|_| held.validated_limits(name, v0, v1)))
+                .or_else(|| {
+                    (self.artist_as::<AxesState>(axes))
+                        .map(|state| state.validated_limits(name, v0, v1))
+                })
+        } else {
+            Some(state.validated_limits(name, v0, v1))
+        };
+        let (Some(limits), Some(state)) = (limits, self.axes_state_mut(axes)) else {
+            return;
+        };
         state.set_view_interval(name, limits);
         if let Some(auto) = auto {
             state.axis_mut(name).autoscale.enabled = auto;

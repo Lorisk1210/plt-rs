@@ -14,9 +14,8 @@ use crate::figure::{FigureCell, FigureState};
 /// [`ArtistHandle`](super::ArtistHandle). A handle stays usable after its
 /// artist is removed from the figure
 /// ([`ArtistHandle::remove`](super::ArtistHandle::remove)): the figure
-/// keeps removed artists, apart from what it draws, for as long as it
-/// lives.
-#[derive(Clone)]
+/// keeps removed artists, apart from what it draws, for as long as a
+/// handle reaches them, letting them go before a draw once none does.
 pub struct RawHandle {
     figure: Rc<FigureCell>,
     id: ArtistId,
@@ -38,8 +37,23 @@ impl PartialEq for RawHandle {
 
 impl Eq for RawHandle {}
 
+/// Counted by the figure, which keeps a removed artist only while some
+/// handle reaches it.
+impl Clone for RawHandle {
+    fn clone(&self) -> Self {
+        Self::new(Rc::clone(&self.figure), self.id)
+    }
+}
+
+impl Drop for RawHandle {
+    fn drop(&mut self) {
+        self.figure.count_handle(self.id, false);
+    }
+}
+
 impl RawHandle {
     pub(crate) fn new(figure: Rc<FigureCell>, id: ArtistId) -> Self {
+        figure.count_handle(id, true);
         Self { figure, id }
     }
 

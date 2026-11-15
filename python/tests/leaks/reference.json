@@ -1,0 +1,1592 @@
+{
+ "3d_bar3d": {
+  "alive": {},
+  "kept": false,
+  "scene": "3d_bar3d"
+ },
+ "3d_contour": {
+  "alive": {},
+  "kept": false,
+  "scene": "3d_contour"
+ },
+ "3d_errorbar": {
+  "alive": {},
+  "kept": false,
+  "scene": "3d_errorbar"
+ },
+ "3d_fill_between": {
+  "alive": {},
+  "kept": false,
+  "scene": "3d_fill_between"
+ },
+ "3d_plot": {
+  "alive": {},
+  "kept": false,
+  "scene": "3d_plot"
+ },
+ "3d_quiver": {
+  "alive": {},
+  "kept": false,
+  "scene": "3d_quiver"
+ },
+ "3d_scatter": {
+  "alive": {},
+  "kept": false,
+  "scene": "3d_scatter"
+ },
+ "3d_stem": {
+  "alive": {},
+  "kept": false,
+  "scene": "3d_stem"
+ },
+ "3d_surface": {
+  "alive": {},
+  "kept": false,
+  "scene": "3d_surface"
+ },
+ "3d_text": {
+  "alive": {},
+  "kept": false,
+  "scene": "3d_text"
+ },
+ "3d_trisurf": {
+  "alive": {},
+  "kept": false,
+  "scene": "3d_trisurf"
+ },
+ "3d_voxels": {
+  "alive": {},
+  "kept": false,
+  "scene": "3d_voxels"
+ },
+ "3d_wireframe": {
+  "alive": {},
+  "kept": false,
+  "scene": "3d_wireframe"
+ },
+ "acorr": {
+  "alive": {},
+  "kept": false,
+  "scene": "acorr"
+ },
+ "agg_filter_lambda": {
+  "alive": {},
+  "kept": false,
+  "scene": "agg_filter_lambda"
+ },
+ "aitoff": {
+  "alive": {},
+  "kept": false,
+  "scene": "aitoff"
+ },
+ "animation_artists": {
+  "alive": {},
+  "kept": false,
+  "scene": "animation_artists"
+ },
+ "animation_func": {
+  "alive": {},
+  "kept": false,
+  "scene": "animation_func"
+ },
+ "animation_saved_pillow": {
+  "alive": {},
+  "kept": false,
+  "scene": "animation_saved_pillow"
+ },
+ "annotation_arrows": {
+  "alive": {},
+  "kept": false,
+  "scene": "annotation_arrows"
+ },
+ "assigned_attributes": {
+  "alive": {},
+  "kept": false,
+  "scene": "assigned_attributes"
+ },
+ "axes_callbacks": {
+  "alive": {},
+  "kept": false,
+  "scene": "axes_callbacks"
+ },
+ "axes_grid1": {
+  "alive": {},
+  "kept": false,
+  "scene": "axes_grid1"
+ },
+ "axes_locator_lambda": {
+  "alive": {},
+  "kept": false,
+  "scene": "axes_locator_lambda"
+ },
+ "axes_removed": {
+  "alive": {},
+  "kept": false,
+  "scene": "axes_removed"
+ },
+ "axisartist": {
+  "alive": {},
+  "kept": false,
+  "scene": "axisartist"
+ },
+ "bar": {
+  "alive": {},
+  "kept": false,
+  "scene": "bar"
+ },
+ "bar_label": {
+  "alive": {},
+  "kept": false,
+  "scene": "bar_label"
+ },
+ "barbs": {
+  "alive": {},
+  "kept": false,
+  "scene": "barbs"
+ },
+ "barh": {
+  "alive": {},
+  "kept": false,
+  "scene": "barh"
+ },
+ "boxplot": {
+  "alive": {},
+  "kept": false,
+  "scene": "boxplot"
+ },
+ "broken_barh": {
+  "alive": {},
+  "kept": false,
+  "scene": "broken_barh"
+ },
+ "canvas_swapped": {
+  "alive": {},
+  "kept": false,
+  "scene": "canvas_swapped"
+ },
+ "cla": {
+  "alive": {},
+  "kept": false,
+  "scene": "cla"
+ },
+ "clf": {
+  "alive": {},
+  "kept": false,
+  "scene": "clf"
+ },
+ "closed_by_figure": {
+  "alive": {},
+  "kept": false,
+  "scene": "closed_by_figure"
+ },
+ "closed_by_number": {
+  "alive": {},
+  "kept": false,
+  "scene": "closed_by_number"
+ },
+ "colorbar": {
+  "alive": {},
+  "kept": false,
+  "scene": "colorbar"
+ },
+ "colorbar_mappable": {
+  "alive": {},
+  "kept": false,
+  "scene": "colorbar_mappable"
+ },
+ "colorbar_removed": {
+  "alive": {},
+  "kept": false,
+  "scene": "colorbar_removed"
+ },
+ "contour": {
+  "alive": {},
+  "kept": false,
+  "scene": "contour"
+ },
+ "contourf": {
+  "alive": {},
+  "kept": false,
+  "scene": "contourf"
+ },
+ "deepcopied": {
+  "alive": {},
+  "kept": false,
+  "scene": "deepcopied"
+ },
+ "ecdf": {
+  "alive": {},
+  "kept": false,
+  "scene": "ecdf"
+ },
+ "errorbar": {
+  "alive": {},
+  "kept": false,
+  "scene": "errorbar"
+ },
+ "eventplot": {
+  "alive": {},
+  "kept": false,
+  "scene": "eventplot"
+ },
+ "events_bound_method": {
+  "alive": {},
+  "kept": false,
+  "scene": "events_bound_method"
+ },
+ "events_lambda": {
+  "alive": {},
+  "kept": false,
+  "scene": "events_lambda"
+ },
+ "figure_legend": {
+  "alive": {},
+  "kept": false,
+  "scene": "figure_legend"
+ },
+ "figure_without_pyplot": {
+  "alive": {},
+  "kept": false,
+  "scene": "figure_without_pyplot"
+ },
+ "figure_without_pyplot_or_canvas": {
+  "alive": {},
+  "kept": false,
+  "scene": "figure_without_pyplot_or_canvas"
+ },
+ "fill": {
+  "alive": {},
+  "kept": false,
+  "scene": "fill"
+ },
+ "fill_between": {
+  "alive": {},
+  "kept": false,
+  "scene": "fill_between"
+ },
+ "formatter_referring_figure": {
+  "alive": {},
+  "kept": false,
+  "scene": "formatter_referring_figure"
+ },
+ "funcformatter_locator": {
+  "alive": {},
+  "kept": false,
+  "scene": "funcformatter_locator"
+ },
+ "gcf_gca": {
+  "alive": {},
+  "kept": false,
+  "scene": "gcf_gca"
+ },
+ "grouped_bar": {
+  "alive": {},
+  "kept": false,
+  "scene": "grouped_bar"
+ },
+ "hammer_mollweide_lambert": {
+  "alive": {},
+  "kept": false,
+  "scene": "hammer_mollweide_lambert"
+ },
+ "hexbin": {
+  "alive": {},
+  "kept": false,
+  "scene": "hexbin"
+ },
+ "hist": {
+  "alive": {},
+  "kept": false,
+  "scene": "hist"
+ },
+ "hist2d": {
+  "alive": {},
+  "kept": false,
+  "scene": "hist2d"
+ },
+ "hlines_vlines": {
+  "alive": {},
+  "kept": false,
+  "scene": "hlines_vlines"
+ },
+ "image_kinds": {
+  "alive": {},
+  "kept": false,
+  "scene": "image_kinds"
+ },
+ "imshow": {
+  "alive": {},
+  "kept": false,
+  "scene": "imshow"
+ },
+ "inset": {
+  "alive": {},
+  "kept": false,
+  "scene": "inset"
+ },
+ "kept_annotations": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 98799
+   },
+   "15": {
+    "objects": 98825
+   },
+   "20": {
+    "objects": 98851
+   },
+   "25": {
+    "objects": 98877
+   },
+   "30": {
+    "objects": 98903
+   },
+   "35": {
+    "objects": 98929
+   },
+   "40": {
+    "objects": 98955
+   },
+   "45": {
+    "objects": 98971
+   },
+   "5": {
+    "objects": 98773
+   },
+   "50": {
+    "objects": 98987
+   },
+   "55": {
+    "objects": 99003
+   },
+   "60": {
+    "objects": 99019
+   },
+   "65": {
+    "objects": 99035
+   },
+   "70": {
+    "objects": 99051
+   },
+   "75": {
+    "objects": 99067
+   },
+   "80": {
+    "objects": 99083
+   }
+  },
+  "scene": "kept_annotations"
+ },
+ "kept_blit": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 99386
+   },
+   "15": {
+    "objects": 99387
+   },
+   "20": {
+    "objects": 99388
+   },
+   "25": {
+    "objects": 99389
+   },
+   "30": {
+    "objects": 99390
+   },
+   "35": {
+    "objects": 99391
+   },
+   "40": {
+    "objects": 99392
+   },
+   "45": {
+    "objects": 99393
+   },
+   "5": {
+    "objects": 99385
+   },
+   "50": {
+    "objects": 99394
+   },
+   "55": {
+    "objects": 99395
+   },
+   "60": {
+    "objects": 99396
+   },
+   "65": {
+    "objects": 99397
+   },
+   "70": {
+    "objects": 99398
+   },
+   "75": {
+    "objects": 99399
+   },
+   "80": {
+    "objects": 99400
+   }
+  },
+  "scene": "kept_blit"
+ },
+ "kept_clear_replot": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 102812
+   },
+   "15": {
+    "objects": 102630
+   },
+   "20": {
+    "objects": 102855
+   },
+   "25": {
+    "objects": 102664
+   },
+   "30": {
+    "objects": 102675
+   },
+   "35": {
+    "objects": 102900
+   },
+   "40": {
+    "objects": 102911
+   },
+   "45": {
+    "objects": 103126
+   },
+   "5": {
+    "objects": 102566
+   },
+   "50": {
+    "objects": 102711
+   },
+   "55": {
+    "objects": 102712
+   },
+   "60": {
+    "objects": 102713
+   },
+   "65": {
+    "objects": 102928
+   },
+   "70": {
+    "objects": 102929
+   },
+   "75": {
+    "objects": 102930
+   },
+   "80": {
+    "objects": 102931
+   }
+  },
+  "scene": "kept_clear_replot"
+ },
+ "kept_clf": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 102540
+   },
+   "15": {
+    "objects": 102358
+   },
+   "20": {
+    "objects": 102583
+   },
+   "25": {
+    "objects": 102392
+   },
+   "30": {
+    "objects": 102403
+   },
+   "35": {
+    "objects": 102628
+   },
+   "40": {
+    "objects": 102639
+   },
+   "45": {
+    "objects": 102854
+   },
+   "5": {
+    "objects": 102294
+   },
+   "50": {
+    "objects": 102439
+   },
+   "55": {
+    "objects": 102440
+   },
+   "60": {
+    "objects": 102441
+   },
+   "65": {
+    "objects": 102656
+   },
+   "70": {
+    "objects": 102657
+   },
+   "75": {
+    "objects": 102658
+   },
+   "80": {
+    "objects": 102659
+   }
+  },
+  "scene": "kept_clf"
+ },
+ "kept_colorbar_replaced": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 104561
+   },
+   "15": {
+    "objects": 104572
+   },
+   "20": {
+    "objects": 104583
+   },
+   "25": {
+    "objects": 104594
+   },
+   "30": {
+    "objects": 104605
+   },
+   "35": {
+    "objects": 104616
+   },
+   "40": {
+    "objects": 104627
+   },
+   "45": {
+    "objects": 104628
+   },
+   "5": {
+    "objects": 104550
+   },
+   "50": {
+    "objects": 104629
+   },
+   "55": {
+    "objects": 104630
+   },
+   "60": {
+    "objects": 104631
+   },
+   "65": {
+    "objects": 104632
+   },
+   "70": {
+    "objects": 104633
+   },
+   "75": {
+    "objects": 104634
+   },
+   "80": {
+    "objects": 104635
+   }
+  },
+  "scene": "kept_colorbar_replaced"
+ },
+ "kept_connect_disconnect": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 101790
+   },
+   "15": {
+    "objects": 101791
+   },
+   "20": {
+    "objects": 101792
+   },
+   "25": {
+    "objects": 101793
+   },
+   "30": {
+    "objects": 101794
+   },
+   "35": {
+    "objects": 101795
+   },
+   "40": {
+    "objects": 101796
+   },
+   "45": {
+    "objects": 101797
+   },
+   "5": {
+    "objects": 101789
+   },
+   "50": {
+    "objects": 101798
+   },
+   "55": {
+    "objects": 101799
+   },
+   "60": {
+    "objects": 101800
+   },
+   "65": {
+    "objects": 101801
+   },
+   "70": {
+    "objects": 101802
+   },
+   "75": {
+    "objects": 101803
+   },
+   "80": {
+    "objects": 101804
+   }
+  },
+  "scene": "kept_connect_disconnect"
+ },
+ "kept_events": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 99393
+   },
+   "15": {
+    "objects": 99393
+   },
+   "20": {
+    "objects": 99394
+   },
+   "25": {
+    "objects": 99395
+   },
+   "30": {
+    "objects": 99396
+   },
+   "35": {
+    "objects": 99397
+   },
+   "40": {
+    "objects": 99398
+   },
+   "45": {
+    "objects": 99399
+   },
+   "5": {
+    "objects": 99425
+   },
+   "50": {
+    "objects": 99400
+   },
+   "55": {
+    "objects": 99401
+   },
+   "60": {
+    "objects": 99402
+   },
+   "65": {
+    "objects": 99403
+   },
+   "70": {
+    "objects": 99404
+   },
+   "75": {
+    "objects": 99405
+   },
+   "80": {
+    "objects": 99406
+   }
+  },
+  "scene": "kept_events"
+ },
+ "kept_images_replaced": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 102256
+   },
+   "15": {
+    "objects": 102267
+   },
+   "20": {
+    "objects": 102278
+   },
+   "25": {
+    "objects": 102289
+   },
+   "30": {
+    "objects": 102300
+   },
+   "35": {
+    "objects": 102311
+   },
+   "40": {
+    "objects": 102322
+   },
+   "45": {
+    "objects": 102323
+   },
+   "5": {
+    "objects": 102245
+   },
+   "50": {
+    "objects": 102324
+   },
+   "55": {
+    "objects": 102325
+   },
+   "60": {
+    "objects": 102326
+   },
+   "65": {
+    "objects": 102327
+   },
+   "70": {
+    "objects": 102328
+   },
+   "75": {
+    "objects": 102329
+   },
+   "80": {
+    "objects": 102330
+   }
+  },
+  "scene": "kept_images_replaced"
+ },
+ "kept_legend_remade": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 102896
+   },
+   "15": {
+    "objects": 102922
+   },
+   "20": {
+    "objects": 102948
+   },
+   "25": {
+    "objects": 102974
+   },
+   "30": {
+    "objects": 103000
+   },
+   "35": {
+    "objects": 103026
+   },
+   "40": {
+    "objects": 103052
+   },
+   "45": {
+    "objects": 103068
+   },
+   "5": {
+    "objects": 102873
+   },
+   "50": {
+    "objects": 103084
+   },
+   "55": {
+    "objects": 103100
+   },
+   "60": {
+    "objects": 103116
+   },
+   "65": {
+    "objects": 103132
+   },
+   "70": {
+    "objects": 103148
+   },
+   "75": {
+    "objects": 103164
+   },
+   "80": {
+    "objects": 103180
+   }
+  },
+  "scene": "kept_legend_remade"
+ },
+ "kept_pickled": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 146555
+   },
+   "15": {
+    "objects": 168371
+   },
+   "20": {
+    "objects": 190187
+   },
+   "25": {
+    "objects": 212003
+   },
+   "30": {
+    "objects": 233819
+   },
+   "35": {
+    "objects": 255635
+   },
+   "40": {
+    "objects": 277451
+   },
+   "45": {
+    "objects": 299267
+   },
+   "5": {
+    "objects": 124739
+   },
+   "50": {
+    "objects": 321083
+   },
+   "55": {
+    "objects": 342899
+   },
+   "60": {
+    "objects": 364715
+   },
+   "65": {
+    "objects": 386531
+   },
+   "70": {
+    "objects": 408347
+   },
+   "75": {
+    "objects": 430163
+   },
+   "80": {
+    "objects": 451979
+   }
+  },
+  "scene": "kept_pickled"
+ },
+ "kept_pyplot_imshow": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 102298
+   },
+   "15": {
+    "objects": 102309
+   },
+   "20": {
+    "objects": 102320
+   },
+   "25": {
+    "objects": 102331
+   },
+   "30": {
+    "objects": 102342
+   },
+   "35": {
+    "objects": 102353
+   },
+   "40": {
+    "objects": 102364
+   },
+   "45": {
+    "objects": 102365
+   },
+   "5": {
+    "objects": 102287
+   },
+   "50": {
+    "objects": 102366
+   },
+   "55": {
+    "objects": 102367
+   },
+   "60": {
+    "objects": 102368
+   },
+   "65": {
+    "objects": 102369
+   },
+   "70": {
+    "objects": 102370
+   },
+   "75": {
+    "objects": 102371
+   },
+   "80": {
+    "objects": 102372
+   }
+  },
+  "scene": "kept_pyplot_imshow"
+ },
+ "kept_remove_readd": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 102813
+   },
+   "15": {
+    "objects": 102839
+   },
+   "20": {
+    "objects": 102856
+   },
+   "25": {
+    "objects": 102873
+   },
+   "30": {
+    "objects": 102884
+   },
+   "35": {
+    "objects": 102901
+   },
+   "40": {
+    "objects": 102912
+   },
+   "45": {
+    "objects": 102919
+   },
+   "5": {
+    "objects": 102567
+   },
+   "50": {
+    "objects": 102920
+   },
+   "55": {
+    "objects": 102921
+   },
+   "60": {
+    "objects": 102922
+   },
+   "65": {
+    "objects": 102929
+   },
+   "70": {
+    "objects": 102930
+   },
+   "75": {
+    "objects": 102931
+   },
+   "80": {
+    "objects": 102932
+   }
+  },
+  "scene": "kept_remove_readd"
+ },
+ "kept_savefig": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 102634
+   },
+   "15": {
+    "objects": 102470
+   },
+   "20": {
+    "objects": 102544
+   },
+   "25": {
+    "objects": 102637
+   },
+   "30": {
+    "objects": 102473
+   },
+   "35": {
+    "objects": 102547
+   },
+   "40": {
+    "objects": 102640
+   },
+   "45": {
+    "objects": 102476
+   },
+   "5": {
+    "objects": 102542
+   },
+   "50": {
+    "objects": 102550
+   },
+   "55": {
+    "objects": 102643
+   },
+   "60": {
+    "objects": 102479
+   },
+   "65": {
+    "objects": 102553
+   },
+   "70": {
+    "objects": 102646
+   },
+   "75": {
+    "objects": 102482
+   },
+   "80": {
+    "objects": 102556
+   }
+  },
+  "scene": "kept_savefig"
+ },
+ "kept_scatter_offsets": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 99437
+   },
+   "15": {
+    "objects": 99438
+   },
+   "20": {
+    "objects": 99439
+   },
+   "25": {
+    "objects": 99440
+   },
+   "30": {
+    "objects": 99441
+   },
+   "35": {
+    "objects": 99442
+   },
+   "40": {
+    "objects": 99443
+   },
+   "45": {
+    "objects": 99444
+   },
+   "5": {
+    "objects": 99436
+   },
+   "50": {
+    "objects": 99445
+   },
+   "55": {
+    "objects": 99446
+   },
+   "60": {
+    "objects": 99447
+   },
+   "65": {
+    "objects": 99448
+   },
+   "70": {
+    "objects": 99449
+   },
+   "75": {
+    "objects": 99450
+   },
+   "80": {
+    "objects": 99451
+   }
+  },
+  "scene": "kept_scatter_offsets"
+ },
+ "kept_set_data": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 102525
+   },
+   "15": {
+    "objects": 102526
+   },
+   "20": {
+    "objects": 102527
+   },
+   "25": {
+    "objects": 102528
+   },
+   "30": {
+    "objects": 102529
+   },
+   "35": {
+    "objects": 102530
+   },
+   "40": {
+    "objects": 102531
+   },
+   "45": {
+    "objects": 102532
+   },
+   "5": {
+    "objects": 102524
+   },
+   "50": {
+    "objects": 102533
+   },
+   "55": {
+    "objects": 102534
+   },
+   "60": {
+    "objects": 102535
+   },
+   "65": {
+    "objects": 102536
+   },
+   "70": {
+    "objects": 102537
+   },
+   "75": {
+    "objects": 102538
+   },
+   "80": {
+    "objects": 102539
+   }
+  },
+  "scene": "kept_set_data"
+ },
+ "kept_texts": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 101746
+   },
+   "15": {
+    "objects": 101807
+   },
+   "20": {
+    "objects": 101868
+   },
+   "25": {
+    "objects": 101929
+   },
+   "30": {
+    "objects": 101990
+   },
+   "35": {
+    "objects": 102006
+   },
+   "40": {
+    "objects": 102022
+   },
+   "45": {
+    "objects": 102038
+   },
+   "5": {
+    "objects": 101685
+   },
+   "50": {
+    "objects": 102054
+   },
+   "55": {
+    "objects": 102055
+   },
+   "60": {
+    "objects": 102056
+   },
+   "65": {
+    "objects": 102057
+   },
+   "70": {
+    "objects": 102058
+   },
+   "75": {
+    "objects": 102059
+   },
+   "80": {
+    "objects": 102060
+   }
+  },
+  "scene": "kept_texts"
+ },
+ "kept_twins_removed": {
+  "alive": {},
+  "kept": true,
+  "samples": {
+   "10": {
+    "objects": 104407
+   },
+   "15": {
+    "objects": 104418
+   },
+   "20": {
+    "objects": 104429
+   },
+   "25": {
+    "objects": 104440
+   },
+   "30": {
+    "objects": 104451
+   },
+   "35": {
+    "objects": 104462
+   },
+   "40": {
+    "objects": 104473
+   },
+   "45": {
+    "objects": 104474
+   },
+   "5": {
+    "objects": 104396
+   },
+   "50": {
+    "objects": 104475
+   },
+   "55": {
+    "objects": 104476
+   },
+   "60": {
+    "objects": 104477
+   },
+   "65": {
+    "objects": 104478
+   },
+   "70": {
+    "objects": 104479
+   },
+   "75": {
+    "objects": 104480
+   },
+   "80": {
+    "objects": 104481
+   }
+  },
+  "scene": "kept_twins_removed"
+ },
+ "keys_navigation": {
+  "alive": {},
+  "kept": false,
+  "scene": "keys_navigation"
+ },
+ "layout_compressed": {
+  "alive": {},
+  "kept": false,
+  "scene": "layout_compressed"
+ },
+ "layout_constrained": {
+  "alive": {},
+  "kept": false,
+  "scene": "layout_constrained"
+ },
+ "layout_tight": {
+  "alive": {},
+  "kept": false,
+  "scene": "layout_tight"
+ },
+ "legend": {
+  "alive": {},
+  "kept": false,
+  "scene": "legend"
+ },
+ "legend_draggable": {
+  "alive": {},
+  "kept": false,
+  "scene": "legend_draggable"
+ },
+ "loglog": {
+  "alive": {},
+  "kept": false,
+  "scene": "loglog"
+ },
+ "mathtext": {
+  "alive": {},
+  "kept": false,
+  "scene": "mathtext"
+ },
+ "matshow": {
+  "alive": {},
+  "kept": false,
+  "scene": "matshow"
+ },
+ "norm_program": {
+  "alive": {},
+  "kept": false,
+  "scene": "norm_program"
+ },
+ "offsetboxes": {
+  "alive": {},
+  "kept": false,
+  "scene": "offsetboxes"
+ },
+ "parasite_axes": {
+  "alive": {},
+  "kept": false,
+  "scene": "parasite_axes"
+ },
+ "path_effect_keyword_keeping_axes": {
+  "alive": {},
+  "kept": false,
+  "scene": "path_effect_keyword_keeping_axes"
+ },
+ "path_effects": {
+  "alive": {},
+  "kept": false,
+  "scene": "path_effects"
+ },
+ "pcolor": {
+  "alive": {},
+  "kept": false,
+  "scene": "pcolor"
+ },
+ "pcolorfast": {
+  "alive": {},
+  "kept": false,
+  "scene": "pcolorfast"
+ },
+ "pcolormesh": {
+  "alive": {},
+  "kept": false,
+  "scene": "pcolormesh"
+ },
+ "pick": {
+  "alive": {},
+  "kept": false,
+  "scene": "pick"
+ },
+ "pickled": {
+  "alive": {},
+  "kept": false,
+  "scene": "pickled"
+ },
+ "pie": {
+  "alive": {},
+  "kept": false,
+  "scene": "pie"
+ },
+ "plot": {
+  "alive": {},
+  "kept": false,
+  "scene": "plot"
+ },
+ "polar": {
+  "alive": {},
+  "kept": false,
+  "scene": "polar"
+ },
+ "private_names": {
+  "alive": {},
+  "kept": false,
+  "scene": "private_names"
+ },
+ "psd": {
+  "alive": {},
+  "kept": false,
+  "scene": "psd"
+ },
+ "pyplot_imshow_removed": {
+  "alive": {},
+  "kept": false,
+  "scene": "pyplot_imshow_removed"
+ },
+ "quiver": {
+  "alive": {},
+  "kept": false,
+  "scene": "quiver"
+ },
+ "rc_context": {
+  "alive": {},
+  "kept": false,
+  "scene": "rc_context"
+ },
+ "sankey": {
+  "alive": {},
+  "kept": false,
+  "scene": "sankey"
+ },
+ "save_tight": {
+  "alive": {},
+  "kept": false,
+  "scene": "save_tight"
+ },
+ "saves_every_format": {
+  "alive": {},
+  "kept": false,
+  "scene": "saves_every_format"
+ },
+ "saves_pgf": {
+  "alive": {},
+  "kept": false,
+  "scene": "saves_pgf"
+ },
+ "scale_keeping_axis": {
+  "alive": {},
+  "kept": false,
+  "scene": "scale_keeping_axis"
+ },
+ "scale_registered": {
+  "alive": {},
+  "kept": false,
+  "scene": "scale_registered"
+ },
+ "scales": {
+  "alive": {},
+  "kept": false,
+  "scene": "scales"
+ },
+ "scatter": {
+  "alive": {},
+  "kept": false,
+  "scene": "scatter"
+ },
+ "secondary_axes": {
+  "alive": {},
+  "kept": false,
+  "scene": "secondary_axes"
+ },
+ "shared": {
+  "alive": {},
+  "kept": false,
+  "scene": "shared"
+ },
+ "shared_across_figures": {
+  "alive": {},
+  "kept": false,
+  "scene": "shared_across_figures"
+ },
+ "spans_lines": {
+  "alive": {},
+  "kept": false,
+  "scene": "spans_lines"
+ },
+ "specgram": {
+  "alive": {},
+  "kept": false,
+  "scene": "specgram"
+ },
+ "spy": {
+  "alive": {},
+  "kept": false,
+  "scene": "spy"
+ },
+ "stackplot": {
+  "alive": {},
+  "kept": false,
+  "scene": "stackplot"
+ },
+ "stairs": {
+  "alive": {},
+  "kept": false,
+  "scene": "stairs"
+ },
+ "stem": {
+  "alive": {},
+  "kept": false,
+  "scene": "stem"
+ },
+ "step": {
+  "alive": {},
+  "kept": false,
+  "scene": "step"
+ },
+ "streamplot": {
+  "alive": {},
+  "kept": false,
+  "scene": "streamplot"
+ },
+ "style_context": {
+  "alive": {},
+  "kept": false,
+  "scene": "style_context"
+ },
+ "subfigures": {
+  "alive": {},
+  "kept": false,
+  "scene": "subfigures"
+ },
+ "subplot_mosaic": {
+  "alive": {},
+  "kept": false,
+  "scene": "subplot_mosaic"
+ },
+ "table": {
+  "alive": {},
+  "kept": false,
+  "scene": "table"
+ },
+ "text_annotate": {
+  "alive": {},
+  "kept": false,
+  "scene": "text_annotate"
+ },
+ "text_fontproperties": {
+  "alive": {},
+  "kept": false,
+  "scene": "text_fontproperties"
+ },
+ "tight_layout_call": {
+  "alive": {},
+  "kept": false,
+  "scene": "tight_layout_call"
+ },
+ "transform_keeping_axes": {
+  "alive": {},
+  "kept": false,
+  "scene": "transform_keeping_axes"
+ },
+ "transform_keyword_keeping_axes": {
+  "alive": {},
+  "kept": false,
+  "scene": "transform_keyword_keeping_axes"
+ },
+ "transform_program": {
+  "alive": {},
+  "kept": false,
+  "scene": "transform_program"
+ },
+ "tricontour": {
+  "alive": {},
+  "kept": false,
+  "scene": "tricontour"
+ },
+ "tripcolor": {
+  "alive": {},
+  "kept": false,
+  "scene": "tripcolor"
+ },
+ "triplot": {
+  "alive": {},
+  "kept": false,
+  "scene": "triplot"
+ },
+ "twins": {
+  "alive": {},
+  "kept": false,
+  "scene": "twins"
+ },
+ "units_categories": {
+  "alive": {},
+  "kept": false,
+  "scene": "units_categories"
+ },
+ "units_dates": {
+  "alive": {},
+  "kept": false,
+  "scene": "units_dates"
+ },
+ "units_registered": {
+  "alive": {},
+  "kept": false,
+  "scene": "units_registered"
+ },
+ "usetex": {
+  "alive": {},
+  "kept": false,
+  "scene": "usetex"
+ },
+ "violinplot": {
+  "alive": {},
+  "kept": false,
+  "scene": "violinplot"
+ },
+ "widgets": {
+  "alive": {},
+  "kept": false,
+  "scene": "widgets"
+ }
+}

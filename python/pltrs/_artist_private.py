@@ -264,7 +264,11 @@ def fields_of(cls):
     try:
         return _fields_of[cls]
     except KeyError:
-        found = _fields_of[cls] = FIELDS.get(_table_key(cls))
+        found = FIELDS.get(_table_key(cls))
+        if found is not None:
+            # (Only the package's classes are kept: a class of the
+            # program's would live as long as the table.)
+            _fields_of[cls] = found
         return found
 
 

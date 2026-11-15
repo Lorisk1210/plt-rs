@@ -17,7 +17,7 @@ run again as a plain script.
 import inspect
 import random
 
-from . import values
+from . import paths, values
 
 #: The first lines of every program.
 HEADER = [
@@ -67,6 +67,10 @@ PLOT_KEYWORDS = ["color", "alpha", "linewidth", "linestyle", "marker", "label", 
                  "cmap", "norm", "vmin", "vmax", "transform", "clip_on", "hatch", "edgecolor",
                  "facecolor", "s", "c", "bins", "levels", "orientation", "interpolation",
                  "aspect", "align", "width", "picker", "rasterized", "snap", "fontsize"]
+
+#: The share of the actions of a program with paths (`Program.paths`)
+#: taken on them.
+PATHS_SHARE = 0.15
 
 #: Methods the fuzzer never calls: they block, open windows, or end the
 #: program.
@@ -139,6 +143,10 @@ class Program:
         self.artists = []
         self.others = ["ax.xaxis", "ax.yaxis", "fig.canvas"]
         self.count = 0
+        #: The actions on the paths through which pltrs calls the program
+        #: back (`.paths`), for programs of odd seeds: the programs of the
+        #: other seeds stay those they always were.
+        self.paths = paths.Paths(self) if seed % 2 == 1 else None
 
     def _new_name(self):
         self.count += 1
@@ -158,9 +166,14 @@ class Program:
         live = self._live(names)
         return values.choose(self.rng, live) if live else None
 
-    def next_line(self):
-        """The program's next line, an action chosen at random."""
+    def next_line(self, paths=True):
+        """The program's next line, an action chosen at random (one on the
+        paths of `.paths` too, unless *paths* is false)."""
         rng = self.rng
+        if paths and self.paths is not None and rng.random() < PATHS_SHARE:
+            line = self.paths.line()
+            if line is not None:
+                return line
         roll = rng.random()
         for weight, action in [(0.22, self._plot), (0.20, self._set), (0.08, self._get),
                                (0.12, self._method), (0.12, self._draw_or_save),
@@ -219,9 +232,14 @@ class Program:
         table = PLOTTING_3D if getattr(self._value(ax), "name", None) == "3d" else PLOTTING
         method = values.choose(self.rng, list(table))
         args = [self._positional(kind) for kind in table[method]]
+        given = set()
         for _ in range(self.rng.randrange(3)):
             keyword = values.choose(self.rng, PLOT_KEYWORDS)
-            args.append(f"{keyword}={self.values.for_parameter(keyword)}")
+            value = self.values.for_parameter(keyword)
+            if keyword not in given:
+                # (A keyword given twice is a program that does not compile.)
+                given.add(keyword)
+                args.append(f"{keyword}={value}")
         return f"{self._new_name()} = {ax}.{method}({', '.join(args)})"
 
     def _positional(self, kind):

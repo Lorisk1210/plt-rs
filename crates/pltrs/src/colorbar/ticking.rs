@@ -114,18 +114,32 @@ pub(crate) struct NormSpacing {
 
 pltrs_core::archive_struct!(NormSpacing { norm, inverse });
 
+impl NormSpacing {
+    /// Runs `work` on the norm: a norm of the program's on a copy of its
+    /// own (which calls the same Python norm), with no borrow held while
+    /// the program's code runs, as it may draw the figure, and this scale
+    /// with it, again.
+    fn with_norm<R>(&self, work: impl FnOnce(&mut dyn Norm) -> R) -> R {
+        let copy = (self.norm.try_borrow().ok())
+            .filter(|norm| norm.calls_program())
+            .map(|norm| norm.clone_box());
+        match copy {
+            Some(mut norm) => work(norm.as_mut()),
+            None => work(self.norm.borrow_mut().as_mut()),
+        }
+    }
+}
+
 impl ScaleFunction for NormSpacing {
     fn call(&self, value: f64) -> f64 {
         if self.inverse {
             return self
-                .norm
-                .borrow()
-                .inverse(&[value])
+                .with_norm(|norm| norm.inverse(&[value]))
                 .ok()
                 .and_then(|v| v.first().copied().flatten())
                 .unwrap_or(f64::NAN);
         }
-        let mapped = self.norm.borrow_mut().normalize(&[value]);
+        let mapped = self.with_norm(|norm| norm.normalize(&[value]));
         match mapped.as_deref() {
             Ok([Normalized::Fraction(v)]) => *v,
             Ok([Normalized::Index(i)]) => *i as f64,
@@ -134,7 +148,10 @@ impl ScaleFunction for NormSpacing {
     }
 
     fn calls_program(&self) -> bool {
-        self.norm.borrow().calls_program()
+        // (A norm borrowed is one of the program's, being called.)
+        self.norm
+            .try_borrow()
+            .map_or(true, |norm| norm.calls_program())
     }
 
     /// The norm (or its inverse) called once with all the values, as
@@ -143,9 +160,7 @@ impl ScaleFunction for NormSpacing {
     /// `transform`), which a norm of the program's sees.
     fn call_all(&self, values: &mut [f64], layout: ArrayLayout) {
         let mapped: Option<Vec<f64>> = if self.inverse {
-            self.norm
-                .borrow()
-                .inverse(values)
+            self.with_norm(|norm| norm.inverse(values))
                 .ok()
                 .map(|mapped| mapped.into_iter().map(|v| v.unwrap_or(f64::NAN)).collect())
         } else {
@@ -158,7 +173,7 @@ impl ScaleFunction for NormSpacing {
                 shape: &shape,
                 masked: layout == ArrayLayout::MaskedRow,
             };
-            let normalized = self.norm.borrow_mut().normalize_shaped(&data, None, form);
+            let normalized = self.with_norm(|norm| norm.normalize_shaped(&data, None, form));
             normalized.ok().map(|mapped| {
                 mapped
                     .into_iter()

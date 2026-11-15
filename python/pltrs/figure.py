@@ -30,7 +30,7 @@ from .axes import _construction
 from .backend_bases import DrawEvent, FigureCanvasBase, MouseButton, NonGuiException
 from .gridspec import (GridSpec, SubplotParams, SubplotSpec, _assign_figure_subplotpars,
                        _figure_subplotpars)
-from ._program_classes import takes_from_program
+from ._program_classes import class_cache, takes_from_program
 from ._figure_images import FigureImagesMixin
 from ._figure_layout import FigureBaseLayout, FigureLayout
 from ._figure_mosaic import _MosaicMixin
@@ -92,7 +92,7 @@ def _native_maker(projection_class):
 _CONSTRUCTION_CALLS = ("__init__", "clear", "cla", "grid")
 
 
-@functools.cache
+@class_cache
 def _constructed(projection_class):
     """Whether a new *projection_class* is made by its constructor: a
     rectilinear or polar class of the program's overriding what
@@ -1338,6 +1338,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         self.subfigs = []
         if not keep_observers:
             self._forget_axobservers()
+        _handles.forget_removed(self)
         self.stale = True
 
     def delaxes(self, ax):
@@ -1780,7 +1781,7 @@ None}, default: None
         self._native = _figure.new(float(width), float(height), float(dpi))
         _values.remember(self, "dpi", dpi)
         self._figure = self
-        self._artists = {_artist.id(self._native): self}
+        self._artists = _handles.Registry({_artist.id(self._native): self})
         _sharing.track(self)
         _transform_trees.follow_evaluations(self)
         self.subfigs = []
@@ -2472,6 +2473,9 @@ None}, default: None
         # of meaning that a figure can be detached from one canvas, and
         # re-attached to another.
         state.pop("canvas")
+        # What pltrs (Rust) holds weakly for the figure, which the native
+        # state's pickle holds itself.
+        state.pop("_held_for_native", None)
 
         # The tick helpers, by axis: the tokens of their registry do not
         # pickle.

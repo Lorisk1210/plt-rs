@@ -87,6 +87,17 @@ impl<'py> Bound<'py> {
         std::ptr::eq(self.as_ptr(), &raw mut ffi::_Py_NoneStruct)
     }
 
+    /// Python's `id(self)`: the object's address, unique among the objects
+    /// alive.
+    pub(crate) fn id(&self) -> usize {
+        self.as_ptr().addr()
+    }
+
+    /// Whether this is the very object `other` (Python's `is`).
+    pub(crate) fn is(&self, other: &Bound<'_>) -> bool {
+        std::ptr::eq(self.as_ptr(), other.as_ptr())
+    }
+
     /// The object's type, borrowed from it.
     fn type_ptr(&self) -> *mut ffi::PyTypeObject {
         // SAFETY: `ob_type` of the object header is in the limited API,

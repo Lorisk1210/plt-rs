@@ -25,6 +25,7 @@ from numbers import Real
 
 import contextlib
 import threading
+import weakref
 
 from pltrs import _api, _named
 from pltrs.artist import Artist
@@ -61,15 +62,21 @@ class _ProgramSize:
 
     def __init__(self, size, figure):
         self._size = size
-        self._figure = figure
+        # pltrs (Rust) holds the size with the figure: weakly, or the
+        # figure would never go.
+        self._figure = None if figure is None else weakref.ref(figure)
+
+    def __reduce__(self):
+        return (type(self), (self._size, None if self._figure is None else self._figure()))
 
     def get_size(self, _renderer):
         from pltrs._python_drawing import made_renderer
         renderer = made_renderer()
-        if renderer is None and self._figure is not None:
+        figure = None if self._figure is None else self._figure()
+        if renderer is None and figure is not None:
             # The canvas' renderer as it stands: the figure is being laid
             # out, and cannot be asked for one.
-            renderer = vars(self._figure.canvas).get("renderer")
+            renderer = vars(figure.canvas).get("renderer")
         return self._size.get_size(renderer)
 
 

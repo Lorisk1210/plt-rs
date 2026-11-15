@@ -35,14 +35,37 @@ import weakref
 import numpy as np
 
 from . import _tick_state
-from ._native import axis as _axis
+from ._native import artist as _artist, axis as _axis
 from ._native import register as _register
 
 
+class _Registry(dict):
+    """The tick helpers of a figure (or of a removed Axes) by identity,
+    ``{id: (token, helper, axis)}``, pruned (`_prune`) whenever it doubled
+    since it last was."""
+
+    #: The fewest helpers a registry holds before it is first pruned.
+    FIRST_PRUNE = 32
+
+    def __init__(self):
+        super().__init__()
+        self.prune_at = self.FIRST_PRUNE
+
+    def __reduce__(self):
+        # The tokens do not pickle: a figure pickles its helpers as
+        # `pickled` lists them, a removed Axes forgets those it kept.
+        return (_Registry, ())
+
+
 def _registry(figure):
-    """The tick helpers of *figure* by identity: ``{id: (token, helper,
-    axis)}``."""
-    return vars(figure).setdefault("_tick_helpers", {})
+    """The tick helpers of *figure* by identity (`_Registry`)."""
+    found = vars(figure).get("_tick_helpers")
+    if isinstance(found, _Registry):
+        return found
+    # (A copy of the figure holds a plain one.)
+    registry = vars(figure)["_tick_helpers"] = _Registry()
+    registry.update(found or ())
+    return registry
 
 
 def _axis_registry(axis):
@@ -59,7 +82,8 @@ def get(axis, kind, minor):
     helper_id, token = _axis.helper(axis.axes._native, axis.axis_name, kind,
                                     bool(minor))
     registry = _axis_registry(axis)
-    entry = registry.get(helper_id) or _held_by_peers(axis, helper_id)
+    entry = (registry.get(helper_id) or _held_by_peers(axis, helper_id)
+             or vars(axis.axes).get("_tick_helpers", {}).get(helper_id))
     if entry is not None:
         return entry[1]
     spec = _axis.describe_helper(token)
@@ -69,6 +93,8 @@ def get(axis, kind, minor):
     native = spec is None or spec["kind"] != "python"
     if kind == "formatter" and spec is not None and native:
         _watch_native_formatter(helper, axis)
+    if len(registry) >= registry.prune_at:
+        _prune(registry)
     registry[helper_id] = (token, helper, axis)
     if native:
         _tick_state.follow(helper, axis, helper_id)
@@ -250,10 +276,30 @@ def _parts(helper):
 
 
 def _prune(registry):
-    """Forget the helpers of *registry* no axis uses any more."""
-    for helper_id, (token, _, _) in list(registry.items()):
+    """Forget the helpers of *registry* no axis uses any more, and hand
+    those of the axes of Axes removed from the figure to their Axes, which
+    keeps them (`_axis_registry`), so that the figure keeps no removed
+    Axes alive."""
+    for helper_id, (token, _, axis) in list(registry.items()):
         if not _axis.helper_in_use(token):
             del registry[helper_id]
+            continue
+        axes = axis.axes
+        if axes is not None and _removed(axes):
+            own = _registry(axes)
+            if own is not registry:
+                own[helper_id] = registry.pop(helper_id)
+    registry.prune_at = max(registry.FIRST_PRUNE, 2 * len(registry))
+
+
+def _removed(axes):
+    """Whether *axes* was removed from its figure for good: taken out of
+    it, and forgotten by its figure's registry (an Axes being made or
+    moved is in it)."""
+    key = _artist.id(axes._native)
+    registry = getattr(axes._figure, "_artists", {})
+    return (registry.get(key) is not axes
+            and _artist.removed_roots(axes._native, [key])[0] is not None)
 
 
 def changed(helper):

@@ -174,12 +174,16 @@ impl Axes {
             limits.low.unwrap_or(current.0),
             limits.high.unwrap_or(current.1),
         );
-        let mut figure = self.raw.figure_state().borrow_mut();
-        match setter {
-            Setter::Axes => figure.set_axis_limits(self.id(), axis, requested, limits.auto, emit),
-            Setter::Axis => figure.set_axis_view(self.id(), axis, requested, limits.auto, emit),
-        }
-        drop(figure);
+        // Worked on outside the cell, so that a locator of the program's
+        // widening the limits (`nonsingular`) runs with the figure lent.
+        self.raw.figure_state().work_on(|figure| match setter {
+            Setter::Axes => {
+                figure.set_axis_limits(self.id(), axis, requested, limits.auto, emit);
+            }
+            Setter::Axis => {
+                figure.set_axis_view(self.id(), axis, requested, limits.auto, emit);
+            }
+        });
         Ok(self.raw.with::<AxesState, _>(|a| a.view_interval(axis)))
     }
 

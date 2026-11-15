@@ -68,6 +68,13 @@ thread_local! {
     static WORKED_ON: RefCell<Vec<(Rc<FigureCell>, usize)>> = const { RefCell::new(Vec::new()) };
 }
 
+/// A placeholder state on the heap, made in a frame of its own so that the
+/// frame of the work taking the state out holds no state.
+#[inline(never)]
+fn placeholder() -> Box<FigureState> {
+    Box::new(FigureState::placeholder())
+}
+
 /// The address of `state`, which tells the state a work runs on.
 fn address(state: &FigureState) -> usize {
     std::ptr::from_ref(state).addr()
@@ -77,7 +84,9 @@ fn address(state: &FigureState) -> usize {
 /// work on it unwinds).
 struct Away {
     cell: Rc<FigureCell>,
-    state: FigureState,
+    /// On the heap: a state is kilobytes, and the work on it (a draw's
+    /// layout) runs below this frame, on what is left of the stack.
+    state: Box<FigureState>,
     /// Where the state was before it was taken out: home, or lent to the
     /// program's code a work further up the stack runs.
     before: Lending,
@@ -102,7 +111,9 @@ impl FigureCell {
     /// the figure free; the state is back in the cell when this returns.
     /// A state in use is reached as a borrow for change would reach it.
     pub(crate) fn work_on<R>(self: &Rc<Self>, work: impl FnOnce(&mut FigureState) -> R) -> R {
-        let state = std::mem::replace(&mut *self.borrow_mut(), FigureState::placeholder());
+        let mut state = placeholder();
+        // Through the cell's own borrow for change, as any change is made.
+        std::mem::swap(&mut *self.borrow_mut(), &mut *state);
         let mut away = Away {
             cell: Rc::clone(self),
             state,

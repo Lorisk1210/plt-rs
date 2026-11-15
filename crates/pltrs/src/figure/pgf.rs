@@ -7,7 +7,7 @@ use pltrs_render::{PgfDocument, PgfOptions, PgfRenderer};
 
 use super::Figure;
 use super::pgf_metrics::measuring;
-use super::print::SaveOptions;
+use super::print::{SaveOptions, finished};
 use super::save::{SaveError, simplify_settings};
 use crate::fonts::{FontExt, FontManager, FontProperties};
 use crate::rc::{RcParams, keyword_names};
@@ -123,7 +123,7 @@ impl Figure {
         for family in renderer.take_ignored_fonts() {
             log_unknown_font(&family);
         }
-        renderer.finish().map_err(SaveError::Vector)
+        finished(renderer, PgfRenderer::finish).map_err(SaveError::Vector)
     }
 }
 

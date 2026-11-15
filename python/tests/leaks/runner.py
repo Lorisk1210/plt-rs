@@ -26,6 +26,8 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
+from fuzz.runner import PLTRS_HOME
+
 from . import libraries, scenes as catalogue
 
 #: This package's directory.
@@ -64,7 +66,9 @@ def _environment(work, reference, library=""):
     read (`.libraries.METADATA`)."""
     environment = dict(os.environ)
     tests = str(HERE.parent)
-    first = [str(HERE / "alias")] if reference else [str(ROOT / "python")]
+    # pltrs from where this process imports it: the source tree's, or the
+    # installed package's (a wheel's, in check_dist's containers).
+    first = [str(HERE / "alias")] if reference else [str(PLTRS_HOME)]
     if library and not reference:
         first[:0] = [str(ROOT / "python" / "alias"), str(libraries.METADATA)]
     environment["PYTHONPATH"] = os.pathsep.join([*first, tests])

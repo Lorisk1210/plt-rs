@@ -49,15 +49,7 @@ impl<K, V: Clone> Memo<K, V> {
         key: impl FnOnce() -> K,
         compute: impl FnOnce() -> Result<V, E>,
     ) -> Result<V, E> {
-        let found = {
-            let entries = self.lock();
-            entries
-                .by_fingerprint
-                .get(&fingerprint)
-                .and_then(|bucket| bucket.iter().find(|(stored, _)| matches(stored)))
-                .map(|(_, value)| value.clone())
-        };
-        if let Some(value) = found {
+        if let Some(value) = self.get(fingerprint, matches) {
             return Ok(value);
         }
         // Computed without the lock: others may compute the same result
@@ -77,6 +69,17 @@ impl<K, V: Clone> Memo<K, V> {
             .push((key(), value.clone()));
         entries.len += 1;
         Ok(value)
+    }
+
+    /// The stored result for the inputs that `matches` recognises, filed
+    /// under `fingerprint`.
+    pub(crate) fn get(&self, fingerprint: u64, matches: impl Fn(&K) -> bool) -> Option<V> {
+        let entries = self.lock();
+        entries
+            .by_fingerprint
+            .get(&fingerprint)
+            .and_then(|bucket| bucket.iter().find(|(stored, _)| matches(stored)))
+            .map(|(_, value)| value.clone())
     }
 
     /// Forgets every result.

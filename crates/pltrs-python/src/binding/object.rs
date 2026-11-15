@@ -333,6 +333,7 @@ fn vectorcall<'py>(
     args: &[Bound<'py>],
     kwargs: &[(&str, Bound<'py>)],
 ) -> PyResult<Bound<'py>> {
+    super::stack::check_call_into_python()?;
     // Slot 0 is free for the callee (`PY_VECTORCALL_ARGUMENTS_OFFSET`);
     // a method call puts the object first among the arguments.
     let mut slots: Vec<*mut ffi::PyObject> = Vec::with_capacity(args.len() + kwargs.len() + 2);

@@ -189,8 +189,8 @@ impl FigureCanvas {
     /// When the canvas for the print cannot be made.
     pub(crate) fn printing(
         &self,
-        mut printed: RasterRenderer,
-    ) -> Result<RasterRenderer, RasterBackendError> {
+        mut printed: Box<RasterRenderer>,
+    ) -> Result<Box<RasterRenderer>, RasterBackendError> {
         if !self.figure.listens(EventKind::Draw) {
             return Ok(printed);
         }

@@ -333,25 +333,45 @@ The reserve must hold everything a call does below the check that let it
 in, including what it goes on doing after a call it makes is refused (a
 draw measures its tick labels after their formatter failed). Two kinds of
 work at the bottom of a draw go deeper than any measurement of warm draws
-shows, and the fuzzer met both: shaping a line of text the engine
-has not shaped (the font chain made, faces parsed, a cold one read from
-its file: 12 KiB in the development build) and typesetting a formula,
-whose depth grows with its nesting (about 7 KiB a level of fractions;
-pltrs' parser takes 100 levels, matplotlib's 20 but not 30). Both are pure
-Rust, so `pltrs_text::deep` runs them where the stack has room for them:
-on a thread of its own, with a stack of the size they need, where less is
-left (`pltrs_core::stack::with_room`; the binding tells pltrs (Rust) where
-each thread's stack ends). A formula's need is counted from its text: a
-level opens at `{`, `\`, `^` or `_`, and no opening costs more than 8 KiB.
-The font lookups and mathtext messages the work notes there are handed
-back to the caller's thread; it reads the font database without writing it
-and takes no lock its callers hold. Without them below it, the deepest
-nested draw measured goes 61 KiB below the check that let it in
-(development build; 58 KiB optimised: the fuzzer's seed 22, an SVG save
-under constrained layout measuring its tick labels), which the reserve of
-64 KiB holds. Tests: `python/tests/test_stack1.py` (every recursion on
-every stack, formulas as deep as matplotlib takes them, small threads
-drawing).
+shows, and the fuzzer met both: shaping a line of text the engine has not
+shaped (the font chain made, faces parsed, a cold one read from its file:
+12 KiB in the development build) and typesetting a formula, whose depth
+grows with its nesting (about 7 KiB a level of fractions; pltrs' parser
+takes 100 levels, matplotlib's 20 but not 30). Both are pure Rust, so
+`pltrs_text::deep` runs them where the stack has room for them: on a
+thread of its own, with a stack of the size they need, where less is left
+(`pltrs_core::stack::with_room`; the binding tells pltrs (Rust) where each
+thread's stack ends). A formula's need is counted from its text: a level
+opens at `{`, `\`, `^` or `_`, and no opening costs more than 8 KiB. The
+font lookups and mathtext messages the work notes there are handed back to
+the caller's thread; it reads the font database without writing it and
+takes no lock its callers hold. Without them below it, a nested draw goes
+at most 47 KiB below the check that let it in (development build; 46 KiB
+optimised: an SVG save under constrained layout drawing its tick labels),
+61 KiB before the frames a draw runs below were made lean: a document's or
+a canvas' renderer, the figure state a layout works on and the mixed-mode
+renderer are on the heap, and the work beside the chain (the axis label
+and offset text placed, the ticks drawn) has frames of its own.
+`test_stack1.py` measures that stretch on saves in four formats, with the
+deep work apart (`PLTRS_DEEP_WORK_APART`, which runs it on a thread of its
+own whatever is left), and fails where it leaves less than 12 KiB of the
+reserve of the system it runs on (`_native._stack_room()` tells where the
+stack is and the reserve).
+
+The calls native code makes into Python are checked too, against 48 KiB.
+CPython 3.14 checks the stack before every Python call and refuses once
+less than 32 KiB is left (twice `_PyOS_STACK_MARGIN_BYTES`), with its own
+`RecursionError: Stack overflow (used 478 kB)`. A native call let in with
+64 KiB left went some 40 KiB deeper before it called the program's
+formatter, so without that check whether a recursion ended with
+matplotlib's message or CPython's depended on where in a round the stack
+ran out: on the build. With it, CPython's check is never the first to
+refuse a round (the Python code a callback runs before it reaches pltrs
+again takes about 4 KiB of the 16 left above CPython's margin). CPython
+3.12 and 3.13 do not check the stack; there the same window was a
+segfault. Tests: `python/tests/test_stack1.py` (every recursion on every
+stack, formulas as deep as matplotlib takes them, small threads drawing,
+the stretch below an admitted call).
 
 ## The Python package
 

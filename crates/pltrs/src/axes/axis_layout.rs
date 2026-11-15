@@ -230,7 +230,22 @@ impl<'a> AxisPainter<'a> {
     fn texts_quietly(&self, cx: &mut impl FigureReader, rc: &RcParams) -> AxisTexts {
         let mut texts = AxisTexts::default();
         self.lay_out_tick_labels(cx, rc, &mut texts);
-        let boxes = label_boxes(&texts);
+        self.place_label_and_offset(cx, rc, &mut texts);
+        texts
+    }
+
+    /// Places the axis label and the offset text of `texts` from its tick
+    /// labels. Out of [`texts_quietly`](Self::texts_quietly)'s frame,
+    /// which the tick labels' layout runs below (on what is left of the
+    /// stack in a nested draw).
+    #[inline(never)]
+    fn place_label_and_offset(
+        &self,
+        cx: &mut impl FigureReader,
+        rc: &RcParams,
+        texts: &mut AxisTexts,
+    ) {
+        let boxes = label_boxes(texts);
         if self.axis.label.coords.is_none() {
             // matplotlib places the label from the tick labels measured
             // again (`_update_label_position`'s `_get_tick_boxes_siblings`).
@@ -261,7 +276,6 @@ impl<'a> AxisPainter<'a> {
                 None => {}
             }
         }
-        texts
     }
 
     /// Lays out the tick labels into `texts` (matplotlib's
@@ -357,6 +371,8 @@ impl<'a> AxisPainter<'a> {
     /// The tick label boxes of this axis (`own`) and of the same axis of
     /// the axes its label aligns with (matplotlib's
     /// `_get_tick_boxes_siblings`).
+    // Out of the frame laying the axis label out, which text layout runs below.
+    #[inline(never)]
     fn aligned_label_boxes(
         &self,
         cx: &mut impl FigureReader,

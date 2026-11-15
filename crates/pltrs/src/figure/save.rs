@@ -20,7 +20,7 @@ use std::path::Path as FsPath;
 use pltrs_render::{Metadata, PdfRenderer, PngMetadata, RasterRenderer, Renderer};
 
 use super::Figure;
-use super::print::SaveOptions;
+use super::print::{SaveOptions, finished};
 use crate::image::{BitmapFormat, BitmapSettings};
 use format::resolve_format;
 
@@ -47,7 +47,7 @@ impl Figure {
 
     /// Renders the figure with the Agg-compatible raster backend, as
     /// `savefig` does.
-    pub fn render_raster(&self) -> Result<RasterRenderer, SaveError> {
+    pub fn render_raster(&self) -> Result<Box<RasterRenderer>, SaveError> {
         self.render_raster_with(super::SaveOptions::default())
     }
 
@@ -115,13 +115,12 @@ impl Figure {
     pub fn to_pdf_with(&self, options: SaveOptions) -> Result<Vec<u8>, SaveError> {
         let pdf = pdf_options(options.metadata.clone().unwrap_or_default());
         // Text the backend draws in core fonts is laid out with their metrics.
-        crate::text::with_afm_metrics(pdf.afm_directory(), || {
+        let renderer = crate::text::with_afm_metrics(pdf.afm_directory(), || {
             self.render_vector_with(&options, |width, height, dpi| {
                 PdfRenderer::new(width, height, dpi, pdf)
             })
-        })?
-        .finish()
-        .map_err(SaveError::Vector)
+        })?;
+        finished(renderer, PdfRenderer::finish).map_err(SaveError::Vector)
     }
 
     /// The figure in `format` with save options (matplotlib's

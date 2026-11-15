@@ -240,27 +240,31 @@ impl TextEngine {
             shaping.language.is_some(),
             dpi_bits,
         );
-        self.lines.get_or_compute(
-            memo::fingerprint(request, extra),
-            |key| {
-                key.dpi_bits == dpi_bits
-                    && key.text == text
-                    && key.request == *request
-                    && key.shaping == *shaping
-            },
-            || LineKey {
-                text: text.to_owned(),
-                request: request.clone(),
-                shaping: shaping.clone(),
-                dpi_bits,
-            },
-            // At the bottom of a figure's layout: where it has room.
-            || {
-                crate::deep::with_room(crate::deep::SHAPING, || {
-                    self.shape_line(text, request, shaping, dpi)
-                })
-            },
-        )
+        let fingerprint = memo::fingerprint(request, extra);
+        let matches = |key: &LineKey| {
+            key.dpi_bits == dpi_bits
+                && key.text == text
+                && key.request == *request
+                && key.shaping == *shaping
+        };
+        if let Some(run) = self.lines.get(fingerprint, matches) {
+            return Ok(run);
+        }
+        // A line not shaped yet, at the bottom of a figure's layout: it is
+        // shaped (and kept) where the stack has room for it.
+        crate::deep::with_room(crate::deep::SHAPING, || {
+            self.lines.get_or_compute(
+                fingerprint,
+                matches,
+                || LineKey {
+                    text: text.to_owned(),
+                    request: request.clone(),
+                    shaping: shaping.clone(),
+                    dpi_bits,
+                },
+                || self.shape_line(text, request, shaping, dpi),
+            )
+        })
     }
 
     /// [`layout_line_with`](Self::layout_line_with) without the memo.

@@ -5,7 +5,7 @@ use std::cell::UnsafeCell;
 use super::error::PyResult;
 use super::gil::entry;
 use super::module::Module;
-use super::{home, native, reentrant, registry};
+use super::{home, native, reentrant, registry, stack};
 use crate::ffi;
 
 /// The module definition CPython creates `_native` from.
@@ -52,6 +52,7 @@ pub(crate) fn init_module(fill: fn(&Module<'_>) -> PyResult<()>) -> *mut ffi::Py
             native::add_type(&module)?;
             registry::add_to(&module)?;
             home::add_to(&module)?;
+            stack::add_to(&module)?;
             fill(&module)?;
             Ok(module.into_object())
         })

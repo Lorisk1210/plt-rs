@@ -199,24 +199,33 @@ impl TextEngine {
     /// # Ok::<(), pltrs_text::TextError>(())
     /// ```
     pub fn layout_math(&self, source: &str, style: &MathStyle) -> Result<TextRun, TextError> {
-        self.formulas.get_or_compute(
-            crate::memo::fingerprint(&style.font, (source, style.dpi.to_bits())),
-            |key| key.source == source && key.style == *style,
-            || FormulaKey {
-                source: source.to_owned(),
-                style: style.clone(),
-            },
-            || {
-                let layout = self.typeset_math(source, style)?;
-                let mut run = layout.to_text_run();
-                run.source = Some(TextSource::Math {
-                    text: source.to_owned(),
+        let fingerprint = crate::memo::fingerprint(&style.font, (source, style.dpi.to_bits()));
+        let matches = |key: &FormulaKey| key.source == source && key.style == *style;
+        if let Some(run) = self.formulas.get(fingerprint, matches) {
+            return Ok(run);
+        }
+        // A formula not typeset yet: typeset (and kept) where the stack has
+        // room for its nesting.
+        crate::deep::with_room(crate::deep::formula_need(source), || {
+            self.formulas.get_or_compute(
+                fingerprint,
+                matches,
+                || FormulaKey {
+                    source: source.to_owned(),
                     style: style.clone(),
-                    logged: layout.logged,
-                });
-                Ok(run)
-            },
-        )
+                },
+                || {
+                    let layout = self.typeset_math(source, style)?;
+                    let mut run = layout.to_text_run();
+                    run.source = Some(TextSource::Math {
+                        text: source.to_owned(),
+                        style: style.clone(),
+                        logged: layout.logged,
+                    });
+                    Ok(run)
+                },
+            )
+        })
     }
 }
 

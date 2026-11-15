@@ -45,16 +45,22 @@ SCENE = [
 
 class Kind:
     """A kind of callback: the code defining and installing it (run by
-    ``exec``; it calls ``once()``), what makes native code call it, and
-    how the figure is made (another class for a ``Figure.draw``)."""
+    ``exec``; it calls ``once()``), what makes native code call it, how
+    the figure is made (another class for a ``Figure.draw``) and the
+    operations it is run with (all of ``OPERATIONS`` unless named)."""
 
-    def __init__(self, install: str, trigger: list[str], figure: str = "fig = plt.figure()"):
+    def __init__(self, install: str, trigger: list[str], figure: str = "fig = plt.figure()",
+                 operations: tuple[str, ...] | None = None):
         self.install = install
         self.trigger = trigger
         self.figure = figure
+        self.operations = operations
 
 
 DRAW = ["fig.canvas.draw()"]
+
+#: The operations drawing the figure.
+DRAWING = ("canvas-draw", "draw_idle", "draw_without_rendering", "savefig")
 
 #: A transform of the program's whose non-affine part calls back.
 SHIFTING = '''
@@ -252,6 +258,12 @@ measured.set_clip_on(False)''', TIGHT),
     "resize_event": Kind("fig.canvas.mpl_connect('resize_event', lambda event: once())",
                          ["ResizeEvent('resize_event', fig.canvas)._process()"]),
     "xlim_changed": Kind("ax.callbacks.connect('xlim_changed', lambda changed: once())", ["ax.set_xlim(0, 4)"]),
+    # Limits left stale (a line added since the last draw): the draw
+    # autoscaling them calls back, as librosa's waveshow redraws its
+    # canvas from there.
+    "xlim_changed-stale": Kind(
+        "ax.callbacks.connect('xlim_changed', lambda changed: once())\nax.plot([0, 10], [0, 5])", DRAW,
+        operations=DRAWING),
     "axes_locator": Kind(
         "ax.set_axes_locator(lambda axes, renderer: (once(), transforms.Bbox.from_bounds(0.1, 0.1, 0.8, 0.8))[1])",
         DRAW),
@@ -346,8 +358,31 @@ def program(kind: Kind, operation: str) -> list[str]:
             *installed, *kind.trigger, *AFTER]
 
 
+def at_save(kind: Kind) -> list[str] | None:
+    """The program whose callback of *kind* first runs inside the save of
+    the figure the tester makes at the program's end, and draws the
+    canvas there (``draw_idle``); None for a kind whose callback no draw
+    calls. matplotlib paints that draw into the buffer of the save, which
+    pltrs leaves out (see ``python/DESIGN.md``): the image tells it, and
+    the operation leaves everything else as matplotlib's."""
+    draws = DRAW + TIGHT
+    if not kind.trigger or kind.trigger[-1] not in draws:
+        return None
+    trigger = [statement for statement in kind.trigger if statement not in draws]
+    install = f'exec("""{kind.install}""")'
+    figure = kind.figure.replace("exec(KIND)", install).splitlines()
+    installed = [] if install in figure else [install]
+    return [*IMPORTS, f'exec("""{HELPERS}""")', f"operation = lambda: {OPERATIONS['draw_idle']}", *figure,
+            *SCENE, *installed, *trigger]
+
+
 def programs() -> Iterator[tuple[str, list[str]]]:
-    """A program per kind of callback and operation."""
+    """A program per kind of callback and operation, and one per kind
+    whose callback a draw calls drawing inside the tester's save."""
     for kind_name, kind in KINDS.items():
         for operation_name, operation in OPERATIONS.items():
-            yield f"{kind_name}--{operation_name}", program(kind, operation)
+            if kind.operations is None or operation_name in kind.operations:
+                yield f"{kind_name}--{operation_name}", program(kind, operation)
+        saved = at_save(kind)
+        if saved is not None:
+            yield f"{kind_name}--draw_idle-at-save", saved

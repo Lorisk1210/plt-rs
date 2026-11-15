@@ -323,6 +323,7 @@ impl TextBoxPatch {
             shape: &shape,
             interpolation_steps: 1,
             drawn: None,
+            program_path: None,
         }
         .paint(ctx)
     }

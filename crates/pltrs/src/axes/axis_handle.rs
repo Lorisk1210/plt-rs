@@ -391,6 +391,34 @@ impl Axis {
         self
     }
 
+    /// The vertical alignment of the offset (or scale) text: `Top` for x
+    /// and `Baseline` for y at first, x's following its tick position
+    /// (matplotlib's `offsetText.get_verticalalignment()`).
+    ///
+    /// ```
+    /// use pltrs::axes::TickPosition;
+    /// use pltrs::prelude::*;
+    /// use pltrs::spines::SpineSide;
+    /// use pltrs::text::VAlign;
+    /// let ax = Figure::new().subplot();
+    /// assert_eq!(ax.xaxis().offset_text_valign(), VAlign::Top);
+    /// ax.xaxis().set_ticks_position(TickPosition::Side(SpineSide::Top))?;
+    /// assert_eq!(ax.xaxis().offset_text_valign(), VAlign::Bottom);
+    /// ax.xaxis().set_offset_text_valign(VAlign::Center);
+    /// assert_eq!(ax.xaxis().offset_text_valign(), VAlign::Center);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn offset_text_valign(&self) -> VAlign {
+        self.read(|axis| axis.offset_valign)
+    }
+
+    /// Aligns the offset (or scale) text vertically on its anchor
+    /// (matplotlib's `offsetText.set_verticalalignment`).
+    pub fn set_offset_text_valign(&self, valign: VAlign) -> &Self {
+        self.update(|axis| axis.offset_valign = valign);
+        self
+    }
+
     /// Whether the axis runs from high to low values (matplotlib's
     /// `Axis.get_inverted`).
     pub fn inverted(&self) -> bool {

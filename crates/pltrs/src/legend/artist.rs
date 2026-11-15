@@ -10,7 +10,7 @@ use super::{LegendAlignment, LegendDragUpdate, LegendMode, LegendShadowStyle};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, LayoutContext};
 use crate::collections::CollectionArtist;
 use crate::events::Dragger;
-use crate::offsetbox::{ArtistRef, OffsetBox};
+use crate::offsetbox::{ArtistRef, OffsetBox, PackAlign, Packer};
 use crate::patches::{FancyBboxPatch, PatchArtist};
 use crate::transforms::Transform;
 
@@ -180,10 +180,14 @@ impl LegendArtist {
         self.shadow.as_ref().map(|(id, _)| *id)
     }
 
-    /// The title box (the first child of the legend box).
+    /// The title box: the text area among the children of the legend box
+    /// (the first, unless a program packed them otherwise).
     pub(crate) fn title_box_mut(&mut self) -> Option<&mut OffsetBox<HandleRef>> {
         match &mut self.legend_box {
-            OffsetBox::VPacker(packer) => packer.children.first_mut(),
+            OffsetBox::VPacker(packer) | OffsetBox::HPacker(packer) => packer
+                .children
+                .iter_mut()
+                .find(|child| matches!(child, OffsetBox::TextArea(_))),
             _ => None,
         }
     }
@@ -192,9 +196,45 @@ impl LegendArtist {
     /// (matplotlib's `set_alignment`).
     pub(crate) fn set_alignment(&mut self, alignment: LegendAlignment) {
         self.alignment = alignment;
-        if let OffsetBox::VPacker(packer) = &mut self.legend_box {
+        if let OffsetBox::VPacker(packer) | OffsetBox::HPacker(packer) = &mut self.legend_box {
             packer.align = alignment.into();
         }
+    }
+
+    /// Packs the title and the block of entries anew (a program's
+    /// `_legend_box`, legendkit's title beside or below the entries): in a
+    /// vertical packer, else a horizontal one, the title first or last,
+    /// `pad` around them and `sep` between them in points, aligned by
+    /// `align`.
+    pub(crate) fn repack(
+        &mut self,
+        vertical: bool,
+        (pad, sep): (f64, f64),
+        align: PackAlign,
+        title_first: bool,
+    ) {
+        let children = match &mut self.legend_box {
+            OffsetBox::VPacker(packer) | OffsetBox::HPacker(packer) => {
+                std::mem::take(&mut packer.children)
+            }
+            _ => return,
+        };
+        let (mut titles, mut entries): (Vec<_>, Vec<_>) = children
+            .into_iter()
+            .partition(|child| matches!(child, OffsetBox::TextArea(_)));
+        let children = if title_first {
+            titles.append(&mut entries);
+            titles
+        } else {
+            entries.append(&mut titles);
+            entries
+        };
+        let packer = Packer::new(pad, sep, align, children);
+        self.legend_box = if vertical {
+            OffsetBox::VPacker(packer)
+        } else {
+            OffsetBox::HPacker(packer)
+        };
     }
 }
 

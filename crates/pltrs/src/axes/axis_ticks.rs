@@ -401,6 +401,11 @@ impl Axis {
                         second: false,
                     };
                 });
+                if axis.name == AxisName::X {
+                    // matplotlib's x axis puts its offset text back below.
+                    axis.offset_side = crate::spines::SpineSide::of(axis.name, false);
+                    axis.offset_valign = pltrs_text::VAlign::Top;
+                }
             }),
         }
         Ok(self)
@@ -579,6 +584,25 @@ mod tests {
     use super::*;
     use crate::axes::{TickDirection, TickLevel, TickParams};
     use crate::figure::Figure;
+
+    #[test]
+    fn the_offset_texts_align_as_matplotlibs_through_a_clear() {
+        use crate::spines::SpineSide;
+        use pltrs_text::VAlign;
+        let ax = Figure::new().subplot();
+        ax.xaxis()
+            .set_ticks_position(TickPosition::Side(SpineSide::Top))
+            .unwrap();
+        ax.yaxis().set_offset_position(SpineSide::Right).unwrap();
+        assert_eq!(ax.xaxis().offset_text_valign(), VAlign::Bottom);
+        ax.clear();
+        // The x axis keeps its side (`_tick_position`), not its alignment;
+        // the y axis goes back to the left.
+        assert_eq!(ax.xaxis().offset_position(), SpineSide::Top);
+        assert_eq!(ax.xaxis().offset_text_valign(), VAlign::Top);
+        assert_eq!(ax.yaxis().offset_position(), SpineSide::Left);
+        assert_eq!(ax.yaxis().offset_text_valign(), VAlign::Baseline);
+    }
 
     #[test]
     fn listing_ticks_leaves_a_drawn_figure_fresh() {

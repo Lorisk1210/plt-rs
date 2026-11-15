@@ -94,6 +94,12 @@ class Spine(Patch):
     For examples see :ref:`spines_examples`.
     """
 
+    # The spine's outline is its ``_path``, which pltrs (Rust) draws as a
+    # line, an arc or a circle (`_push_path` for the others), not a
+    # patch's outline handed over by `.Patch._push_computed`.
+    _computed = ()
+    _path_hooks = ()
+
     def __str__(self):
         return "Spine"
 
@@ -694,18 +700,62 @@ class Spine(Patch):
             self._span_path()
         elif "_pushed_path" in self.__dict__:
             self._push_path()
-        if self.axis is None and self._is_linear:
+        assigned = self.__dict__.get("_spine_type")
+        retyped = (self._is_linear and assigned is not None
+                   and assigned != _spines.side(self._native))
+        if (self.axis is None or retyped) and self._is_linear:
             # Without an axis, the line alone: no ticks stand out of it.
             drawn = _spines.display_path(self._native)
             if drawn is None:
                 return Bbox.null()
             vertices = np.asarray(drawn[0])
-            return Bbox([vertices.min(axis=0), vertices.max(axis=0)])
+            line = Bbox([vertices.min(axis=0), vertices.max(axis=0)])
+            return line if self.axis is None else self._padded_as_type(line, assigned)
         extent = _spines.window_extent(self._native)
         if extent is None:
             return Bbox.null()
         x0, y0, x1, y1 = extent
         return Bbox([[x0, y0], [x1, y1]])
+
+    def _padded_as_type(self, bb, spine_type):
+        """The box *bb* of the spine's line padded by its axis' drawn ticks
+        on the sides *spine_type* names, which a program assigned unlike
+        the side the spine is drawn on (matplotlib's ``get_window_extent``
+        pads by ``spine_type``)."""
+        # matplotlib 3.11.2's, under the Matplotlib License.
+        if not self.axis.get_visible():
+            return bb
+        bboxes = [bb]
+        drawn_ticks = self.axis._update_ticks()
+        major_tick = next(iter({*drawn_ticks} & {*self.axis.majorTicks}), None)
+        minor_tick = next(iter({*drawn_ticks} & {*self.axis.minorTicks}), None)
+        for tick in [major_tick, minor_tick]:
+            if tick is None:
+                continue
+            bb0 = bb.frozen()
+            tickl = tick._size
+            tickdir = tick._tickdir
+            if tickdir == 'out':
+                padout, padin = 1, 0
+            elif tickdir == 'in':
+                padout, padin = 0, 1
+            else:
+                padout = padin = 0.5
+            dpi = self.get_figure(root=True).dpi
+            padout = padout * tickl / 72 * dpi
+            padin = padin * tickl / 72 * dpi
+            if tick.tick1line.get_visible():
+                if spine_type == 'left':
+                    bb0.x0, bb0.x1 = bb0.x0 - padout, bb0.x1 + padin
+                elif spine_type == 'bottom':
+                    bb0.y0, bb0.y1 = bb0.y0 - padout, bb0.y1 + padin
+            if tick.tick2line.get_visible():
+                if spine_type == 'right':
+                    bb0.x1, bb0.x0 = bb0.x1 + padout, bb0.x0 - padin
+                elif spine_type == 'top':
+                    bb0.y1, bb0.y0 = bb0.y1 + padout, bb0.y0 - padout
+            bboxes.append(bb0)
+        return Bbox.union(bboxes)
 
     def get_tightbbox(self, renderer=None):
         """Like `get_window_extent`: a spine is not clipped."""

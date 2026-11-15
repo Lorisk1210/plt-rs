@@ -18,13 +18,17 @@ _AxesBase:_tight$ | ^type NoneType -> bool | matplotlib keeps None until `autosc
 # other classes where matplotlib composes or freezes one, as references
 # into the figure's tree after unpickling, made as a 3-D axis' tick parts
 # are drawn; a figure's own is its tree's, which no assignment replaces.
-:_transform$ | ^(value|identity|type |missing \(ValueError\)|write: assign fails) | the same mapping as matplotlib's, by another class of pltrs's transform tree (composed where matplotlib freezes, references after unpickling); a figure's transform is its own tree's
+^(\(receiver unknown\)|matplotlib\.artist\.Artist):_transform$ | ^(value|identity|type (BboxTransformTo -> (TreeReference|CompositeGenericTransform|IdentityTransform)|Affine2D -> (CompositeGenericTransform|IdentityTransform)|CompositeGenericTransform -> (BlendedGenericTransform|IdentityTransform)))$ | the same mapping as matplotlib's, by another class of pltrs's transform tree: composed where matplotlib freezes a matrix (a collection's offset box, an unpickled twin's data), a reference to the tree after unpickling, the identity for the parts pltrs (Rust) places in display pixels (an offset box's children, axisartist and 3-D axis parts)
+^(\(receiver unknown\)|matplotlib\.artist\.Artist):_transform$ | ^missing \(ValueError\)$ | a 3-D axis' children made by pltrs (Rust) include a 2-D spine part, whose transform matplotlib's `Spine` refuses for its 3-D side names (`unknown spine spine_type`)
+^\(receiver unknown\):_transform$ | ^write: assign fails$ | a figure's transform is its own tree's and takes no assignment; the libraries assigning `_transform` assign it on their own scales (probscale, proplot) and on a line's `MarkerStyle` (mpltern), which take it
 # Shapes pltrs (Rust) computes: a spine's path read out anew at each read
 # (no kept object), spanning the view as pltrs lays it out where matplotlib
 # keeps the span of its last draw through a clear; a path assigned to a
 # colorbar's outline or to a line, which only matplotlib's own later code
 # reads back (its draw of the outline, a line's `recache`).
-:_path$ | ^(value|identity|write: drawn otherwise|write: assign fails) | the shape pltrs (Rust) holds, read out anew (a new Path each read), spanning the view as laid out now; a path assigned to an outline or a line is not drawn by pltrs
+^(\(receiver unknown\)|matplotlib\.spines\.Spine):_path$ | ^(value|identity)$ | the shape pltrs (Rust) holds, read out anew (a new Path each read), spanning the view as laid out now (a spine's after a clear, a polar axis' clip path); a geo Axes' spines are listed before its patch
+^\(receiver unknown\):_path$ | ^write: assign fails$ | a line's path is the one pltrs (Rust) holds and takes no assignment (matplotlib's draw does not read an assigned one either until `recache`); the libraries assigning `_path` assign it on patches (cartopy's outline, through ultraplot and proplot), which take it
+^matplotlib\.spines\.Spine:_path$ | ^write: drawn otherwise$ | a path assigned to a colorbar's outline spine is not drawn by pltrs; cartopy's `GeoSpine`, the library assigning it, has a spine type naming no side, whose assigned path pltrs draws
 :_paths$ | ^(value|type NoneType -> list) | the paths pltrs (Rust) made: a mesh's before matplotlib makes them on first `get_paths` (None there), a contour set's as pltrs's generator traces them
 # Laid-out boxes: pltrs (Rust) applies an Axes' aspect and locators (a
 # colorbar's shrink, a 3-D Axes squared, a polar Axes' box) in every
@@ -69,4 +73,4 @@ XAxis:_update_label_position$ | ^signature$ | a 3-D axis keeps the 2-D axes' `_u
 # background patch is stale until its owner's first draw after it changed
 # or was made, a legend's boxes as the legend; what matplotlib's clears mark
 # stale part by part (its spines) is not tracked per object.
-Artist:_stale$ | ^value$ | the staleness of objects pltrs makes on read follows their owner's draws; matplotlib's clears mark some parts (spines) stale one by one
+^matplotlib\.artist\.Artist:_stale$ | ^value$ | the staleness of objects pltrs makes on read follows their owner's draws; matplotlib's clears mark some parts (spines) stale one by one

@@ -77,7 +77,7 @@ use crate::artist::{
 };
 use crate::axes::{Axes, AxesState};
 use crate::figure::{Figure, FigureCell, FigureFrame, FigureState};
-use crate::offsetbox::OffsetBox;
+use crate::offsetbox::{OffsetBox, PackAlign};
 use crate::patches::{FancyBboxPatch, Patch};
 use crate::text::{Text, TextArtist};
 use crate::transforms::Transform;
@@ -270,6 +270,40 @@ impl Legend {
     /// `get_alignment`).
     pub fn alignment(&self) -> LegendAlignment {
         self.read(|legend| legend.alignment)
+    }
+
+    /// Packs the title and the block of entries anew, as a program's
+    /// replacement for matplotlib's `_legend_box` packs them (legendkit
+    /// puts the title left of, right of or below the entries): in a
+    /// vertical packer, else a horizontal one, the title first or last,
+    /// with `pad` around and `sep` between them in points, aligned by
+    /// `align`.
+    ///
+    /// ```
+    /// use pltrs::offsetbox::{OffsetBox, PackAlign};
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("line"))?;
+    /// let legend = ax.legend(Default::default())?;
+    /// legend.set_title("T");
+    /// let tall = legend.window_extent().expect("laid out");
+    /// legend.repack(false, (4.0, 2.0), PackAlign::Center, true);
+    /// assert!(matches!(legend.legend_box(), OffsetBox::HPacker(_)));
+    /// let wide = legend.window_extent().expect("laid out");
+    /// assert!(wide.width() > tall.width() && wide.height() < tall.height());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn repack(
+        &self,
+        vertical: bool,
+        spacing: (f64, f64),
+        align: PackAlign,
+        title_first: bool,
+    ) -> &Self {
+        self.raw.with_mut::<LegendArtist, _>(|legend| {
+            legend.repack(vertical, spacing, align, title_first);
+        });
+        self
     }
 
     /// Lines up the title and the block of entries as `alignment` says;

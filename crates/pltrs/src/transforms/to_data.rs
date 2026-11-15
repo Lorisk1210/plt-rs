@@ -37,6 +37,7 @@ impl Transform {
         match self {
             Self::Display | Self::Affine(_) | Self::Custom(_) => false,
             Self::Figure(_)
+            | Self::FigureBox(_)
             | Self::Inches
             | Self::Axes(_)
             | Self::Data(_)

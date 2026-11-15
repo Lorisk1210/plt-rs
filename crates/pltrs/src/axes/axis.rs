@@ -5,6 +5,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use pltrs_core::Point;
+use pltrs_text::VAlign;
 
 use crate::artist::{AggFilter, ArtistId};
 
@@ -290,6 +291,11 @@ pub(crate) struct AxisState {
     /// The side the offset text sits on (matplotlib's tick position for
     /// x, offset position for y).
     pub(crate) offset_side: SpineSide,
+    /// The vertical alignment of the offset text: `Top` for x and
+    /// `Baseline` for y as matplotlib makes them, x's set by its tick
+    /// position (`set_ticks_position`), any set by the program
+    /// (`offsetText.set_va`).
+    pub(crate) offset_valign: VAlign,
     /// Whether the offset text is drawn.
     pub(crate) offset_visible: bool,
     /// The font size of the offset text in points: the tick label size
@@ -360,6 +366,7 @@ pltrs_core::archive_struct!(AxisState {
     agg_filter,
     in_layout,
     offset_side,
+    offset_valign,
     offset_visible,
     offset_size,
     remove_overlapping_locs,
@@ -435,6 +442,10 @@ impl AxisState {
             agg_filter: None,
             in_layout: true,
             offset_side: SpineSide::of(name, false),
+            offset_valign: match name {
+                AxisName::X => VAlign::Top,
+                AxisName::Y => VAlign::Baseline,
+            },
             offset_visible: true,
             remove_overlapping_locs: true,
             picking: AxisPicking::default(),
@@ -590,6 +601,11 @@ impl AxisState {
             style.labels = only;
         });
         self.offset_side = SpineSide::of(self.name, high);
+        if self.name == AxisName::X {
+            // matplotlib's `set_ticks_position` aligns the offset text
+            // away from the axes.
+            self.offset_valign = if high { VAlign::Bottom } else { VAlign::Top };
+        }
     }
 
     /// matplotlib's `tick_top`/`tick_right` (`high`) and

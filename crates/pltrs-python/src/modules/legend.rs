@@ -406,6 +406,25 @@ fn get_alignment(legend: Legend) -> PyResult<&'static str> {
     })
 }
 
+/// Packs the title and the entries of `legend` anew, as a program's
+/// `_legend_box` packs them: in a `VPacker` (`vertical`), else an
+/// `HPacker`, the title first or last, with `pad` and `sep` in points and
+/// the packer's `align`.
+fn repack(
+    legend: Legend,
+    (vertical, title_first): (bool, bool),
+    spacing: (f64, f64),
+    align: String,
+) -> PyResult<()> {
+    legend.repack(
+        vertical,
+        spacing,
+        super::offsetbox::pack_align(&align)?,
+        title_first,
+    );
+    Ok(())
+}
+
 /// Lines up the title and the entries.
 fn set_alignment(legend: Legend, alignment: String) -> PyResult<()> {
     legend.set_alignment(match alignment.as_str() {
@@ -462,6 +481,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("loc", loc)?;
     module.add("get_alignment", get_alignment)?;
     module.add("set_alignment", set_alignment)?;
+    module.add("repack", repack)?;
     anchor::register(module)?;
     made::register(module)?;
     module.add("keep", keep)?;

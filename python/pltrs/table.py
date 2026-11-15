@@ -62,6 +62,32 @@ class _CellText(_mirrors.Mirroring):
     def push(self, artist):
         _table.restyle_text(self.cell._ref(), artist._native)
 
+    def figure(self, artist, root=False):
+        # The cell's, as matplotlib's `Cell.set_figure` gives its text.
+        return self.cell.get_figure(root=root)
+
+    def window_extent(self, artist, renderer=None, dpi=None):
+        # Where the table places the text, as matplotlib's table sets the
+        # text's position when it places its cells.
+        if not artist.get_visible():
+            return Bbox.unit()
+        self.cell._measure_text_with(renderer)
+        bounds = _measured(_table.text_bounds(self.cell._ref()))
+        extent = Bbox.from_bounds(*bounds).transformed(self.cell.get_data_transform())
+        if dpi is None:
+            return extent
+        # matplotlib's text is placed in display pixels (its transform is
+        # the identity): measured at another resolution, it keeps its
+        # anchor there, as a text so placed does.
+        stand_in = Text(text=artist.get_text())
+        stand_in.update_from(artist)
+        stand_in.set_verticalalignment("center")
+        across = {"left": 0.0, "center": 0.5, "right": 1.0}[artist.get_horizontalalignment()]
+        stand_in.set_position((extent.x0 + across * extent.width, extent.y0 + extent.height / 2))
+        stand_in.set_transform(IdentityTransform())
+        stand_in.set_figure(self.cell.get_figure(root=False))
+        return stand_in.get_window_extent(renderer, dpi=dpi)
+
 
 def _points(size):
     """A font size in points: a number, or a size name (``'large'``, None

@@ -3,7 +3,7 @@
 //! `_update_label_position` and `_update_offset_text_position`).
 
 use pltrs_core::{Bbox, Point};
-use pltrs_text::{BlockStyle, HAlign, RotationMode, VAlign};
+use pltrs_text::{BlockStyle, HAlign, RotationMode};
 
 use super::axis_layout::{
     AxisPainter, PlacedText, measured_at_nan, place_text_measured, rc_with_effects,
@@ -151,15 +151,15 @@ impl AxisPainter<'_> {
         Some(match self.name {
             AxisName::X => {
                 let side_boxes = label_boxes.iter().filter(|(first, _)| *first != high);
-                let (y, valign) = if measured_at_nan(label_boxes, high) {
-                    let valign = if high { VAlign::Bottom } else { VAlign::Top };
-                    (f64::NAN, valign)
+                let valign = self.axis.offset_valign;
+                let y = if measured_at_nan(label_boxes, high) {
+                    f64::NAN
                 } else if high {
                     let top = side_boxes
                         .map(|(_, b)| b.y1())
                         .fold(f64::NEG_INFINITY, f64::max);
                     let top = if top.is_finite() { top } else { extent.ymax() };
-                    (top + pad, VAlign::Bottom)
+                    top + pad
                 } else {
                     let bottom = side_boxes
                         .map(|(_, b)| b.y0())
@@ -169,7 +169,7 @@ impl AxisPainter<'_> {
                     } else {
                         extent.ymin()
                     };
-                    (bottom - pad, VAlign::Top)
+                    bottom - pad
                 };
                 (
                     Point::new(extent.x1(), y),
@@ -194,7 +194,7 @@ impl AxisPainter<'_> {
                     Point::new(x, top + pad),
                     BlockStyle {
                         halign,
-                        valign: VAlign::Baseline,
+                        valign: self.axis.offset_valign,
                         ..BlockStyle::default()
                     },
                 )
@@ -210,6 +210,7 @@ mod tests {
     use crate::axes::{Axes, AxesState, TickParams};
     use crate::figure::Figure;
     use crate::spines::SpineSide;
+    use pltrs_text::VAlign;
 
     /// The box of the label of axis `name` of `ax`.
     fn label_box(fig: &Figure, ax: &Axes, name: AxisName) -> Bbox {

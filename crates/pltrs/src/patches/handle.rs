@@ -3,7 +3,7 @@
 
 use std::marker::PhantomData;
 
-use pltrs_core::{Path, Point, Rgba};
+use pltrs_core::{Affine2D, Path, Point, Rgba};
 use pltrs_render::{CapStyle, JoinStyle};
 
 use super::shape::PatchShape;
@@ -113,6 +113,29 @@ impl<S: PatchShape> Patch<S> {
     /// circle too.
     pub fn set_interpolation_steps(&self, steps: usize) -> &Self {
         self.update(|p| p.interpolation_steps = steps)
+    }
+
+    /// Draws, measures, hits and autoscales the patch as `path` placed by
+    /// `placement` (into the coordinates of its transform), in place of its
+    /// shape's outline: the outline a class of the program's makes
+    /// (matplotlib's `Patch.draw` and measures read `get_path()` through
+    /// `get_patch_transform()`); `None` gives the shape's again.
+    ///
+    /// ```
+    /// use pltrs::patches::Rectangle;
+    /// use pltrs::path::Path;
+    /// use pltrs::prelude::*;
+    /// use pltrs::transforms::{Affine2D, Point};
+    /// let ax = Figure::new().subplot();
+    /// let patch = ax.add_patch(Rectangle::new((0.0, 0.0), 1.0, 1.0));
+    /// let corners = [(0.0, 0.0), (4.0, 0.0), (0.0, 2.0)];
+    /// let outline = Path::closed(corners.map(Point::from).to_vec());
+    /// patch.set_program_path(Some((outline, Affine2D::identity())));
+    /// ax.relim(false);
+    /// assert_eq!(ax.data_lim().bbox.p1.x, 4.0);
+    /// ```
+    pub fn set_program_path(&self, path: Option<(Path, Affine2D)>) -> &Self {
+        self.update(|p| p.program_path = path)
     }
 
     /// A copy of the edge/face/hatch properties.

@@ -41,16 +41,13 @@ pub enum CpuLevel {
 /// What numpy says of its dispatch (`__cpu_features__` of its
 /// `_multiarray_umath`), as far as the level follows from it.
 ///
-/// numpy 2.5 groups the features of x86-64 into `X86_V2`, `X86_V3` and
-/// `X86_V4` and dispatches by group; a group it was told to leave out
-/// (`NPY_DISABLE_CPU_FEATURES`) reads false while its features still read
-/// true. Earlier releases (2.2 has no groups) dispatch the same copies by
-/// the features `AVX2` and `AVX512_SKX`, and numpy 1 has x86-simd-sort's
-/// AVX-512 sort of indices alone.
+/// numpy 2.4 and later group the features of x86-64 into `X86_V2`,
+/// `X86_V3` and `X86_V4` and dispatch by group; a group numpy was told to
+/// leave out (`NPY_DISABLE_CPU_FEATURES`) reads false while its features
+/// still read true. Earlier releases dispatch the same copies by the
+/// features `AVX2` and `AVX512_SKX`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NumpyDispatch {
-    /// numpy's major version.
-    pub major: u32,
     /// Whether the group `X86_V3` is enabled; `None` where numpy has no
     /// such group.
     pub x86_v3: Option<bool>,
@@ -152,7 +149,6 @@ impl CpuLevel {
     /// use pltrs_core::numeric::{CpuLevel, NumpyDispatch};
     /// // numpy 2.5 on a processor with AVX2 and no AVX-512.
     /// let numpy = NumpyDispatch {
-    ///     major: 2,
     ///     x86_v3: Some(true),
     ///     x86_v4: Some(false),
     ///     avx2: true,
@@ -164,12 +160,8 @@ impl CpuLevel {
     pub fn from_numpy(numpy: NumpyDispatch) -> Self {
         let (v3, v4) = match (numpy.x86_v3, numpy.x86_v4) {
             (Some(v3), Some(v4)) => (v3, v3 && v4),
-            // Before the groups, numpy dispatched by single features, and
-            // its AVX2 copy of the sort came with numpy 2.
-            _ => (
-                numpy.avx512_skx || (numpy.avx2 && numpy.major >= 2),
-                numpy.avx512_skx,
-            ),
+            // Before the groups, numpy dispatched by single features.
+            _ => (numpy.avx2 || numpy.avx512_skx, numpy.avx512_skx),
         };
         if v4 {
             Self::V4
@@ -238,7 +230,6 @@ mod tests {
     #[test]
     fn numpys_groups_decide_where_it_has_them() {
         let groups = |x86_v3, x86_v4| NumpyDispatch {
-            major: 2,
             x86_v3: Some(x86_v3),
             x86_v4: Some(x86_v4),
             // A group left out by NPY_DISABLE_CPU_FEATURES leaves the
@@ -261,22 +252,15 @@ mod tests {
 
     #[test]
     fn numpys_features_decide_before_the_groups() {
-        let features = |major, avx2, avx512_skx| NumpyDispatch {
-            major,
+        let features = |avx2, avx512_skx| NumpyDispatch {
             avx2,
             avx512_skx,
             ..NumpyDispatch::default()
         };
-        assert_eq!(CpuLevel::from_numpy(features(2, true, true)), CpuLevel::V4);
-        assert_eq!(CpuLevel::from_numpy(features(2, true, false)), CpuLevel::V3);
+        assert_eq!(CpuLevel::from_numpy(features(true, true)), CpuLevel::V4);
+        assert_eq!(CpuLevel::from_numpy(features(true, false)), CpuLevel::V3);
         assert_eq!(
-            CpuLevel::from_numpy(features(2, false, false)),
-            CpuLevel::Baseline
-        );
-        // numpy 1 sorts indices with AVX-512 or with its own code.
-        assert_eq!(CpuLevel::from_numpy(features(1, true, true)), CpuLevel::V4);
-        assert_eq!(
-            CpuLevel::from_numpy(features(1, true, false)),
+            CpuLevel::from_numpy(features(false, false)),
             CpuLevel::Baseline
         );
         // Another architecture: none of it.

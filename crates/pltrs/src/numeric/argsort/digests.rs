@@ -8,6 +8,7 @@ use pltrs_core::numeric::CpuLevel;
 use pltrs_core::rng::SplitMix64;
 
 use super::argsort_at;
+use super::numpy::{ties, with_nans};
 
 /// numpy's digests: a family, a size and a digest per level on each line.
 const DIGESTS: &str = include_str!("digests.txt");
@@ -16,21 +17,13 @@ const DIGESTS: &str = include_str!("digests.txt");
 const CHAINED: std::ops::RangeInclusive<usize> = 0..=600;
 
 /// The 64-bit golden ratio, `SplitMix64`'s increment.
-const GOLDEN: u64 = 0x9E37_79B9_7F4A_7C15;
+pub(super) const GOLDEN: u64 = 0x9E37_79B9_7F4A_7C15;
 
 /// The families of arrays, in the order that numbers their seeds.
 const FAMILIES: [&str; 12] = [
     "ties2", "ties5", "ties40", "ties1000", "uniform", "nan", "infinite", "zeros", "sorted",
     "reversed", "constant", "stalled",
 ];
-
-/// `n` draws from `levels` multiples of 1/4.
-fn ties(seed: u64, n: usize, levels: u64) -> Vec<f64> {
-    let mut random = SplitMix64::new(seed);
-    (0..n)
-        .map(|_| (random.next_u64() % levels) as f64 / 4.0)
-        .collect()
-}
 
 /// The array of `n` values of `family`.
 fn values(family: &str, seed: u64, n: usize) -> Vec<f64> {
@@ -42,11 +35,7 @@ fn values(family: &str, seed: u64, n: usize) -> Vec<f64> {
         "ties40" => ties(seed, n, 40),
         "ties1000" => ties(seed, n, 1000),
         "uniform" => (0..n).map(|_| random.next_f64()).collect(),
-        "nan" => ties(seed, n, 4)
-            .into_iter()
-            .enumerate()
-            .map(|(i, v)| if i % 5 == 0 { f64::NAN } else { v })
-            .collect(),
+        "nan" => with_nans(ties(seed, n, 4)),
         "infinite" => ties(seed, n, 4)
             .into_iter()
             .enumerate()
@@ -68,7 +57,7 @@ fn values(family: &str, seed: u64, n: usize) -> Vec<f64> {
 }
 
 /// The tool's digest of `order`: its indices mixed with their positions.
-fn digest(order: &[usize]) -> u64 {
+pub(super) fn digest(order: &[usize]) -> u64 {
     order
         .iter()
         .enumerate()

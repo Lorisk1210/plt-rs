@@ -3147,19 +3147,24 @@ results follow, so "the machine it runs on" means the processor too:
 pltrs computes at numpy's level, `pltrs_core::numeric::CpuLevel`
 (`Baseline`, `V3`, `V4`), resolved once per process.
 
-* **Where the level comes from.** In pltrs (Python) it is numpy's own
-  answer: `pltrs/__init__.py` hands what `__cpu_features__` holds for the
-  groups `X86_V3` and `X86_V4` to `_native.numeric.follow_numpy` before
-  anything is computed, so that a user's `NPY_DISABLE_CPU_FEATURES`, or a
-  numpy built for another baseline, is followed (numpy before the groups,
-  2.2 for one, dispatches the same copies by the features `AVX2` and
-  `AVX512_SKX`, which are read then). pltrs (Rust) on its own asks the
+* **Where the level comes from: the numpy that is installed decides.**
+  The level is what numpy dispatches to, not what the processor could
+  run. `pltrs/__init__.py` hands `_native.numeric.follow_numpy`, before
+  anything is computed, whether numpy runs its copies for the groups
+  `X86_V3` and `X86_V4`: the processor has the group (`__cpu_features__`,
+  which a user's `NPY_DISABLE_CPU_FEATURES` empties) and numpy holds a
+  copy for it (`__cpu_baseline__` and `__cpu_dispatch__`). A wheel may
+  hold none: numpy's for Windows has no `X86_V4` copy (its build leaves
+  the group out for MSVC), so numpy and pltrs run at `X86_V3` there on an
+  AVX-512 processor, while its Linux wheels dispatch to both groups in
+  every release from 1.26 to 2.5 (numpy before 2.4 has no groups and
+  dispatches the same copies by the features `AVX2` and `AVX512_SKX`,
+  which are read then, the same way). pltrs (Rust) on its own asks the
   processor (`is_x86_feature_detected!`) with numpy's rule for the groups,
   unless `PLTRS_CPU_LEVEL` names a level (`v2`, `v3`, `v4`). Every other
   architecture is `Baseline`: arm64 macOS computes as before. A kernel
   that depends on the level reads the resolved value once per call
-  (`argsort` of 10⁶ values costs what it did; `argsort_at` takes the level
-  as an argument, for tests).
+  (`argsort_at` takes the level as an argument, for tests).
 * **What follows it: the sort.** numpy's unstable `argsort` sorts indices
   with its own introsort at the baseline and with Intel's x86-simd-sort
   at `X86_V3` and `X86_V4`, compiled once for registers of 4 keys and
@@ -3172,6 +3177,40 @@ pltrs computes at numpy's level, `pltrs_core::numeric::CpuLevel`
   the proof against numpy (every length to 600 and a spread to 10⁶, at
   the three levels) and checks a processor's own level with numpy alone
   (`--check`).
+* **The sort by numpy's release: numpy sorts the long arrays itself.**
+  The x86-simd-sort numpy vendors changed twice, and the order of equal
+  values with it: numpy 1.25 and 1.26 have no AVX2 sort (with AVX2 they
+  sort as without), leave ranges of up to 64 keys to the networks and
+  partition longer ones; numpy 2.0 to 2.2 have the AVX2 sort and networks
+  for 256 keys; numpy 2.3 to 2.5, which pltrs (Rust) replays, also leave
+  an array already in order alone (the tool's digests of numpy 1.26.4,
+  2.0.x, 2.1.3, 2.2.6, 2.3.x, 2.4.4 and 2.5.4 fall into these three sets
+  at `X86_V3` and `X86_V4`, and into one without AVX2). All of it is in
+  arrays of more than 64 values: up to there every release sorts by one
+  network, or by numpy's own introsort where it has no SIMD sort. So
+  pltrs (Python) does not replay numpy's sort of those: `pltrs/__init__`
+  registers `numpy.ndarray.argsort` (as `"argsort"`), and
+  `pltrs::numeric::argsort` has it sort every array of more than 64
+  values (`argsort/numpy.rs`, `LONGEST_REPLAYED`): the order of the numpy
+  at hand whatever its release, and sooner than the replay from about
+  that length on (numpy sorts with the processor's registers, the replay
+  lane by lane: several times sooner from a few thousand values on). The
+  call is of numpy's C method, so it makes no Python-level
+  call and runs no code of the program's; the GIL is held wherever pltrs
+  (Rust) sorts, and numpy releases it while it sorts, as it does under
+  matplotlib (`python/tests/test_threads.py`). Shorter arrays are
+  replayed, which costs less than the call, and numpy is asked nothing
+  about them until one comes out with equal values (any other has one
+  order, whoever sorts). Then, once per process, numpy sorts four seeded
+  arrays of up to 64 values: if the replay at the processor's level
+  orders them as numpy does, it goes on; if numpy's introsort does (numpy
+  1 with AVX2), that is replayed; if neither does (a build with another
+  sort), numpy sorts the short arrays too. Arrays with NaN go to C++'s
+  `std::sort`, which is the C++ library's and not numpy's, so they are
+  asked about, and routed, on their own. `_native.numeric
+  .argsort_routes()` says what was decided. pltrs (Rust) alone has no
+  numpy: it orders equal values, at every length, as the numpy the
+  goldens are recorded with does (2.5).
 * **What does not follow it: the maths.** Only numpy's Linux wheel links
   Intel's SVML, and only its AVX-512 loops call it: at `X86_V4` on Linux
   `exp`, `log`, `log2`, `log10`, `exp2`, `expm1`, `log1p`, `power`,

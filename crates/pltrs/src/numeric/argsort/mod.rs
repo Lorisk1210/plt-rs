@@ -30,6 +30,11 @@
 //! 16 keys or 32, and AVX2, lacking a compress instruction, stores a
 //! register's keys of at least the pivot from its last lane down.
 //!
+//! That is numpy 2.3 to 2.5, with which the goldens are recorded. Earlier
+//! releases vendor an x86-simd-sort that orders equal values otherwise in
+//! arrays of more than 64 values, and later ones may again: where numpy is
+//! in the process, [`argsort`] has numpy itself sort those ([`numpy`]).
+//!
 //! numpy dispatches the same way for the other keys it sorts indices of:
 //! 32- and 64-bit integers and `float32` go to x86-simd-sort at both
 //! levels (with registers of as many keys as indices), while 8- and 16-bit
@@ -54,20 +59,29 @@ mod digests;
 mod fallback;
 mod generic;
 mod network;
+mod numpy;
 mod partition;
 mod width;
 
+pub use numpy::{LONGEST_REPLAYED, NumpyArgsort, SortRoute, sort_as_numpy, sort_route};
 use pltrs_core::numeric::CpuLevel;
 use width::{Avx2, Avx512, Width};
 
 /// The indices that sort `values` ascending, NaN last: numpy's
 /// `np.argsort(values)`, equal values included, as numpy sorts on this
-/// processor ([`CpuLevel::current`]; see the module docs).
+/// processor ([`CpuLevel::current`]; see the module docs): by the numpy
+/// beside pltrs (Python) itself or as it sorts ([`sort_as_numpy`]), and
+/// as the numpy the goldens are recorded with for pltrs (Rust) alone.
 pub fn argsort(values: &[f64]) -> Vec<usize> {
-    argsort_at(values, CpuLevel::current())
+    let level = CpuLevel::current();
+    match numpy::handed_over() {
+        Some(numpy) => numpy::sort(values, level, numpy),
+        None => argsort_at(values, level),
+    }
 }
 
-/// [`argsort`] as numpy sorts at `level`, whatever the processor.
+/// [`argsort`] as the numpy of the goldens (2.3 to 2.5) sorts at `level`,
+/// whatever the processor.
 pub fn argsort_at(values: &[f64], level: CpuLevel) -> Vec<usize> {
     match level {
         CpuLevel::V4 => simd_argsort::<Avx512>(values),

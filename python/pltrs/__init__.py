@@ -91,10 +91,25 @@ _register("LinAlgError", _np.linalg.LinAlgError)
 # "Processor levels"): the copy of its loops numpy dispatches to.
 from ._native import numeric as _numeric  # noqa: E402
 
-_numeric.follow_numpy(
-    int(_np.__version__.split(".")[0]),
-    *map((_np._core if hasattr(_np, "_core") else _np.core)._multiarray_umath.__cpu_features__.get,
-         ("X86_V3", "X86_V4", "AVX2", "AVX512_SKX")))
+
+
+def _numpy_runs(*names):
+    """For each of *names* (a group or a feature of numpy's dispatch),
+    whether numpy runs its copy of its loops: the processor has it and
+    numpy holds a copy for it (its baseline and dispatch lists: a wheel
+    may hold none, as numpy's for Windows holds none for ``X86_V4``);
+    `None` for a name this numpy does not know."""
+    umath = (_np._core if hasattr(_np, "_core") else _np.core)._multiarray_umath
+    features = umath.__cpu_features__
+    copies = {*umath.__cpu_baseline__, *umath.__cpu_dispatch__}
+    return [name in copies and bool(features[name]) if name in features else None
+            for name in names]
+
+
+_numeric.follow_numpy(*_numpy_runs("X86_V3", "X86_V4", "AVX2", "AVX512_SKX"))
+# ... and orders equal values as this numpy's argsort does: numpy's C
+# method sorts what is longer than pltrs (Rust) replays.
+_register("argsort", _np.ndarray.argsort)
 
 
 def _silently(ufunc):

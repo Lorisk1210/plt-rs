@@ -5,23 +5,33 @@
 numpy's unstable ``argsort`` leaves equal values in an order that depends on
 the code its wheel runs on the processor: its own introsort without AVX2
 (``v2``), x86-simd-sort's AVX2 code (``v3``) or its AVX-512 code (``v4``).
-pltrs replays all three, and
-``crates/pltrs/src/numeric/argsort/digests.txt`` holds what numpy returns:
-one line per family of seeded arrays (ties, NaN, infinities, signed zeros,
-sorted, reversed, constant, stalled partitions) and size, with a digest of
-the returned indices per level. A size of ``0-600`` stands for every length
-from 0 to 600, chained into one digest.
+pltrs replays all three as numpy 2.3 to 2.5 sort (earlier releases order
+equal values otherwise in arrays of more than 64 values), and
+``crates/pltrs/src/numeric/argsort/digests.txt`` holds what numpy 2.5.4
+returns: one line per family of seeded arrays (ties, NaN, infinities,
+signed zeros, sorted, reversed, constant, stalled partitions) and size,
+with a digest of the returned indices per level. A size of ``0-600``
+stands for every length from 0 to 600, chained into one digest.
 
     argsort_digests.py            the digests of the numpy level in force
+                                  (of any numpy: the way to compare two)
     argsort_digests.py --write    rewrite digests.txt, running numpy at each
                                   level this processor has (an AVX-512
                                   machine records all three)
     argsort_digests.py --check    compare the level in force with
                                   digests.txt: the proof on a processor of
                                   that level, with numpy alone
+    argsort_digests.py --disabled LEVEL
+                                  what NPY_DISABLE_CPU_FEATURES must hold
+                                  for this numpy to run at LEVEL
+    argsort_digests.py --probe    the digests, at each level, of the short
+                                  arrays pltrs asks numpy to sort to tell
+                                  how it sorts them (the constants of
+                                  ``argsort/numpy.rs``'s tests)
 
 The arrays come from SplitMix64 in integer arithmetic, which
-``digests.rs`` mirrors, so they are the same bits everywhere.
+``digests.rs`` and ``numpy.rs`` mirror, so they are the same bits
+everywhere.
 """
 
 import os
@@ -33,8 +43,9 @@ import numpy as np
 
 DIGESTS = pathlib.Path(__file__).resolve().parents[1] / "src/numeric/argsort/digests.txt"
 LEVELS = ("v2", "v3", "v4")
-#: What ``NPY_DISABLE_CPU_FEATURES`` takes away to run numpy at a level.
-DISABLED = {
+#: What ``NPY_DISABLE_CPU_FEATURES`` takes away to run a numpy that
+#: dispatches by groups (2.4 and later) at a level.
+DISABLED_GROUPS = {
     "v2": "X86_V3 X86_V4 AVX512_ICL AVX512_SPR",
     "v3": "X86_V4 AVX512_ICL AVX512_SPR",
     "v4": "",
@@ -121,6 +132,13 @@ FAMILIES = {
 }
 
 
+#: The seed of a probe array of ``n`` values is this plus ``n``.
+PROBE_SEED = 20_261_114
+#: The lengths of the arrays pltrs asks numpy to sort, of the family
+#: ``ties5`` and, with NaN, of ``nan`` (``PROBES`` of ``argsort/numpy.rs``).
+PROBES = (9, 20, 40, 64)
+
+
 def digest(order):
     """A digest of the indices ``order``, sensitive to their positions."""
     with np.errstate(over="ignore"):
@@ -142,9 +160,43 @@ def family_digest(number, family, size):
     return total
 
 
+def _umath():
+    """numpy's extension module, which says what it dispatches to."""
+    return (np._core if hasattr(np, "_core") else np.core)._multiarray_umath
+
+
+def probe_digest(family):
+    """The chained digest of ``np.argsort`` of the probe arrays of
+    *family*."""
+    total = 0
+    for n in PROBES:
+        order = np.argsort(FAMILIES[family](PROBE_SEED + n, n))
+        total = (total * int(GOLDEN) + digest(order)) % 2**64
+    return total
+
+
 def level_in_force():
-    from numpy._core._multiarray_umath import __cpu_features__ as features
-    return "v4" if features.get("X86_V4") else "v3" if features.get("X86_V3") else "v2"
+    """The level this numpy runs at: the highest whose copy of its loops
+    the processor has and numpy holds (its baseline and dispatch lists),
+    by its groups (numpy 2.4 and later) or by the features AVX2 and
+    AVX-512 an earlier one dispatches by."""
+    umath = _umath()
+    copies = {*umath.__cpu_baseline__, *umath.__cpu_dispatch__}
+    runs = {name for name, enabled in umath.__cpu_features__.items() if enabled and name in copies}
+    if "X86_V3" in umath.__cpu_features__:
+        return "v4" if {"X86_V3", "X86_V4"} <= runs else "v3" if "X86_V3" in runs else "v2"
+    return "v4" if "AVX512_SKX" in runs else "v3" if "AVX2" in runs else "v2"
+
+
+def disabled(level):
+    """What ``NPY_DISABLE_CPU_FEATURES`` takes away to run this numpy at
+    *level*: groups, or for a numpy without them every AVX-512 feature it
+    dispatches to and, for ``v2``, AVX2 and FMA as well."""
+    dispatch = _umath().__cpu_dispatch__
+    if "X86_V3" in dispatch:
+        return DISABLED_GROUPS[level]
+    wide = [name for name in dispatch if name.startswith("AVX512")]
+    return " ".join({"v4": [], "v3": wide, "v2": ["FMA3", "AVX2", *wide]}[level])
 
 
 def digests():
@@ -164,20 +216,27 @@ def read():
     return table
 
 
-def write():
-    """Record digests.txt from numpy run at every level this processor
-    has."""
+def at_each_level(*options):
+    """What this tool prints with ``options`` under numpy run at each
+    level, by level; needs a processor of the highest."""
     highest = level_in_force()
     if highest != "v4":
         sys.exit(f"this numpy runs at {highest}: recording all levels needs an AVX-512 processor")
-    columns = {}
+    printed = {}
     for level in LEVELS:
-        env = dict(os.environ, NPY_DISABLE_CPU_FEATURES=DISABLED[level])
-        out = subprocess.run([sys.executable, __file__], env=env, check=True,
-                             capture_output=True, text=True).stdout.splitlines()
+        env = dict(os.environ, NPY_DISABLE_CPU_FEATURES=disabled(level))
+        out = subprocess.run([sys.executable, "-W", "ignore", __file__, *options], env=env,
+                             check=True, capture_output=True, text=True).stdout.splitlines()
         if out[0] != f"# numpy {np.__version__} at {level}":
             sys.exit(f"numpy did not run at {level}: {out[0]}")
-        columns[level] = [line.split() for line in out[1:]]
+        printed[level] = out[1:]
+    return printed
+
+
+def write():
+    """Record digests.txt from numpy run at every level."""
+    columns = {level: [line.split() for line in lines]
+               for level, lines in at_each_level().items()}
     lines = [
         f"# numpy {np.__version__}'s argsort of seeded arrays: family, size, and a digest of the",
         "# indices at v2, v3 and v4. Written by crates/pltrs/tools/argsort_digests.py --write.",
@@ -186,6 +245,14 @@ def write():
         family, size = rows[0][:2]
         lines.append(f"{family} {size} " + " ".join(row[2] for row in rows))
     DIGESTS.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+
+
+def probe():
+    """Print the probe arrays' digests of this numpy at every level."""
+    printed = at_each_level("--probe-here")
+    print(f"numpy {np.__version__}: the probe arrays' digests at v2, v3 and v4")
+    for row, name in enumerate(("without NaN", "with NaN")):
+        print(f"  {name}: " + ", ".join("0x" + printed[level][row] for level in LEVELS))
 
 
 def check():
@@ -206,6 +273,13 @@ if __name__ == "__main__":
         write()
     elif "--check" in sys.argv:
         check()
+    elif "--probe" in sys.argv:
+        probe()
+    elif "--probe-here" in sys.argv:
+        print(f"# numpy {np.__version__} at {level_in_force()}")
+        print(f"{probe_digest('ties5'):016x}\n{probe_digest('nan'):016x}")
+    elif "--disabled" in sys.argv:
+        print(disabled(sys.argv[sys.argv.index("--disabled") + 1]))
     else:
         print(f"# numpy {np.__version__} at {level_in_force()}")
         for (family, size), value in digests().items():

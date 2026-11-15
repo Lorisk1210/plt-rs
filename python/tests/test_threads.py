@@ -263,3 +263,43 @@ def test_threads_using_pltrs_at_once():
     finally:
         sys.setswitchinterval(interval)
     assert errors == []
+
+
+def test_threads_sorting_equal_depths_at_once():
+    """3-D scatters with equal depths drawn by threads at once: pltrs has
+    numpy sort the depths, and numpy releases the GIL while it sorts, in
+    the middle of a draw. Each thread's figures come out as one thread
+    draws them."""
+    def scatter(n):
+        at = np.arange(n) % 7
+        fig = Figure(figsize=(2, 2), dpi=30)
+        fig.add_subplot(projection="3d").scatter(at * 0.2, at * 0.1, at * 0.3, c=at)
+        out = io.BytesIO()
+        fig.savefig(out, format="png")
+        return out.getvalue()
+
+    sizes = [40, 400, 4000, 20000]
+    alone = {n: scatter(n) for n in sizes}
+    errors = []
+
+    def worker(seed):
+        rng = random.Random(seed)
+        try:
+            for _ in range(8):
+                n = rng.choice(sizes)
+                with pltrs.rc_context({"lines.linewidth": rng.choice([1, 2])}):
+                    assert scatter(n) == alone[n]
+        except BaseException as err:
+            errors.append(err)
+
+    interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    try:
+        threads = [threading.Thread(target=worker, args=(seed,)) for seed in range(6)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    finally:
+        sys.setswitchinterval(interval)
+    assert errors == []

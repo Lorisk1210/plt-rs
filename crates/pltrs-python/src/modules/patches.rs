@@ -20,7 +20,7 @@ use pltrs_core::{Affine2D, Path, Point};
 
 use super::lines::{PyLineStyle, cap_style, join_style};
 use super::path::{PathArrays, PyPath, path_arrays};
-use super::transforms::{matrix, points, points_array};
+use super::transforms::{affine, matrix, points, points_array};
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
 
@@ -78,6 +78,9 @@ trait PatchOps: StyleOps {
     /// Issues numpy's warnings of matplotlib's making the outline (see
     /// [`PatchShape::warn_making_path`]).
     fn warn_making_path(&self);
+    /// Sets the outline a class of the program's makes (see
+    /// [`Patch::set_program_path`]).
+    fn set_program_path(&self, path: Option<(Path, Affine2D)>);
 }
 
 impl<S: PatchShape> PatchOps for Patch<S> {
@@ -116,6 +119,10 @@ impl<S: PatchShape> PatchOps for Patch<S> {
 
     fn warn_making_path(&self) {
         self.shape().warn_making_path();
+    }
+
+    fn set_program_path(&self, path: Option<(Path, Affine2D)>) {
+        Patch::set_program_path(self, path);
     }
 }
 
@@ -313,6 +320,18 @@ fn set_rectangle(
         shape.angle = angle;
         shape.rotation_point = point;
     });
+    Ok(())
+}
+
+/// Draws `patch` as `path` placed by the 3×3 matrix `placement` (its
+/// patch transform), the outline its class of the program's makes, or as
+/// its shape with `None`.
+fn set_program_path(patch: AnyPatch, path: Option<(PyPath, NdArray)>) -> PyResult<()> {
+    let path = match path {
+        Some((path, placement)) => Some((path.path, affine(&placement)?)),
+        None => None,
+    };
+    patch.0.set_program_path(path);
     Ok(())
 }
 
@@ -646,6 +665,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("rectangle", rectangle)?;
     module.add("set_rectangle", set_rectangle)?;
     module.add("set_aspect_ratio_correction", set_aspect_ratio_correction)?;
+    module.add("set_program_path", set_program_path)?;
     module.add("ellipse", ellipse)?;
     module.add("set_ellipse", set_ellipse)?;
     module.add("set_arc", set_arc)?;

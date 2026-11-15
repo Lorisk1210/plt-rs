@@ -12,7 +12,7 @@ from numbers import Real
 from .. import _docstring
 from .. import _handles, _live_transforms, _values
 from .. import patches  # noqa: F401  (whose Rectangle the docstrings list)
-from .._native import insets as _insets
+from .._native import artist as _artist, insets as _insets
 from ..transforms import Bbox, TransformedBbox
 
 
@@ -114,14 +114,36 @@ _TransformedBoundsLocator.__module__ = __name__.rpartition(".")[0] + "._base"
 class ChildAxesMixin:
     """The child Axes of an Axes (`~.axes._base._AxesBase`'s)."""
 
-    # matplotlib's list, which its draws and `get_children` follow; one
-    # assigned is read back (pltrs (Rust) draws the children it holds).
-    @_values.assignable
+    @property
     def child_axes(self):
         """The Axes placed inside this one: insets and secondary axes."""
         from ._axes import Axes
-        return _handles.wrap_all(_insets.child_axes(self._native), Axes,
-                                 self._figure)
+        return _values.assigned(self, "child_axes", lambda: _handles.wrap_all(
+            _insets.child_axes(self._native), Axes, self._figure))
+
+    @child_axes.setter
+    def child_axes(self, axes_list):
+        # matplotlib's list, which its draws follow: the Axes left out of it
+        # are drawn no more, those it adds are drawn with this one. (Later
+        # changes made to the list in place are read back alone.)
+        _values.assign(self, "child_axes", axes_list)
+        wanted = {_artist.id(ax._native): ax for ax in axes_list if hasattr(ax, "_native")}
+        held = set()
+        from ._axes import Axes
+        for native in _insets.child_axes(self._native):
+            held.add(_artist.id(native))
+            if _artist.id(native) not in wanted:
+                # It keeps the place it was last given, as matplotlib's
+                # does once its locator is applied no more.
+                dropped = _handles.wrap(native, Axes, self._figure)
+                position = dropped.get_position()
+                _artist.remove(native)
+                dropped._set_position(position, which="active")
+        for key, ax in wanted.items():
+            if key not in held:
+                _insets.add_child_axes(self._native, ax._native)
+                ax._child_of = self
+        self.stale = True
 
     def add_child_axes(self, ax):
         """

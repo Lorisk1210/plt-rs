@@ -63,6 +63,12 @@ pub enum Transform {
     Affine(Affine2D),
     /// Fractions of a figure or subfigure frame (`fig.transFigure`).
     Figure(ArtistId),
+    /// Fractions of a root figure's own box, its size at its resolution
+    /// from the canvas origin, which a print cut to a window (a tight
+    /// box) leaves where it is (matplotlib's `BboxTransformTo(fig.bbox)`
+    /// taken outside a print: the box `bbox_inches` makes through
+    /// `dpi_scale_trans`, which `adjust_bbox` replaces rather than moves).
+    FigureBox(ArtistId),
     /// Physical inches from the canvas origin (`fig.dpi_scale_trans`).
     Inches,
     /// Fractions of an axes (`ax.transAxes`).
@@ -98,6 +104,7 @@ pltrs_core::archive_enum!(Transform {
     Display,
     Affine(v0),
     Figure(v0),
+    FigureBox(v0),
     Inches,
     Axes(v0),
     Data(v0),
@@ -210,6 +217,13 @@ impl Transform {
                     .frame_bbox(*frame)
                     .ok_or(TransformError::MissingArtist(*frame))?;
                 ResolvedTransform::affine(unit_to_bbox(&bbox))
+            }
+            Self::FigureBox(frame) => {
+                let bbox = ctx
+                    .frame_bbox(*frame)
+                    .ok_or(TransformError::MissingArtist(*frame))?;
+                let own = Bbox::from_bounds(0.0, 0.0, bbox.width(), bbox.height());
+                ResolvedTransform::affine(unit_to_bbox(&own))
             }
             Self::Axes(axes) => {
                 let bbox = ctx

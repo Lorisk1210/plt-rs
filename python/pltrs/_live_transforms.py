@@ -23,7 +23,7 @@ from ._native import artist as _artist, register as _register, transforms as _tr
 from . import _program_classes
 from ._program_classes import class_cache
 from .transforms import (
-    Affine2D, Affine2DBase, AffineDeltaTransform, BlendedAffine2D,
+    Affine2D, Affine2DBase, AffineDeltaTransform, BboxTransformTo, BlendedAffine2D,
     BlendedGenericTransform, CompositeAffine2D, CompositeGenericTransform,
     IdentityTransform, ScaledTranslation, Transform, TransformedPath,
     TransformNode, TransformWrapper, blended_transform_factory,
@@ -227,6 +227,10 @@ def _description(t, by_matrix=False, held=None):
         return ("native", live)
     if t is None or isinstance(t, IdentityTransform):
         return ("display",)
+    spanning = getattr(getattr(t, "_boxout", None), "_spanning", None)
+    if isinstance(t, BboxTransformTo) and spanning is not None:
+        # Onto the box of an Axes or figure, which follows it.
+        return _description(spanning, by_matrix)
     if isinstance(t, TransformWrapper):
         return _description(t._child, by_matrix, held)
     if isinstance(t, (CompositeGenericTransform, CompositeAffine2D)):

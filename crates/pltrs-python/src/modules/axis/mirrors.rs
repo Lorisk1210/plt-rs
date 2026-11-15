@@ -676,12 +676,11 @@ fn sync_offset_text(owner: AxisOwner, name: String, text: Text) -> PyResult<()> 
     // given its text, where the axis was last laid out, as matplotlib
     // sets both when it draws or measures the axis.
     let across = axis.offset_text_placed().map_or(0.0, |anchor| anchor.y);
-    let (position, halign, valign) = match (axis.name(), high) {
-        (AxisName::X, false) => (Point::new(1.0, across), HAlign::Right, VAlign::Top),
-        (AxisName::X, true) => (Point::new(1.0, across), HAlign::Right, VAlign::Bottom),
-        (AxisName::Y, false) => (Point::new(0.0, across), HAlign::Left, VAlign::Baseline),
-        (AxisName::Y, true) => (Point::new(1.0, across), HAlign::Right, VAlign::Baseline),
+    let (position, halign) = match (axis.name(), high) {
+        (AxisName::Y, false) => (Point::new(0.0, across), HAlign::Left),
+        (AxisName::X, _) | (AxisName::Y, true) => (Point::new(1.0, across), HAlign::Right),
     };
+    let valign = axis.offset_text_valign();
     let rc = pltrs::rc::params();
     text.set_text(axis.kept_offset_text())
         .set_position(position)
@@ -708,6 +707,9 @@ fn push_offset_text(owner: AxisOwner, name: String, text: Text) -> PyResult<()> 
             let size = text.font().size;
             if size.to_bits() != axis.offset_text_size().to_bits() {
                 axis.set_offset_text_size(size);
+            }
+            if let Some(valign) = own(text.valign(), &axis.offset_text_valign()) {
+                axis.set_offset_text_valign(valign);
             }
             Ok(())
         }

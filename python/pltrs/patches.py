@@ -9,6 +9,7 @@ and each subclass reads and writes its geometry through the native
 functions of its shape.
 """
 
+import functools
 import inspect
 import math
 import weakref
@@ -66,6 +67,29 @@ def _kept_linestyle(ls):
     return ls
 
 
+def _adding_own_path(add_to_axes):
+    """*add_to_axes* (a patch class' ``_add_to_axes``) for a class making its
+    outline itself: matplotlib's ``add_patch`` takes the Axes' limits from
+    that outline (``_update_patch_limits``), with the Axes set."""
+    @functools.wraps(add_to_axes)
+    def _add_to_axes(self, axes, kind, autolim=True):
+        if kind != "patch":
+            return add_to_axes(self, axes, kind, autolim)
+        try:
+            # Before it joins, as pltrs (Rust) takes the limits then.
+            self._push_computed()
+        except Exception:  # noqa: BLE001 - made again below, raising there
+            made = False
+        else:
+            made = True
+        added = add_to_axes(self, axes, kind, autolim)
+        if not made:
+            # An outline made from its Axes, as matplotlib's is.
+            self._push_computed()
+        return added
+    return _add_to_axes
+
+
 @_docstring.interpd
 @_api.define_aliases({
     "antialiased": ["aa"],
@@ -95,6 +119,40 @@ class Patch(Artist):
     # as properties here: they outlive a change of the instance's class
     # (``art3d.patch_2d_to_3d``), as matplotlib's do.
     _instance_attributes = ()
+
+    #: The methods matplotlib's draw and measures make the outline with
+    #: (``get_path`` through ``get_patch_transform``), which a class of the
+    #: program's may override: it is then drawn through ``draw``
+    #: (`._python_drawing`), its outline handed to pltrs (Rust) first
+    #: (`_push_computed`).
+    _computed = ("get_path", "get_patch_transform")
+
+    #: The methods the outline matplotlib's draw fills is made with (and a
+    #: wedge's ``_recompute_path``, which its ``get_path`` calls).
+    _path_hooks = ("get_path", "get_patch_transform", "_recompute_path")
+
+    #: Whether the class makes the outline itself (one of `_path_hooks` is
+    #: the program's), answered once per class.
+    _makes_own_path = False
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls._makes_own_path = any(
+            takes_from_program(cls, name) for name in cls._path_hooks if hasattr(cls, name))
+        if cls._makes_own_path and "_add_to_axes" not in vars(cls):
+            cls._add_to_axes = _adding_own_path(cls._add_to_axes)
+
+    def _push_computed(self):
+        """Hand pltrs (Rust) the outline a class of the program's makes, its
+        ``get_path`` through its ``get_patch_transform``, which matplotlib's
+        draw and measures read: drawn, measured, hit and autoscaled in place
+        of the shape's."""
+        if self._makes_own_path:
+            # Placed by the patch transform's matrix, which matplotlib's draw
+            # composes with the artist's before it maps the path.
+            placement = self.get_patch_transform().get_matrix()
+            _patches.set_program_path(self._native,
+                                      (self.get_path(), np.asarray(placement, dtype=float)))
 
     def __init__(self, *,
                  edgecolor=None,
@@ -1585,7 +1643,10 @@ class Wedge(Patch):
         self._native = _patches.new_wedge((0., 0.), 1., (0., 360.), None)
         super().__init__(**kwargs)
         self._hold_fields(center=center, r=r, theta1=theta1, theta2=theta2, width=width)
-        if self._watch_geometry():
+        if self._makes_own_path:
+            # matplotlib's constructor makes the path, through the class'.
+            self._recompute_path()
+        elif self._watch_geometry():
             # matplotlib's constructor computes the path, kept until it
             # changes.
             self._recompute_path()
@@ -1601,10 +1662,18 @@ class Wedge(Patch):
     # last draw fitted it.
     _refreshed_getters = ("_fields", "get_path")
 
+    #: The methods matplotlib's draw makes the outline with: a wedge's
+    #: ``get_path`` makes it with ``_recompute_path`` once a setter cleared it.
+    _computed = Patch._computed + ("_recompute_path",)
+
     def get_path(self):
         # docstring inherited
         _unusable.check(self, measuring=True)
         assigned = self.__dict__.get("_assigned_path")
+        if assigned is None and self._makes_own_path:
+            # matplotlib's ``get_path`` makes a path cleared by a setter.
+            self._recompute_path()
+            assigned = self.__dict__.get("_assigned_path")
         return self._native_path() if assigned is None else assigned
 
     @property
@@ -1632,6 +1701,8 @@ class Wedge(Patch):
         `._kept_geometry`)."""
         self._hold_fields(**given)
         self._watch_geometry()
+        # matplotlib's setters clear the path, which its next read makes.
+        self.__dict__.pop("_assigned_path", None)
         self.stale = True
 
     def _hold_fields(self, **given):
@@ -2212,12 +2283,13 @@ class Ellipse(Patch):
     #: ``_recompute_transform``; the size it reads is the one the ellipse
     #: was made with), which a class of the program's may compute
     #: (`_push_computed`).
-    _computed = ("_center", "angle")
+    _computed = Patch._computed + ("_center", "angle")
 
     def _push_computed(self):
         """Hand pltrs (Rust) the geometry a class of the program's computes
         (``_center`` or ``angle`` as properties), as matplotlib's ``draw``
         reads it (``Patch.draw`` recomputes the transform once)."""
+        super()._push_computed()
         if self._computes():
             center, angle = self._recomputed()
             self._set_fields(center=center, angle=angle)
@@ -2751,6 +2823,7 @@ class Arc(Ellipse):
         # docstring inherited; matplotlib's ``Arc.draw`` recomputes the
         # transform, stretches the angles, then ``Patch.draw`` recomputes
         # the transform again.
+        Patch._push_computed(self)
         if self._computes():
             self._recomputed()
             theta1, theta2 = self._given_angles()
@@ -3120,6 +3193,13 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
     _ignores_rasterization = True
 
     _edge_default = True
+
+    # matplotlib's draw fills the path made in display coordinates
+    # (``_get_path_in_displaycoord``), not ``get_path``: a class of the
+    # program's overriding ``get_path`` draws as the arrow it is.
+    _computed = ()
+    _path_hooks = ()
+
     #: The patches clipping the start and the end (none for an arrow made
     #: by pltrs (Rust), such as the arrow of an annotation).
     patchA = patchB = None
@@ -4131,7 +4211,6 @@ _docstring.interpd.register(
 
 # What matplotlib's module also has from its imports, which programs
 # import from it.
-import functools  # noqa: E402, F401
 import textwrap  # noqa: E402, F401
 from collections import namedtuple  # noqa: E402, F401
 from types import SimpleNamespace  # noqa: E402, F401

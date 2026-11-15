@@ -847,7 +847,27 @@ class Legend(Artist):
     def _legend_box(self):
         """The `.VPacker` of the title and the columns of entries, as the
         legend lays them out (made from pltrs (Rust)'s box when first
-        asked for)."""
+        asked for), or the box a program gave in its place."""
+        given = self.__dict__.get("_given_legend_box")
+        return self._laid_out_legend_box() if given is None else given
+
+    @_legend_box.setter
+    def _legend_box(self, box):
+        # matplotlib's draw and measures go through the box: a packer of
+        # the legend's own title and entries (legendkit's title beside or
+        # below them) is what pltrs (Rust) lays out from then on.
+        from .offsetbox import HPacker, VPacker
+        title, entries = self._box_parts()
+        children = box.get_children() if isinstance(box, (VPacker, HPacker)) else []
+        if len(children) == 2 and {id(child) for child in children} == {id(title), id(entries)}:
+            _legend.repack(self._native, (isinstance(box, VPacker), children[0] is title),
+                           (float(box.pad or 0.), float(box.sep or 0.)), box.align)
+        box._laid_out_for = self
+        self.__dict__["_given_legend_box"] = box
+        self.stale = True
+
+    def _laid_out_legend_box(self):
+        """The legend's box as pltrs (Rust) laid it out (see `_legend_box`)."""
         box = self.__dict__.get("_legend_box_object")
         if box is None:
             from .offsetbox import _laid_out_box
@@ -865,12 +885,33 @@ class Legend(Artist):
             _fresh(box)
         return box
 
-    # matplotlib's boxes of the title and of the columns of entries, the
-    # children of ``_legend_box``, which programs restyle (legendkit), and
-    # the alignment given (``_alignment``).
-    _legend_title_box = property(lambda self: self._legend_box.get_children()[0])
-    _legend_handle_box = property(lambda self: self._legend_box.get_children()[1])
-    _alignment = property(lambda self: self.get_alignment())
+    def _made_boxes(self):
+        """The legend's boxes made so far: the laid-out one, and the one a
+        program gave in its place."""
+        return [box for box in (self.__dict__.get("_legend_box_object"),
+                                self.__dict__.get("_given_legend_box")) if box is not None]
+
+    def _box_parts(self):
+        """The boxes of the title and of the columns of entries, as the
+        legend first laid them out (kept as matplotlib keeps its
+        ``_legend_title_box`` and ``_legend_handle_box``, whatever packs
+        them since)."""
+        parts = self.__dict__.get("_legend_box_parts")
+        if parts is None:
+            parts = self._legend_box_parts = tuple(self._laid_out_legend_box().get_children()[:2])
+        return parts
+
+    # matplotlib's boxes of the title and of the columns of entries, which
+    # programs restyle and pack anew (legendkit), and the alignment given
+    # (``_alignment``).
+    _legend_title_box = property(lambda self: self._box_parts()[0])
+    _legend_handle_box = property(lambda self: self._box_parts()[1])
+
+    @_values.assignable
+    def _alignment(self):
+        # matplotlib's field, kept as a program assigns it (legendkit's title
+        # layout assigns its packer's: ``'top'`` for a title on the left).
+        return self.get_alignment()
 
     def _laid_out_box_moved(self, xy):
         """Pin the legend's box at *xy*, display coordinates the program
@@ -932,7 +973,9 @@ class Legend(Artist):
         frame.set_boxstyle(patch.get_boxstyle())
         frame.set_mutation_aspect(patch.get_mutation_aspect())
         for prop in ("facecolor", "edgecolor", "linewidth", "linestyle", "hatch", "fill",
-                     "alpha", "visible", "capstyle", "joinstyle", "path_effects"):
+                     "alpha", "visible", "capstyle", "joinstyle", "path_effects",
+                     # (matplotlib's own frame snaps; a patch made alone does not.)
+                     "snap", "antialiased"):
             getattr(frame, f"set_{prop}")(getattr(patch, f"get_{prop}")())
         _handles.adopt(patch, frame._native, self.figure)
 
@@ -980,8 +1023,8 @@ class Legend(Artist):
         _legend.set_loc(self._native, loc if isinstance(loc, (int, str))
                         else tuple(map(float, loc)))
         _values.remember(self, "loc", loc)
-        if "_legend_box_object" in self.__dict__:
-            self._legend_box_object._offset = self._findoffset
+        for box in self._made_boxes():
+            box._offset = self._findoffset
         self.stale = True
 
     def _get_loc(self):
@@ -1019,8 +1062,8 @@ class Legend(Artist):
         """
         _api.check_in_list(["center", "left", "right"], alignment=alignment)
         _legend.set_alignment(self._native, alignment)
-        if "_legend_box_object" in self.__dict__:
-            self._legend_box_object.align = alignment
+        for box in self._made_boxes():
+            box.align = alignment
 
     def set_draggable(self, state, use_blit=False, update='loc'):
         """
@@ -1101,9 +1144,10 @@ class Legend(Artist):
         a.set_transform(self.get_transform())
 
     def _fractions(self):
-        """The transform of the parent's fractions (matplotlib's
-        ``BboxTransformTo(parent.bbox)``)."""
-        return self.parent.transAxes if self.isaxes else self.parent.transSubfigure
+        """The transform of the parent's fractions, onto its box as it is
+        now (matplotlib's ``BboxTransformTo(parent.bbox)``: a root figure's
+        own box, which a tight save does not move)."""
+        return BboxTransformTo(self.parent.bbox)
 
     def get_bbox_to_anchor(self):
         """Return the bbox that the legend will be anchored to."""

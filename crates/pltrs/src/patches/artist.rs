@@ -35,6 +35,10 @@ pub(crate) struct PatchParts<'a, S> {
     /// The resolution the patch last drew at, for patches whose arrow
     /// sizes follow it (`FancyArrowPatch._dpi_cor`).
     pub(crate) drawn: Option<&'a DrawnDpiCor>,
+    /// The outline a class of the program's makes and its patch
+    /// transform, in place of the shape's (see
+    /// [`PatchArtist::program_path`]).
+    pub(crate) program_path: Option<&'a (Path, Affine2D)>,
 }
 
 impl<S: PatchShape> PatchParts<'_, S> {
@@ -63,6 +67,16 @@ impl<S: PatchShape> PatchParts<'_, S> {
         resolved: ResolvedTransform,
         dpi_cor: f64,
     ) -> Result<Vec<DisplayPath>, PatchError> {
+        if let Some((path, placement)) = self.program_path {
+            // Through the composition of its patch transform and the
+            // artist's, as matplotlib's draw maps the path.
+            let placed = ResolvedTransform::affine(*placement).then(resolved);
+            let outline = path
+                .clone()
+                .with_interpolation_steps(self.interpolation_steps);
+            let (path, affine) = placed.split_outline(&outline);
+            return Ok(vec![DisplayPath::filled(path.into_owned(), affine)]);
+        }
         self.shape
             .display_paths(&self.frame(layout, resolved, dpi_cor))
     }
@@ -216,9 +230,14 @@ pub(crate) struct PatchArtist<S: PatchShape> {
     pub(super) rc: Rc<RcParams>,
     /// The resolution of the patch's last draw.
     dpi_cor: DrawnDpiCor,
+    /// The outline a class of the program's makes and the map into the
+    /// patch's coordinates it is placed by (its `get_path` and
+    /// `get_patch_transform`, which matplotlib's draw and measures read):
+    /// drawn, measured, hit and autoscaled in place of the shape's.
+    pub(crate) program_path: Option<(Path, Affine2D)>,
 }
 
-pltrs_core::archive_struct!(PatchArtist<S: PatchShape> { base, style, shape, interpolation_steps, unit_source, rc, dpi_cor });
+pltrs_core::archive_struct!(PatchArtist<S: PatchShape> { base, style, shape, interpolation_steps, unit_source, rc, dpi_cor, program_path });
 
 impl<S: PatchShape> PatchArtist<S> {
     /// A patch with matplotlib's defaults under `rc` (z-order 1), adjusted
@@ -235,6 +254,7 @@ impl<S: PatchShape> PatchArtist<S> {
             unit_source: None,
             rc,
             dpi_cor: DrawnDpiCor::default(),
+            program_path: None,
         }
     }
 
@@ -246,6 +266,7 @@ impl<S: PatchShape> PatchArtist<S> {
             shape: &self.shape,
             interpolation_steps: self.drawn_interpolation_steps(),
             drawn: Some(&self.dpi_cor),
+            program_path: self.program_path.as_ref(),
         }
     }
 
@@ -305,6 +326,11 @@ impl<S: PatchShape> PatchArtist<S> {
     /// Points bounding the outline (ends and axis extrema of every curve),
     /// in the coordinates of the artist transform.
     pub(crate) fn data_points(&self) -> Vec<Point> {
+        if let Some((path, placement)) = &self.program_path {
+            return bounding_points(path)
+                .map(|p| placement.transform_point(p))
+                .collect();
+        }
         if self.shape.skips_autoscale() {
             return Vec::new();
         }

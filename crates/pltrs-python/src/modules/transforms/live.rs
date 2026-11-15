@@ -62,6 +62,7 @@ impl FromPy<'_> for Description {
             "data" => Transform::Data(item(1)?.extract::<Axes>()?.id()),
             "axes" => Transform::Axes(item(1)?.extract::<Axes>()?.id()),
             "figure" => Transform::Figure(item(1)?.extract::<Figure>()?.id()),
+            "figure_box" => Transform::FigureBox(item(1)?.extract::<Figure>()?.id()),
             "blended" => Transform::blended(child(1)?, child(2)?),
             "composite" => child(1)?.then(child(2)?),
             "translation" => Transform::Translation {
@@ -238,6 +239,7 @@ impl IntoPy for Described {
             Transform::Data(axes) => ("data", axes.index()).into_py(py),
             Transform::Axes(axes) => ("axes", axes.index()).into_py(py),
             Transform::Figure(frame) => ("figure", frame.index()).into_py(py),
+            Transform::FigureBox(frame) => ("figure_box", frame.index()).into_py(py),
             Transform::Blended(x, y) => ("blended", wrap(x), wrap(y)).into_py(py),
             Transform::Composite(first, then) => ("composite", wrap(first), wrap(then)).into_py(py),
             Transform::Translation { dx, dy, units } => {
@@ -349,9 +351,16 @@ fn trans_figure(figure: Figure) -> PyResult<Transform> {
     Ok(Transform::Figure(figure.id()))
 }
 
+/// The fractions of the root `figure`'s own box, which a print cut to a
+/// window leaves in place (matplotlib's `BboxTransformTo(fig.bbox)`).
+fn figure_box(figure: Figure) -> PyResult<Transform> {
+    Ok(Transform::FigureBox(figure.id()))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("native", native)?;
+    module.add("figure_box", figure_box)?;
     module.add("describe", describe)?;
     module.add("apply", apply)?;
     module.add("affine_matrix", affine_matrix)?;

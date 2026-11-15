@@ -265,7 +265,11 @@ def build_root(fig):
     d["_tree_owners"] = weakref.WeakValueDictionary()
     d["dpi_scale_trans"]._live = _transforms.native(("inches",))
     d["transFigure"]._live = _transforms.trans_figure(fig._native)
-    d["bbox"]._spanning = d["transFigure"]
+    # The figure's own box, which a print cut to a window replaces rather
+    # than moves (`_follow_print_window`): what is anchored to it stays.
+    own = BboxTransformTo(d["bbox"])
+    own._live = _transforms.figure_box(fig._native)
+    d["bbox"]._spanning = own
     _watch_leaf(fig, d["bbox_inches"], functools.partial(_push_size, fig))
     _transforms.watch(fig._native, functools.partial(_sync, weakref.ref(fig)))
     _restore_validity(d, d["dpi_scale_trans"])

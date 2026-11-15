@@ -172,6 +172,8 @@ struct LabelPlacement {
 }
 
 impl<'a> AxisPainter<'a> {
+    /// The painter of axis `name` of the axes `axes_id`, whose state is
+    /// `axes`.
     pub(crate) fn new(axes_id: ArtistId, axes: &'a AxesState, name: AxisName) -> Self {
         Self {
             axes_id,

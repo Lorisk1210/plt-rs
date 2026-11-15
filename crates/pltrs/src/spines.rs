@@ -461,6 +461,7 @@ impl TypedHandle for Spine {
 }
 
 impl Spine {
+    /// The handle of the spine behind `raw`.
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
     }

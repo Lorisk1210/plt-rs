@@ -89,18 +89,22 @@ impl HostedWindow {
         }
     }
 
+    /// The window's id in its host.
     pub(super) fn id(&self) -> HostedWindowId {
         self.id
     }
 
+    /// The window's title.
     pub(super) fn title(&self) -> &str {
         &self.title
     }
 
+    /// Whether the window is shown.
     pub(super) fn is_shown(&self) -> bool {
         self.shown.is_some()
     }
 
+    /// Whether the window is in full-screen mode.
     pub(super) fn is_fullscreen(&self) -> bool {
         self.fullscreen
     }
@@ -110,6 +114,7 @@ impl HostedWindow {
         self.shown.as_ref().map(|shown| shown.window.id())
     }
 
+    /// The toolbar, unless the window has none.
     pub(super) fn toolbar(&self) -> Option<&Toolbar> {
         self.toolbar.as_ref()
     }

@@ -248,6 +248,8 @@ impl LineArtist {
             .map(|vertices| Cow::Owned(Path::polyline(vertices)))
     }
 
+    /// The transform the line's data go through: display coordinates
+    /// unless it was given one.
     pub(super) fn transform(&self) -> Transform {
         self.base.transform.clone().unwrap_or(Transform::Display)
     }
@@ -416,6 +418,7 @@ impl LineArtist {
         }
     }
 
+    /// The graphics context the line is drawn with.
     pub(super) fn line_gc(&self, ctx: &DrawContext<'_>) -> GraphicsContext {
         let mut gc = ctx.base_gc(&self.base);
         // Lines bake their alpha into the colours (matplotlib does not set

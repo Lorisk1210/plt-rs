@@ -23,6 +23,7 @@ pub struct LayoutContext<'a> {
 }
 
 impl<'a> LayoutContext<'a> {
+    /// A context reading `figure`, which measures no artist as drawn.
     pub(crate) fn new(figure: &'a FigureState) -> Self {
         Self { figure, drawn: &[] }
     }
@@ -441,6 +442,7 @@ impl std::fmt::Debug for DrawContext<'_> {
 }
 
 impl<'a> DrawContext<'a> {
+    /// A context drawing the figure of `figure` with `renderer`.
     pub(crate) fn new(figure: &'a FigureCell, renderer: &'a mut dyn Renderer) -> Self {
         // A figure whose layout met a problem is one matplotlib's draw
         // raised for before it drew (an aspect it could not apply):

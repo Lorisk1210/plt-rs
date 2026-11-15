@@ -430,6 +430,7 @@ impl CollectionArtist {
         geometry.extents().unwrap_or(DataLimits::NULL)
     }
 
+    /// The rcParams the collection was made with.
     pub(crate) fn rc(&self) -> &RcParams {
         &self.rc
     }
@@ -647,6 +648,9 @@ impl ColorMapped for CollectionArtist {
     }
 }
 
+/// Item `i` of `items`, which repeat as often as needed (as matplotlib
+/// cycles a collection's per-element properties); `None` when there are
+/// none.
 pub(crate) fn cycled<T>(items: &[T], i: usize) -> Option<&T> {
     (!items.is_empty()).then(|| &items[i % items.len()])
 }

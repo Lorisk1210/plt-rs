@@ -37,9 +37,15 @@ crates/pltrs-python/            the native extension (a cdylib, no crates)
     callback.rs                 Callback: Python called from pltrs (Rust)
     reentrant.rs                changes made while their figure is in use, applied after
     deferred.rs                 work Python leaves to the next native call (line data)
+    after_call.rs               work left to the end of each native call (queued warnings)
     registry.rs                 Python objects registered for native code
     threads.rs                  every thread holding the GIL uses every object
     home.rs                     other threads' calls on windows, run by the main thread
+    blocking.rs                 the windows' event loop waiting without the GIL
+    stack.rs, stack/            how much stack is left for native calls made from callbacks
+    watched.rs                  package attributes a program may replace, read by native code
+    allocator.rs                the allocator on Linux (huge pages for large blocks)
+    testing.rs                  the embedded interpreter of the unit tests
     init.rs                     the module definition
   src/modules/                  one file per matplotlib module
     mod.rs                      registration list (shared, see below)
@@ -64,7 +70,8 @@ python/
     mpl_suite_report.py         pytest plugin recording outcomes
     pltrs_alias.py              sitecustomize: `pltrs` aliases what loads as `matplotlib`
     import_gaps.py              `--imports`: every missing import of each test file
-  tests/test_smoke.py           `cargo xtask python test`
+  tests/                        `cargo xtask python test`: the smoke tests (`test_*.py`),
+                                the fuzzer (`fuzz/`) and the GUI comparison (`gui_events/`)
   backend/pltrs_backend/        the PEP 517 build backend (standard library only)
   alias/                        the `matplotlib` distribution: matplotlib's names for pltrs
                                 (and matplotlib's type stubs, `alias/matplotlib/*.pyi`)
@@ -583,7 +590,7 @@ measuring artists does not look them up, so the design is:
   dropped tick stops mirroring, and its parts become artists of their
   own with the text and location of the last draw, placed by the
   transforms the axis gave them. Those are read inside
-  `spines.transforms_read()`: a new tick asking the Axes for them sets
+  `spines._transforms_read()`: a new tick asking the Axes for them sets
   the position of a spine a clear left unset, which makes the ticks anew
   (`Spine._ensure_position_is_set`), and a tick that goes asks nothing.
 

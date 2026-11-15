@@ -393,6 +393,7 @@ pub struct Annotation {
 }
 
 impl Annotation {
+    /// The handle of the annotation behind `raw`.
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self {
             text: Text::from_raw(raw),

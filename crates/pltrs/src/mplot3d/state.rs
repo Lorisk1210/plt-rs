@@ -49,6 +49,7 @@ pub(crate) enum BoxFit {
 
 pltrs_core::archive_enum!(BoxFit { Placed, Squared });
 
+/// State of one 3-D axes (matplotlib's `Axes3D`).
 #[derive(Clone, Debug)]
 pub(crate) struct Axes3DState {
     base: ArtistBase,

@@ -213,9 +213,9 @@ impl Axes3DState {
         self.artists.iter().any(|artist| artist.art.is_data())
     }
 
-    /// The layout pass for an axes of display extent `extent`: ticks for
-    /// the axes width, then every 3-D artist projected onto its 2-D
-    /// artist (hiding the points outside the view limits for the artists
+    /// The layout pass of the axes once its axes are ticked (see
+    /// [`prepare_one`]): every 3-D artist projected onto its 2-D artist
+    /// (hiding the points outside the view limits for the artists
     /// clipped to them) and, for a draw with computed z-order,
     /// collections and patches ordered by depth above the axes
     /// (matplotlib's
@@ -234,8 +234,6 @@ impl Axes3DState {
     pub(crate) fn prepare(
         &mut self,
         store: &mut ArtistStore,
-        extent: &Bbox,
-        dpi: f64,
         (saving, painting): (bool, Option<Painting>),
     ) {
         self.failures.retain_in(store);
@@ -243,13 +241,6 @@ impl Axes3DState {
             // matplotlib's draw fails computing the projection, before it
             // updates the ticks or projects an artist.
             return;
-        }
-        let width_points = crate::axes::axis_length_points(extent, dpi, AxisName::X);
-        // matplotlib reads `axes3d.automargin` when the ticks are drawn.
-        let automargin = crate::rc::params().axes3d_automargin;
-        for dir in Axis3::ALL {
-            let span = self.limits.span(dir);
-            self.axes[dir.index()].update_ticks(&span, width_points, automargin);
         }
         let Some(painting) = painting else {
             self.depth_order.clear();
@@ -618,7 +609,7 @@ pub(crate) fn prepare_one(figure: &mut FigureState, id: ArtistId, painting: Opti
     let Some(extent) = figure.axes_bbox(id) else {
         return;
     };
-    let (dpi, saving) = (figure.dpi(), figure.saving);
+    let saving = figure.saving;
     let plane_minpos = plane_minpos(figure, id);
     let owner_spaces = owner_tick_spaces(figure, id);
     let removed = super::readd::removed_artists(figure, id);
@@ -628,8 +619,42 @@ pub(crate) fn prepare_one(figure: &mut FigureState, id: ArtistId, painting: Opti
         for (axis, space) in axes.axes.iter_mut().zip(owner_spaces) {
             axis.owner_tick_space = space;
         }
-        axes.prepare(store, &extent, dpi, (saving, painting));
     });
+    update_ticks(figure, id, &extent);
+    figure.with_others::<Axes3DState, _>(id, |axes, store| {
+        axes.prepare(store, (saving, painting));
+    });
+}
+
+/// Ticks every axis of the 3-D axes `id` for an axes of display extent
+/// `extent` (matplotlib's `Axis._update_ticks` as `Axes3D.draw` runs it),
+/// unless computing the projection fails first, as matplotlib's draw
+/// does before it ticks. An axis whose helpers run code of the program's
+/// is ticked with the figure lent, the axes held apart from it meanwhile:
+/// matplotlib lets that code read and change the figure (a locator
+/// making a tick to measure its label).
+fn update_ticks(figure: &mut FigureState, id: ArtistId, extent: &Bbox) {
+    let width_points = crate::axes::axis_length_points(extent, figure.dpi(), AxisName::X);
+    // matplotlib reads `axes3d.automargin` when the ticks are drawn.
+    let automargin = crate::rc::params().axes3d_automargin;
+    for dir in Axis3::ALL {
+        let compute = |axes: &Axes3DState| {
+            let span = axes.limits.span(dir);
+            (axes.projection_problem().is_none())
+                .then(|| (axes.axis(dir)).computed_ticks(&span, width_points, automargin))
+        };
+        let held = (figure.store.shared_as::<Axes3DState>(id))
+            .filter(|axes| axes.axis(dir).calls_program());
+        let computed = held
+            .and_then(|held| figure.lend(|_| compute(&held)))
+            .unwrap_or_else(|| figure.artist_as::<Axes3DState>(id).and_then(compute));
+        // (The program may have removed the axes meanwhile.)
+        if let Some(computed) = computed
+            && let Some(axes) = figure.artist_as_mut::<Axes3DState>(id)
+        {
+            axes.axis_mut(dir).install_ticks(computed);
+        }
+    }
 }
 
 /// For each axis of the 3-D axes `id`, how many ticks fit along the axis

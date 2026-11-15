@@ -180,6 +180,14 @@ pub(crate) struct DrawnTick<'a> {
     pub(crate) pad: f64,
 }
 
+/// The ticks of an axis computed for its view and the runtime warnings
+/// met computing them, to be installed on the axis.
+#[derive(Debug)]
+pub(crate) struct ComputedTicks {
+    ticks: Result<TickSet, TickerError>,
+    warnings: Vec<String>,
+}
+
 /// The tick locators and formatters of an axis, shared with the axes
 /// sharing it (matplotlib's `major` and `minor` `Ticker`s).
 #[derive(Clone, Debug)]
@@ -483,20 +491,32 @@ impl Axis3DState {
         self.tickers.major_locator.view_limits(v0, v1, &ctx)
     }
 
-    /// Recomputes the major and minor ticks inside the view (matplotlib's
-    /// `Axis._update_ticks`) for an axes `length_points` wide; with
-    /// `automargin` the view is inset as `axes3d.automargin` asks.
+    /// The major and minor ticks inside the view (matplotlib's
+    /// `Axis._update_ticks`) for an axes `length_points` wide, to be
+    /// [installed](Self::install_ticks); with `automargin` the view is
+    /// inset as `axes3d.automargin` asks.
     ///
     /// The runtime warnings of a computation that fails are kept with its
     /// error, and issued wherever the error is (see
     /// [`warn_failed_ticks`](Self::warn_failed_ticks)): matplotlib's
     /// locator warns, then raises, only where it is called, and pltrs
     /// computes the ticks of an axis in more places than matplotlib
-    /// calls it, but raises where it raises.
-    pub(crate) fn update_ticks(&mut self, span: &AxisSpan, length_points: f64, automargin: bool) {
+    /// calls it, but raises where it raises. The axis may be held apart
+    /// from its figure meanwhile (see `state::update_ticks`).
+    pub(crate) fn computed_ticks(
+        &self,
+        span: &AxisSpan,
+        length_points: f64,
+        automargin: bool,
+    ) -> ComputedTicks {
         let (ticks, warnings) = crate::warnings::capturing_runtime(|| {
             self.compute_ticks(span, length_points, automargin)
         });
+        ComputedTicks { ticks, warnings }
+    }
+
+    /// Installs ticks [`computed_ticks`](Self::computed_ticks) computed.
+    pub(crate) fn install_ticks(&mut self, ComputedTicks { ticks, warnings }: ComputedTicks) {
         if let (Ok(ticks), Ok(before)) = (&ticks, &self.ticks) {
             ticks.succeed(before);
         }
@@ -512,6 +532,16 @@ impl Axis3DState {
             }
             Err(_) => warnings,
         };
+    }
+
+    /// Whether the axis' tick helpers run code of the program's, which
+    /// may read and change the figure as it ticks the axis.
+    pub(crate) fn calls_program(&self) -> bool {
+        let tickers = &self.tickers;
+        tickers.major_locator.calls_program()
+            || tickers.minor_locator.calls_program()
+            || tickers.major_formatter.calls_program()
+            || tickers.minor_formatter.calls_program()
     }
 
     /// Issues the runtime warnings the failed computation of the ticks
@@ -692,6 +722,12 @@ mod tests {
     use super::*;
     use crate::scale::LogScale;
 
+    /// Computes and installs the ticks of `axis`, as a layout does.
+    fn update_ticks(axis: &mut Axis3DState, span: &AxisSpan, length_points: f64, automargin: bool) {
+        let computed = axis.computed_ticks(span, length_points, automargin);
+        axis.install_ticks(computed);
+    }
+
     fn span(view: (f64, f64)) -> AxisSpan {
         AxisSpan {
             view,
@@ -709,7 +745,12 @@ mod tests {
     fn default_ticks_match_matplotlib() {
         // An empty 3-D axes: limits (-1/48, 1 + 1/48), axes 266.112 pt wide.
         let mut axis = Axis3DState::new(Axis3::Z, &RcParams::matplotlib());
-        axis.update_ticks(&span((-1.0 / 48.0, 1.0 + 1.0 / 48.0)), 266.112, false);
+        update_ticks(
+            &mut axis,
+            &span((-1.0 / 48.0, 1.0 + 1.0 / 48.0)),
+            266.112,
+            false,
+        );
         assert_eq!(labels(&axis), ["0.0", "0.2", "0.4", "0.6", "0.8", "1.0"]);
     }
 
@@ -754,14 +795,14 @@ mod tests {
     #[test]
     fn inverted_views_keep_their_ticks() {
         let mut axis = Axis3DState::new(Axis3::X, &RcParams::matplotlib());
-        axis.update_ticks(&span((1.0, 0.0)), 266.112, false);
+        update_ticks(&mut axis, &span((1.0, 0.0)), 266.112, false);
         assert_eq!(axis.drawn_ticks().count(), 6);
     }
 
     #[test]
     fn automargin_insets_the_view() {
         let mut axis = Axis3DState::new(Axis3::X, &RcParams::matplotlib());
-        axis.update_ticks(&span((0.0, 1.0)), 266.112, true);
+        update_ticks(&mut axis, &span((0.0, 1.0)), 266.112, true);
         assert_eq!(labels(&axis), ["0.2", "0.4", "0.6", "0.8"]);
     }
 
@@ -770,7 +811,12 @@ mod tests {
         // matplotlib's z ticks for zlim (-0.1458, 7.1458) on a 4 in axes
         // (tick space 7): a step of 1, where a 2-D axis would take 2.
         let mut axis = Axis3DState::new(Axis3::Z, &RcParams::matplotlib());
-        axis.update_ticks(&span((-7.0 / 48.0, 7.0 + 7.0 / 48.0)), 221.76, false);
+        update_ticks(
+            &mut axis,
+            &span((-7.0 / 48.0, 7.0 + 7.0 / 48.0)),
+            221.76,
+            false,
+        );
         let locs: Vec<f64> = axis.drawn_ticks().map(|t| t.tick.loc).collect();
         assert_eq!(locs, [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]);
     }
@@ -781,7 +827,7 @@ mod tests {
         axis.set_scale(AxisScale::new(Rc::new(LogScale::new(10.0).expect("base"))));
         // matplotlib's z view after plotting z from 1 to 1000.
         let view = (0.604_296_390_238_132_8, 1_654.817_099_943_182);
-        axis.update_ticks(&span(view), 266.112, false);
+        update_ticks(&mut axis, &span(view), 266.112, false);
         let ticks: Vec<(f64, bool)> = axis
             .drawn_ticks()
             .map(|t| (t.tick.loc, t.tick.label.is_empty()))

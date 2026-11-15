@@ -137,8 +137,9 @@ impl Spine {
 
     /// The coordinate system of the path of a line spine: axes fractions
     /// across the spine and data along it, moved as its position says
-    /// (matplotlib's `get_spine_transform`); `None` once the spine is in
-    /// no axes.
+    /// (matplotlib's `get_spine_transform`; those of the plane of 3-D
+    /// axes, which hide them, for the spines of 3-D axes); `None` once the
+    /// spine is in no axes.
     ///
     /// ```
     /// use pltrs::prelude::*;
@@ -153,7 +154,7 @@ impl Spine {
     /// assert_ne!(left.spine_transform(), Some(pltrs::transforms::Transform::blended(ax.trans_axes(), ax.trans_data())));
     /// ```
     pub fn spine_transform(&self) -> Option<Transform> {
-        let axes = self.axes()?;
+        let axes = self.raw.drawing_axes()?;
         Some(
             self.raw
                 .with::<SpineArtist, _>(|s| s.spine_transform(axes.id())),

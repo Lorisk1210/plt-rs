@@ -49,11 +49,14 @@ impl Axis {
                 (state.artist_as::<AxesState>(id))
                     .map(|axes| axes.level_locs_for(name, &extent, dpi, bound, minor))
             };
-            // The locators run with the figure free to read, as the
-            // program's may.
-            state
-                .lend(|cell| locate(&cell.borrow()))
-                .unwrap_or_else(|| locate(state))
+            // The locators run with the figure lent, as the program's may
+            // read and change it (a locator making a tick to measure a
+            // label); the axes is held apart from the figure meanwhile.
+            let held = state.store.shared_as::<AxesState>(id);
+            held.and_then(|held| {
+                state.lend(|_| held.level_locs_for(name, &extent, dpi, bound, minor))
+            })
+            .or_else(|| locate(state))
         });
         ticks.unwrap_or_else(|| self.ticklocs(minor))
     }

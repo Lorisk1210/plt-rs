@@ -29,6 +29,7 @@ do when its loop is idle, or when the window is repainted before then
 that), as Qt's canvas draws when it paints.
 """
 
+import atexit
 import contextlib
 import os
 import select
@@ -142,6 +143,18 @@ def stop_timer(number):
     _timers.pop(number, None)
     if _host is not None:
         _gui.stop_timer(_host, number)
+
+
+@atexit.register
+def _stop_timers():
+    """Stop the timers still running when Python exits, while this module
+    and the backend are whole. The loop keeps running timers alive, so
+    one left running (its window closed during an animation) would
+    otherwise go only when the modules are torn down, and its `__del__`
+    would find the backend's globals gone (as matplotlib's Qt timers
+    check that their ``QTimer`` still exists)."""
+    for timer in list(_timers.values()):
+        timer.stop()
 
 
 def draw_idle(canvas):

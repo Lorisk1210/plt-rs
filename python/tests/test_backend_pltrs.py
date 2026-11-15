@@ -60,14 +60,20 @@ def _environment(**extra):
             **extra}
 
 
-def _run(body, *args, host="headless", env=None):
-    """Run *body* in a fresh interpreter; return what it printed."""
+def _finished(body, *args, host="headless", env=None):
+    """Run *body* in a fresh interpreter, which must succeed; return the
+    finished process (its output and error output)."""
     proc = subprocess.run(
         [sys.executable, "-c", _source(body, *args, host=host)],
         env=_environment(**(env or {})), capture_output=True, text=True,
         timeout=TIMEOUT)
     assert proc.returncode == 0, proc.stderr
-    return proc.stdout
+    return proc
+
+
+def _run(body, *args, host="headless", env=None):
+    """Run *body* in a fresh interpreter; return what it printed."""
+    return _finished(body, *args, host=host, env=env).stdout
 
 
 def _interactive(toolbar):
@@ -203,6 +209,32 @@ def test_setting_the_same_interval_keeps_the_timer_running():
 @pytest.mark.parametrize("host", HOSTS)
 def test_interactive_timers(host):
     _run(_timers, host=host)
+
+
+def _timer_running_at_exit():
+    """An animation's timer still running when its window closes and the
+    program ends (as on GNOME, the window closed by its shortcut)."""
+    import pltrs.pyplot as plt
+
+    fig = plt.figure()
+    timer = fig.canvas.new_timer(50)
+    timer.add_callback(fig.canvas.draw_idle)
+    timer.start()
+    closer = fig.canvas.new_timer(300)
+    closer.single_shot = True
+    closer.add_callback(plt.close, fig)
+    closer.start()
+    plt.show()
+    print("CLOSED", flush=True)
+
+
+def test_a_timer_running_at_exit_goes_quietly():
+    # It used to be stopped only when the modules were torn down, its
+    # __del__ then failing on the backend's cleared globals ("Exception
+    # ignored while calling deallocator").
+    proc = _finished(_timer_running_at_exit)
+    assert "CLOSED" in proc.stdout
+    assert proc.stderr == ""
 
 
 def _thread_safety():

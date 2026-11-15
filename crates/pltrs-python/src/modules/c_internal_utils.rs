@@ -41,9 +41,12 @@ mod wayland {
 
     /// The socket of the Wayland compositor `$WAYLAND_DISPLAY` names (a
     /// path, or a name in `$XDG_RUNTIME_DIR`), as libwayland-client finds
-    /// it.
+    /// it; none while `$WAYLAND_DISPLAY` is unset, which matplotlib checks
+    /// before it asks libwayland-client (whose default `wayland-0` pltrs'
+    /// windows do not take either: over ssh into a desktop, pyplot falls
+    /// back to Agg).
     fn socket() -> Option<PathBuf> {
-        let display = std::env::var_os("WAYLAND_DISPLAY").unwrap_or_else(|| "wayland-0".into());
+        let display = std::env::var_os("WAYLAND_DISPLAY").filter(|display| !display.is_empty())?;
         let display = PathBuf::from(display);
         if display.is_absolute() {
             return Some(display);

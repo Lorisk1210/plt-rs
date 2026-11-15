@@ -96,12 +96,25 @@ def to_native(transform, held_by=None):
     return _transforms.native(_description(transform, held=held_by))
 
 
-def given_to_native(transform, axes=None):
+def root_figure(artist):
+    """The root figure of *artist* (a figure's own), read without calling
+    its ``get_figure``, which a class of the program's may override (and
+    whose calls the program sees); None outside any figure."""
+    return getattr(getattr(artist, "_figure", None), "_figure", None)
+
+
+def given_to_native(transform, axes=None, holder=None):
     """`to_native` of *transform*, None when none is given (for the
     ``transform`` keywords whose default the native function picks); an
     object of the program's giving its transform for an Axes (see
-    `for_axes`) gives that of *axes*, which plots with it."""
-    return None if transform is None else to_native(for_axes(transform, axes))
+    `for_axes`) gives that of *axes*, which plots with it. The program's
+    transforms in it are held for the root figure of *axes* (or *holder*,
+    the root figure the artist is made in)."""
+    if transform is None:
+        return None
+    if holder is None and axes is not None:
+        holder = root_figure(axes)
+    return to_native(for_axes(transform, axes), held_by=holder)
 
 
 def holds_natively(transform):
@@ -469,9 +482,12 @@ def of_artist(artist, native, role="transform"):
                 lambda: from_native(artist._figure, native))
 
 
-#: What `kept` keeps, by artist (not pickled with it: the objects it holds
-#: are made again from the native state).
-_kept = weakref.WeakKeyDictionary()
+#: The attribute of an artist holding what `kept` made for it (not
+#: pickled with it: the objects are made again from the native state).
+#: The artist holds them, as what they refer to may reach the artist
+#: again (a clip path reaching its Axes and figure, the figure the artist):
+#: kept apart, by an artist held weakly, they would keep it alive.
+KEPT = "_kept_made"
 
 
 def kept(artist, role, description, make):
@@ -481,7 +497,7 @@ def kept(artist, role, description, make):
     comparable by content) stays the same: the transform or clip box an
     artist keeps in matplotlib, made again when pltrs (Rust)'s changes.
     """
-    made = _kept.setdefault(artist, {})
+    made = vars(artist).setdefault(KEPT, {})
     key = _key(description)
     entry = made.get(role)
     if entry is None or entry[0] != key:

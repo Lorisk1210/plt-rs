@@ -7,9 +7,11 @@ scenes place them), private names libraries read, write and call (the
 census ``spec/diff/private_census.json``), callbacks that enter their
 figure while native code runs them (the ``reentry`` family's kinds),
 assignments to the public attributes matplotlib's classes let programs
-assign, and combinations of them (an ``add_line`` of the program's
-removing an artist, a formatter assigning the figure's patch, children
-of another figure).
+assign (those its stubs declare writable, which pltrs ships), and
+combinations of them (an ``add_line`` of the program's removing an
+artist, a formatter assigning the figure's patch, children of another
+figure, an axis label whose own setters are the program's, regions of a
+canvas restored after other draws, a resize or into another figure).
 
 Each action is one line of the program (several statements, or a class,
 in one source line), written from what the program made so far, so that
@@ -17,6 +19,7 @@ a program stays a plain script; the overridden members and the
 callbacks run another random action of the program's, once at a time.
 """
 
+import ast
 import functools
 import json
 import pathlib
@@ -101,6 +104,20 @@ COMBINATIONS = [
     "        return transforms.IdentityTransform()\n"
     "{ax}.plot([0, 1], [0, 1], transform=_Drawing() + {ax}.transData); {fig}.canvas.draw(); "
     "MouseEvent('motion_notify_event', {fig}.canvas, 100, 100)._process()",
+    # An axis label whose own setters are the program's (ultraplot's span
+    # labels), placed by the axis' layout.
+    "import types\n"
+    "_label = {ax}.xaxis.label; _label.set_text('spanning')\n"
+    "_label.set_x = types.MethodType(lambda self, x: text.Text.set_x(self, x * 0.5), _label)\n"
+    "_label.set_y = types.MethodType(lambda self, y: text.Text.set_y(self, y), _label)\n"
+    "{fig}.canvas.draw(); _label.set_position((0.3, 0.1)); {ax}.set_xlabel('again'); "
+    "{fig}.canvas.draw(); {fig}.tight_layout()",
+    # A region saved, then restored after another draw, after a resize, and
+    # into another figure's canvas.
+    "_region = {fig}.canvas.copy_from_bbox({ax}.bbox); {fig}.canvas.draw(); "
+    "{fig}.canvas.restore_region(_region); {fig}.set_size_inches(3, 2); {fig}.canvas.draw(); "
+    "{fig}.canvas.restore_region(_region); {other}.canvas.draw(); "
+    "{other}.canvas.restore_region(_region); {fig}.canvas.blit({ax}.bbox)",
 ]
 
 
@@ -133,6 +150,24 @@ def _overridden():
 
 
 @functools.cache
+@functools.cache
+def _stub_attributes():
+    """The public attributes matplotlib's stubs declare writable (a
+    class-level annotation, not a ``ClassVar``), by class name, as pltrs
+    ships them (``python/pltrs/**/*.pyi``)."""
+    found = {}
+    for path in (ROOT / "python" / "pltrs").rglob("*.pyi"):
+        for node in ast.walk(ast.parse(path.read_text("utf-8"))):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for item in node.body:
+                if (isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name)
+                        and not item.target.id.startswith("_")
+                        and "ClassVar" not in ast.unparse(item.annotation)):
+                    found.setdefault(node.name, []).append(item.target.id)
+    return found
+
+
 def _private_names():
     """``{class name: [(name, uses)]}`` of the private census, by the
     short name of the class owning each name."""
@@ -262,21 +297,34 @@ class Paths:
 
     def _assign(self):
         """An assignment to a public attribute matplotlib's class keeps
-        as a plain attribute."""
+        as a plain attribute: a value of `ASSIGNABLE`, or, for those its
+        stubs declare writable, the attribute's own value, another
+        object's, or any value."""
         program = self.program
         candidates = []
-        for name in program.artists + program.axes + program.figures:
+        stubs = _stub_attributes()
+        names = program.artists + program.axes + program.figures + program.others
+        for name in names:
             obj = program._value(name)
             for cls in type(obj).__mro__:
                 if cls.__name__ in ASSIGNABLE:
                     candidates.append((name, ASSIGNABLE[cls.__name__]))
-                    break
+                for attribute in stubs.get(cls.__name__, ()):
+                    candidates.append((name, {attribute: None}))
         if not candidates:
             return None
         target, attributes = values.choose(self.rng, candidates)
         attribute = values.choose(self.rng, list(attributes))
-        value = (values.choose(self.rng, attributes[attribute]) if self.rng.random() < 0.7
-                 else self.values.any_value())
+        given = attributes[attribute]
+        roll = self.rng.random()
+        if given and roll < 0.7:
+            value = values.choose(self.rng, given)
+        elif roll < 0.5:
+            value = f"{target}.{attribute}"
+        elif roll < 0.7:
+            value = f"getattr({program._choose(names)}, {attribute!r}, None)"
+        else:
+            value = self.values.any_value()
         return f"from pltrs import cbook; {target}.{attribute} = {value}"
 
     def _combination(self):

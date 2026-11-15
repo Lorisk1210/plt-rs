@@ -87,7 +87,7 @@ class SecondaryAxis(Axes):
         # The axis' scale maps through the program's functions, which
         # matplotlib's tick updates call.
         from .. import _tick_updates
-        _tick_updates.install(parent.figure)
+        _tick_updates.install(parent)
         if self._pos < 0.5:
             # flip the location strings...
             self._locstrings = self._locstrings[::-1]

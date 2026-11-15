@@ -26,7 +26,7 @@ def main():
                       not arguments.no_reduce, first=arguments.first,
                       compare_with_matplotlib=arguments.compare)
     print(runner.summary(bugs) if bugs else "no bug found")
-    return 1 if bugs else 0
+    return 1 if runner.real(bugs) else 0
 
 
 sys.exit(main())

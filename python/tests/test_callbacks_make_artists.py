@@ -143,3 +143,70 @@ def test_a_tick_of_a_3d_axis_is_made_alone():
     tick = ax.xaxis._get_tick(major=True)
     assert type(tick).__name__ == "XTick"
     assert tick.get_loc() == 0
+
+
+def test_a_formatter_reads_the_figure_while_a_removed_axes_is_measured():
+    # The fuzzer's seed 202852: the axis of an Axes removed from its figure
+    # measured, its formatter reading the figure's children meanwhile, is
+    # not refused (matplotlib fails measuring it, without its figure).
+    fig, ax = plt.subplots()
+    ax.remove()
+    read = []
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(
+        lambda value, pos: (read.append(len(fig.get_children())), f"{value:g}")[1]))
+    for axis in (ax.yaxis, ax.xaxis):
+        try:
+            axis.get_tightbbox()
+        except AttributeError as error:
+            assert "dpi_scale_trans" in str(error)
+    assert set(read) <= {1}
+
+
+def test_a_formatter_of_an_animated_axis_lays_the_figure_out():
+    # The fuzzer's seed 700550: an animated axis, which a draw leaves out,
+    # is still ticked where it is measured, its formatter laying the
+    # figure out meanwhile.
+    fig, ax = plt.subplots()
+    ax.xaxis.set_animated(True)
+    calls = []
+
+    def label(value, pos):
+        # Once: the layout formats the labels again.
+        if not calls:
+            calls.append(pos)
+            fig.tight_layout()
+        return f"{value:g}"
+
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(label))
+    fig.canvas.draw()
+    ax.xaxis.get_tightbbox()
+    assert calls
+
+
+def test_a_spine_of_the_programs_axes_class_lays_the_figure_out():
+    # The fuzzer's seed 600545: an Axes class making spines of the
+    # program's, whose `_adjust_location` lays the figure out.
+    from pltrs.spines import Spine
+    entered = []
+
+    class Placing(Spine):
+        def _adjust_location(self, *args, **kwargs):
+            if not entered:
+                entered.append(1)
+                try:
+                    fig.tight_layout()
+                finally:
+                    entered.pop()
+            return super()._adjust_location(*args, **kwargs)
+
+    class Host(pltrs.axes.Axes):
+        def _gen_axes_spines(self, locations=None, offset=0.0, units="inches"):
+            return {side: Placing.linear_spine(self, side)
+                    for side in ("left", "right", "bottom", "top")}
+
+    fig = plt.figure(figsize=(3, 2))
+    ax = fig.add_subplot(axes_class=Host)
+    ax.plot([0, 1], [1, 0])
+    ax.spines["bottom"].set_linewidth(3)
+    fig.canvas.draw()
+    assert ax.spines["bottom"].get_linewidth() == 3

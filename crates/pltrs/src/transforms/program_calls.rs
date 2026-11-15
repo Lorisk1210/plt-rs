@@ -14,8 +14,10 @@
 //! the last layout began ([`forget`]), and is called only for a value it
 //! never answered.
 //!
-//! The answers are kept per map (by its address, the map kept alive with
-//! them) and per value (its bits), for the thread laying out and drawing.
+//! The answers are kept per map (by its address, the map held weakly: the
+//! answers of a map gone are none, so that the memo keeps no object of the
+//! program's alive, nor mistakes another map made at its address for it)
+//! and per value (its bits), for the thread laying out and drawing.
 //! A map of the plane of the program's (a projection's transform) is
 //! made anew whenever its transform is resolved: its answers are kept by
 //! the key naming the code it runs ([`PointMap::program_key`]), per point
@@ -23,7 +25,7 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use pltrs_core::{Path, Point};
 
@@ -36,8 +38,8 @@ const KEPT_PER_MAP: usize = 1 << 16;
 /// What one map of the program's answered, by the bits of the value it
 /// was given.
 struct MapAnswers {
-    /// The map, kept alive so that its address names it.
-    map: Rc<dyn AxisMap>,
+    /// The map, held weakly: its address names it while it lives.
+    map: Weak<dyn AxisMap>,
     values: HashMap<u64, f64>,
 }
 
@@ -107,7 +109,9 @@ pub(crate) fn forget() {
 /// each before.
 fn known(map: &Rc<dyn AxisMap>, values: &[f64]) -> Option<Vec<f64>> {
     ANSWERS.with_borrow(|answers| {
-        let kept = answers.get(&address(map))?;
+        let kept = answers
+            .get(&address(map))
+            .filter(|kept| kept.map.strong_count() > 0)?;
         (values.iter())
             .map(|value| kept.values.get(&value.to_bits()).copied())
             .collect()
@@ -118,9 +122,14 @@ fn known(map: &Rc<dyn AxisMap>, values: &[f64]) -> Option<Vec<f64>> {
 fn keep(map: &Rc<dyn AxisMap>, given: &[f64], mapped: &[f64]) {
     ANSWERS.with_borrow_mut(|answers| {
         let kept = answers.entry(address(map)).or_insert_with(|| MapAnswers {
-            map: Rc::clone(map),
+            map: Rc::downgrade(map),
             values: HashMap::new(),
         });
+        if kept.map.strong_count() == 0 {
+            // A map gone left the answers kept at this address.
+            kept.map = Rc::downgrade(map);
+            kept.values.clear();
+        }
         if kept.values.len() + given.len() > KEPT_PER_MAP {
             kept.values.clear();
         }
@@ -128,7 +137,7 @@ fn keep(map: &Rc<dyn AxisMap>, given: &[f64], mapped: &[f64]) {
             kept.values.insert(value.to_bits(), *answer);
         }
         debug_assert!(
-            std::ptr::addr_eq(Rc::as_ptr(&kept.map), Rc::as_ptr(map)),
+            std::ptr::addr_eq(Weak::as_ptr(&kept.map), Rc::as_ptr(map)),
             "the address names the map"
         );
     });

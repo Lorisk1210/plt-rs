@@ -620,7 +620,8 @@ class Legend(Artist):
             framealpha=framealpha, edgecolor=edgecolor, facecolor=facecolor,
             linewidth=linewidth, bbox_to_anchor=anchor,
             bbox_transform=(None if anchor is None
-                            else _live_transforms.given_to_native(bbox_transform)),
+                            else _live_transforms.given_to_native(
+                                bbox_transform, holder=_live_transforms.root_figure(parent))),
             frameon=frameon, alignment=alignment)
         self._ncols = ncols
         self._draggable = None

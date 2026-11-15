@@ -26,7 +26,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
-from . import scenes as catalogue
+from . import libraries, scenes as catalogue
 
 #: This package's directory.
 HERE = pathlib.Path(__file__).resolve().parent
@@ -57,11 +57,17 @@ NATIVE_COUNTS = ("figure_states", "native_objects", "removed_artists")
 CHILD_TIME = 900
 
 
-def _environment(work, reference):
+def _environment(work, reference, library=""):
+    """The environment of a child: under pltrs a *library*'s scenes have
+    pltrs as matplotlib too (``python/alias``), as the library imports it
+    by that name, with the package metadata of matplotlib the libraries
+    read (`.libraries.METADATA`)."""
     environment = dict(os.environ)
     tests = str(HERE.parent)
-    first = str(HERE / "alias") if reference else str(ROOT / "python")
-    environment["PYTHONPATH"] = os.pathsep.join([first, tests])
+    first = [str(HERE / "alias")] if reference else [str(ROOT / "python")]
+    if library and not reference:
+        first[:0] = [str(ROOT / "python" / "alias"), str(libraries.METADATA)]
+    environment["PYTHONPATH"] = os.pathsep.join([*first, tests])
     environment["MPLBACKEND"] = "agg"
     environment["PLTRS_LOOK"] = "matplotlib"
     config = work / "config"
@@ -70,7 +76,11 @@ def _environment(work, reference):
     return environment
 
 
-def _interpreter(reference):
+def _interpreter(reference, library=""):
+    """The Python a scene runs in: that of the venv of its *library*, if
+    any (`.libraries`), else the reference venv's or this one."""
+    if library:
+        return str(libraries.interpreter(library, reference))
     return str(REFERENCE_PYTHON) if reference else sys.executable
 
 
@@ -80,17 +90,23 @@ def run_children(names, iterations, work, reference, jobs, batch, dropped_iterat
     the kept scenes, *dropped_iterations* of the dropped ones, if given,
     see `probe`)."""
     work.mkdir(parents=True, exist_ok=True)
-    environment = _environment(work, reference)
-    batches = [names[i:i + batch] for i in range(0, len(names), batch)]
+    every = catalogue.all_scenes()
+    by_library = {}
+    for name in names:
+        by_library.setdefault(every[name].library, []).append(name)
+    batches = [(library, share[i:i + batch]) for library, share in by_library.items()
+               for i in range(0, len(share), batch)]
 
-    def one(share):
-        command = [_interpreter(reference), "-m", "leaks.probe", "--iterations",
+    def one(batch_of):
+        library, share = batch_of
+        command = [_interpreter(reference, library), "-m", "leaks.probe", "--iterations",
                    str(iterations), *share]
         if dropped_iterations is not None:
             command[3:3] = ["--dropped-iterations", str(dropped_iterations)]
         try:
             done = subprocess.run(command, capture_output=True, text=True, cwd=work,
-                                  env=environment, timeout=CHILD_TIME, check=False)
+                                  env=_environment(work, reference, library),
+                                  timeout=CHILD_TIME, check=False)
         except subprocess.TimeoutExpired:
             return [{"scene": name, "error": f"timed out after {CHILD_TIME} s"}
                     for name in share]
@@ -183,11 +199,13 @@ def judge(name, pltrs, matplotlib):
 def selected(patterns, own=False):
     """The names of the scenes matching any of *patterns* (substrings),
     all without patterns (the harness's *own* only, if asked); those
-    needing TeX only with TeX on ``PATH``."""
+    needing TeX only with TeX on ``PATH``, those of a library only with its
+    venvs set up."""
     tex = shutil.which("latex") is not None and shutil.which("xelatex") is not None
     scenes = catalogue.own_scenes() if own else catalogue.all_scenes()
     return [name for name, scene in scenes.items()
             if (tex or not scene.usetex)
+            and (not scene.library or libraries.available(scene.library))
             and (not patterns or any(pattern in name for pattern in patterns))]
 
 

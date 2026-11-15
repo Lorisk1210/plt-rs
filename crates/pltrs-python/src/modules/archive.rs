@@ -604,7 +604,7 @@ impl ProgramKinds for PythonProgram {
                         let formatter: Box<dyn pltrs::ticker::Formatter> = Box::new(formatter);
                         Box::new(formatter) as Box<dyn Any>
                     }),
-                NORM => PythonNorm::of(&object).map(|norm| {
+                NORM => PythonNorm::of(&object, false).map(|norm| {
                     let norm: Box<dyn Norm> = Box::new(norm);
                     Box::new(norm) as Box<dyn Any>
                 }),

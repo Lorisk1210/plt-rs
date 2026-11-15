@@ -461,8 +461,21 @@ impl FigureState {
                 return;
             }
         }
+        // Helpers of the program's ticking the axis themselves (an
+        // animated axis measured, which the program's updates leave out)
+        // run with the figure lent, the axes held apart meanwhile, as
+        // matplotlib lets them lay the figure out.
+        let lent = (self.store.shared_as::<AxesState>(axes))
+            .filter(|held| held.axis(name).calls_program())
+            .and_then(|held| {
+                let geometry = held.axis_geometry(name, extent, dpi, bound);
+                self.lend(|_| held.axis(name).compute_ticks(&geometry))
+            });
         if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
-            state.update_axis_ticks(name, extent, dpi, bound);
+            match lent {
+                Some(ticks) => state.axis_mut(name).install_ticks(ticks),
+                None => state.update_axis_ticks(name, extent, dpi, bound),
+            }
         }
     }
 

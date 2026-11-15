@@ -589,7 +589,7 @@ impl FigureState {
         // are only all known now. matplotlib places them when it draws
         // (and measures an axes' tight box): the fonts they look up count
         // for a draw only.
-        for id in axes {
+        for &id in &axes {
             if painting.is_some() {
                 crate::text::font_notes::measured_before(|| self.update_title_position(id));
             } else {
@@ -599,6 +599,15 @@ impl FigureState {
         crate::legend::lay_out_legends(self);
         crate::offsetbox::lay_out_boxes(self);
         crate::inset::place_indicators(self);
+        // Where the axes stand now (the layout engine and the other axes
+        // placed them), for the spines of the program's the draw places
+        // (matplotlib adjusts them only where it draws or measures them,
+        // not where it picks or tests a point).
+        if painting.is_some() {
+            for id in axes {
+                self.span_program_spines(id);
+            }
+        }
     }
 
     /// The ids of the figure's axes (the artists with an [`AxesState`]).

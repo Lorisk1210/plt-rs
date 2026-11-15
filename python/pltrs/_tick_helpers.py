@@ -262,7 +262,7 @@ def _ticked_by_program(axis, descriptions):
     is installed through an adapter."""
     if any(not native for _, native in descriptions):
         from . import _tick_updates
-        _tick_updates.install(axis.axes.figure)
+        _tick_updates.install(axis.axes)
 
 
 def _parts(helper):

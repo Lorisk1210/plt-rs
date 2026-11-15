@@ -126,15 +126,16 @@ def _single_color(color):
 def _mapped(C, cmap, norm, clim):
     """
     The colour mapping of the values *C*: ``(colorizer, native)``, the
-    Python `.Colorizer` and the native values and mapping (both None
-    without values).
+    Python `.Colorizer` and the native values and mapping (None without
+    values; the colorizer too, unless *cmap* or *norm* is given, which the
+    collection keeps as matplotlib's does).
     """
-    if C is None:
+    if C is None and cmap is None and norm is None:
         return None, None
     from .axes._plotting.scatter import _mapping
     vmin, vmax = clim if clim is not None else (None, None)
     made, mapping = _mapping(cmap, norm, vmin, vmax)
-    return made, (_filled(C).ravel(), mapping)
+    return made, None if C is None else (_filled(C).ravel(), mapping)
 
 
 class QuiverKey(martist.Artist):

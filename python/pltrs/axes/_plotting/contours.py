@@ -88,7 +88,8 @@ def _contour_look(axes, kwargs):
               None if antialiased is None else bool(antialiased),
               _tick_helpers._description("locator", locator)
               if isinstance(locator, ticker.Locator) else None,
-              _live_transforms.given_to_native(transform), logscale)
+              _live_transforms.given_to_native(transform, holder=_live_transforms.root_figure(axes)),
+              logscale)
     attributes = {"_given_linewidths": linewidths,
                   "_orig_linestyles": linestyles,
                   "negative_linestyles": negative_linestyles, "_extend": extend,

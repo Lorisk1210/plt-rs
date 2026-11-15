@@ -253,6 +253,10 @@ class MeshMixin:
             # is made with them (which autoscales its norm to them).
             collection.set_array(args[-1])
         collection._made_with(kwargs)
+        if not polygons:
+            # matplotlib's QuadMesh constructor turns mouseover off after
+            # the keyword arguments set theirs.
+            collection.set_mouseover(False)
         return collection
 
     @_preprocess_data()

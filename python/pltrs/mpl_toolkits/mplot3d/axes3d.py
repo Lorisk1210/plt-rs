@@ -20,7 +20,7 @@ import weakref
 import numpy as np
 
 from pltrs import _docstring
-from pltrs import _api, _handles, _lazy_imports, _values, cbook, rcParams
+from pltrs import _api, _handles, _lazy_imports, _live_transforms, _values, cbook, rcParams
 from pltrs import collections as mcoll, colors as mcolors, lines as mlines
 from pltrs import patches as mpatches, text as mtext
 from pltrs._native import artist as _artist, axes as _axes, axis as _axis
@@ -2228,9 +2228,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             if label is not None:
                 props["label"] = label
             native = _mplot3d.plot(self._native, _floats(x, y, z), zdir, fmt,
-                                   mlines._native_kwargs(props),
+                                   mlines._native_kwargs(props, _live_transforms.root_figure(self)),
                                    bool(axlim_clip))
-            line = keep_python_kwargs(wrap(self, native, art3d.Line3D), props)
+            line = mlines._set_after(keep_python_kwargs(wrap(self, native, art3d.Line3D), props),
+                                     props)
             # The 2-D data as matplotlib's `plot` gives them to the line,
             # until a draw projects it.
             line._xorig, line._yorig = np.atleast_1d(x), np.atleast_1d(y)

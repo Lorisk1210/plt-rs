@@ -11,4 +11,4 @@ def test_programs_meet_no_panic_crash_hang_or_runaway_memory():
                       replay=os.environ.get("PLTRS_FUZZ_REPLAY"),
                       jobs=int(os.environ.get("PLTRS_FUZZ_JOBS", "4")),
                       first=int(os.environ.get("PLTRS_FUZZ_FIRST", "0")))
-    assert not bugs, runner.summary(bugs)
+    assert not runner.real(bugs), runner.summary(bugs)

@@ -140,9 +140,10 @@ def floats(values):
     return np.atleast_1d(np.asarray(values, dtype=float)).ravel()
 
 
-def line_kwargs(kwargs):
-    """`.Line2D` keyword arguments, aliases resolved, in native form."""
-    return mlines._native_kwargs(cbook.normalize_kwargs(kwargs, mlines.Line2D))
+def line_kwargs(kwargs, holder=None):
+    """`.Line2D` keyword arguments, aliases resolved, in native form (a
+    transform of the program's held for *holder*: `.lines._native_kwargs`)."""
+    return mlines._native_kwargs(cbook.normalize_kwargs(kwargs, mlines.Line2D), holder)
 
 
 #: The parameters of `.Line2D`'s constructor that take their rcParams'
@@ -152,7 +153,7 @@ _LINE_DEFAULTS = frozenset(
     if parameter.default is None)
 
 
-def made_line_kwargs(kwargs):
+def made_line_kwargs(kwargs, holder=None):
     """
     The keyword arguments of a `.Line2D` made with them (``Line2D(...,
     **kwargs)``, as ``axhline`` makes its line), in native form: an alias
@@ -161,7 +162,8 @@ def made_line_kwargs(kwargs):
     the remaining arguments; a parameter of the constructor given None
     under its own name takes its default (yellowbrick gives
     ``color=None``), and so does a label of None, which leaves the line
-    unlabelled until its Axes names it ``_child<n>``.
+    unlabelled until its Axes names it ``_child<n>``. A transform of the
+    program's is held for *holder* (`.lines._native_kwargs`).
     """
     to_property = mlines.Line2D._alias_to_prop
     kwargs = {key: value for key, value in kwargs.items()
@@ -169,7 +171,7 @@ def made_line_kwargs(kwargs):
     resolved = {key: value for key, value in kwargs.items() if key not in to_property}
     resolved.update((to_property[key], value) for key, value in kwargs.items()
                     if key in to_property)
-    return mlines._native_kwargs(resolved)
+    return mlines._native_kwargs(resolved, holder)
 
 
 def check_format(fmt):

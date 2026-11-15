@@ -8,9 +8,10 @@ from types import NoneType
 import numpy as np
 
 from ... import _docstring
-from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, lines as mlines
+from ... import _api, _live_transforms, _values, cbook, collections as mcoll, colors as mcolors, lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
+from ..._artist_kwargs import keep_python_kwargs
 from ..._program_classes import takes_any_from_program
 from ...container import ErrorbarContainer
 from ._helpers import (keep_data, line_data, line_kwargs, record_container, wrap,
@@ -370,7 +371,7 @@ class ErrorbarMixin:
         native, data_line, caplines, barcols = _plotting.errorbar(
             self._native, (xconv, yconv),
             (bounds.get("x"), bounds.get("y")),
-            fmt, line_kwargs(kwargs),
+            fmt, line_kwargs(kwargs, _live_transforms.root_figure(self)),
             (None if refused is not None or colors is not None else ecolor,
              None if widths is not None else elinewidth, elinestyle, capsize,
              None if thickness is not None else capthick, bool(barsabove)),
@@ -391,6 +392,11 @@ class ErrorbarMixin:
         data_line = wrap(self, data_line, mlines.Line2D)
         if data_line is not None:
             keep_data(data_line, x, y)
+            # The data line is made with the keywords, as matplotlib's
+            # ``plot`` of it makes its line.
+            mlines._set_after(keep_python_kwargs(data_line, kwargs), kwargs)
+            if "transform" in kwargs:
+                data_line._given_transform = kwargs["transform"]
         if refused is not None:
             # The bars keep the colour, failing their first draw with it.
             barcols[0].set_color(ecolor)

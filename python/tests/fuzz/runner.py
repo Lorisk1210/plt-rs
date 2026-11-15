@@ -30,7 +30,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from . import actions, compare, corpus, memory
-from .worker import CAPS_ADDRESS_SPACE, MARKER, MEMORY_LIMIT
+from .worker import CAPS_ADDRESS_SPACE, MARKER
 
 #: The directory of the fuzzer's package, put on the workers' path.
 TESTS = pathlib.Path(__file__).resolve().parents[1]
@@ -106,7 +106,8 @@ DETAIL_TAIL = 15
 
 class Bug:
     """A bug a program met: its kind, a signature telling bugs apart, and
-    the program's lines up to it."""
+    the program's lines up to it; *shared* once matplotlib met it too
+    (runaway memory or a hang, see `run`), which is listed, not fixed."""
 
     def __init__(self, kind, signature, lines, detail):
         self.kind = kind
@@ -115,6 +116,45 @@ class Bug:
         self.detail = detail
         self.seed = None
         self.reduced = None
+        self.shared = False
+
+
+#: The kinds of bugs matplotlib may share: a program can run away or hang
+#: under it too (its data limits near 1e300 on polar axes).
+SHAREABLE = ("memory", "hang")
+
+
+#: How a worker ends when an allocation fails in native code (an abort,
+#: the system's kill) or a `MemoryError` escapes the worker's own code
+#: (status 1), which a program running away under matplotlib meets as
+#: well as a `MemoryError` of its own.
+OUT_OF_MEMORY = ("crash:-6", "crash:-9", "crash:1")
+
+#: How many times matplotlib runs a program to see whether it meets a
+#: bug too (where memory runs out differs from run to run).
+SHARED_RUNS = 3
+
+
+def memory_limit(jobs):
+    """The memory each of *jobs* workers may use: 6 GiB, or less, so that
+    together with the runner they stay within the machine's physical
+    memory."""
+    limit = 6 << 30
+    try:
+        physical = os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")
+    except (AttributeError, ValueError, OSError):
+        return limit
+    return min(limit, physical // (jobs + 1))
+
+
+def _memory_limit():
+    """The memory a worker may use (`memory_limit`, as `run` set it)."""
+    return int(os.environ.get("PLTRS_FUZZ_MEMORY", 6 << 30))
+
+
+def real(bugs):
+    """The bugs of *bugs* matplotlib did not meet too."""
+    return [bug for bug in bugs if not bug.shared]
 
 
 def _interpreter():
@@ -195,7 +235,7 @@ class Worker:
             if event == "memory":
                 self.stop()
                 bugs.append(Bug("memory", "memory:resident", lines,
-                                f"over {MEMORY_LIMIT} bytes resident"))
+                                f"over {_memory_limit()} bytes resident"))
                 break
             if event is None:
                 self.process.wait()
@@ -219,7 +259,7 @@ class Worker:
     def _next_event(self, time_limit):
         """The worker's next event (None once it ended), or ``"hang"``
         when none comes within *time_limit* seconds, or ``"memory"`` when
-        the worker's resident memory passes `MEMORY_LIMIT` meanwhile (only
+        the worker's resident memory passes `_memory_limit` meanwhile (only
         watched where the system cannot cap the worker's memory)."""
         if CAPS_ADDRESS_SPACE:
             try:
@@ -232,7 +272,7 @@ class Worker:
                 return self.events.get(timeout=WATCH_INTERVAL)
             except queue.Empty:
                 waited += WATCH_INTERVAL
-            if memory.resident(self.pid) > MEMORY_LIMIT:
+            if memory.resident(self.pid) > _memory_limit():
                 return "memory"
         return "hang"
 
@@ -322,14 +362,17 @@ def run(scale=1, replay=None, jobs=4, reduce_bugs=True, directory=None, first=0,
         compare_with_matplotlib=False):
     """Runs the programs of `FAILED_SEEDS`, then ``24 × scale`` programs
     from seed *first* on (or the one of seed *replay* only) on *jobs*
-    workers; returns the distinct bugs met, each
-    reduced and written to ``failures/`` under *directory*. With
+    workers, each capped at `memory_limit`; returns the distinct bugs
+    met, each reduced and written to ``failures/`` under *directory*. A
+    runaway or hang the program meets under matplotlib too (where the
+    reference venv is) is shared, written as ``shared<n>-seed<s>.py``. With
     *compare_with_matplotlib*, the programs meeting no bug run under
     matplotlib too, and where a line raised another exception than
     matplotlib's (or none where it raised one) is written to
     ``differences.md`` under *directory* (`.compare`)."""
     directory = pathlib.Path(directory or TESTS.parents[1] / "target" / "python-fuzz").resolve()
     (directory / "failures").mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("PLTRS_FUZZ_MEMORY", str(memory_limit(jobs)))
     programs = corpus.load(directory)
     steps = 100
     if replay is not None:
@@ -353,11 +396,16 @@ def run(scale=1, replay=None, jobs=4, reduce_bugs=True, directory=None, first=0,
             reduced = list(pool.map(lambda bug: reduce(bug, directory), distinct.values()))
         for bug, program in zip(distinct.values(), reduced):
             bug.reduced = program
+    for bug in distinct.values():
+        bug.shared = _shared(bug, directory)
     for number, bug in enumerate(distinct.values()):
         program = bug.reduced or bug.lines
         note = ("reduced" if bug.reduced else
                 "as run (did not reproduce alone)" if reduce_bugs else "as run")
-        path = directory / "failures" / f"bug{number}-seed{bug.seed}.py"
+        if bug.shared:
+            note += "; matplotlib meets it too"
+        name = "shared" if bug.shared else "bug"
+        path = directory / "failures" / f"{name}{number}-seed{bug.seed}.py"
         path.write_text(f"# {bug.signature}\n# seed {bug.seed}, {note}\n"
                         + "".join(f"# {line}\n" for line in _kept(bug.detail.splitlines()))
                         + "\n".join(program) + "\n", encoding="utf-8")
@@ -395,6 +443,25 @@ def _kept(lines):
     return [*lines[:DETAIL_HEAD], f"[{left_out} lines left out]", *lines[-DETAIL_TAIL:]]
 
 
+def _shared(bug, directory):
+    """Whether matplotlib meets *bug*, a runaway or a hang, running its
+    program (where the reference venv is) in one of `SHARED_RUNS` runs."""
+    if bug.kind not in SHAREABLE or not corpus.REFERENCE_PYTHON.exists():
+        return False
+    for _ in range(SHARED_RUNS):
+        worker = Worker(directory, reference=True)
+        try:
+            _, theirs = worker.run({"id": bug.seed, "lines": bug.reduced or bug.lines})
+        finally:
+            worker.stop()
+        if any(their.kind == bug.kind
+               or (bug.kind == "memory" and their.signature in OUT_OF_MEMORY)
+               for their in theirs):
+            return True
+    return False
+
+
 def summary(bugs):
-    """One line per bug."""
-    return "\n".join(f"{bug.signature} (seed {bug.seed}): {bug.path}" for bug in bugs)
+    """One line per bug, those matplotlib shares marked."""
+    return "\n".join(f"{'shared with matplotlib: ' if bug.shared else ''}{bug.signature} "
+                     f"(seed {bug.seed}): {bug.path}" for bug in bugs)

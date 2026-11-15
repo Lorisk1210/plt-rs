@@ -6,6 +6,9 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["rasterizer", "antialiasing", "agg", "stroke", "graphics"]
+categories = ["graphics", "rendering"]
 
 [dependencies]
 pltrs-core.workspace = true

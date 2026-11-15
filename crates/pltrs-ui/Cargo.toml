@@ -6,6 +6,9 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["ui", "widgets", "gui", "retained-mode", "matplotlib"]
+categories = ["gui"]
 
 [dependencies]
 pltrs-core.workspace = true

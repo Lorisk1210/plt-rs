@@ -44,6 +44,19 @@ from pltrs.transforms import Bbox, BboxTransformTo
 from test_smoke import close_figures  # noqa: F401 (autouse: rcdefaults)
 
 
+def test_processed_arguments_reach_contourpys_generator():
+    # The generator is contourpy's where contourpy is installed (matplotlib
+    # requires it, pltrs does not); pltrs' own has no `lines`.
+    pytest.importorskip("contourpy")
+    fig, ax = plt.subplots()
+    z = np.outer(np.linspace(0, 1, 4), np.linspace(0, 1, 5))
+    contours = ax.contour(z)
+    contours._process_args(np.arange(5.0), np.arange(4.0) * 2, z * 2, corner_mask=True)
+    lines = contours._contour_generator.lines(0.5)
+    assert np.round(np.asarray(lines[0][0]), 3).tolist() == [
+        [1.0, 6.0], [1.5, 4.0], [2.0, 3.0], [3.0, 2.0], [3.0, 2.0], [4.0, 1.5]]
+
+
 def test_a_contour_set_processes_its_arguments_as_matplotlib_does():
     fig, ax = plt.subplots()
     z = np.outer(np.linspace(0, 1, 4), np.linspace(0, 1, 5))
@@ -51,9 +64,6 @@ def test_a_contour_set_processes_its_arguments_as_matplotlib_does():
     kwargs = contours._process_args(np.arange(5.0), np.arange(4.0) * 2, z * 2,
                                     corner_mask=True, foo=1)
     assert kwargs == {"foo": 1}
-    lines = contours._contour_generator.lines(0.5)
-    assert np.round(np.asarray(lines[0][0]), 3).tolist() == [
-        [1.0, 6.0], [1.5, 4.0], [2.0, 3.0], [3.0, 2.0], [3.0, 2.0], [4.0, 1.5]]
     other = ax.contour(z)
     assert other._process_args(contours, bar=2) == {"bar": 2}
     assert other._contour_generator is contours._contour_generator

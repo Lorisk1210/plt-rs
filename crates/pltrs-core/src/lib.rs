@@ -28,7 +28,11 @@
 //!   and written back.
 //! * [`numeric`] — Python's and numpy's float semantics (`divmod`, `%`,
 //!   `min`/`max`, `minimum`/`maximum`, `sign`, `linspace`) that
-//!   matplotlib's results depend on.
+//!   matplotlib's results depend on, as the binaries pltrs reproduces
+//!   compute them: the copy of numpy's loops a processor runs
+//!   ([`numeric::CpuLevel`]), the products their compiler fuses
+//!   ([`numeric::Contraction`]), and numpy's own ufuncs where a last bit
+//!   decides something discrete ([`numeric::Ufunc`]).
 //! * [`os`] — the conventions that differ between Linux, macOS and
 //!   Windows (programs on `PATH`, resolved paths), as functions of the
 //!   system so that each is tested on any.

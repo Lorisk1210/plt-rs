@@ -29,8 +29,8 @@
 //! the Rust and matplotlib images of an example differ by more than
 //! [`TOLERANCE`]. A failing tutorial fails the command without `--check`
 //! too. Runs under pltrs are reported, and count as problems only with
-//! `--require-pltrs`, until pltrs runs every example. Names restrict the
-//! run to those examples and tutorials.
+//! `--require-pltrs`, so that the check needs no pltrs build. Names
+//! restrict the run to those examples and tutorials.
 
 mod catalogue;
 mod compare;

@@ -1,11 +1,15 @@
 [package]
 name = "pltrs"
-description = "Matplotlib, reimagined in Rust: figures, axes, artists and a pyplot-style API"
+description = "matplotlib rebuilt in Rust: figures, axes, artists, every output format, interactive windows and a pyplot-style API"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 license.workspace = true
+repository.workspace = true
+readme = "../../README.md"
+keywords = ["matplotlib", "plotting", "chart", "visualization", "pyplot"]
+categories = ["visualization", "science", "graphics"]
 
 [dependencies]
 pltrs-codec.workspace = true

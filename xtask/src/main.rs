@@ -6,6 +6,9 @@
 //! cargo xtask render PREFIX... [--vectors]       render cases to spec/out
 //! cargo xtask render --look LOOK PREFIX...       render cases in a pltrs look to spec/out/look-LOOK
 //! cargo xtask vectors [PREFIX...] [--formats F]  SVG/PDF/PS/PGF of every case vs matplotlib
+//! cargo xtask vector-check GOLDEN DOCUMENT       a document judged against a golden, as figure_vectors does
+//! cargo xtask examples [NAME...] [--check] [--require-pltrs]
+//!                                                 examples/ drawn in Rust and Python, compared
 //! cargo xtask bench [PREFIX...] [--reference]     timings of the benchmark workloads (vs matplotlib)
 //! cargo xtask bench [PREFIX...] --report         matplotlib and pltrs (Python, Rust) timed: benchmarks/
 //! cargo xtask bench --rewrite-report             benchmarks/README.md and charts again from results.json

@@ -1,11 +1,14 @@
 [package]
 name = "pltrs-text"
-description = "Text shaping, layout and mathtext typesetting"
+description = "Text layout, mathtext typesetting and usetex (DVI, virtual fonts, TFM, font maps) as matplotlib does them"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 license.workspace = true
+repository.workspace = true
+keywords = ["mathtext", "tex", "dvi", "typesetting", "matplotlib"]
+categories = ["text-processing", "graphics"]
 
 [dependencies]
 pltrs-codec.workspace = true

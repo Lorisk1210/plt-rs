@@ -1,15 +1,16 @@
 """
-The numbers and facts ``README.md`` states, against the files of the tree
-that back them: the committed outcomes of matplotlib's suite, of the
-libraries' suites and of the notebooks, the corpora of the differential
-tester, the spec's goldens, the examples, and the package's metadata.
+The numbers and facts ``README.md`` and ``CHANGELOG.md`` state, against
+the files of the tree that back them: the committed outcomes of
+matplotlib's suite, of the libraries' suites and of the notebooks, the
+corpora of the differential tester, the spec's goldens, the examples, and
+the package's metadata.
 
-The README marks each such fact with an HTML comment just before it,
+The documents mark each such fact with an HTML comment just before it,
 ``<!--fact:NAME-->``, which neither GitHub nor PyPI shows. A fact is
 exact (the text after the marker starts with what the files give) or,
-for round figures the README gives with "about" or "some", approximate
-(within `APPROXIMATE_TOLERANCE` of what the files give). When the files
-change, this test names the sentence to update.
+for round figures given with "about" or "some", approximate (within
+`APPROXIMATE_TOLERANCE` of what the files give). When the files change,
+this test names the document and the sentence to update.
 """
 
 import ast
@@ -23,8 +24,9 @@ import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 README = ROOT / "README.md"
-if not (README.is_file() and (ROOT / "spec").is_dir()):
-    pytest.skip("the README and the spec are in the source tree only", allow_module_level=True)
+CHANGELOG = ROOT / "CHANGELOG.md"
+if not (README.is_file() and CHANGELOG.is_file() and (ROOT / "spec").is_dir()):
+    pytest.skip("the documents and the spec are in the source tree only", allow_module_level=True)
 
 #: How far an approximate figure may be from what the files give.
 APPROXIMATE_TOLERANCE = 0.03
@@ -88,7 +90,7 @@ def _corpus_compared(key):
     matplotlib running to their end, drawing or writing a figure (those
     compared in full, ``spec/diff/corpus-outcomes.json``), how many there
     were (``ran``) or how many were clean (``clean``)."""
-    return _number(_json("spec/diff/corpus-outcomes.json")["total"]["runs"]["ended, drew"][key])
+    return _json("spec/diff/corpus-outcomes.json")["total"]["runs"]["ended, drew"][key]
 
 
 def _probes():
@@ -117,7 +119,8 @@ def _matplotlib_tests():
     """The tests of matplotlib's suite as ``cargo xtask mpl-tests`` counts
     them: the ``test_*`` functions of each ``test_*.py`` module and of its
     module-level classes, from the reference venv's matplotlib."""
-    found = sorted((ROOT / ".venv").glob("lib/python3*/site-packages/matplotlib/tests"))
+    found = sorted([*(ROOT / ".venv").glob("lib/python3*/site-packages/matplotlib/tests"),
+                    *(ROOT / ".venv").glob("Lib/site-packages/matplotlib/tests")])
     if not found:
         pytest.skip("matplotlib's tests are in the reference venv (.venv), which is missing")
     count = 0
@@ -150,12 +153,23 @@ def _dependencies():
     return ", ".join(names[:-1]) + " and " + names[-1]
 
 
-def _alias_version():
+def _version():
+    """pltrs' version: the Cargo workspace's."""
     with open(ROOT / "Cargo.toml", "rb") as file:
-        pltrs = tomllib.load(file)["workspace"]["package"]["version"]
+        return tomllib.load(file)["workspace"]["package"]["version"]
+
+
+def _alias_version():
     init = (ROOT / "python/pltrs/__init__.py").read_text(encoding="utf-8")
     matplotlib = re.search(r'^__version__ = "([^"]+)"$', init, re.MULTILINE).group(1)
-    return f"{matplotlib}+pltrs.{pltrs}"
+    return f"{matplotlib}+pltrs.{_version()}"
+
+
+def _incomplete_libraries():
+    """The libraries some of whose tests that pass under matplotlib fail
+    under pltrs, in alphabetical order (``a, b and c``)."""
+    names = sorted(_ecosystem()[3])
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
 
 def _benchmarks():
@@ -218,9 +232,14 @@ EXACT = {
     "ecosystem.pltrs-passing": lambda: _number(len(_ecosystem()[2])),
     "ecosystem.complete-libraries":
         lambda: _number(len(_ecosystem()[0]) - len(_ecosystem()[3])),
+    "ecosystem.incomplete-libraries": _incomplete_libraries,
+    "ecosystem.failing": lambda: _number(len(_ecosystem()[1]) - len(_ecosystem()[2])),
+    "corpora.compared-different":
+        lambda: _number(_corpus_compared("ran") - _corpus_compared("clean")),
+    "version": _version,
     "corpora": _corpora,
-    "corpora.compared": lambda: _corpus_compared("ran"),
-    "corpora.compared-clean": lambda: _corpus_compared("clean"),
+    "corpora.compared": lambda: _number(_corpus_compared("ran")),
+    "corpora.compared-clean": lambda: _number(_corpus_compared("clean")),
     "examples.graphs": _example_graphs,
     "mpl-tests": _matplotlib_tests,
     "python.minimum": _minimum_python,
@@ -254,37 +273,43 @@ APPROXIMATE = {
     "gallery.figures": _gallery_figures,
 }
 
-TEXT = README.read_text(encoding="utf-8")
-MARKED = [(match.group(1), match.group(2))
-          for match in MARKER.finditer(re.sub(r"\s*\n\s*", " ", TEXT))]
+#: The documents, by file name, as they are.
+TEXTS = {path.name: path.read_text(encoding="utf-8") for path in (README, CHANGELOG)}
+#: (document, fact, the text after its marker) for every marker.
+MARKED = [(document, match.group(1), match.group(2))
+          for document, text in TEXTS.items()
+          for match in MARKER.finditer(re.sub(r"\s*\n\s*", " ", text))]
 
 
-def test_no_marker_starts_a_line():
+@pytest.mark.parametrize("document", sorted(TEXTS))
+def test_no_marker_starts_a_line(document):
     """A line starting with ``<!--`` would start an HTML block in
     Markdown, which ends the paragraph and shows the rest of the line as
     raw HTML."""
-    assert not [line for line in TEXT.splitlines() if line.lstrip().startswith("<!--fact:")]
+    assert not [line for line in TEXTS[document].splitlines()
+                if line.lstrip().startswith("<!--fact:")]
 
 
 def test_every_fact_is_stated_and_every_marker_known():
-    named = {name for name, _ in MARKED}
+    named = {name for _, name, _ in MARKED}
     assert named - EXACT.keys() - APPROXIMATE.keys() == set(), "markers of unknown facts"
-    assert EXACT.keys() | APPROXIMATE.keys() <= named, "facts the README no longer marks"
+    assert EXACT.keys() | APPROXIMATE.keys() <= named, "facts no document marks any more"
 
 
-@pytest.mark.parametrize(("name", "text"), MARKED, ids=[name for name, _ in MARKED])
-def test_readme_states_what_the_files_give(name, text):
+@pytest.mark.parametrize(("document", "name", "text"), MARKED,
+                         ids=[f"{document}:{name}" for document, name, _ in MARKED])
+def test_documents_state_what_the_files_give(document, name, text):
     if name in EXACT:
         expected = EXACT[name]()
         assert text.lstrip("`").startswith(expected), (
-            f"README.md says {text[:40]!r} after <!--fact:{name}-->; the files give {expected!r}")
+            f"{document} says {text[:40]!r} after <!--fact:{name}-->; the files give {expected!r}")
     else:
         stated = re.match(r"[\d,]+", text)
-        assert stated, f"no number after <!--fact:{name}-->"
+        assert stated, f"no number after <!--fact:{name}--> in {document}"
         value = int(stated.group().replace(",", ""))
         actual = APPROXIMATE[name]()
         assert abs(value - actual) <= APPROXIMATE_TOLERANCE * actual, (
-            f"README.md says about {value:,} after <!--fact:{name}-->; the files give {actual:,}")
+            f"{document} says about {value:,} after <!--fact:{name}-->; the files give {actual:,}")
 
 
 def test_the_libraries_the_readme_names_pass_in_full():

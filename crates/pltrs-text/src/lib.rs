@@ -50,7 +50,9 @@ pub use block::{
 };
 pub use engine::{FontRequest, PathSink, TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine};
 pub use error::{SET_CHAR_SIZE_LINE, TextError};
-pub use lookups::{FontLookup, LookupKind, LookupRun, keep_every_lookup, take_font_lookups};
+pub use lookups::{
+    FontLookup, FontNote, LookupKind, LookupRun, keep_every_lookup, take_font_notes,
+};
 pub use mathtext_log::{log_mathtext, take_mathtext_log};
 pub use missing::{MissingGlyph, take_missing_glyphs};
 pub use pltrs_font::{

@@ -513,16 +513,26 @@ mod tests {
         }
     }
 
+    /// The lookups noted since the notes were last taken.
+    fn take_lookups() -> Vec<crate::LookupRun> {
+        (crate::take_font_notes().into_iter())
+            .filter_map(|note| match note {
+                crate::FontNote::Lookup(run) => Some(run),
+                crate::FontNote::Opened { .. } => None,
+            })
+            .collect()
+    }
+
     #[test]
     fn font_lookups_are_recorded_each_time_they_are_noted() {
         let engine = TextEngine::global();
         let missing = FontRequest::new(FontQuery::families(["xkcd-pltrs", "DejaVu Sans"]));
-        crate::take_font_lookups();
+        take_lookups();
         engine.layout_line("ab", &missing, 72.0).unwrap();
-        assert_eq!(crate::take_font_lookups(), [], "laying out records none");
+        assert_eq!(take_lookups(), [], "laying out records none");
         for _ in 0..2 {
             engine.note_font_lookup(&missing).unwrap();
-            let lookups = crate::take_font_lookups();
+            let lookups = take_lookups();
             assert_eq!(lookups.len(), 1);
             assert_eq!(lookups[0].lookup.query, missing.query);
             assert_eq!(lookups[0].times, 1);
@@ -530,23 +540,23 @@ mod tests {
         engine
             .note_font_lookup(&FontRequest::dejavu_sans(12.0))
             .unwrap();
-        assert_eq!(crate::take_font_lookups(), [], "found at its weight");
+        assert_eq!(take_lookups(), [], "found at its weight");
     }
 
     #[test]
     fn every_lookup_is_kept_on_request_and_those_of_afm_fonts_always() {
         let engine = TextEngine::global();
         let found = FontRequest::dejavu_sans(12.0);
-        crate::take_font_lookups();
+        take_lookups();
         crate::keep_every_lookup(true);
         engine.note_font_lookup(&found).unwrap();
         engine.note_font_lookup(&found).unwrap();
         crate::keep_every_lookup(false);
-        let lookups = crate::take_font_lookups();
+        let lookups = take_lookups();
         assert_eq!((lookups.len(), lookups[0].times), (1, 2));
         engine.note_font_lookup(&found).unwrap();
         engine.note_afm_lookup(&found, crate::AfmDirectory::PdfCore);
-        let lookups = crate::take_font_lookups();
+        let lookups = take_lookups();
         assert_eq!(lookups.len(), 1);
         assert_eq!(
             lookups[0].lookup.kind,

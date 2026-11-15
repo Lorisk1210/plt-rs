@@ -7,13 +7,13 @@
 //! lines; the caller notes each such lookup
 //! ([`TextEngine::note_font_lookup`](crate::TextEngine::note_font_lookup)),
 //! and those matplotlib would log about are kept for it to report
-//! ([`take_font_lookups`]), where the program's font manager can log as
+//! ([`take_font_notes`]), where the program's font manager can log as
 //! matplotlib's does.
 
 use std::cell::{Cell, RefCell};
 use std::sync::Arc;
 
-use pltrs_font::{AfmDirectory, FontQuery, GenericFamilies};
+use pltrs_font::{AfmDirectory, FontQuery, FontSource, GenericFamilies};
 
 /// The most runs of lookups kept until they are taken (a run being one
 /// lookup made several times in a row, as for the tick labels of an
@@ -69,9 +69,30 @@ pub struct LookupRun {
     pub times: usize,
 }
 
+/// What a caller is told of the fonts of the texts laid out, in the order
+/// it happened (see [`take_font_notes`]).
+#[derive(Clone, Debug, PartialEq)]
+pub enum FontNote {
+    /// Lookups matplotlib's font manager logs about (or any, see
+    /// [`keep_every_lookup`]).
+    Lookup(LookupRun),
+    /// A font mathtext opened while every lookup is kept, the first time
+    /// since the notes were last taken: matplotlib's mathtext opens the
+    /// default font of a formula as it makes its fontset, then, `parsing`
+    /// the formula, each font it takes a glyph from or checks for one
+    /// (`get_font`), which warns of the deprecated kerning factor for a
+    /// font not opened before.
+    Opened {
+        /// The font.
+        source: FontSource,
+        /// Whether it was opened while parsing the formula.
+        parsing: bool,
+    },
+}
+
 thread_local! {
-    /// The lookups made on this thread and not taken yet.
-    static LOOKUPS: RefCell<Vec<LookupRun>> = const { RefCell::new(Vec::new()) };
+    /// The notes made on this thread and not taken yet.
+    static NOTES: RefCell<Vec<FontNote>> = const { RefCell::new(Vec::new()) };
     /// Whether every lookup is kept on this thread (see
     /// [`keep_every_lookup`]).
     static EVERY: Cell<bool> = const { Cell::new(false) };
@@ -111,37 +132,66 @@ pub(crate) fn note(lookup: FontLookup, found: &[Option<u16>]) {
     if !(logged || EVERY.get() || matches!(lookup.kind, LookupKind::Afm(_))) {
         return;
     }
-    keep(LookupRun { lookup, times: 1 });
+    keep(FontNote::Lookup(LookupRun { lookup, times: 1 }));
 }
 
-/// Keeps `runs`, the lookups noted on another thread for work of this
-/// one's, as if they had been noted here.
-pub(crate) fn adopt(runs: Vec<LookupRun>) {
-    runs.into_iter().for_each(keep);
+/// Keeps `notes`, made on another thread for work of this one's, as if
+/// they had been made here.
+pub(crate) fn adopt(notes: Vec<FontNote>) {
+    notes.into_iter().for_each(keep);
 }
 
-/// Keeps `run`, as part of the last run kept if it repeats its lookup.
-fn keep(run: LookupRun) {
-    LOOKUPS.with(|lookups| {
-        let mut lookups = lookups.borrow_mut();
-        if let Some(last) = lookups
-            .last_mut()
-            .filter(|last| last.lookup.repeats(&run.lookup))
-        {
-            last.times += run.times;
-        } else if lookups.len() < MAX_KEPT {
-            lookups.push(run);
+/// Keeps `note`: a lookup as part of the last run kept if it repeats its
+/// lookup, a font opened unless it was noted since the notes were last
+/// taken.
+fn keep(note: FontNote) {
+    NOTES.with(|notes| {
+        let mut notes = notes.borrow_mut();
+        match note {
+            FontNote::Lookup(run) => {
+                if let Some(FontNote::Lookup(last)) = notes.last_mut()
+                    && last.lookup.repeats(&run.lookup)
+                {
+                    last.times += run.times;
+                } else if notes.len() < MAX_KEPT {
+                    notes.push(FontNote::Lookup(run));
+                }
+            }
+            FontNote::Opened { source, parsing } => {
+                let noted = (notes.iter()).any(
+                    |kept| matches!(kept, FontNote::Opened { source: kept, .. } if *kept == source),
+                );
+                if !noted && notes.len() < MAX_KEPT {
+                    notes.push(FontNote::Opened { source, parsing });
+                }
+            }
         }
     });
 }
 
-/// The lookups made on this thread since the last call that matplotlib's
-/// font manager logs about (or all of them, see [`keep_every_lookup`]),
-/// in the order they were made, those made
-/// several times in a row as one run. At most the first 4096 runs are
-/// kept between calls.
-pub fn take_font_lookups() -> Vec<LookupRun> {
-    LOOKUPS.with(|lookups| std::mem::take(&mut *lookups.borrow_mut()))
+/// Records that mathtext opened the font `source` (`parsing` a formula,
+/// or before), if every lookup is kept ([`keep_every_lookup`]) and it was
+/// not noted since the notes were last taken ([`FontNote::Opened`]).
+pub(crate) fn note_open(source: &FontSource, parsing: bool) {
+    if EVERY.get() {
+        keep(FontNote::Opened {
+            source: source.clone(),
+            parsing,
+        });
+    }
+}
+
+/// The notes made on this thread since the last call, in the order they
+/// were made: the lookups matplotlib's font manager logs about (or all of
+/// them, see [`keep_every_lookup`]), those made several times in a row as
+/// one run, and the fonts mathtext opened meanwhile. At most the first
+/// 4096 notes are kept between calls.
+///
+/// ```
+/// assert!(pltrs_text::take_font_notes().is_empty());
+/// ```
+pub fn take_font_notes() -> Vec<FontNote> {
+    NOTES.with(|notes| std::mem::take(&mut *notes.borrow_mut()))
 }
 
 #[cfg(test)]
@@ -162,47 +212,76 @@ mod tests {
         }
     }
 
-    fn run(weight: u16, times: usize) -> LookupRun {
-        LookupRun {
+    fn run(weight: u16, times: usize) -> FontNote {
+        FontNote::Lookup(LookupRun {
             lookup: lookup(weight),
             times,
-        }
+        })
     }
 
     #[test]
     fn only_lookups_matplotlib_logs_about_are_kept() {
-        take_font_lookups();
+        take_font_notes();
         note(lookup(400), &[Some(400), Some(400)]);
-        assert_eq!(take_font_lookups(), [], "every family found at its weight");
+        assert_eq!(take_font_notes(), [], "every family found at its weight");
         note(lookup(400), &[None, Some(400)]);
         note(lookup(300), &[Some(400)]);
-        assert_eq!(take_font_lookups(), [run(400, 1), run(300, 1)]);
-        assert_eq!(take_font_lookups(), []);
+        assert_eq!(take_font_notes(), [run(400, 1), run(300, 1)]);
+        assert_eq!(take_font_notes(), []);
     }
 
     #[test]
     fn lookups_made_in_a_row_are_one_run_and_none_is_lost() {
-        take_font_lookups();
+        take_font_notes();
         for _ in 0..3000 {
             note(lookup(300), &[Some(400)]);
         }
         note(lookup(200), &[Some(400)]);
         note(lookup(300), &[Some(400)]);
         assert_eq!(
-            take_font_lookups(),
+            take_font_notes(),
             [run(300, 3000), run(200, 1), run(300, 1)]
         );
     }
 
     #[test]
+    fn fonts_opened_are_noted_once_in_order_and_only_while_every_lookup_is() {
+        take_font_notes();
+        let display = FontSource::Bundled("DejaVuSansDisplay.ttf");
+        let oblique = FontSource::Bundled("DejaVuSans-Oblique.ttf");
+        note_open(&display, true);
+        assert_eq!(take_font_notes(), []);
+        keep_every_lookup(true);
+        note_open(&display, false);
+        note(lookup(400), &[Some(400)]);
+        note_open(&oblique, true);
+        note_open(&display, true);
+        keep_every_lookup(false);
+        assert_eq!(
+            take_font_notes(),
+            [
+                FontNote::Opened {
+                    source: display,
+                    parsing: false
+                },
+                run(400, 1),
+                FontNote::Opened {
+                    source: oblique,
+                    parsing: true
+                }
+            ]
+        );
+    }
+
+    #[test]
     fn runs_beyond_the_most_kept_are_dropped() {
-        take_font_lookups();
+        take_font_notes();
         for index in 0..=MAX_KEPT {
             let weight = if index % 2 == 0 { 300 } else { 200 };
             note(lookup(weight), &[Some(400)]);
         }
-        let runs = take_font_lookups();
-        assert_eq!(runs.len(), MAX_KEPT);
-        assert!(runs.iter().all(|run| run.times == 1));
+        let notes = take_font_notes();
+        assert_eq!(notes.len(), MAX_KEPT);
+        assert!((notes.iter()).all(|note| matches!(note, FontNote::Lookup(run) if run.times == 1)));
     }
 }

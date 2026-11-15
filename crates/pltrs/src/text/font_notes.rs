@@ -8,7 +8,7 @@
 //! warns about the characters no font has only when a line is measured.
 //! pltrs (Rust) lays texts out from memoised runs, so it notes these
 //! moments itself, for pltrs (Python) to report
-//! ([`pltrs_text::take_font_lookups`], [`pltrs_text::take_missing_glyphs`]).
+//! ([`pltrs_text::take_font_notes`], [`pltrs_text::take_missing_glyphs`]).
 //!
 //! matplotlib prints a figure with a layout engine (the placeholder
 //! `tight_layout()` leaves included), or the tight box of a figure, twice:

@@ -8,7 +8,9 @@ use pltrs_render::{GraphicsContext, Renderer};
 use pltrs_text::TextSource;
 
 use super::{CanvasError, FigureCanvas};
-use crate::artist::{ArtistHandle, ArtistId, DrawContext, Drawing, LayoutContext, RawHandle};
+use crate::artist::{
+    ArtistHandle, ArtistId, DrawContext, Drawing, LayoutContext, RawHandle, TypedHandle,
+};
 use crate::axes::{Axes, AxesState};
 use crate::figure::{DrawErrors, Figure};
 use crate::fonts::FontProperties;
@@ -21,6 +23,14 @@ impl FigureCanvas {
     /// and clips it (a legend of this canvas's figure is placed anew),
     /// through its painter with `painted`.
     fn draw_one(&self, artist: &RawHandle, painted: bool) -> Result<(), CanvasError> {
+        if let Some(axes) = Axes::from_raw_handle(artist)
+            && axes.visible()
+        {
+            // matplotlib's `Axes.draw` applies the autoscaling pending
+            // first (`_unstale_viewLim`), which the view then keeps, and
+            // ticks its axes where the axes is.
+            axes.prepare_to_draw_alone();
+        }
         if !self.holds(artist) {
             return self.draw_foreign(|renderer| {
                 if painted {

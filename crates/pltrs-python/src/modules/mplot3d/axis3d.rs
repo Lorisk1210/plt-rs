@@ -83,6 +83,34 @@ fn set_label_position(axes: Axes3D, name: String, edge: String) -> PyResult<()> 
     Ok(())
 }
 
+/// Takes the line of axis `name` from the box's near corner in the order
+/// `juggled` (`_axinfo["juggled"]`), its indices counted as a numpy
+/// array of three counts them (-3 to 2).
+fn set_juggled(axes: Axes3D, name: String, juggled: (i64, i64, i64)) -> PyResult<()> {
+    let wrap = |index: i64| {
+        usize::try_from(if index < 0 { index + 3 } else { index })
+            .ok()
+            .filter(|&index| index < 3)
+            .ok_or_else(|| {
+                PyErr::new(
+                    ExceptionKind::IndexError,
+                    format!("index {index} is out of bounds for axis 0 with size 3"),
+                )
+            })
+    };
+    let (first, second, last) = juggled;
+    axes.axis(axis3(&name)?)
+        .set_juggled([wrap(first)?, wrap(second)?, wrap(last)?])?;
+    Ok(())
+}
+
+/// The order in which the line of axis `name` is taken from the box's
+/// near corner (`_axinfo["juggled"]`).
+fn get_juggled(axes: Axes3D, name: String) -> PyResult<(usize, usize, usize)> {
+    let [first, second, last] = axes.axis(axis3(&name)?).juggled();
+    Ok((first, second, last))
+}
+
 /// The edge the label of axis `name` is by (`get_label_position`).
 fn get_label_position(axes: Axes3D, name: String) -> PyResult<&'static str> {
     Ok(position_name(axes.axis(axis3(&name)?).label_position()))
@@ -231,6 +259,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_ticks_position", get_ticks_position)?;
     module.add("set_label_position", set_label_position)?;
     module.add("get_label_position", get_label_position)?;
+    module.add("set_juggled", set_juggled)?;
+    module.add("get_juggled", get_juggled)?;
     module.add("axis_line_data", axis_line_data)?;
     module.add("line_state", line_state)?;
     module.add("push_line", push_line)?;

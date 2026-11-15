@@ -44,7 +44,8 @@ use crate::binding::prelude::*;
 artist_handle!(Axes3D);
 
 impl From<Axes3DError> for PyErr {
-    /// matplotlib's `ValueError` for invalid values, `TypeError` for error
+    /// matplotlib's `ValueError` for invalid values, numpy's `IndexError`
+    /// for a juggled index out of range, `TypeError` for error
     /// sizes with units and for collections of a kind that is not lifted
     /// to 3-D (the package adds those as they are, as matplotlib does),
     /// and the exception recorded for an artist the axes fails to draw.
@@ -53,6 +54,7 @@ impl From<Axes3DError> for PyErr {
             Axes3DError::UnaddableErrors(_) | Axes3DError::UnsupportedCollection => {
                 ExceptionKind::TypeError
             }
+            Axes3DError::JuggledIndex(_) => ExceptionKind::IndexError,
             Axes3DError::Draw(failure) => {
                 return super::figure::draw_error(failure.kind, &failure.message)
                     .unwrap_or_else(|| PyErr::runtime_error(failure.message.clone()));

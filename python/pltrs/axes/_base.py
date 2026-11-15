@@ -100,6 +100,11 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
     @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
+        if self.get_visible() and renderer is not None:
+            # matplotlib's draw applies the autoscaling pending first, which
+            # the view then keeps; through the program's `autoscale_view`
+            # where its class overrides it.
+            self._unstale_viewLim()
         super().draw(renderer)
 
     _axis_names = ("x", "y")

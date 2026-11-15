@@ -523,6 +523,15 @@ impl Axes {
         (x, y)
     }
 
+    /// Brings the axes up to date to be drawn alone (see
+    /// `FigureState::prepare_axes_alone`), then runs the limit callbacks its
+    /// autoscaling called for.
+    pub(crate) fn prepare_to_draw_alone(&self) {
+        let figure = self.raw.figure_state();
+        figure.work_on(|state| state.prepare_axes_alone(self.id()));
+        run_limit_callbacks(figure);
+    }
+
     /// Applies pending autoscaling to the view limits, then runs the limit
     /// callbacks it queued; a view that is up to date is left untouched
     /// (and the figure unborrowed for change).

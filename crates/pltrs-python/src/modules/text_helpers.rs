@@ -5,7 +5,7 @@
 //! formulas it typesets, delivered at the end of the native call during
 //! which pltrs (Rust) laid them out.
 
-use pltrs_text::{AfmDirectory, LookupKind};
+use pltrs_text::{AfmDirectory, FontNote, FontSource, LookupKind, LookupRun};
 
 use crate::binding::lookup;
 use crate::binding::prelude::*;
@@ -28,45 +28,67 @@ pub(super) fn warn_missing_glyphs(py: Python<'_>) -> PyResult<()> {
     Ok(())
 }
 
-/// Hands each font lookup pltrs (Rust) made on this thread that
-/// matplotlib's font manager logs about to the package's
-/// `report_font_lookup(kind, family, style, variant, weight, stretch,
-/// size, times)` (registered by `_text_helpers`), which looks the fonts
-/// up with the program's font manager as many times as pltrs (Rust) made
-/// the lookup in a row, logging as matplotlib's does.
-pub(super) fn report_font_lookups(py: Python<'_>) -> PyResult<()> {
-    let runs = pltrs_text::take_font_lookups();
-    if runs.is_empty() {
-        return Ok(());
+/// Hands what pltrs (Rust) noted of fonts on this thread to the
+/// package, in order: each font lookup matplotlib's font manager logs
+/// about to `report_font_lookup(kind, family, style, variant, weight,
+/// stretch, size, times)`, which looks the fonts up with the program's
+/// font manager as many times as pltrs (Rust) made the lookup in a row,
+/// logging as matplotlib's does; each font mathtext opened while the
+/// deprecated `text.kerning_factor` is set to `report_font_open(name,
+/// path, parsing)`, which opens it with the program's `get_font`, warning as
+/// matplotlib's mathtext does (both registered by `_text_helpers`).
+pub(super) fn report_font_notes(py: Python<'_>) -> PyResult<()> {
+    for note in pltrs_text::take_font_notes() {
+        match note {
+            FontNote::Lookup(run) => report_lookup(py, &run)?,
+            FontNote::Opened { source, parsing } => report_open(py, &source, parsing)?,
+        }
     }
-    let report = lookup(py, "report_font_lookup")?;
-    for run in runs {
-        let font = &run.lookup;
-        let query = &font.query;
-        let kind = match font.kind {
-            LookupKind::Fonts => "fonts",
-            LookupKind::Font => "font",
-            LookupKind::Afm(AfmDirectory::PostScript) => "afm",
-            LookupKind::Afm(AfmDirectory::PdfCore) => "core fonts",
-        };
-        let weight = match font.weight_keyword {
-            Some(keyword) => keyword.into_py(py)?,
-            None => i64::from(query.weight.0).into_py(py)?,
-        };
-        report.call(
-            &[
-                kind.into_py(py)?,
-                query.families.clone().into_py(py)?,
-                query.style.name().into_py(py)?,
-                query.variant.name().into_py(py)?,
-                weight,
-                i64::from(query.stretch.0).into_py(py)?,
-                query.size.into_py(py)?,
-                run.times.into_py(py)?,
-            ],
-            &[],
-        )?;
-    }
+    Ok(())
+}
+
+/// Hands the lookup `run` to `report_font_lookup`.
+fn report_lookup(py: Python<'_>, run: &LookupRun) -> PyResult<()> {
+    let font = &run.lookup;
+    let query = &font.query;
+    let kind = match font.kind {
+        LookupKind::Fonts => "fonts",
+        LookupKind::Font => "font",
+        LookupKind::Afm(AfmDirectory::PostScript) => "afm",
+        LookupKind::Afm(AfmDirectory::PdfCore) => "core fonts",
+    };
+    let weight = match font.weight_keyword {
+        Some(keyword) => keyword.into_py(py)?,
+        None => i64::from(query.weight.0).into_py(py)?,
+    };
+    lookup(py, "report_font_lookup")?.call(
+        &[
+            kind.into_py(py)?,
+            query.families.clone().into_py(py)?,
+            query.style.name().into_py(py)?,
+            query.variant.name().into_py(py)?,
+            weight,
+            i64::from(query.stretch.0).into_py(py)?,
+            query.size.into_py(py)?,
+            run.times.into_py(py)?,
+        ],
+        &[],
+    )?;
+    Ok(())
+}
+
+/// Hands the font `source` mathtext opened (`parsing` a formula, or
+/// before) to `report_font_open(name, path, parsing)`: the file name of a
+/// font pltrs bundles, or the path of one on disk.
+fn report_open(py: Python<'_>, source: &FontSource, parsing: bool) -> PyResult<()> {
+    let (name, path) = match source {
+        FontSource::Bundled(name) => (Some(*name), None),
+        FontSource::File(path) => (None, Some(path.to_string_lossy().into_owned())),
+    };
+    lookup(py, "report_font_open")?.call(
+        &[name.into_py(py)?, path.into_py(py)?, parsing.into_py(py)?],
+        &[],
+    )?;
     Ok(())
 }
 

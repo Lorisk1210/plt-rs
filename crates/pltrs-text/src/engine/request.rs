@@ -105,7 +105,7 @@ impl FontRequest {
 
     /// The font of the text: the requested file's face, else the best
     /// match (`findfont`). A lookup matplotlib logs about is recorded (see
-    /// [`take_font_lookups`](crate::take_font_lookups)).
+    /// [`take_font_notes`](crate::take_font_notes)).
     pub fn font(&self, db: &FontDatabase) -> Result<FontId, TextError> {
         if let Some(face) = self.file {
             return Ok(face);

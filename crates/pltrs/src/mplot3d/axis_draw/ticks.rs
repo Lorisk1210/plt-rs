@@ -13,7 +13,7 @@ use crate::axes::{AxisGroup, TickPart};
 use crate::fonts::FontProperties;
 use crate::mplot3d::axis3d::{Axis3DState, DrawnTick};
 use crate::mplot3d::coords::Axis3;
-use crate::mplot3d::geometry::{AxisPosition, juggled, static_tick_direction, tick_direction};
+use crate::mplot3d::geometry::{AxisPosition, static_tick_direction, tick_direction};
 use crate::mplot3d::math::{Vec3, scaled};
 
 /// Where the tick marks of an axis go along one of its edges: across the
@@ -181,10 +181,10 @@ impl Painter<'_> {
         let dir = axis.dir;
         let index = dir.index();
         let tickdir = static_tick_direction(dir);
-        let outer = usize::from(juggled(dir)[2] != 2);
+        let outer = outer_end(axis);
         let at = self
             .geometry
-            .move_from_center(offset_corner(edge, dir), label_deltas, dir);
+            .move_from_center(edge.points[outer], label_deltas, dir);
         let center = self.projection.project_transformed(self.geometry.centers);
         let end = edge.ends[outer];
         let even_highs = self.geometry.highs.iter().filter(|&&h| h).count() % 2 == 0;
@@ -224,9 +224,9 @@ impl Painter<'_> {
     }
 }
 
-/// The end of `edge` of the axis `dir` the offset text is moved away from
-/// (matplotlib's `outeredgep`: the first end unless the axis is juggled
-/// last).
-pub(super) fn offset_corner(edge: &AxisEdge, dir: Axis3) -> Vec3 {
-    edge.points[usize::from(juggled(dir)[2] != 2)]
+/// Which end of its edge the offset text of `axis` is moved away from
+/// (matplotlib's `outeredgep`: the first end unless the axis' juggled
+/// triple ends in 2).
+pub(super) fn outer_end(axis: &Axis3DState) -> usize {
+    usize::from(axis.juggled[2] != 2)
 }

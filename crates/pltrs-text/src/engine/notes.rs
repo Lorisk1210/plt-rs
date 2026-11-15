@@ -1,7 +1,7 @@
 //! What the engine's callers note of the texts they lay out, measure and
 //! draw: the characters no font has and the lookups of fonts matplotlib's
 //! font manager logs about (see [`crate::take_missing_glyphs`] and
-//! [`crate::take_font_lookups`]).
+//! [`crate::take_font_notes`]).
 
 use pltrs_font::AfmDirectory;
 
@@ -65,7 +65,7 @@ impl TextEngine {
 
     /// Records the lookup of `request`'s fonts if matplotlib's font
     /// manager logs about it (a family no font has, a face of another
-    /// weight; see [`take_font_lookups`](crate::take_font_lookups)).
+    /// weight; see [`take_font_notes`](crate::take_font_notes)).
     /// matplotlib's renderers look the fonts of a text up
     /// (`_find_fonts_by_props`) whenever they lay it out, measure one of
     /// its lines that is not cached and draw one of its lines, so the
@@ -94,12 +94,15 @@ impl TextEngine {
     /// weight the first time it looks up fonts of those properties.
     ///
     /// ```
-    /// use pltrs_text::{AfmDirectory, FontQuery, FontRequest, LookupKind, TextEngine};
+    /// use pltrs_text::{AfmDirectory, FontNote, FontQuery, FontRequest, LookupKind, TextEngine};
     /// let request = FontRequest::new(FontQuery::default());
-    /// drop(pltrs_text::take_font_lookups());
+    /// drop(pltrs_text::take_font_notes());
     /// TextEngine::global().note_afm_lookup(&request, AfmDirectory::PostScript);
-    /// let noted = pltrs_text::take_font_lookups();
-    /// assert_eq!(noted[0].lookup.kind, LookupKind::Afm(AfmDirectory::PostScript));
+    /// let noted = pltrs_text::take_font_notes();
+    /// assert!(matches!(
+    ///     &noted[0],
+    ///     FontNote::Lookup(run) if run.lookup.kind == LookupKind::Afm(AfmDirectory::PostScript)
+    /// ));
     /// ```
     pub fn note_afm_lookup(&self, request: &FontRequest, directory: AfmDirectory) {
         request.note(LookupKind::Afm(directory), &[]);

@@ -72,6 +72,8 @@ impl Axes3DState {
         for axis in &mut self.axes {
             let mut fresh = Axis3DState::new(axis.dir, &rc);
             fresh.keep_tick_styles(axis);
+            // matplotlib builds an axis' `_axinfo` once, with the axis.
+            fresh.juggled = axis.juggled;
             *axis = fresh;
         }
         // Set aside, as their artists keep their 3-D data (see `readd`).

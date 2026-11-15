@@ -56,7 +56,7 @@ pub(crate) fn with_room<R: Send>(need: usize, work: impl FnOnce() -> R + Send) -
         lookups::keep_every_lookup(every);
         let result = work();
         let noted = Noted {
-            lookups: crate::take_font_lookups(),
+            fonts: crate::take_font_notes(),
             messages: crate::take_mathtext_log(),
         };
         (result, Some(noted))
@@ -69,14 +69,14 @@ pub(crate) fn with_room<R: Send>(need: usize, work: impl FnOnce() -> R + Send) -
 
 /// What work noted on a thread of its own, for its caller's thread.
 struct Noted {
-    lookups: Vec<lookups::LookupRun>,
+    fonts: Vec<lookups::FontNote>,
     messages: Vec<String>,
 }
 
 impl Noted {
     /// Notes it all on the calling thread, as the work would have there.
     fn adopt(self) {
-        lookups::adopt(self.lookups);
+        lookups::adopt(self.fonts);
         self.messages.into_iter().for_each(mathtext_log::record);
     }
 }
@@ -160,17 +160,17 @@ mod tests {
             fresh.layout_line("Elsewhere", &request, 100.0).unwrap()
         );
 
-        // A formula's font lookups and its message reach the caller, as
+        // A formula's font notes and its message reach the caller, as
         // they are noted where the formula is typeset here.
         let style = MathStyle::default().with_dpi(72.0);
         let noted = |left: usize| {
-            crate::take_font_lookups();
+            crate::take_font_notes();
             crate::take_mathtext_log();
             crate::keep_every_lookup(true);
             let tree = with_left(left, || engine.math_box_tree("$y\u{1f60e}$", &style));
             crate::keep_every_lookup(false);
             assert!(tree.is_ok());
-            (crate::take_font_lookups(), crate::take_mathtext_log())
+            (crate::take_font_notes(), crate::take_mathtext_log())
         };
         let (elsewhere, here) = (noted(16 << 10), noted(16 << 20));
         assert_eq!(elsewhere, here);

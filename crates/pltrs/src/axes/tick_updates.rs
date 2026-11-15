@@ -57,6 +57,16 @@ pub trait TickUpdater: fmt::Debug {
         site: UpdateSite,
     ) -> Result<UpdatedTicks, TickerError>;
 
+    /// Asks the program's locators of axis `axis` of `axes`, which `info`
+    /// describes as it is now, for their locations as matplotlib's
+    /// `Axis.get_children` asks them (`get_major_ticks`, then
+    /// `get_minor_ticks`), which a pick reaching the axis' children calls:
+    /// no formatter is called, and the axis keeps its ticks. Does nothing
+    /// by default.
+    fn locate(&self, axes: &Axes, axis: AxisName, info: &AxisInfo) {
+        let _ = (axes, axis, info);
+    }
+
     /// The offset text of the axis' major formatter once its ticks are
     /// updated (matplotlib's `major.formatter.get_offset()`, which
     /// `Axis.draw` and `get_tightbbox` read).
@@ -354,6 +364,21 @@ impl FigureState {
             axis.program_ticked = only.is_none().then(|| axis.program_record(geometry));
         }
         true
+    }
+
+    /// Has the program's locators of the axes of `axes` it ticks asked as
+    /// a pick reaching the axes' children asks them (see
+    /// [`TickUpdater::locate`]).
+    pub(crate) fn locate_program_ticks(&mut self, axes: ArtistId) {
+        for name in [AxisName::X, AxisName::Y] {
+            let Some(updater) = self.program_ticker(axes, name) else {
+                continue;
+            };
+            let Some((_, info)) = self.tick_args(axes, name) else {
+                continue;
+            };
+            self.lend(|cell| updater.locate(&axes_handle(cell, axes), name, &info));
+        }
     }
 
     /// The spines of `axes` as the program names them (see

@@ -511,11 +511,7 @@ pub(crate) fn axes3d_ids(store: &ArtistStore) -> Vec<ArtistId> {
 /// and texts of its visible axes when shown (without their labels when
 /// `for_layout_only`), and its titles (matplotlib's
 /// `Axes3D.get_tightbbox`).
-pub(crate) fn axes3d_tight_bbox(
-    figure: &FigureState,
-    id: ArtistId,
-    for_layout_only: bool,
-) -> Option<Bbox> {
+fn axes3d_tight_bbox(figure: &FigureState, id: ArtistId, for_layout_only: bool) -> Option<Bbox> {
     let axes = figure.store.get_as::<Axes3DState>(id)?;
     if !axes.base.visible {
         return None;

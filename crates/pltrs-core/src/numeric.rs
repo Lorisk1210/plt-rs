@@ -20,18 +20,24 @@
 //!   `pow`, whatever the base;
 //! * numpy's cast of a float to `int64` ([`np_int`]), as the processor
 //!   converts what no `int64` holds;
-//! * `a * b + c` as matplotlib's compiled extensions compute it on this
-//!   platform ([`fused`], [`sum_of_products`], [`difference_of_products`],
-//!   [`FUSES_PRODUCTS`]): in one rounding on arm64 macOS, in two
-//!   elsewhere;
+//! * `a * b + c` as the compiled code pltrs reproduces computes it on
+//!   this platform ([`Contraction`], [`fused`], [`fused_iso_c`],
+//!   [`sum_of_products`], [`difference_of_products`]): rounded once where
+//!   the compiler that built it contracted the expression (clang on arm64
+//!   macOS, GCC on aarch64 Linux), twice elsewhere;
 //! * which copy of numpy's loops the processor runs ([`CpuLevel`]): the
 //!   order of equal values in a sort depends on it;
 //! * numpy's own `sinh`, `log` and `power` where a rounding of theirs
 //!   decides something discrete and numpy is in the process ([`Ufunc`]).
 
+mod contraction;
 mod level;
 mod ufunc;
 
+pub use contraction::{
+    CONTRACTION, Contraction, FUSES_PRODUCTS, FusedProduct, difference_of_products, fused,
+    fused_f32, fused_iso_c, sum_of_products,
+};
 pub use level::{CpuLevel, LEVEL_VARIABLE, NumpyDispatch, UnknownLevel};
 pub use ufunc::{Evaluator, Ufunc, evaluate_with};
 
@@ -233,20 +239,6 @@ pub fn np_int(x: f64) -> i64 {
     }
 }
 
-/// Whether the compiled code pltrs reproduces here (matplotlib's
-/// extensions, with the Agg, qhull and `HarfBuzz` they build in,
-/// contourpy's, and numpy's own loops) rounds `a * b + c` once instead of
-/// twice.
-///
-/// C and C++ allow a compiler to contract a product and the sum or
-/// difference it feeds within one expression into a fused multiply-add.
-/// clang does so by default where the processor has the instruction and
-/// GCC does not for x86-64's baseline, so the wheels for arm64 macOS fuse
-/// and those for x86-64 (Linux, Windows, and macOS under Rosetta) do not.
-/// The reference is the binary wheel from `PyPI`; another build of
-/// matplotlib for the same platform may contract elsewhere.
-pub const FUSES_PRODUCTS: bool = cfg!(all(target_os = "macos", target_arch = "aarch64"));
-
 /// Whether numpy's matrix and vector products are Apple's Accelerate's
 /// here: numpy's wheel for arm64 macOS links that BLAS, where its other
 /// wheels bring `OpenBLAS`. The two round their small products in ways of
@@ -254,87 +246,6 @@ pub const FUSES_PRODUCTS: bool = cfg!(all(target_os = "macos", target_arch = "aa
 /// wheel for macOS links Accelerate too, whose kernels for that processor
 /// are others again: it is not followed.
 pub const ACCELERATE_BLAS: bool = cfg!(all(target_os = "macos", target_arch = "aarch64"));
-
-/// `a * b + c` where matplotlib's compiled code computes it by a fused
-/// multiply-add on the platforms of [`FUSES_PRODUCTS`]: rounded once
-/// there, and the product and the sum rounded one after the other
-/// elsewhere.
-///
-/// A ported expression names the product clang fuses: of `a * b + c * d`
-/// the first, so `fused(a, b, c * d)`; `c - a * b` is `fused(-a, b, c)` and
-/// `a * b - c` is `fused(a, b, -c)`, negation being exact. Without fusing
-/// each of these is the expression as written, bit for bit.
-///
-/// ```
-/// use pltrs_core::numeric::{FUSES_PRODUCTS, fused};
-/// assert_eq!(fused(3.0, 4.0, 5.0), 17.0);
-/// // 0.1 * 10.0 is 1 + 2^-54 before rounding.
-/// let residue = fused(0.1, 10.0, -1.0);
-/// assert_eq!(residue, if FUSES_PRODUCTS { 2f64.powi(-54) } else { 0.0 });
-/// ```
-#[inline]
-#[must_use]
-pub fn fused(a: f64, b: f64, c: f64) -> f64 {
-    if FUSES_PRODUCTS {
-        rounded_once(a, b, c)
-    } else {
-        rounded_twice(a, b, c)
-    }
-}
-
-/// [`fused`] for single-precision operands (Agg's `float` colour types).
-///
-/// ```
-/// use pltrs_core::numeric::fused_f32;
-/// assert_eq!(fused_f32(3.0, 4.0, 5.0), 17.0);
-/// ```
-#[inline]
-#[must_use]
-pub fn fused_f32(a: f32, b: f32, c: f32) -> f32 {
-    if FUSES_PRODUCTS {
-        a.mul_add(b, c)
-    } else {
-        a * b + c
-    }
-}
-
-/// `a * b + c * d` as that code computes it: where it fuses, clang fuses
-/// the first product into the sum and rounds the second.
-///
-/// ```
-/// use pltrs_core::numeric::sum_of_products;
-/// assert_eq!(sum_of_products(2.0, 3.0, 4.0, 5.0), 26.0);
-/// ```
-#[inline]
-#[must_use]
-pub fn sum_of_products(a: f64, b: f64, c: f64, d: f64) -> f64 {
-    fused(a, b, c * d)
-}
-
-/// `a * b - c * d` as that code computes it: where it fuses, the first
-/// product is fused into the difference and the second rounded.
-///
-/// ```
-/// use pltrs_core::numeric::difference_of_products;
-/// assert_eq!(difference_of_products(2.0, 3.0, 4.0, 5.0), -14.0);
-/// ```
-#[inline]
-#[must_use]
-pub fn difference_of_products(a: f64, b: f64, c: f64, d: f64) -> f64 {
-    fused(a, b, -(c * d))
-}
-
-/// `a * b + c` with the exact product added: a fused multiply-add.
-#[inline]
-fn rounded_once(a: f64, b: f64, c: f64) -> f64 {
-    a.mul_add(b, c)
-}
-
-/// `a * b + c` with the product rounded before it is added.
-#[inline]
-fn rounded_twice(a: f64, b: f64, c: f64) -> f64 {
-    a * b + c
-}
 
 /// `num` evenly spaced samples over `[start, stop]` (numpy `linspace`).
 ///
@@ -386,45 +297,6 @@ mod tests {
             pow(2.0, 7.909_669_318_739_461).to_bits(),
             0x406e_0ece_71fc_aa74
         );
-    }
-
-    /// Both forms of [`fused`], whichever the platform selects, at operands
-    /// where the product's rounding shows.
-    #[test]
-    fn fused_products_round_once_or_twice() {
-        // 0.1 * 10 = 1 + 2^-54 exactly, which rounds to 1.
-        assert_eq!(rounded_twice(0.1, 10.0, -1.0), 0.0);
-        assert_eq!(rounded_once(0.1, 10.0, -1.0), 2f64.powi(-54));
-        // (1 + 2^-30)^2 = 1 + 2^-29 + 2^-60: the last term is rounded away.
-        let x = 1.0 + 2f64.powi(-30);
-        assert_eq!(rounded_twice(x, x, -(1.0 + 2f64.powi(-29))), 0.0);
-        assert_eq!(rounded_once(x, x, -(1.0 + 2f64.powi(-29))), 2f64.powi(-60));
-        // A determinant of dependent rows, `a * d - b * c`: with the first
-        // product fused, the second product's rounding error is left.
-        let third = 1.0 / 3.0;
-        assert_eq!(rounded_twice(third, 3.0, -(third * 3.0)), 0.0);
-        assert_eq!(rounded_once(third, 3.0, -(third * 3.0)), -(2f64.powi(-54)));
-        // Exact products agree, and the forms written with a negation are
-        // the differences as written.
-        for (a, b, c) in [(3.0, 4.0, 5.0), (-0.5, 8.0, 4.0), (0.0, -1.0, 0.0)] {
-            assert_eq!(
-                rounded_once(a, b, c).to_bits(),
-                rounded_twice(a, b, c).to_bits()
-            );
-        }
-        let (a, b, c) = (0.3, 0.7, 0.21);
-        assert_eq!(rounded_twice(-a, b, c).to_bits(), (c - a * b).to_bits());
-        assert_eq!(rounded_twice(a, b, -c).to_bits(), (a * b - c).to_bits());
-        assert_eq!(
-            fused(a, b, -c),
-            if FUSES_PRODUCTS {
-                rounded_once(a, b, -c)
-            } else {
-                rounded_twice(a, b, -c)
-            }
-        );
-        assert!(fused(f64::NAN, 1.0, 1.0).is_nan());
-        assert_eq!(fused(f64::INFINITY, 1.0, 1.0), f64::INFINITY);
     }
 
     #[test]

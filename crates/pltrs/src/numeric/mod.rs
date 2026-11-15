@@ -24,7 +24,7 @@ pub use grid::{Grid, GridShapeError};
 pub use interp::interp;
 pub use number::Number;
 pub(crate) use number::{to_f64s, with_numbers};
-use pltrs_core::numeric::fused;
+use pltrs_core::numeric::fused_iso_c;
 pub use pltrs_core::numeric::{CpuLevel, linspace, linspace_with, pow, remainder};
 pub use regions::{block_perimeters, contiguous_regions};
 
@@ -34,8 +34,9 @@ pub use regions::{block_perimeters, contiguous_regions};
 /// `start + i * delta` where `delta = (start + step) - start`, which can
 /// differ from `step` in the last bits: `arange(-3.0, 3.0, 0.025)[173]` is
 /// `1.324999999999985`, not `1.3250000000000002`. numpy's wheel for arm64
-/// macOS is built like matplotlib's, with that product fused
-/// (`pltrs_core::numeric::fused`): the value is `1.3249999999999846` there.
+/// macOS is built by clang, which fuses that product even in numpy's ISO C
+/// (`pltrs_core::numeric::fused_iso_c`): the value is `1.3249999999999846`
+/// there; GCC's aarch64 Linux build does not fuse it.
 ///
 /// Returns an empty vector for a zero or wrongly-signed step.
 pub fn arange(start: f64, stop: f64, step: f64) -> Vec<f64> {
@@ -52,7 +53,7 @@ pub fn arange(start: f64, stop: f64, step: f64) -> Vec<f64> {
         .map(|i| match i {
             0 => start,
             1 => next,
-            _ => fused(i as f64, delta, start),
+            _ => fused_iso_c(i as f64, delta, start),
         })
         .collect()
 }
@@ -118,7 +119,7 @@ pub fn nan_extent<I: IntoIterator<Item = f64>>(values: I) -> Option<(f64, f64)> 
 
 #[cfg(test)]
 mod tests {
-    use pltrs_core::numeric::FUSES_PRODUCTS;
+    use pltrs_core::numeric::CONTRACTION;
 
     use super::*;
 
@@ -133,9 +134,9 @@ mod tests {
         let grid = arange(-3.0, 3.0, 0.025);
         assert_eq!(grid.len(), 240);
         assert_eq!(grid[1], -2.975);
-        // numpy 2.5.4: its x86-64 wheel's values and its arm64 macOS
-        // wheel's, which fuses `i * delta` into the sum.
-        let (far, near) = if FUSES_PRODUCTS {
+        // numpy 2.5.4: its x86-64 (and aarch64 Linux) wheel's values and
+        // its arm64 macOS wheel's, which fuses `i * delta` into the sum.
+        let (far, near) = if CONTRACTION.fuses_iso_c() {
             (1.324_999_999_999_984_6, 0.700_000_000_000_000_2)
         } else {
             (1.324_999_999_999_985, 0.700_000_000_000_000_1)

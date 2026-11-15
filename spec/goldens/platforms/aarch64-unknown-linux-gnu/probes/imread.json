@@ -1,0 +1,26 @@
+{
+ "area": "imread",
+ "matplotlib": "3.11.2",
+ "platform": "aarch64-unknown-linux-gnu",
+ "probes": [
+  {
+   "op": "image.imread",
+   "args": {
+    "data": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wCDEAD/A+icQAAC//8BLAAHf/8A/wPonEAAAv//ASwAB3//AP8D6JxAAAL//wEsAAd//wD/A+icQAAC//8BLAAHf/8A/wPonEAAAv//ASwAB3//AP8D6JxAAAL//wEsAAd//wD/A+icQAAC//8BLAAHf/8A/wPonEAAAv//ASwAB3///9sAgxEA/wPonEAAAv//ASwAB3//AP8D6JxAAAL//wEsAAd//wD/A+icQAAC//8BLAAHf/8A/wPonEAAAv//ASwAB3//AP8D6JxAAAL//wEsAAd//wD/A+icQAAC//8BLAAHf/8A/wPonEAAAv//ASwAB3//AP8D6JxAAAL//wEsAAd////AABEIAAgAEAMBEQACEQEDEQH/xAAfAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgv/xAC1EAACAQMDAgQDBQUEBAAAAX0BAgMABBEFEiExQQYTUWEHInEUMoGRoQgjQrHBFVLR8CQzYnKCCQoWFxgZGiUmJygpKjQ1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4eLj5OXm5+jp6vHy8/T19vf4+fr/xAAfAQADAQEBAQEBAQEBAAAAAAAAAQIDBAUGBwgJCgv/xAC1EQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4+Tl5ufo6ery8/T19vf4+fr/2gAMAwEAAhEDEQA/APkv4OeHtIsPhxBHcaaLi71bS5haSaVYtCskn2NUsriTTnu7oXC6heYv5nttNiudDe5sLtGsNSdrSP8A1ll4u8F+M2a1aLrYXB4qU8jrydSdWOHWNx2uJdTE0cJhcVGlSrRzPA4WnPMamHx2CrV8Oqaw2H+v0P8AevjzEV/Dnwlq4KrUhDHZfgcdWp0sZGWY4OsqOHxuGxNZ18JOlnEamJorFYeGMzBU6mKqYKnCGMp5Lg6GXSsaZ8M18aeLdOFlFeGzuru41O+ttNNqZ573R7iHUrafT0H2AWNylpa2NrcabbafFbx3V1d3Ekn2y0srxP5T+kL9FHL5cN5nmXDioVMXTy6msDmeLqRxWKqLMMLTeGowlXpwzKvgMVClXwcajrYepVy/B0qlKOIw9fHJf8iv0mPGyfG3jJn9ClisHiva4mOX5RL2FTMsFToP6pKWDeGrZbmXPh6mUTrYunOusVUw2Opf8KOHw2Cmo1v/2Q==",
+    "format": "jpeg",
+    "case": "16-bit quantization tables"
+   },
+   "value": [
+    [[178, 0, 0], [0, 48, 225], [76, 255, 28], [76, 255, 255], [178, 0, 0], [255, 208, 28], [255, 208, 28], [76, 255, 255], [255, 208, 28], [76, 255, 255], [0, 135, 0], [76, 255, 255], [255, 0, 255], [178, 0, 0], [186, 0, 0], [0, 105, 255]],
+    [[178, 0, 225], [178, 0, 225], [178, 0, 0], [255, 121, 255], [178, 0, 225], [0, 48, 225], [76, 255, 28], [178, 0, 0], [0, 48, 225], [0, 135, 0], [76, 255, 28], [255, 208, 28], [0, 48, 225], [178, 0, 225], [76, 255, 255], [255, 208, 28]],
+    [[76, 255, 28], [178, 0, 225], [76, 255, 28], [76, 255, 28], [255, 208, 28], [178, 0, 0], [2, 255, 0], [0, 48, 225], [255, 121, 255], [255, 208, 28], [0, 135, 0], [255, 208, 28], [0, 135, 0], [0, 48, 225], [76, 255, 255], [76, 255, 28]],
+    [[255, 208, 28], [178, 0, 0], [255, 121, 255], [0, 135, 0], [178, 0, 225], [0, 135, 0], [178, 0, 225], [255, 121, 255], [8, 0, 225], [255, 208, 28], [0, 48, 225], [255, 208, 28], [255, 208, 28], [76, 255, 28], [0, 48, 225], [0, 48, 225]],
+    [[0, 135, 0], [0, 135, 0], [76, 255, 28], [0, 7, 126], [76, 255, 255], [178, 0, 225], [76, 255, 255], [255, 208, 28], [76, 255, 255], [255, 121, 255], [178, 0, 225], [255, 255, 28], [255, 121, 255], [76, 255, 255], [0, 135, 0], [255, 58, 0]],
+    [[178, 0, 0], [255, 0, 255], [255, 208, 28], [178, 0, 0], [255, 137, 255], [0, 178, 255], [255, 121, 255], [45, 21, 0], [76, 255, 255], [255, 208, 28], [76, 255, 28], [178, 0, 225], [178, 0, 0], [178, 0, 0], [255, 121, 255], [178, 0, 225]],
+    [[0, 255, 0], [255, 121, 255], [255, 121, 255], [255, 208, 28], [178, 0, 225], [76, 255, 28], [178, 0, 0], [0, 61, 154], [178, 0, 0], [178, 0, 225], [255, 121, 255], [255, 208, 28], [76, 255, 255], [255, 208, 28], [175, 255, 255], [255, 208, 28]],
+    [[255, 162, 0], [0, 135, 0], [76, 255, 255], [76, 255, 255], [255, 208, 28], [255, 0, 255], [255, 208, 28], [178, 0, 0], [255, 121, 255], [178, 0, 225], [178, 0, 0], [178, 0, 225], [255, 208, 28], [76, 255, 255], [76, 255, 255], [0, 73, 96]]
+   ]
+  }
+ ],
+ "absent": []
+}

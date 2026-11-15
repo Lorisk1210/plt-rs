@@ -6,20 +6,46 @@
 //! the corners of the correspondingly enlarged, mitered triangle.
 
 use pltrs_core::Point;
-use pltrs_core::numeric::{fused, sum_of_products};
-use pltrs_core::path::outline::{INTERSECTION_EPSILON, calc_intersection, cross_product};
+use pltrs_core::numeric::fused;
+use pltrs_core::numeric::{CONTRACTION, Contraction, FusedProduct};
+use pltrs_core::path::outline::{INTERSECTION_EPSILON, calc_intersection_fusing, cross_product};
 
 use super::iround;
 use crate::color::Rgba8;
 
+/// The product of `calc_intersection`'s numerator matplotlib's build
+/// fuses where it inlines the function into `_draw_gouraud_triangle`'s
+/// dilation: the second under GCC (its GIMPLE), the first under clang.
+const NUMERATOR: FusedProduct = if matches!(CONTRACTION, Contraction::Gcc) {
+    FusedProduct::Second
+} else {
+    FusedProduct::First
+};
+
+/// The product of the first edge's length (`calc_orthogonal` of `1 → 2`
+/// in `dilate_triangle`) the build fuses: GCC reuses the differences of
+/// the preceding `cross_product` there and fuses `dy * dy` (its GIMPLE),
+/// clang `dx * dx`, as GCC does for the other two edges.
+const FIRST_EDGE_LENGTH: FusedProduct = if matches!(CONTRACTION, Contraction::Gcc) {
+    FusedProduct::Second
+} else {
+    FusedProduct::First
+};
+
 const SUBPIXEL_SHIFT: i32 = 4;
 const SUBPIXEL_SCALE: i32 = 1 << SUBPIXEL_SHIFT;
 
-/// Offset of thickness `d` perpendicular to `1 → 2` (Agg's `calc_orthogonal`).
-fn orthogonal(d: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> (f64, f64) {
+/// Offset of thickness `d` perpendicular to `1 → 2` (Agg's `calc_orthogonal`),
+/// the length `sqrt(dx * dx + dy * dy)` with the product `length` fused
+/// where the build fuses.
+fn orthogonal(d: f64, x1: f64, y1: f64, x2: f64, y2: f64, length: FusedProduct) -> (f64, f64) {
     let dx = x2 - x1;
     let dy = y2 - y1;
-    let len = sum_of_products(dx, dx, dy, dy).sqrt();
+    let len = match length {
+        FusedProduct::First => fused(dx, dx, dy * dy),
+        FusedProduct::Second => fused(dy, dy, dx * dx),
+    }
+    .sqrt();
     (d * dy / len, -d * dx / len)
 }
 
@@ -61,9 +87,13 @@ impl GouraudTriangle {
         let outline = dilate(points, d);
         let pairs = [(4, 0), (0, 2), (2, 4)];
         for (corner, (a, b)) in corners.iter_mut().zip(pairs) {
-            if let Some(p) =
-                calc_intersection(outline[a], outline[a + 1], outline[b], outline[b + 1])
-            {
+            if let Some(p) = calc_intersection_fusing(
+                NUMERATOR,
+                outline[a],
+                outline[a + 1],
+                outline[b],
+                outline[b + 1],
+            ) {
                 corner.x = p.x;
                 corner.y = p.y;
             }
@@ -112,9 +142,9 @@ fn dilate([p1, p2, p3]: [Point; 3], d: f64) -> [Point; 6] {
     if loc.abs() > INTERSECTION_EPSILON {
         let d = if loc > 0.0 { -d } else { d };
         offsets = [
-            orthogonal(d, x1, y1, x2, y2),
-            orthogonal(d, x2, y2, x3, y3),
-            orthogonal(d, x3, y3, x1, y1),
+            orthogonal(d, x1, y1, x2, y2, FIRST_EDGE_LENGTH),
+            orthogonal(d, x2, y2, x3, y3, FusedProduct::First),
+            orthogonal(d, x3, y3, x1, y1, FusedProduct::First),
         ];
     }
     let [(dx1, dy1), (dx2, dy2), (dx3, dy3)] = offsets;

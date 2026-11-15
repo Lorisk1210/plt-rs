@@ -7,9 +7,10 @@ reference interpreter:
     .venv/bin/python -I crates/pltrs-raster/tests/fixtures/generate.py
 
 The file next to this script is matplotlib's on Linux x86-64. matplotlib's
-wheel for arm64 macOS fuses products into sums, which pltrs follows there:
-run there, this writes that platform's file, into aarch64-apple-darwin/,
-which the test built for it reads instead.
+wheels for arm64 macOS and aarch64 Linux fuse products into sums, which
+pltrs follows there: run there, this writes that platform's file, into
+aarch64-apple-darwin/ or aarch64-unknown-linux-gnu/, which the test built
+for it reads instead.
 
 Every op drives RendererAgg directly with dpi=72 (1 pt = 1 px) and
 snapping disabled. Paths are given in device pixels (y down); passing
@@ -35,8 +36,11 @@ from matplotlib.transforms import Affine2D, Bbox, TransformedPath
 
 HERE = pathlib.Path(__file__).resolve().parent
 #: Where this machine's reference goes: arm64 macOS has its own.
-OUT = (HERE / "aarch64-apple-darwin"
-       if sys.platform == "darwin" and platform.machine() == "arm64" else HERE)
+#: Where this platform's output goes: the platforms whose matplotlib fuses
+#: products into sums (arm64 macOS, clang; aarch64 Linux, GCC) have their own.
+OUT = {("darwin", "arm64"): HERE / "aarch64-apple-darwin",
+       ("linux", "aarch64"): HERE / "aarch64-unknown-linux-gnu"}.get(
+           (sys.platform, platform.machine()), HERE)
 CODES = {"M": (Path.MOVETO, 1), "L": (Path.LINETO, 1), "Q": (Path.CURVE3, 2), "C": (Path.CURVE4, 3)}
 
 

@@ -8,6 +8,7 @@ mod map;
 mod shuffle;
 
 use pltrs_core::Point;
+use pltrs_core::numeric::{CONTRACTION, Contraction};
 
 use self::map::{Edge, TrapezoidMap, is_right_of};
 use self::shuffle::{Mt19937, shuffle};
@@ -85,6 +86,34 @@ impl<'a> TriFinder<'a> {
     }
 }
 
+/// The box `lower`..`upper` grown by a tenth of its size on every side,
+/// matplotlib's `BoundingBox::expand((upper - lower) * 0.1)`: clang rounds
+/// the products (they pass through `XY::operator*`), GCC inlines the
+/// operators and fuses them into `lower -= delta` and `upper += delta`
+/// (its `widening_mul` GIMPLE).
+fn expanded(contraction: Contraction, lower: Point, upper: Point) -> (Point, Point) {
+    let size = upper - lower;
+    match contraction {
+        Contraction::Gcc => (
+            Point::new(
+                contraction.fused(-size.x, 0.1, lower.x),
+                contraction.fused(-size.y, 0.1, lower.y),
+            ),
+            Point::new(
+                contraction.fused(size.x, 0.1, upper.x),
+                contraction.fused(size.y, 0.1, upper.y),
+            ),
+        ),
+        Contraction::Unfused | Contraction::Clang => {
+            let (dx, dy) = (size.x * 0.1, size.y * 0.1);
+            (
+                Point::new(lower.x - dx, lower.y - dy),
+                Point::new(upper.x + dx, upper.y + dy),
+            )
+        }
+    }
+}
+
 /// The triangulation's points, negative zeros made positive, followed by
 /// the corners of a rectangle around them (south-west, south-east,
 /// north-west, north-east), and the index of the first corner.
@@ -98,13 +127,7 @@ fn map_points(tri: &Triangulation) -> (Vec<Point>, usize) {
         .collect();
     let (lower, upper) = match bounds(&points) {
         None => (Point::new(0.0, 0.0), Point::new(1.0, 1.0)),
-        Some((lower, upper)) => {
-            let (dx, dy) = ((upper.x - lower.x) * 0.1, (upper.y - lower.y) * 0.1);
-            (
-                Point::new(lower.x - dx, lower.y - dy),
-                Point::new(upper.x + dx, upper.y + dy),
-            )
-        }
+        Some((lower, upper)) => expanded(CONTRACTION, lower, upper),
     };
     let corners = points.len();
     points.extend([
@@ -163,6 +186,18 @@ fn opposite_point(triangle: [usize; 3], end: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_enclosing_box_grows_as_each_compiler_builds_matplotlib() {
+        let (lower, upper) = (Point::new(0.1, 0.1), Point::new(0.4, 0.4));
+        // The lower corner's `(upper - lower) * 0.1` is fused under GCC only.
+        assert_eq!(
+            expanded(Contraction::Gcc, lower, upper).0.x,
+            0.069_999_999_999_999_99
+        );
+        assert_eq!(expanded(Contraction::Clang, lower, upper).0.x, 0.07);
+        assert_eq!(expanded(Contraction::Unfused, lower, upper).0.x, 0.07);
+    }
 
     fn grid3(mask: Option<Vec<bool>>) -> Triangulation {
         let x = [0.0, 1.0, 2.0, 0.0, 1.0, 2.0, 0.0, 1.0, 2.0];

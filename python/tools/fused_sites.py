@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Where matplotlib's build for arm64 macOS fuses a product into a sum.
+Where matplotlib's builds for arm64 macOS and aarch64 Linux fuse a product
+into a sum.
 
 clang contracts ``a * b + c`` into one fused multiply-add where both stand
 in one expression, so the extensions of matplotlib's and contourpy's arm64
@@ -51,6 +52,24 @@ order of a port certain: of a sum or difference clang fuses the left
 operand if it is a product, otherwise the right one; a product kept in a
 variable, converted to another type or computed by an overloaded operator
 is rounded first.
+
+  fused_sites.py gimple [-I DIR]... [-D NAME[=VALUE]]... [--std STD] SOURCE...
+
+    The aarch64 Linux wheels are GCC's (GCC 14.2.1 of the
+    ``quay.io/pypa/manylinux_2_28_aarch64`` image matplotlib's and
+    contourpy's wheels were built in; run it there). GCC fuses across
+    statements and inlined operators too, and which product of a sum it
+    fuses follows the order its ``widening_mul`` pass meets them, not the
+    syntax, so the instructions alone do not say which operand a fused
+    product was. This compiles the SOURCEs as the wheels are (``-O3``,
+    ``-fvisibility=hidden``; without LTO, which changes no operand of the
+    functions pltrs ports)
+    with that pass's dump (``-fdump-tree-widening_mul-lineno``) and prints,
+    per source line and function, GCC's ``.FMA``/``.FMS``/``.FNMA``/``.FNMS``
+    statements with the line's other arithmetic and the debug binds that
+    name its variables. ISO C (``--std c11``, numpy's) is not contracted:
+    the command says so instead of compiling. Confirm a reading by an exact
+    emulation against the wheel on seeded inputs.
 """
 
 import argparse
@@ -149,6 +168,68 @@ def sources(arguments):
             print(f"    {names[symbol]}  [{instructions(found)}]")
 
 
+#: A statement of a ``-lineno`` GIMPLE dump: its source file, line and text.
+GIMPLE_STATEMENT = re.compile(r"\s*\[([^\]:]+):(\d+):\d+[^\]]*\] (.*)")
+
+#: GCC's internal functions for the four fused operations.
+GIMPLE_FUSED = re.compile(r"= \.(FMA|FMS|FNMA|FNMS) ")
+
+#: Statements worth showing beside a fused one: arithmetic and debug binds.
+GIMPLE_CONTEXT = re.compile(r"\.F(MA|MS|NMA|NMS) |[-+*/] |DEBUG [A-Za-z_]")
+
+
+def gimple_sites(dump):
+    """The statements of the dump at ``dump`` on lines holding a fused
+    operation: {(file, line): {function: [statement, ...]}}."""
+    by_line = collections.defaultdict(lambda: collections.defaultdict(list))
+    function = None
+    for row in dump.read_text(errors="replace").splitlines():
+        if row.startswith(";; Function "):
+            function = row.split()[2]
+        elif match := GIMPLE_STATEMENT.match(row):
+            if GIMPLE_CONTEXT.search(match.group(3)):
+                by_line[(match.group(1), int(match.group(2)))][function].append(match.group(3))
+    return {line: functions for line, functions in by_line.items()
+            if any(GIMPLE_FUSED.search(s) for statements in functions.values() for s in statements)}
+
+
+def gimple(arguments):
+    """The ``gimple`` command."""
+    if re.fullmatch(r"(c|iso9899:)\d+", arguments.std):
+        print(f"{arguments.std} is ISO C, which GCC does not contract: nothing is fused")
+        return
+    target = run("gcc", "-dumpmachine").strip()
+    if not target.startswith("aarch64"):
+        sys.exit(f"gcc targets {target}: run this with the aarch64 GCC that built the wheels")
+    flags = [f"-I{directory}" for directory in arguments.include]
+    flags += [f"-D{definition}" for definition in arguments.define]
+    texts = {}
+    with tempfile.TemporaryDirectory() as scratch:
+        for index, source in enumerate(map(pathlib.Path, arguments.sources)):
+            compiler = ["gcc"] if source.suffix == ".c" else ["g++", f"-std={arguments.std}"]
+            out = pathlib.Path(scratch) / str(index)
+            out.mkdir()
+            # Hidden visibility, as pybind11's build gives the extensions:
+            # without it GCC may not inline the operators whose products it
+            # fuses across functions.
+            subprocess.run([*compiler, "-O3", "-g", "-fPIC", "-fvisibility=hidden", "-DNDEBUG", *flags,
+                            "-fdump-tree-widening_mul-lineno", "-c", str(source.resolve()),
+                            "-o", "object.o"], cwd=out, check=True)
+            for dump in sorted(out.glob("*.widening_mul")):
+                for (path, number), functions in sorted(gimple_sites(dump).items()):
+                    if path not in texts:
+                        try:
+                            texts[path] = pathlib.Path(path).read_text(errors="replace").splitlines()
+                        except OSError:
+                            texts[path] = []
+                    lines = texts[path]
+                    expression = lines[number - 1].strip() if number <= len(lines) else "?"
+                    print(f"{path}:{number}: {expression}")
+                    for function, statements in sorted(functions.items()):
+                        print(f"    {function}")
+                        print("\n".join(f"        {statement}" for statement in statements))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -161,8 +242,14 @@ def main():
     build.add_argument("--std", default="c++17", help="the C++ standard (default: c++17)")
     build.add_argument("sources", nargs="+", metavar="SOURCE")
     build.set_defaults(run=sources)
+    dump = commands.add_parser("gimple", help="GCC's fused statements by source line (aarch64 Linux)")
+    dump.add_argument("-I", dest="include", action="append", default=[], metavar="DIR")
+    dump.add_argument("-D", dest="define", action="append", default=[], metavar="NAME[=VALUE]")
+    dump.add_argument("--std", default="c++17", help="the C or C++ standard (default: c++17)")
+    dump.add_argument("sources", nargs="+", metavar="SOURCE")
+    dump.set_defaults(run=gimple)
     arguments = parser.parse_args()
-    if sys.platform != "darwin":
+    if arguments.command != "gimple" and sys.platform != "darwin":
         parser.error("this reads Mach-O extensions with Xcode's tools: run it on a Mac")
     arguments.run(arguments)
 

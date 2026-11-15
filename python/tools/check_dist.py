@@ -3,7 +3,7 @@ Checks pltrs' wheels and sdists, as built anywhere (``pip wheel .``, the
 CI workflows, ``cargo xtask python wheels``):
 
     python python/tools/check_dist.py DIST...
-    python python/tools/check_dist.py --install [--python PY] [--lowest] DIST...
+    python python/tools/check_dist.py --install [--python PY] [--lowest] [--compare-drawings] DIST...
 
 Each archive is first checked as an index would check it (the backend's
 ``_audit``: file name, ``WHEEL``, ``RECORD``, core metadata, licence
@@ -34,6 +34,13 @@ import from pltrs, one matplotlib fails to import (wanting a GUI toolkit,
 tornado, IPython, pytest, ...) may fail only with matplotlib's exception,
 and each backend must draw as matplotlib's does. A package pltrs imports
 without declaring it shows there.
+
+``--compare-drawings`` (with the ``matplotlib`` distribution) then runs
+the drop-in program once more in matplotlib's look and once with
+matplotlib in its bare venv, and fails unless every figure has the same
+pixels (``same_pixels.py``): its ``arithmetic.png`` draws what follows the
+platform's compiled arithmetic (see ``drop_in.py``). The Linux containers
+of the release workflow check with it (``.github/scripts/container.sh``).
 
 ``--lowest`` installs the lowest versions the requirements allow
 (their ``>=`` bounds), and holds every install of the venvs to them, so
@@ -73,7 +80,8 @@ PIP_INSTALL = ("install", "--quiet", "--prefer-binary")
 #: The first bytes of each figure the drop-in program writes.
 DROP_IN_FIGURES = {
     "figure.png": b"\x89PNG", "figure.pdf": b"%PDF", "figure.svg": b"<?xml",
-    "surface.png": b"\x89PNG", "pylab.png": b"\x89PNG",
+    "surface.png": b"\x89PNG", "pylab.png": b"\x89PNG", "arithmetic.png": b"\x89PNG",
+    "arithmetic-3d.png": b"\x89PNG",
 }
 
 
@@ -225,9 +233,10 @@ def bare_check(pltrs, python, held, work, environment):
           f"as matplotlib {version} alone")
 
 
-def install_check(dists, python, lowest, work):
+def install_check(dists, python, lowest, work, compare=False):
     """Installs *dists* into a fresh venv of *python* in *work* and runs
-    the checks of the module's description."""
+    the checks of the module's description (with *compare*, the drawings'
+    comparison too)."""
     if work.exists():
         shutil.rmtree(work)
     work.mkdir(parents=True)
@@ -268,6 +277,25 @@ def install_check(dists, python, lowest, work):
         for name, magic in DROP_IN_FIGURES.items():
             if not (drawn / name).read_bytes().startswith(magic):
                 raise RuntimeError(f"the drop-in program wrote no {name}")
+        if compare:
+            compare_drawings(interpreter, work, environment)
+
+
+def compare_drawings(interpreter, work, environment):
+    """Fails unless the drop-in program, run on pltrs as matplotlib in
+    matplotlib's look by *interpreter*, draws the pixels matplotlib draws
+    of it here, in its bare venv: where pltrs follows the platform's
+    arithmetic (a compiler's fused products, the C library), the two are
+    the same bits."""
+    ours, theirs = work / "drop-in-compared", work / "drop-in-matplotlib"
+    ours.mkdir()
+    theirs.mkdir()
+    run([interpreter, HERE / "drop_in.py"], ours, {**environment, "PLTRS_LOOK": "matplotlib"})
+    bare = work / "bare-matplotlib"
+    plain = {**environment, "MPLBACKEND": "agg", "MPLCONFIGDIR": str(work / "mpl-config")}
+    run([venv_python(bare), HERE / "drop_in.py"], theirs, activated(plain, bare))
+    run([interpreter, HERE / "same_pixels.py", theirs, ours], work, environment)
+    print("pltrs draws the drop-in program as matplotlib draws it here")
 
 
 def main(argv):
@@ -277,6 +305,7 @@ def main(argv):
     parser.add_argument("--install", action="store_true")
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument("--lowest", action="store_true")
+    parser.add_argument("--compare-drawings", action="store_true")
     default_work = ROOT / "target" / "check-dist" if (ROOT / "Cargo.toml").exists() \
         else pathlib.Path("check-dist")
     parser.add_argument("--work", type=pathlib.Path, default=default_work)
@@ -287,7 +316,8 @@ def main(argv):
     if options.install:
         name = "lowest" if options.lowest else pathlib.Path(options.python).name
         try:
-            install_check(dists, options.python, options.lowest, options.work.resolve() / name)
+            install_check(dists, options.python, options.lowest, options.work.resolve() / name,
+                          options.compare_drawings)
         except (subprocess.CalledProcessError, RuntimeError) as error:
             print(f"check_dist: {error}", file=sys.stderr)
             return 1

@@ -4,7 +4,7 @@
 //! where matplotlib's build of it fuses them (`numeric::fused`).
 
 use crate::Point;
-use crate::numeric::{difference_of_products, fused, sum_of_products};
+use crate::numeric::{CONTRACTION, FusedProduct, difference_of_products, fused, sum_of_products};
 
 /// Below this magnitude the denominator of [`calc_intersection`] counts as
 /// zero, and three points as collinear (Agg's `intersection_epsilon`).
@@ -20,7 +20,22 @@ pub fn cross_product(a: Point, b: Point, p: Point) -> f64 {
 /// The intersection of the lines `a → b` and `c → d`, or `None` when they
 /// are parallel (Agg's `calc_intersection`).
 pub fn calc_intersection(a: Point, b: Point, c: Point, d: Point) -> Option<Point> {
-    let num = difference_of_products(a.y - c.y, d.x - c.x, a.x - c.x, d.y - c.y);
+    calc_intersection_fusing(FusedProduct::First, a, b, c, d)
+}
+
+/// [`calc_intersection`] with its numerator's product `numerator` fused,
+/// where the build fuses: GCC fuses the second where it inlines the
+/// function into `RendererAgg::_draw_gouraud_triangle` (its GIMPLE), clang
+/// and GCC elsewhere the first.
+pub fn calc_intersection_fusing(
+    numerator: FusedProduct,
+    a: Point,
+    b: Point,
+    c: Point,
+    d: Point,
+) -> Option<Point> {
+    let num =
+        CONTRACTION.difference_of_products(numerator, a.y - c.y, d.x - c.x, a.x - c.x, d.y - c.y);
     let den = difference_of_products(b.x - a.x, d.y - c.y, b.y - a.y, d.x - c.x);
     if den.abs() < INTERSECTION_EPSILON {
         return None;

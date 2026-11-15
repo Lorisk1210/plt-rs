@@ -3,11 +3,14 @@
 # (quay.io/pypa/...), with the source tree as the working directory:
 #
 #   .github/scripts/container.sh test DIST...   DIST... installed and checked with the container's
-#                                               oldest Python (python/tools/check_dist.py --install)
+#                                               oldest Python (python/tools/check_dist.py --install
+#                                               --compare-drawings)
 #
 # The container has the oldest C library the wheel's tag allows (glibc
 # 2.17 in manylinux2014, musl 1.2 in musllinux_1_2): the test runs the
-# wheel there, with the numpy and Pillow pip picks for it.
+# wheel there, with the numpy and Pillow pip picks for it, and compares
+# its drawings with matplotlib's own there, pixel for pixel (aarch64's
+# arithmetic is its compiler's: see "aarch64 Linux" in python/DESIGN.md).
 set -eu
 
 python=/opt/python/cp312-cp312/bin/python
@@ -15,7 +18,7 @@ python=/opt/python/cp312-cp312/bin/python
 case "${1:-}" in
     test)
         shift
-        "$python" python/tools/check_dist.py --install --python "$python" \
+        "$python" python/tools/check_dist.py --install --compare-drawings --python "$python" \
             --work /tmp/check-dist "$@"
         ;;
     *)

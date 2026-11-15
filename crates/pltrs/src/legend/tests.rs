@@ -5,9 +5,10 @@ use pltrs_core::Bbox;
 use super::*;
 use crate::axes::{BarOptions, ErrorbarOptions};
 use crate::colors::Color;
-use crate::lines::LineProps;
+use crate::lines::{AxLineThrough, LineProps};
 use crate::offsetbox::AnchorLoc;
 use crate::patches::{PatchProps, Shadow};
+use crate::transforms::Point;
 
 fn labelled(label: &str) -> LineProps {
     LineProps::default().label(label)
@@ -142,6 +143,23 @@ fn best_avoids_the_data() {
     assert!(
         extent.y1() < 150.0,
         "moved below the crowded top: {extent:?}"
+    );
+}
+
+#[test]
+fn best_avoids_the_part_of_an_infinite_line_in_view() {
+    let (fig, ax) = canvas();
+    ax.set_xlim(0.0, 1.0).expect("finite limits");
+    ax.set_ylim(0.0, 1.0).expect("finite limits");
+    // A steep line through the upper left corner: from (0.1, 0) to (0.3, 1).
+    let through = AxLineThrough::Slope(5.0);
+    ax.axline(Point::new(0.1, 0.0), through, labelled("steep"))
+        .unwrap();
+    let legend = ax.legend(LegendOptions::default()).unwrap();
+    let extent = frame_extent(&fig, &legend);
+    assert!(
+        extent.x0() > 200.0,
+        "moved right of the line crossing the upper left: {extent:?}"
     );
 }
 

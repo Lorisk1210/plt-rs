@@ -1,5 +1,29 @@
 {
  "corpora": {
+  "adaptive-signal-processing": {
+   "clean": 8,
+   "failed_imports": {},
+   "programs": 9,
+   "ran": 8,
+   "runs": {
+    "ended, drew": {
+     "clean": 4,
+     "ran": 4
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 4,
+     "ran": 4
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
   "adjusttext": {
    "clean": 4,
    "failed_imports": {
@@ -47,6 +71,30 @@
     "raised, no figure": {
      "clean": 1,
      "ran": 1
+    }
+   }
+  },
+  "aima-python": {
+   "clean": 32,
+   "failed_imports": {},
+   "programs": 58,
+   "ran": 35,
+   "runs": {
+    "ended, drew": {
+     "clean": 6,
+     "ran": 6
+    },
+    "ended, no figure": {
+     "clean": 19,
+     "ran": 22
+    },
+    "raised, drew": {
+     "clean": 5,
+     "ran": 5
+    },
+    "raised, no figure": {
+     "clean": 2,
+     "ran": 2
     }
    }
   },
@@ -98,6 +146,60 @@
     }
    }
   },
+  "bayesian-methods-for-hackers": {
+   "clean": 18,
+   "failed_imports": {
+    "arviz": 2,
+    "pymc": 10,
+    "pymc3": 5,
+    "pytensor": 1,
+    "theano": 1
+   },
+   "programs": 22,
+   "ran": 18,
+   "runs": {
+    "ended, drew": {
+     "clean": 0,
+     "ran": 0
+    },
+    "ended, no figure": {
+     "clean": 2,
+     "ran": 2
+    },
+    "raised, drew": {
+     "clean": 15,
+     "ran": 15
+    },
+    "raised, no figure": {
+     "clean": 1,
+     "ran": 1
+    }
+   }
+  },
+  "bite-size-bayes": {
+   "clean": 16,
+   "failed_imports": {},
+   "programs": 17,
+   "ran": 16,
+   "runs": {
+    "ended, drew": {
+     "clean": 9,
+     "ran": 9
+    },
+    "ended, no figure": {
+     "clean": 6,
+     "ran": 6
+    },
+    "raised, drew": {
+     "clean": 1,
+     "ran": 1
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
   "brokenaxes": {
    "clean": 5,
    "failed_imports": {},
@@ -115,6 +217,35 @@
     "raised, drew": {
      "clean": 0,
      "ran": 0
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "cbe30338": {
+   "clean": 39,
+   "failed_imports": {
+    "CBE30338": 1,
+    "PIDsim": 1,
+    "pyomo": 4,
+    "tclab": 1
+   },
+   "programs": 57,
+   "ran": 40,
+   "runs": {
+    "ended, drew": {
+     "clean": 21,
+     "ran": 22
+    },
+    "ended, no figure": {
+     "clean": 1,
+     "ran": 1
+    },
+    "raised, drew": {
+     "clean": 17,
+     "ran": 17
     },
     "raised, no figure": {
      "clean": 0,
@@ -218,6 +349,56 @@
     }
    }
   },
+  "comp-stats": {
+   "clean": 10,
+   "failed_imports": {},
+   "programs": 10,
+   "ran": 10,
+   "runs": {
+    "ended, drew": {
+     "clean": 7,
+     "ran": 7
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 3,
+     "ran": 3
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "comp551-notebooks": {
+   "clean": 16,
+   "failed_imports": {
+    "torch": 1
+   },
+   "programs": 19,
+   "ran": 16,
+   "runs": {
+    "ended, drew": {
+     "clean": 11,
+     "ran": 11
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 5,
+     "ran": 5
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
   "corner": {
    "clean": 4,
    "failed_imports": {
@@ -244,21 +425,48 @@
     }
    }
   },
+  "data-qna": {
+   "clean": 29,
+   "failed_imports": {
+    "pymc": 1,
+    "utils": 3
+   },
+   "programs": 31,
+   "ran": 29,
+   "runs": {
+    "ended, drew": {
+     "clean": 1,
+     "ran": 1
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 26,
+     "ran": 26
+    },
+    "raised, no figure": {
+     "clean": 2,
+     "ran": 2
+    }
+   }
+  },
   "data-science-handbook": {
-   "clean": 59,
+   "clean": 46,
    "failed_imports": {
     "pandas_datareader": 1
    },
-   "programs": 66,
-   "ran": 59,
+   "programs": 53,
+   "ran": 46,
    "runs": {
     "ended, drew": {
      "clean": 3,
      "ran": 3
     },
     "ended, no figure": {
-     "clean": 25,
-     "ran": 25
+     "clean": 12,
+     "ran": 12
     },
     "raised, drew": {
      "clean": 28,
@@ -294,6 +502,32 @@
     }
    }
   },
+  "dataviz-course": {
+   "clean": 2,
+   "failed_imports": {
+    "watermark": 2
+   },
+   "programs": 3,
+   "ran": 2,
+   "runs": {
+    "ended, drew": {
+     "clean": 0,
+     "ran": 0
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 2,
+     "ran": 2
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
   "dna-features-viewer": {
    "clean": 10,
    "failed_imports": {},
@@ -318,21 +552,77 @@
     }
    }
   },
+  "dsp-exercises": {
+   "clean": 20,
+   "failed_imports": {
+    "__main__": 1,
+    "soundfile": 1
+   },
+   "programs": 20,
+   "ran": 20,
+   "runs": {
+    "ended, drew": {
+     "clean": 17,
+     "ran": 17
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 3,
+     "ran": 3
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "dsp-lecture": {
+   "clean": 44,
+   "failed_imports": {
+    "__main__": 1,
+    "audiofilter": 1,
+    "sounddevice": 1,
+    "soundfile": 1
+   },
+   "programs": 46,
+   "ran": 44,
+   "runs": {
+    "ended, drew": {
+     "clean": 35,
+     "ran": 35
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 8,
+     "ran": 8
+    },
+    "raised, no figure": {
+     "clean": 1,
+     "ran": 1
+    }
+   }
+  },
   "elements-of-data-science": {
-   "clean": 13,
+   "clean": 12,
    "failed_imports": {
     "geodatasets": 1
    },
-   "programs": 13,
-   "ran": 13,
+   "programs": 12,
+   "ran": 12,
    "runs": {
     "ended, drew": {
      "clean": 8,
      "ran": 8
     },
     "ended, no figure": {
-     "clean": 3,
-     "ran": 3
+     "clean": 2,
+     "ran": 2
     },
     "raised, drew": {
      "clean": 2,
@@ -370,19 +660,147 @@
     }
    }
   },
-  "flexitext": {
-   "clean": 1,
+  "engcomp2": {
+   "clean": 2,
    "failed_imports": {},
-   "programs": 4,
-   "ran": 4,
+   "programs": 2,
+   "ran": 2,
+   "runs": {
+    "ended, drew": {
+     "clean": 0,
+     "ran": 0
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 2,
+     "ran": 2
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "engcomp3": {
+   "clean": 3,
+   "failed_imports": {},
+   "programs": 3,
+   "ran": 3,
+   "runs": {
+    "ended, drew": {
+     "clean": 3,
+     "ran": 3
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "engcomp5": {
+   "clean": 6,
+   "failed_imports": {
+    "sounddevice": 1
+   },
+   "programs": 6,
+   "ran": 6,
+   "runs": {
+    "ended, drew": {
+     "clean": 2,
+     "ran": 2
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 4,
+     "ran": 4
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "engcomp7": {
+   "clean": 0,
+   "failed_imports": {},
+   "programs": 5,
+   "ran": 0,
+   "runs": {
+    "ended, drew": {
+     "clean": 0,
+     "ran": 0
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "esac-stats-2014": {
+   "clean": 8,
+   "failed_imports": {
+    "IPython.html": 3,
+    "sklearn.cross_validation": 4,
+    "sklearn.datasets.samples_generator": 3,
+    "sklearn.grid_search": 1,
+    "sklearn.mixture": 1
+   },
+   "programs": 17,
+   "ran": 8,
+   "runs": {
+    "ended, drew": {
+     "clean": 0,
+     "ran": 0
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 8,
+     "ran": 8
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "flexitext": {
+   "clean": 0,
+   "failed_imports": {},
+   "programs": 3,
+   "ran": 3,
    "runs": {
     "ended, drew": {
      "clean": 0,
      "ran": 3
     },
     "ended, no figure": {
-     "clean": 1,
-     "ran": 1
+     "clean": 0,
+     "ran": 0
     },
     "raised, drew": {
      "clean": 0,
@@ -468,6 +886,58 @@
     }
    }
   },
+  "hyperpython": {
+   "clean": 4,
+   "failed_imports": {
+    "clawpack": 3,
+    "mpld3": 1,
+    "pyweno": 1
+   },
+   "programs": 7,
+   "ran": 4,
+   "runs": {
+    "ended, drew": {
+     "clean": 1,
+     "ran": 1
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 3,
+     "ran": 3
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "image-processing-lesson": {
+   "clean": 0,
+   "failed_imports": {},
+   "programs": 8,
+   "ran": 0,
+   "runs": {
+    "ended, drew": {
+     "clean": 0,
+     "ran": 0
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
   "imbalanced-learn": {
    "clean": 17,
    "failed_imports": {},
@@ -492,38 +962,61 @@
     }
    }
   },
+  "intro-numerical-methods": {
+   "clean": 19,
+   "failed_imports": {},
+   "programs": 19,
+   "ran": 19,
+   "runs": {
+    "ended, drew": {
+     "clean": 13,
+     "ran": 13
+    },
+    "ended, no figure": {
+     "clean": 3,
+     "ran": 3
+    },
+    "raised, drew": {
+     "clean": 3,
+     "ran": 3
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
   "ipython-cookbook": {
-   "clean": 80,
+   "clean": 57,
    "failed_imports": {
     "CudaSupportError: Error at driver init: \n\nCUDA driver library cannot be found.": 1,
     "ImportError: `load_boston` has been removed from scikit-learn since versi": 1
    },
-   "programs": 93,
-   "ran": 80,
+   "programs": 90,
+   "ran": 77,
    "runs": {
     "ended, drew": {
-     "clean": 27,
-     "ran": 27
+     "clean": 26,
+     "ran": 38
     },
     "ended, no figure": {
-     "clean": 28,
-     "ran": 28
+     "clean": 10,
+     "ran": 17
     },
     "raised, drew": {
      "clean": 9,
-     "ran": 9
+     "ran": 10
     },
     "raised, no figure": {
-     "clean": 16,
-     "ran": 16
+     "clean": 12,
+     "ran": 12
     }
    }
   },
   "johansson-lectures": {
-   "clean": 5,
+   "clean": 4,
    "failed_imports": {
-    "IPython.parallel": 1,
-    "ImportError: Failed to import any of the following Qt binding modules: Py": 1
+    "IPython.parallel": 1
    },
    "programs": 8,
    "ran": 5,
@@ -537,7 +1030,7 @@
      "ran": 1
     },
     "raised, drew": {
-     "clean": 3,
+     "clean": 2,
      "ran": 3
     },
     "raised, no figure": {
@@ -547,22 +1040,48 @@
    }
   },
   "kalman-filters": {
-   "clean": 21,
+   "clean": 20,
    "failed_imports": {},
-   "programs": 22,
-   "ran": 21,
+   "programs": 21,
+   "ran": 20,
    "runs": {
     "ended, drew": {
      "clean": 11,
      "ran": 11
     },
     "ended, no figure": {
-     "clean": 3,
-     "ran": 3
+     "clean": 2,
+     "ran": 2
     },
     "raised, drew": {
      "clean": 7,
      "ran": 7
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "lecture-comp-methods": {
+   "clean": 12,
+   "failed_imports": {
+    "scipy.sparse.linalg.eigen.arpack": 4
+   },
+   "programs": 15,
+   "ran": 13,
+   "runs": {
+    "ended, drew": {
+     "clean": 4,
+     "ran": 5
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 8,
+     "ran": 8
     },
     "raised, no figure": {
      "clean": 0,
@@ -595,13 +1114,13 @@
    }
   },
   "lmfit": {
-   "clean": 49,
+   "clean": 50,
    "failed_imports": {},
    "programs": 50,
    "ran": 50,
    "runs": {
     "ended, drew": {
-     "clean": 45,
+     "clean": 46,
      "ran": 46
     },
     "ended, no figure": {
@@ -637,6 +1156,33 @@
     "raised, drew": {
      "clean": 3,
      "ran": 3
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "machine-learning-book-pytorch": {
+   "clean": 10,
+   "failed_imports": {
+    "torch": 5,
+    "torchvision": 2
+   },
+   "programs": 21,
+   "ran": 10,
+   "runs": {
+    "ended, drew": {
+     "clean": 0,
+     "ran": 0
+    },
+    "ended, no figure": {
+     "clean": 2,
+     "ran": 2
+    },
+    "raised, drew": {
+     "clean": 8,
+     "ran": 8
     },
     "raised, no figure": {
      "clean": 0,
@@ -717,12 +1263,10 @@
    }
   },
   "matplotlib-3-cookbook": {
-   "clean": 12,
+   "clean": 10,
    "failed_imports": {
     "IPython.core.display": 1,
-    "ImportError: Failed to import any of the following Qt binding modules: Py": 2,
     "fix_yahoo_finance": 1,
-    "ipykernel": 1,
     "matplotlib.cbook": 1,
     "mpl_toolkits.axisartist": 1
    },
@@ -738,7 +1282,7 @@
      "ran": 0
     },
     "raised, drew": {
-     "clean": 11,
+     "clean": 9,
      "ran": 11
     },
     "raised, no figure": {
@@ -768,6 +1312,30 @@
     "raised, no figure": {
      "clean": 0,
      "ran": 0
+    }
+   }
+  },
+  "matplotlib-docs": {
+   "clean": 65,
+   "failed_imports": {},
+   "programs": 67,
+   "ran": 66,
+   "runs": {
+    "ended, drew": {
+     "clean": 30,
+     "ran": 31
+    },
+    "ended, no figure": {
+     "clean": 6,
+     "ran": 6
+    },
+    "raised, drew": {
+     "clean": 10,
+     "ran": 10
+    },
+    "raised, no figure": {
+     "clean": 19,
+     "ran": 19
     }
    }
   },
@@ -921,6 +1489,60 @@
     }
    }
   },
+  "ml-novice-sklearn": {
+   "clean": 4,
+   "failed_imports": {},
+   "programs": 7,
+   "ran": 5,
+   "runs": {
+    "ended, drew": {
+     "clean": 1,
+     "ran": 2
+    },
+    "ended, no figure": {
+     "clean": 1,
+     "ran": 1
+    },
+    "raised, drew": {
+     "clean": 2,
+     "ran": 2
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "ml-with-python": {
+   "clean": 43,
+   "failed_imports": {
+    "keras": 3,
+    "pydbgen": 1,
+    "sklearn.cross_validation": 3,
+    "sklearn.datasets.samples_generator": 2,
+    "tensorflow": 3
+   },
+   "programs": 62,
+   "ran": 52,
+   "runs": {
+    "ended, drew": {
+     "clean": 14,
+     "ran": 17
+    },
+    "ended, no figure": {
+     "clean": 1,
+     "ran": 1
+    },
+    "raised, drew": {
+     "clean": 27,
+     "ran": 31
+    },
+    "raised, no figure": {
+     "clean": 1,
+     "ran": 2
+    }
+   }
+  },
   "mlxtend": {
    "clean": 34,
    "failed_imports": {
@@ -972,13 +1594,13 @@
    }
   },
   "mpl-chord-diagram": {
-   "clean": 2,
+   "clean": 1,
    "failed_imports": {},
    "programs": 2,
    "ran": 2,
    "runs": {
     "ended, drew": {
-     "clean": 1,
+     "clean": 0,
      "ran": 1
     },
     "ended, no figure": {
@@ -1068,13 +1690,13 @@
    }
   },
   "mplhep": {
-   "clean": 19,
+   "clean": 18,
    "failed_imports": {},
    "programs": 19,
    "ran": 19,
    "runs": {
     "ended, drew": {
-     "clean": 19,
+     "clean": 18,
      "ran": 19
     },
     "ended, no figure": {
@@ -1187,6 +1809,56 @@
     }
    }
   },
+  "numerical-methods-hawke": {
+   "clean": 38,
+   "failed_imports": {},
+   "programs": 40,
+   "ran": 40,
+   "runs": {
+    "ended, drew": {
+     "clean": 28,
+     "ran": 30
+    },
+    "ended, no figure": {
+     "clean": 5,
+     "ran": 5
+    },
+    "raised, drew": {
+     "clean": 4,
+     "ran": 4
+    },
+    "raised, no figure": {
+     "clean": 1,
+     "ran": 1
+    }
+   }
+  },
+  "numerical-methods-macro": {
+   "clean": 4,
+   "failed_imports": {
+    "IPython.display": 2
+   },
+   "programs": 12,
+   "ran": 11,
+   "runs": {
+    "ended, drew": {
+     "clean": 2,
+     "ran": 2
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 2,
+     "ran": 9
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
   "numerical-mooc": {
    "clean": 18,
    "failed_imports": {},
@@ -1212,18 +1884,18 @@
    }
   },
   "numpy-tutorials": {
-   "clean": 11,
+   "clean": 9,
    "failed_imports": {},
-   "programs": 11,
-   "ran": 11,
+   "programs": 9,
+   "ran": 9,
    "runs": {
     "ended, drew": {
      "clean": 6,
      "ran": 6
     },
     "ended, no figure": {
-     "clean": 4,
-     "ran": 4
+     "clean": 2,
+     "ran": 2
     },
     "raised, drew": {
      "clean": 1,
@@ -1232,6 +1904,30 @@
     "raised, no figure": {
      "clean": 0,
      "ran": 0
+    }
+   }
+  },
+  "pandas-cookbook": {
+   "clean": 9,
+   "failed_imports": {},
+   "programs": 9,
+   "ran": 9,
+   "runs": {
+    "ended, drew": {
+     "clean": 4,
+     "ran": 4
+    },
+    "ended, no figure": {
+     "clean": 2,
+     "ran": 2
+    },
+    "raised, drew": {
+     "clean": 2,
+     "ran": 2
+    },
+    "raised, no figure": {
+     "clean": 1,
+     "ran": 1
     }
    }
   },
@@ -1261,6 +1957,30 @@
     }
    }
   },
+  "pandas-exercises": {
+   "clean": 30,
+   "failed_imports": {},
+   "programs": 36,
+   "ran": 30,
+   "runs": {
+    "ended, drew": {
+     "clean": 2,
+     "ran": 2
+    },
+    "ended, no figure": {
+     "clean": 22,
+     "ran": 22
+    },
+    "raised, drew": {
+     "clean": 1,
+     "ran": 1
+    },
+    "raised, no figure": {
+     "clean": 5,
+     "ran": 5
+    }
+   }
+  },
   "pandas-visualization": {
    "clean": 1,
    "failed_imports": {},
@@ -1278,6 +1998,30 @@
     "raised, drew": {
      "clean": 1,
      "ran": 1
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "phy407-lectures": {
+   "clean": 10,
+   "failed_imports": {},
+   "programs": 12,
+   "ran": 12,
+   "runs": {
+    "ended, drew": {
+     "clean": 4,
+     "ran": 4
+    },
+    "ended, no figure": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, drew": {
+     "clean": 6,
+     "ran": 8
     },
     "raised, no figure": {
      "clean": 0,
@@ -1310,18 +2054,18 @@
    }
   },
   "plottable": {
-   "clean": 11,
+   "clean": 7,
    "failed_imports": {},
-   "programs": 11,
-   "ran": 11,
+   "programs": 7,
+   "ran": 7,
    "runs": {
     "ended, drew": {
      "clean": 7,
      "ran": 7
     },
     "ended, no figure": {
-     "clean": 4,
-     "ran": 4
+     "clean": 0,
+     "ran": 0
     },
     "raised, drew": {
      "clean": 0,
@@ -1381,6 +2125,37 @@
     }
    }
   },
+  "probably-overthinking-it": {
+   "clean": 41,
+   "failed_imports": {
+    "IPython.html": 1,
+    "arviz": 1,
+    "pymc3": 2,
+    "redline": 1,
+    "relay": 1,
+    "survival": 1
+   },
+   "programs": 52,
+   "ran": 45,
+   "runs": {
+    "ended, drew": {
+     "clean": 2,
+     "ran": 3
+    },
+    "ended, no figure": {
+     "clean": 7,
+     "ran": 7
+    },
+    "raised, drew": {
+     "clean": 20,
+     "ran": 23
+    },
+    "raised, no figure": {
+     "clean": 12,
+     "ran": 12
+    }
+   }
+  },
   "probscale": {
    "clean": 4,
    "failed_imports": {},
@@ -1430,13 +2205,13 @@
    }
   },
   "py-pde": {
-   "clean": 39,
+   "clean": 45,
    "failed_imports": {},
    "programs": 51,
    "ran": 46,
    "runs": {
     "ended, drew": {
-     "clean": 35,
+     "clean": 41,
      "ran": 42
     },
     "ended, no figure": {
@@ -1655,7 +2430,7 @@
    }
   },
   "python-control": {
-   "clean": 53,
+   "clean": 56,
    "failed_imports": {
     "repr_gallery": 1
    },
@@ -1663,7 +2438,7 @@
    "ran": 63,
    "runs": {
     "ended, drew": {
-     "clean": 43,
+     "clean": 46,
      "ran": 52
     },
     "ended, no figure": {
@@ -1704,21 +2479,45 @@
     }
    }
   },
+  "python-ecology-lesson": {
+   "clean": 7,
+   "failed_imports": {},
+   "programs": 9,
+   "ran": 7,
+   "runs": {
+    "ended, drew": {
+     "clean": 3,
+     "ran": 3
+    },
+    "ended, no figure": {
+     "clean": 1,
+     "ran": 1
+    },
+    "raised, drew": {
+     "clean": 1,
+     "ran": 1
+    },
+    "raised, no figure": {
+     "clean": 2,
+     "ran": 2
+    }
+   }
+  },
   "python-for-signal-processing": {
-   "clean": 34,
+   "clean": 32,
    "failed_imports": {
     "scipy.misc": 1
    },
-   "programs": 42,
-   "ran": 34,
+   "programs": 40,
+   "ran": 32,
    "runs": {
     "ended, drew": {
      "clean": 0,
      "ran": 0
     },
     "ended, no figure": {
-     "clean": 3,
-     "ran": 3
+     "clean": 1,
+     "ran": 1
     },
     "raised, drew": {
      "clean": 9,
@@ -1731,7 +2530,7 @@
    }
   },
   "python-graph-gallery": {
-   "clean": 234,
+   "clean": 232,
    "failed_imports": {
     "ImportError: Drawing with icons requires Font Awesome, which is an option": 2,
     "cartopy": 2,
@@ -1743,16 +2542,16 @@
     "pyfonts": 3,
     "pypalettes": 10
    },
-   "programs": 309,
-   "ran": 234,
+   "programs": 307,
+   "ran": 232,
    "runs": {
     "ended, drew": {
      "clean": 155,
      "ran": 155
     },
     "ended, no figure": {
-     "clean": 9,
-     "ran": 9
+     "clean": 7,
+     "ran": 7
     },
     "raised, drew": {
      "clean": 67,
@@ -1765,18 +2564,18 @@
    }
   },
   "python-novice-gapminder": {
-   "clean": 19,
+   "clean": 14,
    "failed_imports": {},
-   "programs": 20,
-   "ran": 19,
+   "programs": 15,
+   "ran": 14,
    "runs": {
     "ended, drew": {
      "clean": 0,
      "ran": 0
     },
     "ended, no figure": {
-     "clean": 7,
-     "ran": 7
+     "clean": 2,
+     "ran": 2
     },
     "raised, drew": {
      "clean": 3,
@@ -1812,6 +2611,32 @@
     }
    }
   },
+  "python-probability-statistics-ml": {
+   "clean": 32,
+   "failed_imports": {
+    "sklearn.cross_validation": 2
+   },
+   "programs": 33,
+   "ran": 33,
+   "runs": {
+    "ended, drew": {
+     "clean": 6,
+     "ran": 6
+    },
+    "ended, no figure": {
+     "clean": 5,
+     "ran": 5
+    },
+    "raised, drew": {
+     "clean": 10,
+     "ran": 11
+    },
+    "raised, no figure": {
+     "clean": 11,
+     "ran": 11
+    }
+   }
+  },
   "python-ternary": {
    "clean": 6,
    "failed_imports": {},
@@ -1837,13 +2662,13 @@
    }
   },
   "pytransform3d": {
-   "clean": 37,
+   "clean": 42,
    "failed_imports": {},
    "programs": 44,
    "ran": 42,
    "runs": {
     "ended, drew": {
-     "clean": 37,
+     "clean": 42,
      "ran": 42
     },
     "ended, no figure": {
@@ -1911,13 +2736,13 @@
    }
   },
   "pywavelets": {
-   "clean": 26,
+   "clean": 25,
    "failed_imports": {},
    "programs": 26,
    "ran": 26,
    "runs": {
     "ended, drew": {
-     "clean": 25,
+     "clean": 24,
      "ran": 25
     },
     "ended, no figure": {
@@ -1935,14 +2760,14 @@
    }
   },
   "rougier-book": {
-   "clean": 157,
+   "clean": 160,
    "failed_imports": {},
    "programs": 168,
-   "ran": 157,
+   "ran": 160,
    "runs": {
     "ended, drew": {
-     "clean": 131,
-     "ran": 131
+     "clean": 134,
+     "ran": 134
     },
     "ended, no figure": {
      "clean": 7,
@@ -1983,10 +2808,10 @@
    }
   },
   "scienceplots": {
-   "clean": 0,
+   "clean": 1,
    "failed_imports": {},
    "programs": 1,
-   "ran": 0,
+   "ran": 1,
    "runs": {
     "ended, drew": {
      "clean": 0,
@@ -1997,8 +2822,8 @@
      "ran": 0
     },
     "raised, drew": {
-     "clean": 0,
-     "ran": 0
+     "clean": 1,
+     "ran": 1
     },
     "raised, no figure": {
      "clean": 0,
@@ -2079,13 +2904,13 @@
    }
   },
   "scikit-learn-examples": {
-   "clean": 224,
+   "clean": 223,
    "failed_imports": {},
    "programs": 277,
    "ran": 224,
    "runs": {
     "ended, drew": {
-     "clean": 209,
+     "clean": 208,
      "ran": 209
     },
     "ended, no figure": {
@@ -2127,18 +2952,18 @@
    }
   },
   "scikit-rf": {
-   "clean": 64,
+   "clean": 59,
    "failed_imports": {},
-   "programs": 65,
-   "ran": 65,
+   "programs": 60,
+   "ran": 60,
    "runs": {
     "ended, drew": {
      "clean": 55,
      "ran": 56
     },
     "ended, no figure": {
-     "clean": 8,
-     "ran": 8
+     "clean": 3,
+     "ran": 3
     },
     "raised, drew": {
      "clean": 1,
@@ -2150,8 +2975,36 @@
     }
    }
   },
+  "scipy-2017-sklearn": {
+   "clean": 19,
+   "failed_imports": {
+    "sklearn.externals": 4,
+    "sklearn.metrics.scorer": 1,
+    "sklearn.neighbors.kde": 1
+   },
+   "programs": 21,
+   "ran": 19,
+   "runs": {
+    "ended, drew": {
+     "clean": 8,
+     "ran": 8
+    },
+    "ended, no figure": {
+     "clean": 1,
+     "ran": 1
+    },
+    "raised, drew": {
+     "clean": 8,
+     "ran": 8
+    },
+    "raised, no figure": {
+     "clean": 2,
+     "ran": 2
+    }
+   }
+  },
   "scipy-cookbook": {
-   "clean": 101,
+   "clean": 69,
    "failed_imports": {
     "DataFrame": 1,
     "Numeric": 1,
@@ -2160,16 +3013,16 @@
     "matplotlib.mlab": 1,
     "scipy": 1
    },
-   "programs": 139,
-   "ran": 101,
+   "programs": 107,
+   "ran": 69,
    "runs": {
     "ended, drew": {
      "clean": 18,
      "ran": 18
     },
     "ended, no figure": {
-     "clean": 43,
-     "ran": 43
+     "clean": 11,
+     "ran": 11
     },
     "raised, drew": {
      "clean": 15,
@@ -2182,13 +3035,13 @@
    }
   },
   "seaborn": {
-   "clean": 138,
+   "clean": 139,
    "failed_imports": {},
    "programs": 139,
    "ran": 139,
    "runs": {
     "ended, drew": {
-     "clean": 95,
+     "clean": 96,
      "ran": 96
     },
     "ended, no figure": {
@@ -2246,6 +3099,59 @@
     "raised, drew": {
      "clean": 0,
      "ran": 0
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "signals-systems-lecture": {
+   "clean": 36,
+   "failed_imports": {
+    "soundfile": 1
+   },
+   "programs": 48,
+   "ran": 47,
+   "runs": {
+    "ended, drew": {
+     "clean": 32,
+     "ran": 43
+    },
+    "ended, no figure": {
+     "clean": 3,
+     "ran": 3
+    },
+    "raised, drew": {
+     "clean": 1,
+     "ran": 1
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
+  },
+  "sklearn-tutorial": {
+   "clean": 7,
+   "failed_imports": {
+    "IPython.html": 1,
+    "sklearn.datasets.samples_generator": 4
+   },
+   "programs": 8,
+   "ran": 7,
+   "runs": {
+    "ended, drew": {
+     "clean": 0,
+     "ran": 0
+    },
+    "ended, no figure": {
+     "clean": 1,
+     "ran": 1
+    },
+    "raised, drew": {
+     "clean": 6,
+     "ran": 6
     },
     "raised, no figure": {
      "clean": 0,
@@ -2331,23 +3237,22 @@
    }
   },
   "think-bayes": {
-   "clean": 24,
+   "clean": 23,
    "failed_imports": {
-    "ImportError: `Import python-calamine` failed.  Use pip, conda, or your pr": 2,
     "arviz": 2,
     "pymc": 2,
     "pymc3": 2
    },
-   "programs": 26,
-   "ran": 24,
+   "programs": 25,
+   "ran": 23,
    "runs": {
     "ended, drew": {
      "clean": 14,
      "ran": 14
     },
     "ended, no figure": {
-     "clean": 2,
-     "ran": 2
+     "clean": 1,
+     "ran": 1
     },
     "raised, drew": {
      "clean": 7,
@@ -2386,18 +3291,18 @@
    }
   },
   "think-stats": {
-   "clean": 9,
+   "clean": 8,
    "failed_imports": {},
-   "programs": 9,
-   "ran": 9,
+   "programs": 8,
+   "ran": 8,
    "runs": {
     "ended, drew": {
      "clean": 8,
      "ran": 8
     },
     "ended, no figure": {
-     "clean": 1,
-     "ran": 1
+     "clean": 0,
+     "ran": 0
     },
     "raised, drew": {
      "clean": 0,
@@ -2434,13 +3339,13 @@
    }
   },
   "tueplots": {
-   "clean": 7,
+   "clean": 5,
    "failed_imports": {},
    "programs": 7,
    "ran": 7,
    "runs": {
     "ended, drew": {
-     "clean": 7,
+     "clean": 5,
      "ran": 7
     },
     "ended, no figure": {
@@ -2458,13 +3363,13 @@
    }
   },
   "ultraplot": {
-   "clean": 18,
+   "clean": 28,
    "failed_imports": {},
    "programs": 45,
    "ran": 41,
    "runs": {
     "ended, drew": {
-     "clean": 14,
+     "clean": 22,
      "ran": 33
     },
     "ended, no figure": {
@@ -2472,7 +3377,7 @@
      "ran": 1
     },
     "raised, drew": {
-     "clean": 3,
+     "clean": 5,
      "ran": 7
     },
     "raised, no figure": {
@@ -2502,6 +3407,30 @@
     "raised, no figure": {
      "clean": 0,
      "ran": 0
+    }
+   }
+  },
+  "whirlwind-tour": {
+   "clean": 16,
+   "failed_imports": {},
+   "programs": 16,
+   "ran": 16,
+   "runs": {
+    "ended, drew": {
+     "clean": 1,
+     "ran": 1
+    },
+    "ended, no figure": {
+     "clean": 11,
+     "ran": 11
+    },
+    "raised, drew": {
+     "clean": 1,
+     "ran": 1
+    },
+    "raised, no figure": {
+     "clean": 3,
+     "ran": 3
     }
    }
   },
@@ -2557,20 +3486,25 @@
   }
  },
  "total": {
-  "clean": 3039,
+  "clean": 3626,
   "failed_imports": {
+   "CBE30338": 1,
    "CudaSupportError: Error at driver init: \n\nCUDA driver library cannot be found.": 1,
    "DataFrame": 1,
    "IPython.core.display": 1,
+   "IPython.display": 2,
+   "IPython.html": 5,
    "IPython.parallel": 1,
    "ImportError: Drawing with icons requires Font Awesome, which is an option": 4,
-   "ImportError: Failed to import any of the following Qt binding modules: Py": 3,
-   "ImportError: `Import python-calamine` failed.  Use pip, conda, or your pr": 2,
    "ImportError: `load_boston` has been removed from scikit-learn since versi": 1,
    "Numeric": 1,
-   "arviz": 3,
+   "PIDsim": 1,
+   "__main__": 2,
+   "arviz": 6,
+   "audiofilter": 1,
    "cartopy": 5,
    "celerite": 1,
+   "clawpack": 3,
    "corner": 1,
    "cv2": 1,
    "dayplot": 1,
@@ -2581,8 +3515,7 @@
    "geoplot": 2,
    "griddata": 1,
    "highlight_text.htext": 1,
-   "ipykernel": 1,
-   "keras": 3,
+   "keras": 6,
    "matplotlib.cbook": 1,
    "matplotlib.mlab": 1,
    "mir_eval": 1,
@@ -2590,42 +3523,67 @@
    "mpl_finance": 1,
    "mpl_toolkits.axisartist": 1,
    "mpl_toolkits.basemap": 1,
+   "mpld3": 1,
    "netgraph": 1,
    "pandas_datareader": 8,
    "png": 1,
    "ptitprince": 1,
+   "pydbgen": 1,
    "pydotplus": 1,
    "pyfonts": 3,
-   "pymc": 3,
-   "pymc3": 2,
+   "pymc": 14,
+   "pymc3": 9,
+   "pyomo": 4,
    "pypalettes": 10,
    "pyroomacoustics.directivities": 1,
+   "pytensor": 1,
    "pytest": 1,
    "pythia_datasets": 1,
+   "pyweno": 1,
+   "redline": 1,
+   "relay": 1,
    "repr_gallery": 1,
    "scipy": 1,
    "scipy.misc": 1,
+   "scipy.sparse.linalg.eigen.arpack": 4,
+   "sklearn.cross_validation": 9,
+   "sklearn.datasets.samples_generator": 9,
+   "sklearn.externals": 4,
+   "sklearn.grid_search": 1,
+   "sklearn.metrics.scorer": 1,
+   "sklearn.mixture": 1,
+   "sklearn.neighbors.kde": 1,
+   "sounddevice": 2,
+   "soundfile": 3,
    "stock_analysis": 1,
-   "thinkdsp": 1
+   "survival": 1,
+   "tclab": 1,
+   "tensorflow": 3,
+   "theano": 1,
+   "thinkdsp": 1,
+   "torch": 6,
+   "torchvision": 2,
+   "utils": 3,
+   "watermark": 2
   },
-  "programs": 3742,
-  "ran": 3104,
+  "programs": 4496,
+  "ran": 3737,
   "runs": {
    "ended, drew": {
-    "clean": 2081,
-    "ran": 2138
+    "clean": 2372,
+    "ran": 2444
    },
    "ended, no figure": {
-    "clean": 389,
-    "ran": 389
+    "clean": 400,
+    "ran": 410
    },
    "raised, drew": {
-    "clean": 403,
-    "ran": 411
+    "clean": 629,
+    "ran": 656
    },
    "raised, no figure": {
-    "clean": 166,
-    "ran": 166
+    "clean": 225,
+    "ran": 226
    }
   }
  }

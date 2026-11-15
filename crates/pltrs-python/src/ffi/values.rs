@@ -5,6 +5,8 @@ use std::ffi::{c_char, c_double, c_int, c_long, c_longlong, c_void};
 
 use super::{Py_ssize_t, PyObject, PyTypeObject};
 
+/// `Py_TPFLAGS_TUPLE_SUBCLASS`.
+pub(crate) const Py_TPFLAGS_TUPLE_SUBCLASS: std::ffi::c_ulong = 1 << 26;
 /// `Py_TPFLAGS_BYTES_SUBCLASS`.
 pub(crate) const Py_TPFLAGS_BYTES_SUBCLASS: std::ffi::c_ulong = 1 << 27;
 /// `Py_TPFLAGS_UNICODE_SUBCLASS`.

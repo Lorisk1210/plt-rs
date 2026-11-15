@@ -188,7 +188,7 @@ impl FigureState {
 
     /// The axes whose `name` labels align with those of `axes`, itself
     /// included (matplotlib's `_align_label_groups[name].get_siblings`).
-    fn label_siblings(&self, axes: ArtistId, name: AxisName) -> Vec<ArtistId> {
+    pub(super) fn label_siblings(&self, axes: ArtistId, name: AxisName) -> Vec<ArtistId> {
         match self.store.get(axes).and_then(|a| a.base().parent) {
             Some(frame) => {
                 self.layout

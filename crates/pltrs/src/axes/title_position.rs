@@ -196,7 +196,12 @@ impl FigureState {
     fn top_obstacle(&self, ax: ArtistId) -> Option<f64> {
         let state = self.store.get_as::<AxesState>(ax)?;
         let xaxis = state.axis(AxisName::X);
-        let decorations = (xaxis.decorations_on_top() && xaxis.visible)
+        // The plane of a 3-D axes has no decorations on top: matplotlib's
+        // `Axis3D` gives its own tick and label positions ("default",
+        // "lower"...), never "top" or "unknown".
+        let of_3d = (state.base().parent)
+            .is_some_and(|parent| crate::mplot3d::is_axes3d(&self.store, parent));
+        let decorations = (xaxis.decorations_on_top() && xaxis.visible && !of_3d)
             .then(|| {
                 let layout = LayoutContext::new(self);
                 axis_tight_bbox(layout, &AxisPainter::new(ax, state, AxisName::X), false)

@@ -347,7 +347,7 @@ impl LineArtist {
     /// [`InfiniteLine::display_map`]), which fails when the line cannot
     /// be placed; `None` when the line's coordinate system no longer
     /// exists.
-    pub(super) fn drawn_transform(
+    pub(crate) fn drawn_transform(
         &self,
         layout: LayoutContext<'_>,
     ) -> Result<Option<ResolvedTransform>, SegmentError> {

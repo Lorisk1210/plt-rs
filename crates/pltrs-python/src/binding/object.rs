@@ -112,6 +112,11 @@ impl<'py> Bound<'py> {
         unsafe { ffi::PyType_GetFlags(self.type_ptr()) & flag != 0 }
     }
 
+    /// Whether the object is a tuple (`isinstance(object, tuple)`).
+    pub(crate) fn is_tuple(&self) -> bool {
+        self.has_type_flag(ffi::Py_TPFLAGS_TUPLE_SUBCLASS)
+    }
+
     /// Whether the object is an instance of the static type `of`.
     pub(crate) fn is_type(&self, of: *mut ffi::PyTypeObject) -> bool {
         // SAFETY: both pointers are live type objects.

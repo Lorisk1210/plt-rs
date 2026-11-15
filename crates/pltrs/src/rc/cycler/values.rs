@@ -237,6 +237,11 @@ pub(super) fn format_value(value: &CycleValue) -> String {
         CycleValue::Color(Color::Spec(spec)) => format!("'{spec}'"),
         CycleValue::Color(Color::Rgba(c)) if c.a >= 1.0 => format!("({}, {}, {})", c.r, c.g, c.b),
         CycleValue::Color(Color::Rgba(c)) => format!("({}, {}, {}, {})", c.r, c.g, c.b, c.a),
+        CycleValue::Color(Color::WithAlpha(color, alpha)) => format!(
+            "({}, {})",
+            format_value(&CycleValue::Color((**color).clone())),
+            alpha.format_rc()
+        ),
         CycleValue::Number(n) => n.format_rc(),
         CycleValue::LineStyle(style) => format!("'{}'", style.format_rc()),
         CycleValue::Marker(marker) => format!("'{}'", marker.format_rc()),

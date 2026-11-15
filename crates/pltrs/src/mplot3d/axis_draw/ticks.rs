@@ -137,7 +137,7 @@ impl Painter<'_> {
         grouped(sink, "line2d", gid(TickPart::Tick1Line), |sink| {
             sink.tick_mark(self, &Path::polyline(mark.to_vec()), width, &style.color);
         });
-        if !style.labels.first {
+        if !(style.labels.first || (sink.counts_second_labels() && style.labels.second)) {
             return;
         }
         let font = style.label_font(self.axes.rc());

@@ -53,6 +53,7 @@ import logging
 import os
 import pathlib
 import sys
+import sysconfig
 import time
 import traceback
 import warnings
@@ -60,6 +61,7 @@ from typing import Any
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from describe import Describer, Names, public_mro  # noqa: E402
+import ipython_shell  # noqa: E402
 
 #: Recorded occurrences of one site; later ones are only counted.
 MAX_OCCURRENCES = 30
@@ -68,10 +70,17 @@ MAX_OCCURRENCES = 30
 #: are those of the whole run whatever order the warnings came in.
 MAX_WARNINGS = 500
 
-#: The module renames of the import change, per implementation.
+#: The module renames of the import change, per implementation: none.
+#: pltrs runs as its users have it, the ``matplotlib`` distribution: the
+#: program and the libraries it plots through import ``matplotlib``, which
+#: the alias loads as pltrs under matplotlib's names, before anything
+#: imports ``pltrs`` by name, so that its classes' modules are matplotlib's
+#: (arviz-plots picks its plotting backend by ``type(obj).__module__``).
+#: A corpus' pltrs side has both distributions installed in its venv's
+#: ``site-packages`` (``install.py``).
 IMPORT_RENAMES = {
     "matplotlib": [],
-    "pltrs": [("matplotlib", "pltrs"), ("mpl_toolkits", "pltrs.mpl_toolkits"), ("pylab", "pltrs.pylab")],
+    "pltrs": [],
 }
 #: How each implementation's names read as matplotlib's.
 NAME_PREFIXES = {
@@ -383,6 +392,19 @@ class _ChangedImportsLoader(importlib.machinery.SourceFileLoader):
         return self.source_to_code(self.get_data(self.path), self.path)
 
 
+def _check_loaded(package: Any, impl: str, installed: bool) -> None:
+    """Stops the run unless ``import matplotlib`` gave *impl*'s package
+    (pltrs through its alias, or matplotlib), and for a corpus' program
+    (*installed*) gave it from the venv's ``site-packages``, as a user has
+    it, not from a source tree."""
+    found = pathlib.Path(package.__file__).resolve()
+    if (impl == "pltrs") != (found.parent.name == "pltrs"):
+        raise SystemExit(f"trace.py: `import matplotlib` gave {found}, not {impl}")
+    site = pathlib.Path(sysconfig.get_path("purelib")).resolve()
+    if installed and not found.is_relative_to(site):
+        raise SystemExit(f"trace.py: `import matplotlib` gave {found}, outside {site}")
+
+
 #: The recorder of the run, which `_record` records with.
 _RECORDER: Recorder | None = None
 
@@ -528,6 +550,7 @@ def main() -> int:
     parser.add_argument("--impl", choices=sorted(IMPORT_RENAMES), required=True)
     parser.add_argument("--mode", choices=["program", "steps", "cells"], default="program")
     parser.add_argument("--in-tree", type=pathlib.Path)
+    parser.add_argument("--shell", choices=["ipython"])
     parser.add_argument("program", type=pathlib.Path)
     parser.add_argument("out", type=pathlib.Path)
     args = parser.parse_args()
@@ -543,13 +566,18 @@ def main() -> int:
         workdir = args.in_tree.resolve()
         os.chdir(args.program.resolve().parent)
 
-    package = __import__(args.impl)
+    package = __import__("matplotlib")
+    _check_loaded(package, args.impl, installed=args.in_tree is not None)
     package_dirs = [str(pathlib.Path(package.__file__).parent)]
-    names = Names(NAME_PREFIXES[args.impl], package_dirs, os.environ.get("MPLCONFIGDIR"), str(workdir), sys.prefix)
+    names = Names(NAME_PREFIXES[args.impl], package_dirs, os.environ.get("MPLCONFIGDIR"), str(workdir), sys.prefix,
+                  str(out.resolve()))
     global _RECORDER
     recorder = _RECORDER = Recorder(names, program)
-    code = compile(instrument(args.program.read_text(), program, args.impl, args.mode), program, "exec")
-    plt = __import__(f"{args.impl}.pyplot", fromlist=["pyplot"])
+    text = args.program.read_text()
+    if args.shell:
+        text = ipython_shell.python_of(text)
+    code = compile(instrument(text, program, args.impl, args.mode), program, "exec")
+    plt = __import__("matplotlib.pyplot", fromlist=["pyplot"])
     figures: list[dict[str, Any]] = []
 
     def cell_end(cell: int) -> None:
@@ -570,6 +598,8 @@ def main() -> int:
     }
     if args.mode == "cells":
         namespace["display"] = _display
+    if args.shell:
+        ipython_shell.start(namespace)
     sys.argv = [program]
     # The program's directory in place of the harness', whose modules
     # (coverage.py, kinds.py...) would hide the libraries of their names

@@ -45,34 +45,52 @@ fn single_row<'py>(object: &Bound<'py>) -> PyResult<Bound<'py>> {
     }
 }
 
+/// matplotlib's error for what is no colour.
+fn not_a_color(object: &Bound<'_>) -> PyErr {
+    PyErr::value_error(format!(
+        "{} is not a valid color value.",
+        object.repr().unwrap_or_default()
+    ))
+}
+
+/// A colour that is no `(color, alpha)` pair: a string, or 3 or 4 numbers.
+fn single_color(object: &Bound<'_>) -> PyResult<Color> {
+    if let Ok(spec) = object.extract::<String>() {
+        return Ok(Color::from(spec));
+    }
+    let components: Vec<f64> = single_row(object)?
+        .extract()
+        .map_err(|_| not_a_color(object))?;
+    match components[..] {
+        [r, g, b] => Ok(Color::from([r, g, b])),
+        [r, g, b, a] => Ok(Color::from([r, g, b, a])),
+        _ => Err(not_a_color(object)),
+    }
+}
+
 impl FromPy<'_> for Color {
+    /// A colour, or matplotlib's `(color, alpha)` pair (a tuple of two,
+    /// the alpha a number or `None`).
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
-        if let Ok(spec) = object.extract::<String>() {
-            return Ok(Color::from(spec));
+        if object.is_tuple() {
+            let items = object.try_iter()?.collect::<PyResult<Vec<_>>>()?;
+            if let [color, alpha] = &items[..] {
+                let alpha: Option<f64> = alpha.extract().map_err(|_| not_a_color(object))?;
+                return Ok(single_color(color)?.with_alpha(alpha));
+            }
         }
-        let components: Vec<f64> = single_row(object)?.extract().map_err(|_| {
-            PyErr::value_error(format!(
-                "{} is not a valid color value.",
-                object.repr().unwrap_or_default()
-            ))
-        })?;
-        match components[..] {
-            [r, g, b] => Ok(Color::from([r, g, b])),
-            [r, g, b, a] => Ok(Color::from([r, g, b, a])),
-            _ => Err(PyErr::value_error(format!(
-                "{} is not a valid color value.",
-                object.repr().unwrap_or_default()
-            ))),
-        }
+        single_color(object)
     }
 }
 
 impl IntoPy for Color {
-    /// The string a colour was given as, else its RGBA tuple.
+    /// The string a colour was given as, the `(color, alpha)` pair it was
+    /// given as, else its RGBA tuple.
     fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
         match self {
             Color::Spec(spec) => spec.into_py(py),
             Color::Rgba(rgba) => rgba_tuple(rgba).into_py(py),
+            Color::WithAlpha(color, alpha) => (*color, alpha).into_py(py),
         }
     }
 }

@@ -23,7 +23,25 @@
 #   cell only, and every figure a cell leaves open is compared and closed
 #   at its end, as Jupyter's inline backend shows and closes them.
 #   A cell awaiting at its top level (JupyterLite's `await piplite.install`)
-#   runs as a coroutine, as IPython's kernels run it.
+#   runs as a coroutine, as IPython's kernels run it. A reStructuredText
+#   page's plot directives with their code inline run too (matplotlib's
+#   Sphinx extension runs them at every build; one naming a file shows a
+#   gallery example, which the gallery measures), and a page or notebook
+#   with no code is no program.
+# * `doctests`: whether the doctest blocks of the corpus' reStructuredText
+#   pages run too (Sphinx's doctest builder runs them), each a cell.
+# * `docstrings`: globs of modules whose docstrings' `Examples` sections
+#   (their doctest blocks, plot directives and literal blocks) run, each a
+#   cell, as a program `docstrings/<module path>`.
+# * `shell = "ipython"`: the corpus' cells run in an IPython shell, as
+#   Jupyter runs them: `get_ipython()`, the magics a cell runs (IPython's
+#   input transformer makes them Python) and those a module registers.
+#   The magics choosing matplotlib's backend (`%matplotlib inline`,
+#   `%pylab`) do not run: the tester shows and closes the figures each
+#   cell leaves open as the inline backend does already, so the shell
+#   changes neither which figures there are nor their size, and both
+#   implementations run in the same shell. Without the key, magics are
+#   left out and there is no `get_ipython()`.
 # * `exclude`: globs of programs left out, each with its reason.
 # * `outputs`: directories the programs write their figures into; each run
 #   gets them empty (the rest of the tree reaches it read-only).
@@ -289,6 +307,7 @@ sha256 = "56a10991dd5922683514db3276f065d6a128d9c21737e496db9a339f303aaaa3"
 programs = ["chapter*/**/*.ipynb"]
 exclude = []
 outputs = []
+shell = "ipython"
 
 [matplotlib-3-cookbook]
 title = "Srinivasa Rao Poladi, Matplotlib 3.0 Cookbook (Packt), the chapters' notebooks"
@@ -1259,5 +1278,427 @@ licence = "none stated upstream (README.md: a data repository for seaborn's docu
 fetch = ["/README.md", "/*.csv"]
 sha256 = "680dc93a6124954ab953e69d0c6a3764f69ea61ceebf4f4f9fb7a077702a34ad"
 programs = []
+exclude = []
+outputs = []
+
+[matplotlib-docs]
+title = "matplotlib 3.11.2's documentation: the plot directives and doctests of its pages (what's new and API changes of every release, the guides) and the Examples sections of its docstrings"
+repository = "https://github.com/matplotlib/matplotlib"
+commit = "d3ca9172e392048ec242b90e8423e88d1a3000b2"
+licence = "matplotlib License (PSF-based, LICENSE/LICENSE)"
+fetch = ["/LICENSE/", "/doc/", "/lib/**/*.py", "!/lib/**/tests/"]
+sha256 = "9e3fa9aefe5451dace37a332dc28e1f9675226a5e82b73d8164de3a7dc52a51d"
+programs = ["doc/**/*.rst", "doc/_embedded_plots/*.py"]
+docstrings = ["lib/**/*.py"]
+doctests = true
+exclude = []
+outputs = []
+prelude = "import numpy as np\nfrom matplotlib import pyplot as plt"
+environment = { MATPLOTLIBRC = "{corpus:matplotlib-docs}/doc/matplotlibrc" }
+
+[bite-size-bayes]
+title = "Allen B. Downey, Bite Size Bayes, its notebooks"
+repository = "https://github.com/AllenDowney/BiteSizeBayes"
+commit = "8b4cf2bda45692d773c01b34ac796f2360daa6ac"
+licence = "MIT (LICENSE)"
+fetch = ["/*"]
+sha256 = "6ef949dffd46e23a4878cc4520f0c75b820688eba08223f16926d49ce3c16648"
+programs = ["*.ipynb"]
+exclude = []
+outputs = []
+file-urls = ["https://github.com/AllenDowney/BiteSizeBayes/raw/master/", "https://raw.githubusercontent.com/AllenDowney/BiteSizeBayes/master/"]
+
+[probably-overthinking-it]
+title = "Allen B. Downey, Probably Overthinking It (2023), the book's notebooks"
+repository = "https://github.com/AllenDowney/ProbablyOverthinkingIt"
+commit = "3059bb1925250ef2d53a71da22785f5f022678fb"
+licence = "MIT (LICENSE)"
+fetch = ["/*"]
+sha256 = "dd63209d1e6cb3ae163e1cec7d1b0931ddd13a46414d4e31bd774142d14fdee2"
+programs = ["**/*.ipynb"]
+exclude = ["*.ipynb_checkpoints/*"]
+outputs = []
+
+[data-qna]
+title = "Allen B. Downey, Data Q&A: Answering the real questions with Python, its notebooks"
+repository = "https://github.com/AllenDowney/DataQnA"
+commit = "4222ca58cb2b9af399c9038d7cadf26c44618f80"
+licence = "MIT (the code, LICENSE; the notebooks' text, CC BY-NC-SA 4.0, is only read for the code cells)"
+fetch = ["/*"]
+sha256 = "0c300916420d86f5b453e0e03acb038ed3f2dd8405dd6dce180b3ac0bd270400"
+programs = ["nb/*.ipynb"]
+exclude = []
+outputs = []
+shell = "ipython"
+file-urls = ["https://github.com/AllenDowney/DataQnA/raw/main/"]
+
+[comp-stats]
+title = "Allen B. Downey, Computational Statistics (a workshop), its notebooks"
+repository = "https://github.com/AllenDowney/CompStats"
+commit = "5d749aaa78d0108f62b37d5df2537cf14247b805"
+licence = "MIT (LICENSE)"
+fetch = ["/*"]
+sha256 = "3daac2a9c1ad66e6b3c4bcd980ce8bf32d78dbe4f15f05d000a20426a31a1bca"
+programs = ["*.ipynb"]
+exclude = []
+outputs = []
+file-urls = ["https://github.com/AllenDowney/CompStats/raw/master/"]
+
+[pandas-exercises]
+title = "Guilherme Samora, pandas exercises, their solutions' notebooks"
+repository = "https://github.com/guipsamora/pandas_exercises"
+commit = "daf0fd2c7c34724aba5b7ec6006aaf9873a2913b"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/*"]
+sha256 = "b11c8ffcc8e7f62b22ec6ebce48560c5c320484839b58ae5869a0355eaa9ca30"
+programs = ["**/*olution*.ipynb"]
+exclude = []
+outputs = []
+data-urls = ["https://raw.githubusercontent.com/guipsamora/pandas_exercises/master/"]
+
+[intro-numerical-methods]
+title = "Kyle Mandli, Introduction to Numerical Methods (Columbia APMA 4300), the lecture notebooks"
+repository = "https://github.com/mandli/intro-numerical-methods"
+commit = "e66f052dd406a1845754dc4be4ee6243406dd6b6"
+licence = "CC BY 4.0 (LICENSE)"
+fetch = ["/*"]
+sha256 = "6a5cfe913d00dd2cb999509e77ffc719387f439ec71ecf33f0cc6e3bb9d67194"
+programs = ["*.ipynb"]
+exclude = []
+outputs = []
+
+[hyperpython]
+title = "David I. Ketcheson, HyperPython (hyperbolic PDEs in Python), its lessons' notebooks"
+repository = "https://github.com/ketch/HyperPython"
+commit = "174e0933ed9e468860daade44ddc1e5b69119657"
+licence = "MIT (the code, LICENSE; the text, CC BY 4.0)"
+fetch = ["/*"]
+sha256 = "c3b012466259b6bd7d26d9b19a2c25efa6b5e7ecede2626c5af1c5e4083aace6"
+programs = ["*.ipynb"]
+exclude = []
+outputs = []
+
+[cbe30338]
+title = "Jeffrey Kantor, Chemical Process Control (Notre Dame CBE 30338), the course's notebooks"
+repository = "https://github.com/jckantor/CBE30338"
+commit = "93418114a42775804cd419126e6e1d09f609ee3d"
+licence = "MIT (the code, LICENSE-CODE.txt; the text, CC BY-NC-ND 4.0, is only read for the code cells)"
+fetch = ["/LICENSE-CODE.txt", "/notebooks/"]
+sha256 = "88de5b98def5b5e07d75b6af421015b15e7a504439d0078e99abede8f63cef19"
+programs = ["notebooks/*.ipynb"]
+exclude = []
+outputs = []
+
+[engcomp1]
+title = "Engineering Computations (GWU), module 1: Get data off the ground with Python, its notebooks"
+repository = "https://github.com/engineersCode/EngComp1_offtheground"
+commit = "a6fa44f5a526a8ccccd9e91daac80d95ec5df3a5"
+licence = "BSD-3-Clause (LICENSE; the text CC BY 4.0)"
+fetch = ["/*"]
+sha256 = "41794c149d603c423374a3b41286427f17b130b016a5bc796809961bfc1329cd"
+programs = ["notebooks_en/*.ipynb"]
+exclude = []
+outputs = []
+
+[engcomp2]
+title = "Engineering Computations (GWU), module 2: Take off with stats in Python, its notebooks"
+repository = "https://github.com/engineersCode/EngComp2_takeoff"
+commit = "1a1ce69b6ac33adffe4b1cd08913c62eeb173cd1"
+licence = "BSD-3-Clause (LICENSE; the text CC BY 4.0)"
+fetch = ["/*"]
+sha256 = "99cd0adee01cc68fb6381ee4fe78fbf7d5680782176f766805de9d5980178ca7"
+programs = ["notebooks_en/*.ipynb"]
+exclude = []
+outputs = []
+
+[engcomp3]
+title = "Engineering Computations (GWU), module 3: Tour the dynamics of change and motion, its notebooks"
+repository = "https://github.com/engineersCode/EngComp3_tourdynamics"
+commit = "30878de126ea98629a62ef1f245532407e34898a"
+licence = "BSD-3-Clause (LICENSE; the text CC BY 4.0)"
+fetch = ["/*"]
+sha256 = "3d96c8d2321db7d2d559cc1ca8bd33f926d9eb6256781425cbf6bd8d74eb8a63"
+programs = ["notebooks_en/*.ipynb"]
+exclude = []
+outputs = []
+
+[engcomp5]
+title = "Engineering Computations (GWU), module 5: Surf the Fourier transform, its notebooks"
+repository = "https://github.com/engineersCode/EngComp5_surfourier"
+commit = "c3c125804c9fd7c431a4aad1caa9a7475ccdcded"
+licence = "BSD-3-Clause (LICENSE; the text CC BY 4.0)"
+fetch = ["/*"]
+sha256 = "789f38ef9a33671d0daa041cbff5fd982ca47d21ca0e42fcfd0a7890f23d143c"
+programs = ["notebooks_en/*.ipynb"]
+exclude = []
+outputs = []
+
+[engcomp7]
+title = "Engineering Computations (GWU), module 7: Energy, its notebooks"
+repository = "https://github.com/engineersCode/EngComp7_energy"
+commit = "edd499734ab2fb4ac789568652358f6338d8604b"
+licence = "BSD-3-Clause (LICENSE; the text CC BY 4.0)"
+fetch = ["/*"]
+sha256 = "c1420c755f4ab26e2fd24ba04a90d596277da29b842703062ae41a6f5310c1ac"
+programs = ["notebooks_en/*.ipynb"]
+exclude = []
+outputs = []
+
+[image-processing-lesson]
+title = "Data Carpentry, Image Processing with Python, the lesson's episodes"
+repository = "https://github.com/datacarpentry/image-processing"
+commit = "b43a5eba8ed893259240e20c71edada7743e8ff2"
+licence = "CC BY 4.0 (LICENSE.md: the instructional material; its software MIT)"
+fetch = ["/LICENSE.md", "/episodes/*.md", "/episodes/data/"]
+sha256 = "b9181d61d1468c165511f801996264c4d34d09264a1d5b312a2112582b33a3de"
+programs = ["episodes/*.md"]
+exclude = []
+outputs = []
+
+[python-ecology-lesson]
+title = "Data Carpentry, Data Analysis and Visualization in Python for Ecologists, the lesson's episodes"
+repository = "https://github.com/datacarpentry/python-ecology-lesson"
+commit = "535175e8d5e9dc94a2b75bc3f95fcd0e1aeae313"
+licence = "CC BY 4.0 (LICENSE.md: the instructional material; its software MIT)"
+fetch = ["/LICENSE.md", "/episodes/*.md", "/episodes/data/"]
+sha256 = "2c889150711a28bfc93e8bcfa5fae35e9859f43b763a20d72d2fbcc086891a3c"
+programs = ["episodes/*.md"]
+exclude = []
+outputs = []
+
+[ml-novice-sklearn]
+title = "The Carpentries Incubator, Introduction to Machine Learning with Scikit Learn, the lesson's episodes"
+repository = "https://github.com/carpentries-incubator/machine-learning-novice-sklearn"
+commit = "db76eec9ab0054fb6e18ed9582a146dbd5d035d8"
+licence = "CC BY 4.0 (LICENSE.md: the instructional material; its software MIT)"
+fetch = ["/LICENSE.md", "/episodes/*.md", "/episodes/data/", "/code/"]
+sha256 = "1a06690126ef1e21ba189741224b8d76b5af963c27583429615923e5d7b410a2"
+programs = ["episodes/*.md"]
+exclude = []
+outputs = []
+
+[pandas-cookbook]
+title = "Julia Evans, pandas cookbook, its chapters' notebooks"
+repository = "https://github.com/jvns/pandas-cookbook"
+commit = "69d3389e4d9fee6dcf8e59e4c91397e81da79163"
+licence = "CC BY-SA 4.0 (README.md: this work)"
+fetch = ["/README.md", "/cookbook/"]
+sha256 = "a665d8015dd700eb04f6f0e5363add1cb04446d5fa38ba35d3037ed2007a4fc7"
+programs = ["cookbook/*.ipynb"]
+exclude = []
+outputs = []
+
+[machine-learning-book-pytorch]
+title = "Sebastian Raschka, Yuxi Liu, Vahid Mirjalili, Machine Learning with PyTorch and Scikit-Learn (2022), its chapters' notebooks"
+repository = "https://github.com/rasbt/machine-learning-book"
+commit = "63bee951ca45420ac33ccf803ceb337afc3c0a91"
+licence = "MIT (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/ch*/", "/python_environment_check.py"]
+sha256 = "f9cdc7ba57704fb9885e662ca5285deedcd39b6999d7e10e0bdf4e97f72daa21"
+programs = ["ch*/**/*.ipynb"]
+exclude = ["*.ipynb_checkpoints/*"]
+outputs = []
+
+[bayesian-methods-for-hackers]
+title = "Cameron Davidson-Pilon, Probabilistic Programming and Bayesian Methods for Hackers, its chapters' notebooks"
+repository = "https://github.com/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-Hackers"
+commit = "5b33f77a803a1a07dcadabae6cc382c9fd2c77d7"
+licence = "MIT (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/Chapter*/", "/Prologue/", "/styles/"]
+sha256 = "443308cc51afc64b7f90dced4fc41ace85007729c4f34840b4112b510b796417"
+programs = ["Chapter*/*.ipynb", "Prologue/*.ipynb"]
+exclude = ["*.ipynb_checkpoints/*"]
+outputs = []
+
+[python-probability-statistics-ml]
+title = "José Unpingco, Python for Probability, Statistics, and Machine Learning, its chapters' notebooks"
+repository = "https://github.com/unpingco/Python-for-Probability-Statistics-and-Machine-Learning"
+commit = "2794ed09340e8018935fe91ffa30a926f8a07eeb"
+licence = "MIT (LICENSE)"
+fetch = ["/*"]
+sha256 = "2491588e34950037bad0f43e1f08ae25a629d1418ff229fd7182d387a366eabb"
+programs = ["chapters/**/*.ipynb"]
+exclude = ["*.ipynb_checkpoints/*"]
+outputs = []
+
+[sklearn-tutorial]
+title = "Jake VanderPlas, scikit-learn tutorial (PyCon/SciPy), its notebooks"
+repository = "https://github.com/jakevdp/sklearn_tutorial"
+commit = "5098cee2a638c56c311aca0c18987e407fe127fd"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/*"]
+sha256 = "527ae92dfa1143a43c48440f1e7959cd0fcc80e1f08dc791544c767d4ad1402f"
+programs = ["notebooks/*.ipynb"]
+exclude = []
+outputs = []
+
+[whirlwind-tour]
+title = "Jake VanderPlas, A Whirlwind Tour of Python, the book's notebooks"
+repository = "https://github.com/jakevdp/WhirlwindTourOfPython"
+commit = "6f1daf714fe52a8dde6a288674ba46a7feed8816"
+licence = "CC0-1.0 (LICENSE)"
+fetch = ["/LICENSE", "/*.ipynb", "/fig/"]
+sha256 = "13d239a198d671dcf387b94b6116fa8bfb26f37a2de0fef77122485807d76e9e"
+programs = ["*.ipynb"]
+exclude = []
+outputs = []
+
+[esac-stats-2014]
+title = "Jake VanderPlas, statistics lectures of the ESAC 2014 school, the notebooks"
+repository = "https://github.com/jakevdp/ESAC-stats-2014"
+commit = "a476cc87b5632eae415e2297e74079f4c3ad9953"
+licence = "BSD-2-Clause (LICENSE)"
+fetch = ["/*"]
+sha256 = "390315aeed588ed9fe86f4ae5d7022f007520d44451d8a37c60d302224e73f46"
+programs = ["notebooks/*.ipynb"]
+exclude = []
+outputs = []
+
+[scipy-2017-sklearn]
+title = "Andreas Müller, Alexandre Gramfort, Sebastian Raschka, scikit-learn tutorial of SciPy 2017, the notebooks"
+repository = "https://github.com/amueller/scipy-2017-sklearn"
+commit = "e7d90ee4e382bebd44dfcea0042bca4698d8c57f"
+licence = "CC0-1.0 (LICENSE)"
+fetch = ["/*"]
+sha256 = "352fa8f421b7a9bd37037a80241b61af771f4a84012250774def68ae8c17e66a"
+programs = ["notebooks/*.ipynb"]
+exclude = []
+outputs = []
+
+[aima-python]
+title = "aima-python, the code of Russell and Norvig's Artificial Intelligence: A Modern Approach, its notebooks"
+repository = "https://github.com/aimacode/aima-python"
+commit = "49ebbc316192e84489f8bcb061e24b69150598fc"
+licence = "MIT (LICENSE)"
+fetch = ["/*"]
+sha256 = "fe8abe85f9c80419e2f65581c21fe3f7343309bf0db2b9a865d342252fbe196b"
+programs = ["*.ipynb", "notebooks/**/*.ipynb"]
+exclude = []
+outputs = []
+environment = { PYTHONPATH = "{corpus:aima-python}" }
+
+[ml-with-python]
+title = "Tirthajyoti Sarkar, Machine Learning with Python, its practice notebooks"
+repository = "https://github.com/tirthajyoti/Machine-Learning-with-Python"
+commit = "ad23604344b55c759d0ffd24ac4c5695e9f79822"
+licence = "BSD-2-Clause (LICENSE)"
+fetch = ["/*"]
+sha256 = "521c4c62dfffeaa55db8d78dfd8c5f69d082d69839723278948f4799f3d16662"
+programs = ["**/*.ipynb"]
+exclude = [
+    "*.ipynb_checkpoints/*",
+    "Pandas and Numpy/Speed-up-Numpy-Pandas-with-Numexpr.ipynb",  # times arrays of up to 63 million values: more than 8 GB
+]
+outputs = []
+
+[lecture-comp-methods]
+title = "Johannes Hauschild, Computational Methods for Many-Body Physics (TU Munich), the lecture's notebooks"
+repository = "https://github.com/jhauschild/lecture_comp_methods"
+commit = "b123d7601517f78524d4f60b3fdf3b4ebb1c33ba"
+licence = "MIT (LICENSE)"
+fetch = ["/*"]
+sha256 = "ac4ec0dcbd73de8e55598632a03690b87b055ac0c3b2ff76c72944cc406cdece"
+programs = ["**/*.ipynb"]
+exclude = ["*.ipynb_checkpoints/*"]
+outputs = []
+
+[comp551-notebooks]
+title = "Siamak Ravanbakhsh, Applied Machine Learning (McGill COMP 551), the lecture notebooks"
+repository = "https://github.com/mravanba/comp551-notebooks"
+commit = "49a870d8fb327ff50cb8a7aef828ee712fcf91fa"
+licence = "MIT (License.txt)"
+fetch = ["/*"]
+sha256 = "054afb6d3d25029f9de6f08cd80d770e0f443ab0072949dc0d05a61e76fd9143"
+programs = ["*.ipynb"]
+exclude = []
+outputs = []
+
+[dsp-lecture]
+title = "Sascha Spors, Digital Signal Processing (University of Rostock), the lecture's notebooks"
+repository = "https://github.com/spatialaudio/digital-signal-processing-lecture"
+commit = "80630b0aec064dd030fa608f286807bcb23e3667"
+licence = "MIT (the code, LICENSE; the text, CC BY 4.0)"
+fetch = ["/*"]
+sha256 = "ba811738668f39d04fc300b08e96fef82d37b58b6af7f37ea0d749e62f82d68f"
+programs = ["**/*.ipynb"]
+exclude = ["*.ipynb_checkpoints/*"]
+outputs = []
+
+[signals-systems-lecture]
+title = "Sascha Spors, Signals and Systems (University of Rostock), the lecture's notebooks"
+repository = "https://github.com/spatialaudio/signals-and-systems-lecture"
+commit = "56fcb6ac7034b33559caedaecb8ad2c0d3168ba6"
+licence = "MIT (the code, LICENSE; the text, CC BY 4.0)"
+fetch = ["/*"]
+sha256 = "085ef5efeea2fbbb93ff18837f56dc8a0773f1b810268f0fc50aab322f941e72"
+programs = ["**/*.ipynb"]
+exclude = ["*.ipynb_checkpoints/*"]
+outputs = []
+
+[dsp-exercises]
+title = "Sascha Spors, Frank Schultz, Digital Signal Processing (University of Rostock), the exercises' notebooks"
+repository = "https://github.com/spatialaudio/digital-signal-processing-exercises"
+commit = "a7090d274efc3cb8182e571678eedffd734390b4"
+licence = "MIT (the code, LICENSE; the text, CC BY 4.0)"
+fetch = ["/*"]
+sha256 = "983f2e88b3ee454f3aed0ab378d0aced1714779385807f39eee4e8c69bcf5607"
+programs = ["**/*.ipynb"]
+exclude = ["*.ipynb_checkpoints/*"]
+outputs = []
+
+[adaptive-signal-processing]
+title = "Edson Porto da Silva, Adaptive Signal Processing (UFCG), the course's notebooks"
+repository = "https://github.com/edsonportosilva/AdaptiveSignalProcessing"
+commit = "6951cee699942aa9e06c2cf2096b219726e90a6a"
+licence = "CC0-1.0 (LICENSE)"
+fetch = ["/LICENSE", "/notebooks/", "/src/"]
+sha256 = "16c26bec980155cb120c774ad245368fdc1cd8d793d6ded7e824db818df58615"
+programs = ["notebooks/*.ipynb"]
+exclude = []
+outputs = []
+shell = "ipython"
+environment = { PYTHONPATH = "{corpus:adaptive-signal-processing}/src" }
+
+[phy407-lectures]
+title = "Nicolas Grisouard, Computational Physics (University of Toronto PHY407, 2020), the lectures' notebooks"
+repository = "https://github.com/PHY407-UofT/lectures-2020"
+commit = "323e131e84bc7579b8beb8e3b5c044862930a5c2"
+licence = "CC BY-SA 4.0 (LICENSE)"
+fetch = ["/*"]
+sha256 = "e525fcd0d9d323bf4b2f87ef78179a4117a5351d2148a18b25202d222ae5c6d0"
+programs = ["**/*.ipynb"]
+exclude = ["*.ipynb_checkpoints/*"]
+outputs = []
+
+[numerical-methods-macro]
+title = "Andrea Pasqualini, Numerical Methods for Macroeconomics (Bocconi), the class notebooks and code examples"
+repository = "https://github.com/AndreaPasqualini/numerical_methods_macroeconomics"
+commit = "60333ff64f88f2cb17ac045ee35541e7fc7d47d6"
+licence = "MIT (LICENSE)"
+fetch = ["/*"]
+sha256 = "99b7b2439b3f629029bb113bee0d08a072169d7aa14910056308413f6210b803"
+programs = ["**/*.ipynb"]
+exclude = ["*.ipynb_checkpoints/*"]
+outputs = []
+
+[dataviz-course]
+title = "Bruno Gonçalves (Data For Science), Data Visualization with Python, the course's notebooks"
+repository = "https://github.com/DataForScience/DataViz"
+commit = "661f3307fb7e764076fa50b9cabcde0aa0ebc8c2"
+licence = "MIT (LICENSE)"
+fetch = ["/*"]
+sha256 = "900760932b2c090217265be6d21ad51692eb0fc0cc675d41c96d7bc1cf9b7324"
+programs = ["*.ipynb"]
+exclude = []
+outputs = []
+
+[numerical-methods-hawke]
+title = "Ian Hawke, Numerical Methods (University of Southampton), the labs', lectures' and worksheets' notebooks"
+repository = "https://github.com/IanHawke/NumericalMethods"
+commit = "3a4f9e8977b2189f681ec1829a5fcb1a5e3c9fa1"
+licence = "CC BY 4.0 (LICENSE: the instructional material)"
+fetch = ["/LICENSE", "/Labs/", "/Lectures/*", "/Worksheets/"]
+sha256 = "9915f8712178be29e92f65f268c9185aeaf33ada9da086eaab28c3fc12eaf3c6"
+programs = ["Labs/*.ipynb", "Lectures/*.ipynb", "Worksheets/*.ipynb"]
 exclude = []
 outputs = []

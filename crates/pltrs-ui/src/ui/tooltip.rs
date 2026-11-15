@@ -128,8 +128,7 @@ pub(super) fn paint(
 ) -> Result<(), UiError> {
     let scale = canvas.scale_factor();
     let style = theme.tooltip_style;
-    let layout = TextLayout::new(text, &theme.text_style(), scale)?;
-    let text_size = layout.size();
+    let (lines, text_size) = lay_out(text, theme, scale)?;
     let (across, down) = padding(style);
     let padding = Size::new(theme.space(across) * scale, theme.space(down) * scale);
     let size = Size::new(
@@ -152,8 +151,33 @@ pub(super) fn paint(
             canvas.stroke_rect(tip, scale, theme.tooltip_border)?;
         }
     }
-    let origin = Point::new(tip.x + padding.width, tip.y + padding.height);
-    canvas.draw_text(&layout, origin, theme.tooltip_text)
+    let mut origin = Point::new(tip.x + padding.width, tip.y + padding.height);
+    for line in &lines {
+        canvas.draw_text(line, origin, theme.tooltip_text)?;
+        origin.y += line.size().height;
+    }
+    Ok(())
+}
+
+/// The lines of `text` laid out in the theme's text style, and the box
+/// they fill together: tooltips may have several lines, as matplotlib's
+/// toolbar gives them (``"Zoom to rectangle\nx/y fixes axis"``), which
+/// Qt shows one under the other.
+fn lay_out(text: &str, theme: &Theme, scale: f64) -> Result<(Vec<TextLayout>, Size), UiError> {
+    let style = theme.text_style();
+    let mut lines = text
+        .lines()
+        .map(|line| TextLayout::new(line, &style, scale))
+        .collect::<Result<Vec<_>, _>>()?;
+    if lines.is_empty() {
+        lines.push(TextLayout::new("", &style, scale)?);
+    }
+    let width = lines
+        .iter()
+        .map(|line| line.size().width)
+        .fold(0.0, f64::max);
+    let height = lines.iter().map(|line| line.size().height).sum();
+    Ok((lines, Size::new(width, height)))
 }
 
 /// The space between a tooltip's edge and its text, across and down: Tk
@@ -211,6 +235,20 @@ mod tests {
         assert_eq!(corner, Point::new(86.0, 246.0), "above, without room below");
         let left = Rect::new(0.0, 100.0, 32.0, 32.0);
         assert_eq!(place(TooltipStyle::Bubble, left, TIP, WINDOW, 4.0).x, 4.0);
+    }
+
+    #[test]
+    fn tooltips_set_each_line_of_their_text() {
+        // matplotlib's toolbar tooltips have two lines; the line break
+        // showed as a missing glyph and hid the second line (GNOME, 200 %).
+        let theme = Theme::modern();
+        let (lines, size) = lay_out("Zoom to rectangle\nx/y fixes axis", &theme, 2.0).unwrap();
+        let (first, one) = lay_out("Zoom to rectangle", &theme, 2.0).unwrap();
+        let (second, _) = lay_out("x/y fixes axis", &theme, 2.0).unwrap();
+        assert_eq!(lines, [first[0].clone(), second[0].clone()]);
+        assert_eq!(size, Size::new(one.width, 2.0 * one.height));
+        let (_, empty) = lay_out("", &theme, 2.0).unwrap();
+        assert_eq!(empty, Size::new(0.0, one.height));
     }
 
     #[test]

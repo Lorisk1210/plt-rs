@@ -232,6 +232,34 @@ def test_the_display_checks_agree_in_fresh_processes(wayland):
         assert out == ["True"] * 3
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="only Linux asks for a display")
+def test_a_wayland_socket_counts_only_when_named():
+    """As matplotlib's ``wl_display_connect`` behind a ``$WAYLAND_DISPLAY``
+    check: the session's ``wayland-0`` in ``$XDG_RUNTIME_DIR`` is no
+    display while ``$WAYLAND_DISPLAY`` is unset (ssh into a desktop), so
+    that pyplot falls back to Agg rather than failing to open windows."""
+    import socket
+    import tempfile
+
+    env = {key: value for key, value in os.environ.items()
+           if key not in ("DISPLAY", "WAYLAND_DISPLAY", "MPLBACKEND")}
+    check = ("from pltrs import _c_internal_utils as u; import pltrs.pyplot as plt; "
+             "print(u.display_is_valid(), plt.get_backend())")
+    # A short directory: socket paths have at most 107 bytes.
+    with tempfile.TemporaryDirectory() as runtime, \
+            socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as compositor:
+        compositor.bind(os.path.join(runtime, "wayland-0"))
+        compositor.listen(8)
+        env["XDG_RUNTIME_DIR"] = runtime
+        unnamed = subprocess.run([sys.executable, "-c", check], capture_output=True, text=True,
+                                 env=env, check=True).stdout.split()
+        named = subprocess.run([sys.executable, "-c", "from pltrs import _c_internal_utils as u; "
+                                "print(u.display_is_valid())"], capture_output=True, text=True,
+                               env={**env, "WAYLAND_DISPLAY": "wayland-0"}, check=True).stdout.split()
+    assert unnamed == ["False", "agg"]
+    assert named == ["True"]
+
+
 # Pickles.
 
 def test_figures_with_a_layout_engine_pickle():

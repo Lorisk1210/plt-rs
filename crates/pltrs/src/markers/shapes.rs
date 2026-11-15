@@ -19,6 +19,8 @@ pub(super) struct Shape {
 }
 
 impl Shape {
+    /// The shape of `marker` filled as `fill` says, with the cap style the
+    /// program gave (else butt) and its join style (else the marker's).
     pub(super) fn build(
         marker: &Marker,
         fill: FillStyle,

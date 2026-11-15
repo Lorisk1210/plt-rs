@@ -103,6 +103,8 @@ impl AxesImageArtist {
         index_below(row, rows).zip(index_below(column, columns))
     }
 
+    /// The transform the image is placed with: display coordinates
+    /// unless it was given one.
     pub(super) fn transform(&self) -> Transform {
         self.base.transform.clone().unwrap_or(Transform::Display)
     }
@@ -375,6 +377,7 @@ pub(crate) fn fit_axes_to(raw: &RawHandle, extent: Extent) {
 }
 
 impl AxesImage {
+    /// The handle of the image behind `raw`.
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
     }

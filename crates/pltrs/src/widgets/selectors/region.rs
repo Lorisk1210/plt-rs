@@ -109,6 +109,7 @@ pub(super) struct RegionHandles {
 }
 
 impl RegionHandles {
+    /// The three groups of handles: the centre, the corners and the edges.
     pub(super) fn each(&self) -> [&MarkerHandles; 3] {
         [&self.center, &self.corners, &self.edges]
     }

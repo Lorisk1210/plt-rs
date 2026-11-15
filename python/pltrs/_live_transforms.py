@@ -362,6 +362,8 @@ class _InverseMap:
             try:
                 self._back = _ProgramMap(self._forward.inverted())
             except Exception:
+                # The program's transform has no inverse (its ``inverted``
+                # fails): every point maps back to NaN.
                 self._back = False
         if self._back is False:
             points = np.asarray(values, dtype=float)

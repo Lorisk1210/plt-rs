@@ -39,7 +39,6 @@ import numpy as np
 from . import (_api, _handles, _python_drawing, axis as _axis_module, cbook,
                scale as mscale, text as mtext, ticker as mticker,
                transforms as mtransforms, units as munits)
-from ._axis_artists import XTick, YTick
 from ._native import axes as _axes
 from .artist import Artist, allow_rasterization
 from .ticker import NullLocator

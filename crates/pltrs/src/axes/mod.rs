@@ -251,6 +251,7 @@ impl ArtistHandle for Axes {
 }
 
 impl Axes {
+    /// The handle of the axes behind `raw`.
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
     }

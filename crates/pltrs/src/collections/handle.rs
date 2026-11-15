@@ -78,6 +78,7 @@ impl TypedHandle for Collection {
 }
 
 impl Collection {
+    /// The handle of the collection behind `raw`.
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
     }

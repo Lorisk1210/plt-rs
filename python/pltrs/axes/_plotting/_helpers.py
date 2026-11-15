@@ -10,7 +10,7 @@ import warnings
 
 import numpy as np
 
-from ... import _api, _handles, _lazy_imports, cbook, collections as mcoll, lines as mlines
+from ... import _api, _handles, _lazy_imports, cbook, lines as mlines
 from ..._native import plotting as _plotting
 
 _program_adds = _lazy_imports.module(globals(), ".._program_adds")
@@ -170,11 +170,6 @@ def made_line_kwargs(kwargs):
     resolved.update((to_property[key], value) for key, value in kwargs.items()
                     if key in to_property)
     return mlines._native_kwargs(resolved)
-
-
-def collection_kwargs(kwargs, cls=mcoll.Collection):
-    """Collection keyword arguments, aliases of *cls* resolved, in native form."""
-    return mcoll._native_kwargs(cbook.normalize_kwargs(kwargs, cls))
 
 
 def check_format(fmt):

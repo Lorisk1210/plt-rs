@@ -53,10 +53,12 @@ impl TypedHandle for Axes3D {
 }
 
 impl Axes3D {
+    /// The handle of the 3-D axes behind `raw`.
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
     }
 
+    /// Runs `f` with the state of the axes.
     pub(crate) fn with<R>(&self, f: impl FnOnce(&Axes3DState) -> R) -> R {
         self.raw.with::<Axes3DState, _>(f)
     }

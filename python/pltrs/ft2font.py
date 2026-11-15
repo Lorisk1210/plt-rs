@@ -489,6 +489,7 @@ class FT2Font:
         try:
             probe = filename.read(0)
         except Exception:
+            # No readable file object: refused below, as matplotlib does.
             probe = None
         if not isinstance(probe, bytes):
             raise TypeError("First argument must be a path to a font file or a "

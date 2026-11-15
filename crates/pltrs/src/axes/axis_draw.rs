@@ -467,6 +467,8 @@ pub(crate) fn grid_clip(
     (rect, path)
 }
 
+/// The graphics context gridlines of style `grid` are drawn with, under
+/// the rcParams `rc`; an error when the grid's colour is invalid.
 pub(crate) fn grid_gc(
     grid: &GridStyle,
     rc: &crate::rc::RcParams,

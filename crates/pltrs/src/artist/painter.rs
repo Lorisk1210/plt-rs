@@ -162,19 +162,25 @@ pub enum MeasuredExtent {
 /// clipping: the one its painter measured, if it measures, else the
 /// artist's own ([`Artist::tight_extent`]).
 pub(crate) fn tight_extent_of(artist: &dyn Artist, layout: &LayoutContext<'_>) -> Option<Bbox> {
-    let measured = artist
+    match measured_extent_of(artist) {
+        MeasuredExtent::Unmeasured => artist.tight_extent(layout),
+        MeasuredExtent::Empty => None,
+        MeasuredExtent::Extent(extent) => Some(extent),
+    }
+}
+
+/// The extent the painter of `artist` measured, taken (see
+/// [`ArtistPainter::extent_taken`]); unmeasured without a painter that
+/// measures.
+pub(crate) fn measured_extent_of(artist: &dyn Artist) -> MeasuredExtent {
+    artist
         .base()
         .painter
         .as_ref()
         .map_or(MeasuredExtent::Unmeasured, |painter| {
             painter.get().extent_taken();
             painter.get().measured_extent()
-        });
-    match measured {
-        MeasuredExtent::Unmeasured => artist.tight_extent(layout),
-        MeasuredExtent::Empty => None,
-        MeasuredExtent::Extent(extent) => Some(extent),
-    }
+        })
 }
 
 pltrs_core::archive_kinds!(dyn ArtistPainter {});

@@ -71,6 +71,10 @@ class _AxisPart(_mirrors.Mirroring):
             # matplotlib's `.Text.get_window_extent` lays the text out with
             # the renderer given.
             _check_metrics_renderer(renderer)
+        if dpi is not None:
+            # Measured at another resolution as matplotlib's text is: where
+            # its transform puts it then.
+            return self.alone(artist).get_window_extent(renderer, dpi=dpi)
         extent = self.owner._extent(artist)
         if extent is None:
             # matplotlib's empty text measures as nothing at its position.
@@ -942,16 +946,52 @@ class AxisLabel(_AxisText):
         text.set_position(text.get_position())
 
 
-def follow_program_setters(text):
+def follow_program_setters(text, setter):
     """Have the figure place *text*, if it is an axis label given a
     position setter of the program's, through it (see
-    `AxisLabel.place_by_program`)."""
+    `AxisLabel.place_by_program`), or a tick's label given the *setter*
+    matplotlib's tick update calls with the tick's location (``set_x`` of
+    an x tick's, ``set_y`` of a y tick's: see
+    `place_tick_labels_by_program`)."""
     owner = getattr(_mirrors.mirroring(text), "owner", None)
     if isinstance(owner, AxisLabel):
         from .axes import _program_locators
         figure = owner.axis.axes.get_figure(root=True)
         if figure is not None:
             _program_locators.follow_label(owner, figure)
+    elif (isinstance(owner, Tick) and owner._tick_axis is not None
+            and setter == ("set_y" if owner.__name__ == "ytick" else "set_x")):
+        from .axes import _program_locators
+        figure = owner._tick_axis.axes.get_figure(root=True)
+        if figure is not None:
+            _program_locators.follow_tick_label(text, figure)
+
+
+def place_tick_labels_by_program(labels):
+    """
+    Place each tick label of *labels* (followed by `follow_program_setters`)
+    as matplotlib's tick update does: its axis' ticks placed, its setter
+    called with its tick's location, and the label drawn where that left
+    it along the axis (pygtc shifts its tick labels so).
+    """
+    updated = set()
+    for label in labels:
+        tick = _mirrors.mirroring(label).owner
+        axis = tick._tick_axis
+        if axis is None or label not in (tick.label1, tick.label2):
+            continue
+        if id(axis) not in updated:
+            updated.add(id(axis))
+            axis._update_ticks()
+        tick._sync()
+        loc = tick.get_loc()
+        along = 1 if tick.__name__ == "ytick" else 0
+        setter = "set_y" if along else "set_x"
+        getattr(label, setter)(loc)
+        placed = float(label.get_position()[along])
+        _axis.set_tick_label_along(
+            axis.axes._native, axis.axis_name, not tick._major, tick._index,
+            label is tick.label2, None if placed == loc else placed)
 
 
 class OffsetText(_AxisText):

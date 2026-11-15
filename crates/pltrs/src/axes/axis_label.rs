@@ -491,9 +491,9 @@ impl Axis {
     /// last measure of them) anchored the label in display pixels: beyond
     /// the spine, its ticks and the tick labels on its side (matplotlib's
     /// `label.get_position()` across the axis, which
-    /// `_update_label_position` sets when it draws or measures the axis);
-    /// `None` before, for a label without text or hidden then, and for a
-    /// label placed by coordinates (`set_label_coords`).
+    /// `_update_label_position` sets when it draws or measures the axis,
+    /// whether the label has text and is shown or not); `None` before, and
+    /// for a label placed by coordinates (`set_label_coords`).
     pub fn label_placed(&self) -> Option<Point> {
         self.read(|axis| {
             axis.label_placed

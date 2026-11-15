@@ -46,3 +46,7 @@ class LineMarker(MarkerStyle):
             marker=MarkerStyle(marker, fillstyle, Affine2D(user.get_matrix()),
                                self._user_capstyle, self._user_joinstyle),
             fillstyle=fillstyle)
+        mirror = line.__dict__.get("_mirror")
+        if mirror is not None:
+            # The mark of a tick, which its axis draws, turns with it.
+            mirror.push(line)

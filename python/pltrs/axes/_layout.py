@@ -7,12 +7,29 @@ import numpy as np
 
 from .. import _unusable
 from .._native import figure_layout as _figure_layout, insets as _insets
+from .._program_classes import class_cache, takes_from_program
 from ..text import _measured_by_given
 from ..transforms import Bbox
 
 
+@class_cache
+def _measures_axis(cls):
+    """Whether the axis class *cls* measures its axes itself (its
+    ``get_tightbbox`` or the boxes of its tick labels,
+    ``_get_ticklabel_bboxes``, are the program's)."""
+    return any(takes_from_program(cls, name)
+               for name in ("get_tightbbox", "_get_ticklabel_bboxes"))
+
+
 class LayoutMixin:
     """The tight bounding box of an Axes."""
+
+    def _axes_measure_themselves(self):
+        """Whether an axis of the Axes is of a class measuring it, which
+        matplotlib's `get_tightbbox` asks: the Axes is then measured in
+        Python, here, wherever pltrs (Rust) takes its tight box."""
+        return any(_measures_axis(type(axis)) and not axis.__dict__.get("_held")
+                   for axis in self._axis_map.values())
 
     def get_default_bbox_extra_artists(self):
         """
@@ -118,6 +135,11 @@ class LayoutMixin:
                 _insets.set_located_position(self._native, None)
         self._place_titles_by_program(renderer)
         self._first_measuring_steps(renderer)
+        if bbox_extra_artists is None and takes_from_program(
+                type(self), "get_default_bbox_extra_artists"):
+            bbox_extra_artists = self.get_default_bbox_extra_artists()
+        if self._axes_measure_themselves():
+            return self._tightbbox_of_parts(renderer, bbox_extra_artists, for_layout_only)
         with _measured_by_given(renderer, self):
             extent = _figure_layout.axes_tightbbox(
                 self._native, bool(for_layout_only), bbox_extra_artists is None)
@@ -127,9 +149,46 @@ class LayoutMixin:
         self.stale = True
         x0, y0, x1, y1 = extent
         boxes = [Bbox([[x0, y0], [x1, y1]])]
-        for artist in bbox_extra_artists or ():
-            bbox = artist.get_tightbbox(renderer)
-            if (bbox is not None and 0 < bbox.width < np.inf
-                    and 0 < bbox.height < np.inf):
-                boxes.append(bbox)
+        boxes.extend(_extra_boxes(bbox_extra_artists or (), renderer))
         return Bbox.union(boxes)
+
+    def _tightbbox_of_parts(self, renderer, bbox_extra_artists, for_layout_only):
+        """matplotlib's `get_tightbbox` from the Axes' parts, each asked
+        for its box (an axis of the program's through its own measuring):
+        its axes, its box, its titles and the artists *bbox_extra_artists*
+        (its default ones when None)."""
+        if not self.get_visible():
+            return None
+        if renderer is None:
+            renderer = self.get_figure(root=True)._get_renderer()
+        self.apply_aspect()
+        boxes = []
+        for axis in self._axis_map.values():
+            if self.axison and axis.get_visible():
+                box = (axis.get_tightbbox(renderer, for_layout_only=True) if for_layout_only
+                       else axis.get_tightbbox(renderer))
+                if box:
+                    boxes.append(box)
+        boxes.append(self.get_window_extent(renderer))
+        for title in (self.title, self._left_title, self._right_title):
+            if title.get_visible():
+                box = title.get_window_extent(renderer)
+                if for_layout_only and box.width > 0:
+                    box.x0 = (box.x0 + box.x1) / 2 - 0.5
+                    box.x1 = box.x0 + 1.0
+                boxes.append(box)
+        if bbox_extra_artists is None:
+            bbox_extra_artists = self.get_default_bbox_extra_artists()
+        boxes.extend(_extra_boxes(bbox_extra_artists, renderer))
+        # matplotlib applies the aspect and places the ticks anew.
+        self.stale = True
+        return Bbox.union([box for box in boxes if box.width != 0 or box.height != 0])
+
+
+def _extra_boxes(artists, renderer):
+    """The tight boxes of *artists* that an Axes' tight box takes in: those
+    of some width and height (matplotlib's `Axes.get_tightbbox`)."""
+    for artist in artists:
+        bbox = artist.get_tightbbox(renderer)
+        if bbox is not None and 0 < bbox.width < np.inf and 0 < bbox.height < np.inf:
+            yield bbox

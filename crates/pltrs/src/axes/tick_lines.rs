@@ -4,6 +4,8 @@
 
 use std::borrow::Cow;
 
+use pltrs_core::Affine2D;
+
 use super::axis::AxisState;
 use super::axis_handle::Axis;
 use super::tick_set::Tick;
@@ -67,13 +69,17 @@ pub struct TickMarkProps {
     pub size: Option<f64>,
     /// Line width of the marks in points (`set_markeredgewidth`).
     pub width: Option<f64>,
+    /// Transform of the marks' marker in marker units, in place of the
+    /// marker's own (`tick1line._marker._transform = ...`).
+    pub transform: Option<Box<Affine2D>>,
 }
 
 pltrs_core::archive_struct!(TickMarkProps {
     markeredgecolor,
     color,
     size,
-    width
+    width,
+    transform
 });
 
 impl TickMarkProps {
@@ -87,6 +93,7 @@ impl TickMarkProps {
             color: newer.color.clone().or_else(|| self.color.clone()),
             size: newer.size.or(self.size),
             width: newer.width.or(self.width),
+            transform: newer.transform.clone().or_else(|| self.transform.clone()),
         }
     }
 
@@ -107,6 +114,9 @@ impl TickMarkProps {
         if let Some(width) = self.width {
             style.width = width;
         }
+        if self.transform.is_some() {
+            style.mark_transform.clone_from(&self.transform);
+        }
     }
 
     /// The properties that make the marks of `under` look as those of
@@ -118,6 +128,7 @@ impl TickMarkProps {
             color: own(style.color.clone(), &under.color),
             size: own(style.size, &under.size),
             width: own(style.width, &under.width),
+            transform: own(style.mark_transform.clone(), &under.mark_transform).flatten(),
         }
     }
 

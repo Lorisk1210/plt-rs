@@ -2,6 +2,8 @@
 
 use std::borrow::Cow;
 
+use pltrs_core::Affine2D;
+
 use super::grid_props::{GridLineProps, GridLinePropsOptions};
 use super::grid_stroke::{GridStroke, GridStrokeOptions};
 use super::tick_lines::TickMarkProps;
@@ -291,6 +293,12 @@ pub struct TickStyle {
     /// y tick, `set_y` on an x tick); `None` keeps it on its side. Only a
     /// single tick's label sets it.
     pub label_across: Option<f64>,
+    /// Where the label is along the axis, in data coordinates, when a
+    /// position setter of the program's moved it from its tick there
+    /// (pygtc's `set_x` on x tick labels, which matplotlib's tick update
+    /// calls with the tick's location); `None` puts it at its tick. Only a
+    /// single tick's label sets it.
+    pub label_along: Option<f64>,
     /// The box behind the labels (matplotlib's `set_bbox` on a tick's
     /// label), if any.
     pub label_bbox: Option<TextBoxPatch>,
@@ -303,6 +311,11 @@ pub struct TickStyle {
     /// (matplotlib's `tick2line` of a single tick changed alone); unset
     /// in the style of a level.
     pub second_mark: TickMarkProps,
+    /// The transform of the marks' marker in marker units in place of the
+    /// marker's own, when the program set one (matplotlib's
+    /// `tick1line._marker._transform`); only a single tick's marks have
+    /// one. (Boxed: the style is copied along deep layout recursions.)
+    pub mark_transform: Option<Box<Affine2D>>,
 }
 
 pltrs_core::archive_struct!(TickStyle {
@@ -330,10 +343,12 @@ pltrs_core::archive_struct!(TickStyle {
     label_antialiased,
     label_path_effects,
     label_across,
+    label_along,
     label_bbox,
     grid_on,
     grid,
-    second_mark
+    second_mark,
+    mark_transform
 });
 
 impl TickStyle {
@@ -385,10 +400,12 @@ impl TickStyle {
             label_antialiased: None,
             label_path_effects: None,
             label_across: None,
+            label_along: None,
             label_bbox: None,
             grid_on: grid_on_from_rc(axis, major, rc),
             grid: GridStyle::from_rc(major, rc),
             second_mark: TickMarkProps::default(),
+            mark_transform: None,
         }
     }
 

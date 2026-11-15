@@ -18,7 +18,7 @@ use pltrs::axes::{
 };
 use pltrs::colors::Color;
 use pltrs::lines::Line2D;
-use pltrs::markers::{Marker, MarkerSymbol};
+use pltrs::markers::{Marker, MarkerStyle, MarkerSymbol};
 use pltrs::rc::ColorOrAuto;
 use pltrs::text::{HAlign, Text, VAlign};
 use pltrs::ticker::AxisName;
@@ -107,8 +107,9 @@ fn sync_label(
     let (halign, valign) = axis.tick_label_alignment(first_side);
     text.set_usetex(axis.usetex());
     let across = style.label_across.unwrap_or(side(first_side));
+    let along = style.label_along.unwrap_or(loc);
     text.set_text(label)
-        .set_position(at(name, loc, across))
+        .set_position(at(name, along, across))
         .set_color(style.label_color.clone())
         .set_font(style.label_font(&pltrs::rc::params()))
         .set_rotation(style.label_rotation)
@@ -347,8 +348,11 @@ fn push_tick_label(
             across(axis.name(), text.position()),
             &level.label_across.unwrap_or(side(!second)),
         ),
-        // Those it was given stay (`push_tick_label_effects`).
+        // Those it was given stay (`push_tick_label_effects`), and where a
+        // setter of the program's put it along the axis
+        // (`set_tick_label_along`).
         path_effects: (axis.tick_label_props_on(minor, index, !second)).path_effects,
+        along: (axis.tick_label_props_on(minor, index, !second)).along,
         ..label_props(&text, &level, alignment, second)
     };
     axis.set_tick_label_props_on(minor, index, !second, props);
@@ -374,6 +378,28 @@ fn push_tick_label_effects(
             ..axis.tick_label_props_on(minor, index, !second)
         };
         axis.set_tick_label_props_on(minor, index, !second, props);
+    }
+    Ok(())
+}
+
+/// Puts the label on the first or `second` side of the major (or `minor`)
+/// tick at `index` at `along` on the axis, in data coordinates, in place of
+/// its tick's location (`None` puts it back there): where a position
+/// setter of the program's, which matplotlib's tick update calls with the
+/// location, put it (pygtc shifts its tick labels so).
+fn set_tick_label_along(
+    owner: AxisOwner,
+    name: String,
+    minor: bool,
+    index: usize,
+    second: bool,
+    along: Option<f64>,
+) -> PyResult<()> {
+    if let AnyAxis::Flat(axis) = owner.axis(&name)? {
+        let props = axis.tick_label_props_on(minor, index, !second);
+        if props.along != along {
+            axis.set_tick_label_props_on(minor, index, !second, TickLabelProps { along, ..props });
+        }
     }
     Ok(())
 }
@@ -424,6 +450,8 @@ pub(super) fn label_props(
         label1_visible,
         label2_visible,
         across: None,
+        // A program's setter puts it along the axis (`set_tick_label_along`).
+        along: None,
         bbox: own(text.bbox_patch(), &level.label_bbox).flatten(),
         antialiased: own(
             text.antialiased(),
@@ -487,11 +515,18 @@ fn push_tick_mark(
 /// `under` with the look of the mark mirror `line`: its size, width,
 /// colour and edge colour.
 fn drawn_as(line: &Line2D, under: &TickStyle) -> TickStyle {
+    // A transform the program set on the line's marker (the marker's own
+    // through the user transform it then makes) turns the mark.
+    let mark_transform = line.marker_transform().and_then(|user| {
+        let marker = MarkerStyle::new(line.marker(), line.fillstyle()).ok()?;
+        Some(Box::new(marker.transformed(user).transform()))
+    });
     TickStyle {
         size: line.markersize(),
         width: line.markeredgewidth(),
         color: line.color(),
         edgecolor: Some(line.effective_markeredgecolor()),
+        mark_transform: mark_transform.or_else(|| under.mark_transform.clone()),
         ..under.clone()
     }
 }
@@ -732,6 +767,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("drawn_tick_label", drawn_tick_label)?;
     module.add("push_tick_label", push_tick_label)?;
     module.add("push_tick_label_effects", push_tick_label_effects)?;
+    module.add("set_tick_label_along", set_tick_label_along)?;
     module.add("push_axis_label_effects", push_axis_label_effects)?;
     module.add("push_tick_mark", push_tick_mark)?;
     module.add("push_gridline", push_gridline)?;

@@ -176,7 +176,7 @@ impl LaidOutText {
         }
         for line in &self.lines {
             match self.typesetting {
-                Typesetting::Tex => measure_tex_again(line, &self.font, dpi, rc)?,
+                Typesetting::Tex => measure_tex_again(line, &self.font, dpi)?,
                 Typesetting::Mathtext { .. } if line.is_empty() => {}
                 Typesetting::Mathtext { parse_math } => {
                     let line = Line::classify(line, parse_math);
@@ -188,7 +188,7 @@ impl LaidOutText {
             }
         }
         if self.typesetting == Typesetting::Tex {
-            tex_height_metrics(&self.font, dpi, rc)?;
+            tex_height_metrics(&self.font, dpi)?;
         }
         let text = self.lines.join("\n");
         for _ in 0..font_notes::layouts_of(&text) {

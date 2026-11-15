@@ -757,8 +757,11 @@ impl Artist for CollectionArtist {
         let resolved = ctx.resolve(&self.transform())?;
         let offsets = match &self.offset_transform {
             Some(t) => {
-                let r = ctx.resolve(t)?;
-                self.offsets.iter().map(|&p| r.transform_point(p)).collect()
+                // All at once: a map of the program's is called once, as
+                // matplotlib maps the offsets array.
+                let mut offsets = self.offsets.clone();
+                ctx.resolve(t)?.transform_points(&mut offsets);
+                offsets
             }
             None => Vec::new(),
         };

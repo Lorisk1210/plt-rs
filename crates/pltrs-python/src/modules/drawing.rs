@@ -21,12 +21,16 @@
 //!   they drew is drawn in the path's place.
 //! * **Renderers of the program's** ([`foreign`]): pltrs (Rust) draws an
 //!   artist, or a figure, through their methods (`draw_through`).
+//! * **Transforms computing their own matrix** ([`asked`]): an artist given
+//!   one is handed it again before every draw and measure.
 
+mod asked;
 mod effect;
 mod foreign;
 mod painter;
 mod steps;
 
+pub(super) use asked::AskingPainter;
 pub(super) use effect::{PythonEffect, python_effect};
 pub(super) use foreign::PythonRenderer;
 pub(super) use painter::PythonPainter;
@@ -47,5 +51,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new", new)?;
     steps::register(module)?;
     painter::register(module)?;
+    asked::register(module)?;
     foreign::register(module)
 }

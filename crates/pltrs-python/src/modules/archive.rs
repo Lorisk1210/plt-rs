@@ -51,7 +51,7 @@ use super::axis::{PyFormatter, PyLocator};
 use super::axisartist::{PyExtremeFinder, PyGridFormatter, PyGridLocator};
 use super::colors::PythonNorm;
 use super::dates::PyZone;
-use super::drawing::{PythonEffect, PythonPainter};
+use super::drawing::{AskingPainter, PythonEffect, PythonPainter};
 use super::path::{PyPath, path_arrays};
 use super::projections::PyProjection;
 use super::scale::{PyScale, python_scale};
@@ -457,6 +457,7 @@ const FORMATTER: &str = "python-formatter";
 const NORM: &str = "python-norm";
 const POINT_MAP: &str = "python-transform";
 const PAINTER: &str = "python-painter";
+const ASKING_PAINTER: &str = "asking-painter";
 const EFFECT: &str = "python-path-effect";
 const PROJECTION: &str = "python-projection";
 const ZONE: &str = "python-time-zone";
@@ -521,6 +522,15 @@ impl ProgramKinds for PythonProgram {
             encoder.write_str(PAINTER);
             encoder.write_external(&object_external(&artist));
             return painter.flags().encode(encoder);
+        }
+        if let Some(painter) = value.downcast_ref::<AskingPainter>() {
+            let artist =
+                Python::with_gil(|py| painter.artist(py).map(Bound::unbind)).ok_or_else(|| {
+                    ArchiveError::unsupported("the painter of an artist no longer alive")
+                })?;
+            encoder.write_str(ASKING_PAINTER);
+            encoder.write_external(&object_external(&artist));
+            return Ok(());
         }
         if let Some(scale) = value.downcast_ref::<PyScale>() {
             encoder.write_str(SCALE);
@@ -599,6 +609,7 @@ impl ProgramKinds for PythonProgram {
                     Box::new(norm) as Box<dyn Any>
                 }),
                 PAINTER => painter(&object, <(bool, bool)>::decode(decoder)),
+                ASKING_PAINTER => asking_painter(&object),
                 SCALE => bool::decode(decoder)
                     .map_err(|error| PyErr::value_error(error.to_string()))
                     .and_then(|three_d| python_scale(&object, three_d))
@@ -680,6 +691,15 @@ fn painter(
         lookup(artist.py(), "artist_reference")?.call(std::slice::from_ref(artist), &[])?;
     let painter: Box<dyn ArtistPainter> =
         Box::new(PythonPainter::new(reference.unbind(), rasterizes, measures));
+    Ok(Box::new(painter))
+}
+
+/// The painter asking the artist `artist` for its transform (see
+/// [`AskingPainter`]), read back from an archive.
+fn asking_painter(artist: &Bound<'_>) -> PyResult<Box<dyn Any>> {
+    let reference =
+        lookup(artist.py(), "artist_reference")?.call(std::slice::from_ref(artist), &[])?;
+    let painter: Box<dyn ArtistPainter> = Box::new(AskingPainter::new(reference.unbind()));
     Ok(Box::new(painter))
 }
 

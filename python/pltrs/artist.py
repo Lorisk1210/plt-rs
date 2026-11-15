@@ -360,6 +360,9 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         self._given_transform = t
         if _live_transforms.holds_natively(t):
             _transforms.set_transform(self._native, _live_transforms.to_native(t, held_by=self._figure or self))
+        if getattr(t, "_live", None) is None or "_asked_transform" in self.__dict__:
+            # One the program's code may compute anew at each draw.
+            _live_transforms.ask_when_drawn(self, t)
         self.pchanged()
 
     def is_transform_set(self):

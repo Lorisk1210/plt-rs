@@ -249,13 +249,14 @@ impl PixelMap {
         let inverse = transform
             .inverted()
             .ok_or(raster::ResampleError::SingularTransform)?;
-        let mesh = (0..height)
-            .flat_map(|y| (0..width).map(move |x| (x, y)))
-            .map(|(x, y)| {
-                let p = inverse.transform_point(Point::new(x as f64 + 0.5, y as f64 + 0.5));
-                [p.x, p.y]
-            })
+        // Every centre mapped at once, as matplotlib maps the mesh with one
+        // call of the inverse (a map of the program's is called once, not
+        // once per pixel).
+        let mut centres: Vec<Point> = (0..height)
+            .flat_map(|y| (0..width).map(move |x| Point::new(x as f64 + 0.5, y as f64 + 0.5)))
             .collect();
+        inverse.transform_points(&mut centres);
+        let mesh = centres.into_iter().map(|p| [p.x, p.y]).collect();
         Ok(PixelTransform::Mesh(raster::Grid::from_vec(
             width, height, mesh,
         )?))

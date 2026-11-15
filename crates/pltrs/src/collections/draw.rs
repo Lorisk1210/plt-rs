@@ -14,7 +14,7 @@ use super::{CollectionArtist, CollectionKind, cycled};
 use crate::artist::{Artist, ArtistId, DrawContext, LayoutContext};
 use crate::axes::AxesState;
 use crate::patheffects::with_path_effects;
-use crate::transforms::{ResolvedTransform, Transform};
+use crate::transforms::Transform;
 
 /// Where a collection's items are for one draw: the shapes after the
 /// non-affine part of the transform (the shapes themselves under an
@@ -45,10 +45,7 @@ impl<'a> Geometry<'a> {
         let paths = if resolved.is_affine() {
             Cow::Borrowed(shapes)
         } else {
-            shapes
-                .iter()
-                .map(|p| resolved.split_path(p).0.into_owned())
-                .collect()
+            Cow::Owned(resolved.split_members(shapes).0)
         };
         let dpi = layout.dpi();
         let mut master = resolved.affine_part();
@@ -69,12 +66,14 @@ impl<'a> Geometry<'a> {
                 let r = layout
                     .resolve(t)
                     .ok_or("its offset coordinate system no longer exists")?;
-                let place = if c.offsets_masked {
-                    ResolvedTransform::transform_point_non_affine_masked
+                // All at once: a map of the program's is called once, as
+                // matplotlib maps the offsets array.
+                let mut placed = offsets.to_vec();
+                if c.offsets_masked {
+                    r.transform_points_non_affine_masked(&mut placed);
                 } else {
-                    ResolvedTransform::transform_point_non_affine
-                };
-                let placed = offsets.iter().map(|&p| place(&r, p)).collect();
+                    r.transform_points_non_affine(&mut placed);
+                }
                 (placed, r.affine_part())
             }
             None => (vec![Point::ORIGIN], Affine2D::IDENTITY),

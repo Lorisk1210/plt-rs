@@ -541,7 +541,7 @@ pub(crate) fn lay_out_with(
         Typesetting::Tex => (
             match overrides::font_height(font, typesetting, dpi) {
                 Some(measured) => measured,
-                None => tex_height_metrics(font, dpi, rc)?,
+                None => tex_height_metrics(font, dpi)?,
             },
             BlockStyle {
                 linespacing: LineSpacing::Normal,

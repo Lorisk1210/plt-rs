@@ -50,7 +50,7 @@ import numbers
 
 import numpy as np
 from numpy.linalg import inv  # noqa: F401  (matplotlib's transforms has it)
-from . import _api, _docstring
+from . import _api, _docstring, _program_classes
 from ._native import transforms as _transforms
 from ._path import affine_transform, count_bboxes_overlapping_bbox  # noqa: F401  (also matplotlib's names)
 from .path import Path
@@ -2484,9 +2484,11 @@ class CompositeGenericTransform(Transform):
             a = self._a.get_affine().get_matrix()
             b = self._b.get_affine().get_matrix()
             affine = Affine2D(_transforms.compose(a, b))
-            if not _transforms.tame(a, b):
+            if not _transforms.tame(a, b) or _asks_program(self):
                 # A product numpy may warn about is made at every call, as
-                # matplotlib makes every product, warning each time.
+                # matplotlib makes every product, warning each time; and a
+                # part of the program's is asked at every call, as
+                # matplotlib asks it.
                 return affine
             self._affine = affine
         return self._affine
@@ -2494,9 +2496,46 @@ class CompositeGenericTransform(Transform):
     def inverted(self):
         # docstring inherited
         if self._inverse is None:
-            self._inverse = CompositeGenericTransform(
+            inverse = CompositeGenericTransform(
                 self._b.inverted(), self._a.inverted())
+            if _asks_program(self):
+                return inverse
+            self._inverse = inverse
         return self._inverse
+
+
+#: What a composite asks of its parts and matplotlib asks again at every
+#: call: a part answering them through code of the program's is asked so.
+_ASKED_OF_PARTS = ("get_affine", "get_matrix", "inverted")
+
+
+@_program_classes.class_cache
+def _class_asked(cls):
+    """Whether the transform class *cls* answers what a composite asks of
+    its parts (`_ASKED_OF_PARTS`) through code of the program's."""
+    return any(_program_classes.takes_from_program(cls, name) for name in _ASKED_OF_PARTS)
+
+
+def _asks_program(transform):
+    """Whether *transform*, or a part of it, answers what a composite asks
+    of its parts through code of the program's: a composite holding one
+    keeps no answer (matplotlib's composes anew at every call, asking the
+    program's part each time). Asked only where a composite would keep
+    one, so that transforms of pltrs' own cost nothing more."""
+    if _class_asked(type(transform)):
+        return True
+    return any(_asks_program(part) for part in _parts(transform))
+
+
+def _parts(transform):
+    """The transforms *transform* is made of (none for a leaf)."""
+    if isinstance(transform, (CompositeGenericTransform, CompositeAffine2D)):
+        return transform._a, transform._b
+    if isinstance(transform, (BlendedGenericTransform, BlendedAffine2D)):
+        return transform._x, transform._y
+    if isinstance(transform, TransformWrapper):
+        return (transform._child,)
+    return ()
 
 
 class CompositeAffine2D(Affine2DBase):

@@ -113,6 +113,17 @@ pub trait PointMap: fmt::Debug + std::any::Any {
     fn transform_outline(&self, path: &Path) -> Path {
         self.transform_path(path)
     }
+    /// Maps the paths of a collection being drawn, as matplotlib's
+    /// `Collection._prepare_points` maps them at every draw: each through
+    /// `transform_path_non_affine`, none kept (the default maps each as
+    /// [`transform_outline`](PointMap::transform_outline) does; a map of
+    /// the program's is asked once for all of them).
+    fn transform_members(&self, paths: &[Path]) -> Vec<Path> {
+        paths
+            .iter()
+            .map(|path| self.transform_outline(path))
+            .collect()
+    }
     /// Why the map refuses to draw `path`, as matplotlib's
     /// `transform_path_non_affine` raises (a polar map's for a curve none
     /// of whose segments is finite); `None`, the default, when it maps it.
@@ -225,6 +236,19 @@ impl Step {
         }
     }
 
+    /// [`apply_masked`](Self::apply_masked) to every element of a masked
+    /// array, a map of the plane called once for all of them.
+    fn apply_all_masked(&self, points: &mut [Point]) {
+        match self {
+            Self::Affine(_) | Self::Plane(_) => self.apply_all(points),
+            Self::Separable(..) | Self::Blend(..) => {
+                for p in points {
+                    *p = self.apply_masked(*p);
+                }
+            }
+        }
+    }
+
     /// Whether the step is `other`: the same maps, the same affine map.
     fn same_as(&self, other: &Self) -> bool {
         let same_map = |a: &Option<Rc<dyn AxisMap>>, b: &Option<Rc<dyn AxisMap>>| match (a, b) {
@@ -304,6 +328,21 @@ impl Step {
         }
         self.apply_all(path.vertices_mut());
         path
+    }
+
+    /// Maps the paths of a collection being drawn (see
+    /// [`PointMap::transform_members`]).
+    fn transform_members(&self, paths: Vec<Path>) -> Vec<Path> {
+        if let Self::Plane(map) = self {
+            return map.transform_members(&paths);
+        }
+        paths
+            .into_iter()
+            .map(|mut path| {
+                self.apply_all(path.vertices_mut());
+                path
+            })
+            .collect()
     }
 }
 
@@ -655,6 +694,15 @@ impl ResolvedTransform {
         }
     }
 
+    /// [`transform_points_non_affine`](Self::transform_points_non_affine)
+    /// for the elements of a masked array (see
+    /// [`transform_point_non_affine_masked`](Self::transform_point_non_affine_masked)).
+    pub fn transform_points_non_affine_masked(&self, points: &mut [Point]) {
+        for step in &self.steps {
+            step.apply_all_masked(points);
+        }
+    }
+
     /// The box spanned by the images of the two corners of `bbox`
     /// (matplotlib's `transform_bbox`): neither ordered nor grown to
     /// enclose the image of the whole box, which a rotation or a
@@ -713,6 +761,16 @@ impl ResolvedTransform {
         let mapped =
             (self.steps.iter()).fold(path.clone(), |path, step| step.transform_outline(path));
         (Cow::Owned(mapped), self.affine)
+    }
+
+    /// Splits the paths of a collection being drawn like
+    /// [`split_path`](Self::split_path), its plane maps mapping all of
+    /// them at once as matplotlib's `Collection._prepare_points` does (see
+    /// [`PointMap::transform_members`]).
+    pub fn split_members(&self, paths: &[Path]) -> (Vec<Path>, Affine2D) {
+        let mapped =
+            (self.steps.iter()).fold(paths.to_vec(), |paths, step| step.transform_members(paths));
+        (mapped, self.affine)
     }
 
     /// Splits a path of positions (markers) for drawing like

@@ -154,5 +154,5 @@ pub use voxels::{Array3, VoxelColors, VoxelOptions};
 pub(crate) use layout::{axes3d_layout_extents, axes3d_placement, set_axes3d_position};
 pub(crate) use state::{
     axes3d_bbox, axes3d_fresh_tight_bbox, axes3d_ids, axes3d_subplot_spec, is_axes3d, place_axes3d,
-    prepare_axes3d,
+    prepare_axes3d, prepare_drawn,
 };

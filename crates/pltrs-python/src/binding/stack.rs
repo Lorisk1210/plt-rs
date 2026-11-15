@@ -51,7 +51,19 @@ mod linux;
 /// room for them (`pltrs_text`, `pltrs_core::stack`). So a thread of 128
 /// KiB (musl's default) draws with callbacks of the program's, as
 /// matplotlib does there.
+#[cfg(not(target_os = "macos"))]
 const RESERVE: usize = 64 * 1024;
+
+/// [`RESERVE`] on macOS (arm64), whose native stretches below a nested
+/// call go deeper than Linux's. Measured on Apple silicon by the same
+/// recursions (`test_stack1.py`, the Python fuzzer's seed 22 on a stack
+/// of 1 MiB): with 64 KiB a formatter saving its figure overflows the
+/// stack of a 512 KiB thread before the check refuses a call; from 72 to
+/// 88 KiB every recursion ends in `RecursionError` and a thread asked for
+/// 128 KiB (macOS gives it 140) still makes its nested calls, which 96 KiB
+/// refuses to a PDF save there.
+#[cfg(target_os = "macos")]
+const RESERVE: usize = 80 * 1024;
 
 /// The most of a larger stack native recursion may use, below where the
 /// thread was first measured: twice Linux's default stack. A round of

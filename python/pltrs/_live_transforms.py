@@ -19,7 +19,7 @@ import weakref
 import numpy as np
 
 from . import _lazy_imports
-from ._native import artist as _artist, register as _register, transforms as _transforms
+from ._native import artist as _artist, drawing as _drawing, register as _register, transforms as _transforms
 from . import _program_classes
 from ._program_classes import class_cache
 from .transforms import (
@@ -166,6 +166,24 @@ def follow_given(artist):
         _transforms.set_transform(artist._native, to_native(given, held_by=artist._figure or artist))
 
 
+def ask_when_drawn(artist, transform):
+    """
+    Have pltrs (Rust) ask *artist* for *transform*, the transform it was
+    given, before every draw and measure reaching it when *transform*
+    computes a matrix in the program's code (`_computes_matrix`), as
+    matplotlib asks it for the matrix wherever it draws or measures the
+    artist (pltrs (Rust) holds a matrix as it was when handed over); no
+    more once the artist is given another. Called only for transforms
+    pltrs (Rust) has no node for, or for an artist asked so before.
+    """
+    computes = isinstance(transform, Transform) and _computes_matrix(transform)
+    if computes:
+        artist.__dict__["_asked_transform"] = True
+        _drawing.ask_for_transform(artist._native, weakref.ref(artist))
+    elif artist.__dict__.pop("_asked_transform", False):
+        _drawing.ask_for_transform(artist._native, None)
+
+
 class _GivenWatcher(TransformNode):
     """
     A parent of the transform an artist was given, holding parts pltrs
@@ -205,6 +223,8 @@ def watch_given(artist, transform):
     artist.__dict__.pop("_given_watcher", None)
     if isinstance(transform, Transform) and _takes_matrices(_description(transform)):
         artist.__dict__["_given_watcher"] = _GivenWatcher(artist, transform)
+    if getattr(transform, "_live", None) is None or "_asked_transform" in artist.__dict__:
+        ask_when_drawn(artist, transform)
 
 
 def _takes_matrices(description):
@@ -357,7 +377,38 @@ class _ProgramMap:
         if self._transform.is_affine:
             return self.transform_path(vertices, codes, steps)
         path = Path(vertices, codes, _interpolation_steps=steps)
-        return self._transform.transform_path(path)
+        mapped = self._transform.transform_path_non_affine(path)
+        affine = self._transform.get_affine()
+        if isinstance(affine, IdentityTransform):
+            return mapped
+        return affine.transform_path(mapped)
+
+    def transform_members(self, paths):
+        """The paths of a collection, *paths* as ``(vertices, codes,
+        steps)``, through the transform, as matplotlib's
+        ``Collection._prepare_points`` maps them at every draw: each through
+        ``transform_path_non_affine``, then all through ``get_affine()``,
+        asked once (an affine one through its matrix, see
+        `transform_path`)."""
+        if self._transform.is_affine:
+            return [self.transform_path(*path) for path in paths]
+        transform = self._transform
+        mapped = [transform.transform_path_non_affine(_given_path(*path)) for path in paths]
+        affine = transform.get_affine()
+        if isinstance(affine, IdentityTransform):
+            return mapped
+        return [affine.transform_path(path) for path in mapped]
+
+
+def _given_path(vertices, codes, steps):
+    """The `.Path` of *vertices* and *codes* with *steps* interpolation
+    steps: the one an artist was given or handed out with that content, if
+    one lives (programs keep what they computed by path, see
+    `_ProgramMap.transform_path`), else a new one."""
+    held = _owned_paths.held(vertices, codes, steps)
+    if held is not None:
+        return held
+    return Path(vertices, codes, _interpolation_steps=steps)
 
 
 class _InverseMap:

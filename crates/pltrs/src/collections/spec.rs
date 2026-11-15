@@ -380,12 +380,11 @@ impl CollectionArtist {
             // (`(offset_trf - transData).transform(offsets)`), which their
             // transform ends in, after an affine map of their own (a
             // barb plot's `transform=Affine2D().translate(...) + ax.transData`).
-            let points = match offset_transform.to_data(axes) {
-                Some(to_data) => (self.offsets.iter())
-                    .map(|&p| to_data.transform_point(p))
-                    .collect(),
-                None => self.offsets.clone(),
-            };
+            let mut points = self.offsets.clone();
+            if let Some(to_data) = offset_transform.to_data(axes) {
+                // All at once (a transform of the program's is called once).
+                to_data.transform_points(&mut points);
+            }
             let mut limits = DataLimits::NULL;
             limits.update_from_points(&points, true, true);
             return (limits, directions);
@@ -398,9 +397,8 @@ impl CollectionArtist {
     fn offset_limits(&self, axes: ArtistId) -> DataLimits {
         let mut limits = DataLimits::NULL;
         if let Some(to_data) = self.offset_transform.as_ref().and_then(|t| t.to_data(axes)) {
-            let points: Vec<Point> = (self.offsets.iter())
-                .map(|&p| to_data.transform_point(p))
-                .collect();
+            let mut points = self.offsets.clone();
+            to_data.transform_points(&mut points);
             limits.update_from_points(&points, true, true);
         }
         limits

@@ -16,10 +16,8 @@ draw. Before the first draw an axes keeps its original position, as in
 matplotlib.
 
 Last, the hook places the axis labels given position setters of the
-program's (`follow_label`) where the draw will, through those setters,
-and the tick labels given the setter matplotlib's tick update calls with
-the tick's location (`follow_tick_label`: ``set_x`` on an x tick's,
-``set_y`` on a y tick's), through it. The child Axes of an Axes are those
+program's (`follow_label`) where the draw will, through those setters.
+The child Axes of an Axes are those
 of the list the program assigned it, as the list is then
 (`follow_child_axes`).
 
@@ -77,20 +75,6 @@ def follow_child_axes(ax, figure):
     of a draw, changes made in place included, while *ax* lives."""
     _owners(figure)
     _child_lists.setdefault(figure, weakref.WeakSet()).add(ax)
-
-
-#: The tick labels (their `.Text` mirrors) given the position setter of
-#: the program's matplotlib's tick update calls, per root figure.
-_tick_labels = weakref.WeakKeyDictionary()
-
-
-def follow_tick_label(label, figure):
-    """Have the root *figure* place the tick label *label* (the `.Text`
-    mirror of a tick's label, given the position setter of the program's
-    matplotlib's tick update calls with the tick's location) through that
-    setter before every layout of a draw, while it lives."""
-    _owners(figure)
-    _tick_labels.setdefault(figure, weakref.WeakSet()).add(label)
 
 
 def follow_label(label, figure):
@@ -188,7 +172,4 @@ def _locate(figure):
         renderer = figure._get_renderer()
         for label in labels:
             label.place_by_program(renderer)
-    tick_labels = list(_tick_labels.get(figure, ()))
-    if tick_labels:
-        from .._axis_artists import place_tick_labels_by_program
-        place_tick_labels_by_program(tick_labels)
+

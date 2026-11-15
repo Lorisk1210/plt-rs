@@ -234,3 +234,84 @@ def test_child_axes_follow_changes_made_in_place_to_an_assigned_list():
     assert (without[int(rows - y1 + 3):int(rows - y0 - 3), int(x0 + 3):int(x1 - 3), :3] == 255).all()
     ax.child_axes.append(a)
     assert np.array_equal(pixels(fig), both)
+
+
+def _shifted_x(self, x):
+    """A tick label's ``set_x`` of the program's (pygtc's), shifting it."""
+    mtext.Text.set_x(self, x + 0.1)
+
+
+def _shift_labels(ax):
+    """Give the x tick labels of *ax* the shifting ``set_x``."""
+    for label in ax.get_xticklabels():
+        label.set_x = types.MethodType(_shifted_x, label)
+
+
+@pytest.mark.parametrize("change, positions", [
+    ("nothing", [-0.15, 0.1, 0.35]),
+    ("cla", [-0.25, 0.0, 0.25]),
+    ("reset_ticks", [-0.25, 0.0, 0.25]),
+    ("set_xlim", [0.3, 0.5, 0.7]),
+])
+def test_replaced_tick_label_setters_meet_cleared_and_reset_ticks(change, positions):
+    # matplotlib's clear and reset_ticks make the ticks anew: their labels'
+    # setters are called no more.
+    fig, ax = plt.subplots(figsize=(3, 2), dpi=50)
+    ax.plot([0, 1])
+    fig.canvas.draw()
+    _shift_labels(ax)
+    if change == "cla":
+        ax.cla()
+        ax.plot([0, 1])
+    elif change == "reset_ticks":
+        ax.xaxis.reset_ticks()
+    elif change == "set_xlim":
+        ax.set_xlim(0.2, 1.2)
+    fig.canvas.draw()
+    fig.savefig(io.BytesIO(), format="png")
+    assert [round(float(t.get_position()[0]), 3) for t in ax.get_xticklabels()[:3]] == positions
+
+
+def test_replaced_tick_label_setters_of_a_removed_axes_draw_without_it():
+    fig, ax = plt.subplots(figsize=(3, 2), dpi=50)
+    ax.plot([0, 1])
+    fig.canvas.draw()
+    _shift_labels(ax)
+    with pytest.raises(NotImplementedError):
+        ax.get_xticklabels()[1].remove()
+    ax.remove()
+    fig.canvas.draw()
+    fig.savefig(io.BytesIO(), format="png")
+
+
+@pytest.mark.parametrize("layout, title, counts", [
+    (None, False, [(3, 3), (3, 3), (11, 11)]),
+    (None, True, [(3, 6), (3, 6), (11, 20)]),
+    ("constrained", False, [(13, 13), (16, 16), (21, 21)]),
+])
+def test_replaced_tick_label_setters_are_called_where_matplotlib_updates_ticks(
+        layout, title, counts):
+    # matplotlib's `Tick.update_position` calls them at each tick update:
+    # three per draw, more for a title placed or a layout.
+    fig, ax = plt.subplots(figsize=(3, 2))
+    ax.plot([0, 1])
+    if title:
+        ax.set_title("t")
+    if layout:
+        fig.set_layout_engine(layout)
+    fig.canvas.draw()
+    calls = {"x": 0, "y": 0}
+    for which, label, setter in (("x", ax.get_xticklabels()[0], "set_x"),
+                                 ("y", ax.get_yticklabels()[0], "set_y")):
+        def counted(self, value, _which=which, _setter=setter):
+            calls[_which] += 1
+            getattr(mtext.Text, _setter)(self, value)
+        setattr(label, setter, types.MethodType(counted, label))
+    seen = []
+    for act in (lambda: fig.canvas.draw(),
+                lambda: fig.savefig(io.BytesIO(), format="png"),
+                lambda: fig.savefig(io.BytesIO(), format="png", bbox_inches="tight")):
+        act()
+        seen.append((calls["x"], calls["y"]))
+        calls.update(x=0, y=0)
+    assert seen == counts

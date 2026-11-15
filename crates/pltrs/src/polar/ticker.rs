@@ -104,6 +104,10 @@ impl Locator for ThetaLocator {
             .view_limits(dmin.to_degrees(), dmax.to_degrees(), ctx)?;
         Ok((low.to_radians(), high.to_radians()))
     }
+
+    fn calls_program(&self) -> bool {
+        self.base.calls_program()
+    }
 }
 
 /// Angles in radians labelled in degrees with a degree sign, with more
@@ -253,6 +257,10 @@ impl Locator for RadialLocator {
             low = low.min(0.0);
         }
         Ok(nonsingular(low, high, 0.001, 1e-15, true))
+    }
+
+    fn calls_program(&self) -> bool {
+        self.base.calls_program()
     }
 }
 

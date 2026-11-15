@@ -64,6 +64,13 @@ class Shifting(transforms.Transform):
         once()
         return values'''
 
+#: A locator of the program's whose ``tick_values`` calls back.
+LOCATING = '''
+class Locating(ticker.MaxNLocator):
+    def tick_values(self, vmin, vmax):
+        once()
+        return super().tick_values(vmin, vmax)'''
+
 #: A scale of the program's whose transform calls back, registered.
 PLAIN_SCALE = '''
 class Identity(transforms.Transform):
@@ -99,12 +106,16 @@ class Locating(ticker.MaxNLocator):
         once()
         return super().__call__()
 ax.xaxis.set_major_locator(Locating())''', DRAW),
-    "locator-tick_values": Kind('''
-class Locating(ticker.MaxNLocator):
-    def tick_values(self, vmin, vmax):
-        once()
-        return super().tick_values(vmin, vmax)
-ax.xaxis.set_major_locator(Locating())''', DRAW),
+    "locator-tick_values": Kind(LOCATING + "\nax.xaxis.set_major_locator(Locating())", DRAW),
+    # Locators the axes of a projection wraps (polar) or asks otherwise (3-D).
+    "locator-tick_values-polar": Kind(LOCATING + '''
+polar = fig.add_axes([0.6, 0.6, 0.3, 0.3], projection="polar")
+polar.plot([0, 1], [0, 1])
+polar.yaxis.set_major_locator(Locating())''', DRAW),
+    "locator-tick_values-3d": Kind(LOCATING + '''
+space = fig.add_axes([0.6, 0.6, 0.3, 0.3], projection="3d")
+space.plot([0, 1], [0, 1], [0, 1])
+space.xaxis.set_major_locator(Locating())''', DRAW),
     "transform-non_affine": Kind(SHIFTING + "\nline.set_transform(Shifting() + ax.transData)", DRAW),
     # Callbacks of native calls changing the figure (not drawing it).
     "transform-non_affine-plot": Kind(SHIFTING, ["ax.plot([1, 2], [3, 4], transform=Shifting() + ax.transData)"]),
@@ -285,6 +296,17 @@ OPERATIONS: dict[str, str] = {
     "draw_without_rendering": "fig.draw_without_rendering()",
     "savefig": "fig.savefig(io.BytesIO())",
     "draw_idle": "fig.canvas.draw_idle()",
+    # Artists made and measured, which the figure leaves loose (a locator
+    # making a tick to measure its label, as getdist's does).
+    "make-tick": "(lambda tick: (tick.label1.set_text('0.5'), "
+                 "tick.label1.get_window_extent(fig.canvas.get_renderer()).bounds)[1])"
+                 "(ax.xaxis._get_tick(major=True))",
+    "make-text": "mtext.Text(0, 0, 'made', figure=fig).get_window_extent(fig.canvas.get_renderer()).bounds",
+    "make-line": "(lambda made: (made.set_figure(fig), "
+                 "made.get_window_extent(fig.canvas.get_renderer()).bounds)[1])(lines.Line2D([0, 1], [0, 1]))",
+    "make-patch": "(lambda made: (made.set_figure(fig), made.set_transform(ax.transData), "
+                  "made.get_window_extent(fig.canvas.get_renderer()).bounds)[2])"
+                  "(patches.Rectangle((0, 0), 1, 1))",
 }
 
 IMPORTS = [
@@ -293,8 +315,9 @@ IMPORTS = [
     "import matplotlib",
     "matplotlib.use('agg')",
     "import matplotlib.pyplot as plt",
-    "from matplotlib import (artist, colors, figure, layout_engine, legend_handler, patches, patheffects, scale, "
-    "ticker, transforms, units)",
+    "from matplotlib import (artist, colors, figure, layout_engine, legend_handler, lines, patches, patheffects, "
+    "scale, ticker, transforms, units)",
+    "import matplotlib.text as mtext",
     "from matplotlib.backend_bases import MouseEvent, ResizeEvent",
 ]
 

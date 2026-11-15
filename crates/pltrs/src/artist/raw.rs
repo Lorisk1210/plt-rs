@@ -291,7 +291,7 @@ impl RawHandle {
     /// figure, or of another type than the handle's. A figure keeps its
     /// artists, removed or not, and handles are only made for artists of
     /// their figure and type, so this never happens.
-    fn mismatched(&self) -> ! {
+    pub(crate) fn mismatched(&self) -> ! {
         panic!("artist {} does not match its handle", self.id)
     }
 }

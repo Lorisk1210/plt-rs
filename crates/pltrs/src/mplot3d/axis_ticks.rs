@@ -10,7 +10,7 @@ use super::axis_handle::Axis3D;
 use super::axis3d::{Axis3DState, AxisSpan};
 use super::state::{Axes3DState, prepare_one};
 use super::tick_sites::MinorTicks;
-use crate::artist::{ArtistHandle, LayoutContext};
+use crate::artist::{ArtistHandle, ArtistLookup, LayoutContext};
 use crate::axes::{AxisName, Labelling, TickSet};
 use crate::dates::TimeZone;
 use crate::ticker::{AxisInfo, TickContext, TickerError, TickerSettings, drawable_ticks};
@@ -140,14 +140,20 @@ impl Axis3D {
     /// When a locator or formatter fails.
     pub fn ticklocs(&self, minor: bool) -> Result<Vec<f64>, TickerError> {
         self.lay_out();
-        let points = (self.axes.raw().figure_state().borrow())
-            .axis_length_points(self.axes.id(), AxisName::X)
-            .unwrap_or(0.0);
-        let dir = self.dir;
-        self.axes.with(|axes| {
-            axes.axis(dir)
-                .level_locs(&axes.limits.span(dir), points, minor)
-        })
+        let (id, dir) = (self.axes.id(), self.dir);
+        let located = self.axes.raw().figure_state().work_on(|figure| {
+            let points = figure.axis_length_points(id, AxisName::X).unwrap_or(0.0);
+            let locate = |axes: &Axes3DState| {
+                (axes.axis(dir)).level_locs(&axes.limits.span(dir), points, minor)
+            };
+            // The program's locators run with the figure lent, as they may
+            // read and change it; the axes is held apart from it meanwhile.
+            let held = (figure.store.shared_as::<Axes3DState>(id))
+                .filter(|axes| axes.axis(dir).calls_program());
+            held.and_then(|held| figure.lend(|_| locate(&held)))
+                .or_else(|| figure.artist_as::<Axes3DState>(id).map(locate))
+        });
+        located.unwrap_or_else(|| self.axes.raw().mismatched())
     }
 
     /// What a locator or formatter attached to this axis knows of it: its

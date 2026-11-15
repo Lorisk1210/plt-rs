@@ -168,8 +168,8 @@ tables and side-by-side examples whose Rust half runs as a doctest.
   WebSocket server): pan, zoom, history, readout, mouse and key events,
   timers and downloads in every output format.
 * **Output**: PNG pixel-identical to matplotlib's Agg; JPEG and TIFF
-  byte-identical to Pillow's for the same pixels, lossless WebP, GIF and
-  raw RGBA; SVG, PDF and PostScript/EPS documents structured like
+  byte-identical to Pillow's for the same pixels, lossless WebP, AVIF,
+  GIF and raw RGBA; SVG, PDF and PostScript/EPS documents structured like
   matplotlib's, including the 14 core fonts of `pdf.use14corefonts` and
   `ps.useafm`; and PGF pictures for LaTeX (text typeset by LaTeX, laid
   out with pltrs' metrics). `imread` reads PNG, JPEG, TIFF, GIF and WebP (lossy and
@@ -397,6 +397,9 @@ pltrs (Python) is measured against matplotlib in these ways:
   each in its own process, so that a crash, a hang or runaway memory is
   caught. A Python exception is fine; a crash is a bug.
 
+What pltrs (Python) does otherwise than matplotlib, on purpose or not
+yet, is listed in
+[`CHANGELOG.md`](https://github.com/Lorisk1210/plt-rs/blob/main/CHANGELOG.md).
 How it is built, and how to extend it, is in
 [`python/DESIGN.md`](https://github.com/Lorisk1210/plt-rs/blob/main/python/DESIGN.md).
 

@@ -61,8 +61,8 @@ The same command runs the Python examples under pltrs too, writing to
 does so when pltrs can be imported: by the pltrs venv's interpreter
 (`.venv-pltrs/bin/python`, or the one `PLTRS_PYTHON` names), with
 `python/` on `PYTHONPATH`. Otherwise it says why it skipped pltrs.
-pltrs is still growing toward matplotlib's whole API, so its runs are
-reported but do not fail `--check` unless `--require-pltrs` is given.
+Its runs are reported, and fail `--check` only with `--require-pltrs`,
+so that the check needs no pltrs build; every example runs under pltrs.
 
 With `--check`, the Rust images go to `target/examples/rust/` instead,
 and the command fails when

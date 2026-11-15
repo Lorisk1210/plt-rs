@@ -4,8 +4,10 @@ description = "Developer automation for pltrs (conformance reports, golden manag
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-publish.workspace = true
+# Never published to crates.io, whatever the workspace says.
+publish = false
 license.workspace = true
+repository.workspace = true
 
 [dependencies]
 pltrs.workspace = true

@@ -37,6 +37,7 @@ license-files = [
 Source = "https://github.com/Lorisk1210/plt-rs"
 Issues = "https://github.com/Lorisk1210/plt-rs/issues"
 Documentation = "https://github.com/Lorisk1210/plt-rs#python"
+Changelog = "https://github.com/Lorisk1210/plt-rs/blob/main/CHANGELOG.md"
 
 [tool.pltrs-backend.pltrs]
 summary = "matplotlib's Python API over pltrs, matplotlib rebuilt in Rust"
@@ -71,6 +72,7 @@ dependencies = [
 
 [tool.pltrs-backend.matplotlib]
 summary = "matplotlib, mpl_toolkits and pylab as aliases of pltrs"
+readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT OR Apache-2.0"
 classifiers = [

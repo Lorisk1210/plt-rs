@@ -1,4 +1,4 @@
-//! Matplotlib, reimagined in Rust: figures, axes, artists and a pyplot-style API.
+//! matplotlib rebuilt in Rust: figures, axes, artists and a pyplot-style API.
 //!
 //! pltrs follows matplotlib's architecture and semantics closely so that
 //! anything you can draw with matplotlib can be drawn the same way here.
@@ -9,8 +9,8 @@
 //! # Quick start
 //!
 //! The object-oriented interface: make a [`figure::Figure`], add axes and
-//! plot on them, then save the figure (PNG, JPEG, TIFF, GIF, WebP, SVG,
-//! PDF, PostScript or PGF, chosen from the file name).
+//! plot on them, then save the figure (PNG, JPEG, TIFF, GIF, WebP, AVIF,
+//! SVG, PDF, PostScript or PGF, chosen from the file name).
 //!
 //! ```
 //! use pltrs::prelude::*;

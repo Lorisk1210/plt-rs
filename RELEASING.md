@@ -33,8 +33,9 @@ branches or pull requests, as every run costs Actions minutes.
    Cargo.toml's `repository`) point at the GitHub repository, which is
    private: visitors of the PyPI page would find nothing. Make it public,
    or point the links elsewhere. The README is the page's text; its
-   links to files of the tree (`python/DESIGN.md`, ...) only work from
-   GitHub.
+   links to files of the tree (`python/DESIGN.md`, `RELEASING.md`, ...)
+   are absolute GitHub URLs, which work only once the repository is
+   public.
 3. **PyPI**: with an account that has two-factor authentication, add a
    *pending trusted publisher* (https://pypi.org/manage/account/publishing/):
    PyPI project name `pltrs`, owner `Lorisk1210`, repository `plt-rs`,
@@ -61,7 +62,12 @@ branches or pull requests, as every run costs Actions minutes.
    macOS minutes (billed ten times). The extension's build (fat LTO,
    one codegen unit) peaks at about 4.8 GB of memory (4.5 GiB) for
    x86_64 and 6.0 GB (5.6 GiB) for aarch64, within a standard runner's
-   7 GB.
+   7 GB. With MSVC it peaks higher: 9.0 GiB committed for the fat LTO
+   (the Windows PC, 2026-11-15), because the release profile keeps
+   line tables (`debug = "line-tables-only"`) through the LTO until the
+   link strips them; without them it is about 2.3 GiB. The Windows job
+   needs them left out of the extension's build, or a runner with more
+   memory.
 
 ## Rehearsing
 
@@ -82,7 +88,12 @@ branches or pull requests, as every run costs Actions minutes.
 
   On a Mac, `cargo xtask python wheels` builds `arm64`, `x86_64` and
   `universal2` wheels; check them natively and with an x86_64 Python
-  under Rosetta.
+  under Rosetta. On Windows it builds the `win_amd64` wheel, the sdist
+  and the alias, with the toolchain rustup resolves `rust-toolchain.toml`'s
+  channel to: set `RUSTUP_TOOLCHAIN=1.99-x86_64-pc-windows-msvc` where
+  rustup's default host is the GNU one, so that the wheel is linked as
+  the workflow links it, by MSVC. `check_dist.py` takes the path of a
+  `python.exe` as `--python`.
 * On GitHub: *Actions > wheels > Run workflow*. Everything runs but
   publishing: the archives are the run's artifacts (`pltrs-*` and
   `alias`), to download and try.
@@ -102,7 +113,11 @@ branches or pull requests, as every run costs Actions minutes.
    maps against its ceilings.
 2. Set the version in `Cargo.toml`'s `[workspace.package]`: the one
    source of the crates', the wheels' and the alias' versions (the
-   alias is `<matplotlib version>+pltrs.<version>`). Commit and push.
+   alias is `<matplotlib version>+pltrs.<version>`). Give `CHANGELOG.md`
+   the version's section (its heading names the version, which
+   `python/tests/test_readme_facts.py` holds against `Cargo.toml`, as it
+   holds the README's and the changelog's numbers against the tree).
+   Commit and push.
 3. Tag the commit and push the tag:
 
    ```sh
@@ -120,7 +135,8 @@ branches or pull requests, as every run costs Actions minutes.
    the archives once more and uploads them to PyPI through trusted
    publishing.
 6. A draft GitHub release then holds every archive, the alias wheel
-   included. Write its notes and publish it.
+   included. Write its notes (the version's section of `CHANGELOG.md`)
+   and publish it.
 
 If any job fails, nothing reaches PyPI. Fix the cause on `main`, delete
 the tag (`git push --delete origin v0.1.0; git tag -d v0.1.0`), tag

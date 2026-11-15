@@ -12,7 +12,8 @@ from pltrs.mpl_toolkits.mplot3d import Axes3D
 
 The measure is matplotlib 3.11's own test suite, run unchanged against
 pltrs: the share of the tests that pass under real matplotlib here which
-also pass under pltrs (`cargo xtask mpl-suite`). It must reach 100%.
+also pass under pltrs (`cargo xtask mpl-suite`). It is at 100%, and must
+stay there.
 
 This document is for the agents who widen pltrs. It records the decisions
 that bind them, and where to put new code.
@@ -1105,8 +1106,22 @@ adapter `_tick_helpers` makes), handing it pltrs (Rust)'s description of
 the axis being drawn, which its `_axis_info()` and its `Axis` answer from
 meanwhile.
 
-An exception a callback raises waits in the frame of the native call
-running (`binding/callback.rs`). Where matplotlib's Python code catches
+Python subclasses that override drawing or computation (a `Formatter`,
+`Locator`, `Transform`, `Artist` subclass) follow the same route: the
+native side is given the Python object as a callable or as an object
+whose methods a Rust adapter calls through `Callback`. A Rust value that
+must refer back to Python objects that can reach it (an event callback
+holding its figure) must hold them weakly, or the cycle runs through Rust
+where Python's garbage collector cannot see it.
+
+pltrs (Rust)'s callback traits cannot fail the Python way, so when the
+callable raises, the exception is kept in the frame of the native call
+that is running (`binding/callback.rs`), the callback returns a fallback
+(`None` from `call`), later callbacks of that call are skipped, and the
+native function raises the kept exception when pltrs (Rust) returns. Each
+native call has its own frame, so a native function a callback calls
+cannot pick up its caller's exception. A callback outside any native call
+turns its exception into a `RuntimeWarning`. Where matplotlib's Python code catches
 one that pltrs (Rust) runs the program's code for, pltrs (Rust) asks
 the binding through `pltrs::layout::failures` (installed by
 `modules/figure_layout.rs`), which takes an exception of the class asked
@@ -1297,23 +1312,6 @@ groups with them: `matplotlib.axis`, then `xtick`/`ytick` holding a
 `line2d` per visible line and a `text` per non-empty label, then the
 label and the offset text; a 3-D axes draws its background and the
 `pane3d`, `grid3d` and `axis3d` groups of its axes before its own group.
-
-pltrs (Rust)'s callback traits cannot fail the Python way, so when the callable
-raises, the exception is kept in the frame of the native call that is
-running, the callback returns a fallback (`None` from `call`), later
-callbacks of that call are skipped, and the native function raises the
-kept exception when pltrs (Rust) returns. Each native call has its own frame, so
-a native function a callback calls cannot pick up its caller's exception.
-A callback outside any native call turns its exception into a
-`RuntimeWarning`.
-
-Python subclasses that override drawing or computation (a `Formatter`,
-`Locator`, `Transform`, `Artist` subclass) follow the same route: the
-native side is given the Python object as a callable or as an object
-whose methods a Rust adapter calls through `Callback`. A Rust value that
-must refer back to Python objects that can reach it (an event callback
-holding its figure) must hold them weakly, or the cycle runs through Rust
-where Python's garbage collector cannot see it.
 
 An axis whose locator, formatter or scale is Python's (a class of the
 program's, a `FuncFormatter`, a function scale, a secondary axis, the
@@ -1612,63 +1610,6 @@ the callable the Python side hands `_native.contour.clabel`) with each
 line, vertex index, position, width and spacing; the method returns the
 rotation and the cut line pltrs (Rust) computes (`_native.contour.split_path`).
 
-### Warnings
-
-pltrs (Rust) issues its warnings through `pltrs::warnings` (data cast to
-a narrower type to be drawn, say). The extension sends them to
-`_api.warn_external`, which `_api` registers, so they are matplotlib's
-`UserWarning`s; one that the warning filters turn into an exception
-raises from the native call that issued it, as a callback's exception
-does. Where matplotlib's numpy arithmetic warns (`divide by zero
-encountered in log10`, isclose's invalid tolerance), pltrs (Rust) does
-the arithmetic itself and issues the same warning in the same case with
-`warnings::warn_runtime`, which the extension issues as numpy does, a
-`RuntimeWarning`.
-
-### Errors
-
-Each module file implements `From<pltrs error> for PyErr`, choosing
-matplotlib's exception class and, as far as pltrs (Rust)'s messages allow,
-matplotlib's message (`RcError::UnknownKey` becomes matplotlib's
-`KeyError: '<key> is not a valid rc parameter (see rcParams.keys() for a
-list of valid parameters)'`). Tests match messages with `pytest.raises(...,
-match=...)`, so message fidelity counts: where pltrs (Rust)'s message differs
-from matplotlib's, prefer fixing the message in the Python-facing `From`
-impl, or in pltrs (Rust) when its own message is the problem. Exceptions that
-matplotlib defines in Python, such as `ImageComparisonFailure`, are
-registered by the package (`_native.register`) and raised through
-`binding::registered_error`.
-
-What a program's data can make enormous (a canvas, an encoded file, a
-copy of either) is allocated fallibly (`pltrs_core::alloc`): memory the
-system refuses, or a canvas beyond `pltrs_raster::MAX_PIXELS`, is an
-error caused by `OutOfMemory`, which the binding raises as matplotlib's
-allocations do, `MemoryError`, instead of the process ending.
-
-matplotlib's renderers read and format the arguments of their drawing
-methods and graphics state setters in Python before they write anything;
-pltrs's renderers do so too before pltrs (Rust) draws
-(`backends/_pdf_arguments.py`, `_ps_arguments.py`, `_svg_arguments.py`,
-`_backend_agg.check_renderer_arguments`), so that wrong arguments fail
-with matplotlib's errors, and a vector renderer draws a path collection
-too small to reuse its paths path by path through
-`RendererBase.draw_path_collection`, as matplotlib's do. The draws of the
-package's artist classes refuse what is no renderer as matplotlib's
-rasterization wrappers do (`_artist_subclassing._refuse_renderer`).
-
-Problems met while drawing are not raised by the artist meeting them:
-pltrs (Rust) draws the rest and returns them all (`DrawErrors`), each with
-the kind of exception matplotlib raises for it (`DrawErrorKind`). The
-binding has draws end at their first problem instead
-(`pltrs::artist::set_draws_stop_at_first_problem`), as matplotlib's draw
-ends at its first exception with the artists after it undrawn (and does
-not spend the time drawing them), and raises that problem as matplotlib
-would have: a
-`ValueError` with its message for a value of the program's that cannot be
-drawn (malformed mathtext, an infinite line through two identical
-points), else a `RuntimeError` naming them all. `draw_without_rendering`
-draws with a renderer that paints nothing, so it raises them too.
-
 ### Staleness
 
 pltrs (Rust) keeps whether each artist changed since it was last drawn
@@ -1686,6 +1627,19 @@ with it (an `Axis` with its Axes, a table's cells with their table, the
 boxes inside an offset box with the box added) reads as fresh once the
 artist drawing it drew since it went stale (`_drawn_with.DrawnWith`,
 through `_native.artist.draw_count` of its `_drawer()`).
+
+### Warnings
+
+pltrs (Rust) issues its warnings through `pltrs::warnings` (data cast to
+a narrower type to be drawn, say). The extension sends them to
+`_api.warn_external`, which `_api` registers, so they are matplotlib's
+`UserWarning`s; one that the warning filters turn into an exception
+raises from the native call that issued it, as a callback's exception
+does. Where matplotlib's numpy arithmetic warns (`divide by zero
+encountered in log10`, isclose's invalid tolerance), pltrs (Rust) does
+the arithmetic itself and issues the same warning in the same case with
+`warnings::warn_runtime`, which the extension issues as numpy does, a
+`RuntimeWarning`.
 
 ### Warnings issued while pltrs (Rust) works
 
@@ -1875,6 +1829,50 @@ Not replayed: the first draw of a tight print before its measurement (the
 replay measures first, then gives each evaluation of the draw twice: the
 counts agree unless the figure's nodes were invalid before the print),
 and what matplotlib's `AxisArtist` evaluates measuring.
+
+### Errors
+
+Each module file implements `From<pltrs error> for PyErr`, choosing
+matplotlib's exception class and, as far as pltrs (Rust)'s messages allow,
+matplotlib's message (`RcError::UnknownKey` becomes matplotlib's
+`KeyError: '<key> is not a valid rc parameter (see rcParams.keys() for a
+list of valid parameters)'`). Tests match messages with `pytest.raises(...,
+match=...)`, so message fidelity counts: where pltrs (Rust)'s message differs
+from matplotlib's, prefer fixing the message in the Python-facing `From`
+impl, or in pltrs (Rust) when its own message is the problem. Exceptions that
+matplotlib defines in Python, such as `ImageComparisonFailure`, are
+registered by the package (`_native.register`) and raised through
+`binding::registered_error`.
+
+What a program's data can make enormous (a canvas, an encoded file, a
+copy of either) is allocated fallibly (`pltrs_core::alloc`): memory the
+system refuses, or a canvas beyond `pltrs_raster::MAX_PIXELS`, is an
+error caused by `OutOfMemory`, which the binding raises as matplotlib's
+allocations do, `MemoryError`, instead of the process ending.
+
+matplotlib's renderers read and format the arguments of their drawing
+methods and graphics state setters in Python before they write anything;
+pltrs's renderers do so too before pltrs (Rust) draws
+(`backends/_pdf_arguments.py`, `_ps_arguments.py`, `_svg_arguments.py`,
+`_backend_agg.check_renderer_arguments`), so that wrong arguments fail
+with matplotlib's errors, and a vector renderer draws a path collection
+too small to reuse its paths path by path through
+`RendererBase.draw_path_collection`, as matplotlib's do. The draws of the
+package's artist classes refuse what is no renderer as matplotlib's
+rasterization wrappers do (`_artist_subclassing._refuse_renderer`).
+
+Problems met while drawing are not raised by the artist meeting them:
+pltrs (Rust) draws the rest and returns them all (`DrawErrors`), each with
+the kind of exception matplotlib raises for it (`DrawErrorKind`). The
+binding has draws end at their first problem instead
+(`pltrs::artist::set_draws_stop_at_first_problem`), as matplotlib's draw
+ends at its first exception with the artists after it undrawn (and does
+not spend the time drawing them), and raises that problem as matplotlib
+would have: a
+`ValueError` with its message for a value of the program's that cannot be
+drawn (malformed mathtext, an infinite line through two identical
+points), else a `RuntimeError` naming them all. `draw_without_rendering`
+draws with a renderer that paints nothing, so it raises them too.
 
 ### What a draw did before it failed
 
@@ -2309,7 +2307,6 @@ it asks:
 * **Scales** of the program's keep their Python object natively
   (``PyScale``), which a pickle of the figure holds; unpickled, pltrs asks
   ``scale._program_scale`` for its functions again.
-
 * **Adding.** A class overriding an ``add_*`` method (``add_line``,
   ``add_patch``, ``add_collection``, ``add_image``, ``_add_text``,
   ``add_table``) is called with each artist the plotting methods make,
@@ -2533,8 +2530,9 @@ A canvas draws and prints through the figure's native handle
   refuses it for the formats that cannot hold it, as matplotlib does.
   matplotlib writes its raster formats other than PNG and raw RGBA with
   Pillow; pltrs (Rust) encodes them, except GIF (whose palette and
-  transparency are Pillow's), AVIF (which pltrs (Rust) does not encode)
-  and any `pil_kwargs` but a JPEG `quality`: those are drawn by pltrs
+  transparency are Pillow's), AVIF (whose bytes are libavif's in
+  matplotlib, which pltrs (Rust)'s own AV1 encoder does not write) and
+  any `pil_kwargs` but a JPEG `quality`: those are drawn by pltrs
   (Rust) (`_native.backends.print_rgba`) and saved by `image.imsave`
   through Pillow, as matplotlib's `_print_pil` saves them.
 * Canvas callbacks belong to the figure (`figure._canvas_callbacks`), so
@@ -3215,9 +3213,12 @@ curves (`np.roots`, LAPACK) and OpenBLAS's kernels. The release
 workflow's containers compare `python/tools/drop_in.py`'s drawings with
 matplotlib's there (`check_dist.py --compare-drawings`), pixel for pixel.
 
-The same holds across the Pythons and the dependency versions pltrs
-supports (CPython 3.12 to 3.14, `pyproject.toml`'s lower bounds to
-today's releases), which the release workflow runs the smoke tests on.
+### Pythons and dependency versions
+
+As on each platform, pltrs agrees with matplotlib on each Python and
+dependency version it supports (CPython 3.12 to 3.14, `pyproject.toml`'s
+lower bounds to today's releases), which the release workflow runs the
+smoke tests on.
 Where matplotlib's value or message is the interpreter's or a
 dependency's own (Python's wording of an error, numpy's reprs, scalar
 promotion and warnings, python-dateutil's reading of a zone file), pltrs
@@ -3450,7 +3451,8 @@ cargo xtask mpl-suite --imports          # every missing import of each test fil
   `sitecustomize.py` (`pltrs_alias.py`) aliases `pltrs`, and a toolkit
   pltrs lacks gets a placeholder `__init__.py` so that test modules keep
   their package names.
-* **Environment.** pytest-xdist with 8 workers, pytest-timeout at 600 s a
+* **Environment.** pytest-xdist with 8 workers (`PLTRS_SUITE_WORKERS`
+  for another number), pytest-timeout at 600 s a
   test, `MPLCONFIGDIR` under the mode's directory (and no
   `PLTRSCONFIGDIR`, so that pltrs reads `MPLCONFIGDIR`), matplotlib's pytest
   options (`--import-mode=importlib`), and no font list cache from an
@@ -3525,8 +3527,12 @@ Work by test file: a file is the unit the suite reports, and the file's
 missing imports (`--imports`) are what its tests need first. Pick a file
 (or a group sharing a missing module), make it import, then make its tests
 pass, then run its pattern and commit the new `pltrs.json`. The blocker
-list, sorted by tests held back, is the plan; large files with one missing
-module (`test_mlab.py`: 2540 tests behind `matplotlib.mlab`) come first.
+list, sorted by tests held back, is the plan, the largest blockers first.
+Now that every test passing under matplotlib passes under pltrs, the
+suite guards what is done, and new work comes from the other measures
+(the libraries' suites, the notebooks, the differential tester's
+families and corpora, `--docs`, `--types` and `--private`), each of
+which groups what differs by cause in the same way.
 
 ## Shared files
 
@@ -3543,8 +3549,7 @@ additive:
   its tests; change existing behaviour only deliberately, as everything
   depends on it.
 * `spec/mpl-suite/pltrs.json`: never resolve a conflict by hand; take
-  either side and rerun `cargo xtask mpl-suite` (the full run takes under
-  a minute) after merging.
+  either side and rerun `cargo xtask mpl-suite` after merging.
 
 ## Conventions for the Python code
 

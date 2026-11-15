@@ -12,7 +12,7 @@ use crate::artist::{
     ArtistHandle, ArtistId, DrawContext, Drawing, LayoutContext, RawHandle, TypedHandle,
 };
 use crate::axes::{Axes, AxesState};
-use crate::figure::{DrawErrors, Figure};
+use crate::figure::{DrawErrors, Figure, Painting};
 use crate::fonts::FontProperties;
 use crate::legend::{LegendArtist, lay_out_legend};
 use crate::text::{LineKind, typeset_line};
@@ -83,6 +83,13 @@ impl FigureCanvas {
             // matplotlib's `Legend.draw` places the legend before drawing it.
             lay_out_legend(&mut self.figure.state.borrow_mut(), artist.id())
                 .map_err(|err| CanvasError::Draw(DrawErrors(vec![err])))?;
+        }
+        if crate::mplot3d::is_axes3d(&self.figure.state.borrow().store, artist.id()) {
+            // matplotlib's `Axes3D.draw` projects the axes' artists in the
+            // view it draws in, which `view_init` may have changed since
+            // the figure's last draw.
+            let state = &mut self.figure.state.borrow_mut();
+            crate::mplot3d::prepare_drawn(state, artist.id(), Painting::Painted);
         }
         let mut kept = self.take()?;
         artist.prepare_painters(&kept.renderer, painted, true);

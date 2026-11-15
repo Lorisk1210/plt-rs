@@ -98,6 +98,9 @@ pub(crate) struct PyPointMap {
     /// The Python map's `transform_outline`, if any: a patch's outline
     /// mapped anew (matplotlib's `transform_path_non_affine`).
     outline: Option<Callback>,
+    /// The Python map's `transform_members`, if any: a collection's paths
+    /// mapped anew, all in one call.
+    members: Option<Callback>,
     /// The address of the Python map when it answers alike for as long
     /// as it lives (its `_answers_alike`), which names its code (see
     /// [`PointMap::program_key`]).
@@ -126,6 +129,10 @@ impl PyPointMap {
                 .ok(),
             outline: map
                 .getattr("transform_outline")
+                .and_then(|method| method.extract())
+                .ok(),
+            members: map
+                .getattr("transform_members")
                 .and_then(|method| method.extract())
                 .ok(),
             key: alike.then(|| map.as_ptr().addr()),
@@ -190,6 +197,43 @@ impl PointMap for PyPointMap {
     fn transform_outline(&self, path: &Path) -> Path {
         self.path_through(self.outline.as_ref().or(self.path.as_ref()), path)
     }
+
+    /// The paths through the Python map's `transform_members`, called
+    /// once with all of them, else each as
+    /// [`transform_outline`](Self::transform_outline) maps it; NaN
+    /// vertices when it fails (the exception is raised when the native
+    /// call running returns).
+    fn transform_members(&self, paths: &[Path]) -> Vec<Path> {
+        let Some(members) = &self.members else {
+            return paths
+                .iter()
+                .map(|path| self.transform_outline(path))
+                .collect();
+        };
+        let given = paths
+            .iter()
+            .map(|path| {
+                path_arrays(path, false)
+                    .map(|(vertices, codes)| (vertices, codes, path.interpolation_steps()))
+            })
+            .collect::<PyResult<Vec<_>>>();
+        given
+            .ok()
+            .and_then(|given| members.call::<Vec<PyPath>>((given,)))
+            .filter(|mapped| mapped.len() == paths.len())
+            .map_or_else(
+                || paths.iter().map(failed_path).collect(),
+                |mapped| mapped.into_iter().map(|mapped| mapped.path).collect(),
+            )
+    }
+}
+
+/// `path` with every vertex NaN: what a map of the program's that failed
+/// gives (its exception is raised when the native call running returns).
+fn failed_path(path: &Path) -> Path {
+    let mut failed = path.clone();
+    failed.vertices_mut().fill(Point::new(f64::NAN, f64::NAN));
+    failed
 }
 
 impl PyPointMap {
@@ -209,14 +253,7 @@ impl PyPointMap {
             .and_then(|(vertices, codes)| {
                 path_map.call::<PyPath>((vertices, codes, path.interpolation_steps()))
             })
-            .map_or_else(
-                || {
-                    let mut failed = path.clone();
-                    failed.vertices_mut().fill(Point::new(f64::NAN, f64::NAN));
-                    failed
-                },
-                |mapped| mapped.path,
-            )
+            .map_or_else(|| failed_path(path), |mapped| mapped.path)
     }
 }
 

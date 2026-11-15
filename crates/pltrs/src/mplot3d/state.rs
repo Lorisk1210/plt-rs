@@ -578,15 +578,23 @@ pub(crate) fn axes3d_fresh_tight_bbox(
 /// stays where it stands.
 pub(crate) fn prepare_axes3d(figure: &mut FigureState, painting: Option<Painting>) {
     for id in axes3d_ids(&figure.store) {
-        if painting.is_some() {
-            super::pending::unstale_for_draw(figure, id);
-            square(figure, id);
-        }
-        prepare_one(figure, id, painting);
-        if let Some(painting) = painting {
-            super::drawn::note_draw(figure, id, painting);
+        match painting {
+            Some(painting) => prepare_drawn(figure, id, painting),
+            None => prepare_one(figure, id, None),
         }
     }
+}
+
+/// The pass of the 3-D axes `id` before it is drawn with `painting`, in
+/// the figure's draw or alone (`draw_artist`): its box made square, its
+/// view, ticks and the depth order of its artists computed as
+/// matplotlib's `Axes3D.draw` computes them as it draws, in the view of
+/// that moment (one `view_init` changed since the figure's last draw).
+pub(crate) fn prepare_drawn(figure: &mut FigureState, id: ArtistId, painting: Painting) {
+    super::pending::unstale_for_draw(figure, id);
+    square(figure, id);
+    prepare_one(figure, id, Some(painting));
+    super::drawn::note_draw(figure, id, painting);
 }
 
 /// Makes the box of the 3-D axes `id` square in its position (matplotlib's

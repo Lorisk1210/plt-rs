@@ -149,14 +149,13 @@ pub(super) fn measure_tex_again(
     line: &str,
     font: &FontProperties,
     dpi: f64,
-    rc: &RcParams,
 ) -> Result<(), TextError> {
     let tex = tex_line(line);
     if tex.is_empty() {
         return Ok(());
     }
     metrics_cache::cached(tex, font, LineKind::Tex, dpi, || {
-        tex_metrics(&tex_manager(rc)?, tex, font, dpi)
+        tex_metrics(&tex_manager(&crate::rc::params())?, tex, font, dpi)
     })?;
     Ok(())
 }
@@ -183,14 +182,15 @@ pub fn tex_glyphs(
 }
 
 /// The smallest ascent and descent of a TeX line (`Text._get_layout`
-/// measures `"lp"` with TeX for usetex texts), with no line gap.
+/// measures `"lp"` with TeX for usetex texts), with no line gap, typeset
+/// with the parameters current now (matplotlib's `TexManager` reads them
+/// whenever it typesets, not when the text was made).
 pub(crate) fn tex_height_metrics(
     font: &FontProperties,
     dpi: f64,
-    rc: &RcParams,
 ) -> Result<FontHeightMetrics, TextError> {
     let lp = metrics_cache::cached("lp", font, LineKind::Tex, dpi, || {
-        tex_metrics(&tex_manager(rc)?, "lp", font, dpi)
+        tex_metrics(&tex_manager(&crate::rc::params())?, "lp", font, dpi)
     })?;
     Ok(FontHeightMetrics {
         ascent: lp.height - lp.descent,

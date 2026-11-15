@@ -117,9 +117,9 @@ impl LimitPoints {
         Self::mapped(transform, axes, |to_data| {
             let mut points = points();
             if let Some(to_data) = to_data {
-                for p in &mut points {
-                    *p = to_data.transform_point(*p);
-                }
+                // All at once, as matplotlib maps the vertex array (a
+                // transform of the program's is called once).
+                to_data.transform_points(&mut points);
             }
             points
         })

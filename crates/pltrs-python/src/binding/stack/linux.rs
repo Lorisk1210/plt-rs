@@ -1,4 +1,4 @@
-//! The end of the calling thread's stack on Linux, with glibc or musl.
+//! The bounds of the calling thread's stack on Linux, with glibc or musl.
 //!
 //! A thread made with `pthread_create` (Python's threads, those of other
 //! runtimes calling into Python) has a stack of fixed size, which both
@@ -12,6 +12,7 @@
 
 use std::ffi::c_void;
 
+use super::Bounds;
 use crate::ffi;
 
 /// The kernel's `stack_guard_gap`, in pages (its default).
@@ -20,14 +21,18 @@ const GUARD_GAP_PAGES: usize = 256;
 /// The page size where the auxiliary vector does not say (`AT_PAGESZ`).
 const DEFAULT_PAGE: usize = 4096;
 
-/// The lowest address the calling thread's stack may reach.
-pub(super) fn end(here: usize) -> Option<usize> {
+/// The bounds of the calling thread's stack: the lowest address it may
+/// reach and its top.
+pub(super) fn bounds(here: usize) -> Option<Bounds> {
     if is_main_thread() {
-        main_thread_end(here)
+        main_thread_bounds(here)
     } else {
         thread_bounds()
             .filter(|&(low, high)| (low..high).contains(&here))
-            .map(|(low, _)| low)
+            .map(|(low, high)| Bounds {
+                end: low,
+                top: high,
+            })
     }
 }
 
@@ -67,9 +72,9 @@ fn thread_bounds() -> Option<(usize, usize)> {
     (read == 0).then(|| (low.addr(), low.addr().saturating_add(size)))
 }
 
-/// The lowest address the main thread's stack, the mapping holding
-/// `here`, may grow down to.
-fn main_thread_end(here: usize) -> Option<usize> {
+/// The bounds of the main thread's stack, the mapping holding `here`: the
+/// lowest address it may grow down to, and the mapping's top.
+fn main_thread_bounds(here: usize) -> Option<Bounds> {
     let maps = std::fs::read_to_string("/proc/self/maps").ok()?;
     let (below, top) = stack_mapping(&maps, here)?;
     let limit = std::fs::read_to_string("/proc/self/limits")
@@ -81,7 +86,10 @@ fn main_thread_end(here: usize) -> Option<usize> {
         .and_then(|auxv| page_size(&auxv))
         .unwrap_or(DEFAULT_PAGE);
     let by_neighbour = below.saturating_add(GUARD_GAP_PAGES * page);
-    Some(top.saturating_sub(limit).max(by_neighbour))
+    Some(Bounds {
+        end: top.saturating_sub(limit).max(by_neighbour),
+        top,
+    })
 }
 
 /// The end of the mapping below the one holding `here`, and the end of
@@ -184,7 +192,13 @@ mod tests {
         let (low, high) = thread_bounds().unwrap();
         let here = super::super::here();
         assert!((low..high).contains(&here));
-        assert_eq!(end(here), Some(low));
+        assert_eq!(
+            bounds(here),
+            Some(Bounds {
+                end: low,
+                top: high
+            })
+        );
     }
 
     #[test]
@@ -198,7 +212,9 @@ mod tests {
                 stack_mapping(&maps, usize::from_str_radix(start, 16).ok()?)
             })
             .unwrap();
-        let end = main_thread_end(top - 1).unwrap();
+        let bounds = main_thread_bounds(top - 1).unwrap();
+        assert_eq!(bounds.top, top);
+        let end = bounds.end;
         assert!(end > below && end < top, "{below:x} < {end:x} < {top:x}");
     }
 }

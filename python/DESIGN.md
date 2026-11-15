@@ -42,7 +42,7 @@ crates/pltrs-python/            the native extension (a cdylib, no crates)
     threads.rs                  every thread holding the GIL uses every object
     home.rs                     other threads' calls on windows, run by the main thread
     blocking.rs                 the windows' event loop waiting without the GIL
-    stack.rs, stack/            how much stack is left for native calls made from callbacks
+    stack.rs, stack/            the stack guard: RecursionError before a thread's stack ends
     watched.rs                  package attributes a program may replace, read by native code
     allocator.rs                the allocator on Linux (huge pages for large blocks)
     testing.rs                  the embedded interpreter of the unit tests
@@ -289,6 +289,45 @@ seeded run of threads using pltrs at once with Python switching as often
 as it can), `test_backend_pltrs.py::test_interactive_thread_safety`, and
 matplotlib's own `test_interactive_thread_safety` (Qt, Tk, GTK, wx), which
 the suite runs with the toolkits and a display (see "Running the suite").
+
+### The stack guard
+
+A program that recurses through drawing (a formatter saving its own
+figure, an artist's `draw` drawing its Axes) runs native frames between
+CPython's own checks, so a thread's native stack could end before
+CPython's limit does, and the process would die. `binding/stack.rs`
+refuses a native call made inside another one (`function::call_nested`,
+the one place every such round passes) with `RecursionError` once less
+than its reserve, 64 KiB, is left of the thread's stack. The bounds of
+each thread's stack are read once (Linux: `pthread_getattr_np`, the main
+thread's limit from `/proc`; macOS: `pthread_get_stackaddr_np`; Windows:
+`GetCurrentThreadStackLimits`); the check is one comparison.
+
+The reserve is what the deepest native stretch below a nested call needs,
+measured, not guessed: STACK1's probe (the stack pointer at every nested
+call, the stack painted below the outermost call and scanned afterwards)
+over saves in every format of figures with subfigures, constrained layout,
+mathtext, legends and colorbars, recursing through formatters, locators
+and artists' `draw`. A round deepens by at most 44 KiB between two
+nested calls, and a draw goes on at most 47 KiB below its last nested
+call in an optimised glibc build, 48 KiB in the musl wheel and 56 KiB in
+the unoptimised development build. Big values held by value in a frame
+cost every thread: the save paths of `Figure::to_format` are not inlined
+into one frame, and the DEFLATE encoder keeps its trees on the heap, which
+brought a draw's first callback from 108 KiB of stack to 42 KiB. With
+that, a thread of musl's default 128 KiB (CPython 3.9 to 3.13 in the
+`musllinux` images, uv's musl builds) draws with the program's callbacks
+as matplotlib does there. What still does not fit is a draw inside a draw
+on such a thread (a formatter saving its figure: about 90 KiB deep, its
+nested calls with less than the reserve left); there the error starts
+with Python's own "maximum recursion depth exceeded", as code matching on
+it expects, and goes on to name the thread's stack size, what pltrs needs
+and `threading.stack_size`. pltrs does not change `threading.stack_size`
+itself: a library has no business setting it for the whole process, and
+Alpine's own Python, Docker's `python:alpine` and the `musllinux` images'
+CPython 3.14 already give threads 1 to 2 MiB. Tests:
+`python/tests/test_stack1.py` (every recursion on every stack, small
+threads drawing).
 
 ## The Python package
 

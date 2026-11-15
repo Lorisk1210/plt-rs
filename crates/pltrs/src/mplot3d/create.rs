@@ -267,13 +267,20 @@ fn insert_axes3d(
     for spine in plane.spines().iter() {
         spine.set_visible(false);
     }
-    let mut axes = Axes3DState::new(position, plane.id(), camera, crate::rc::params());
+    // Made on the heap, where the figure keeps it: the state is kilobytes,
+    // which a thread of a small stack (musl's 128 KiB) cannot spare twice.
+    let mut axes = Box::new(Axes3DState::new(
+        position,
+        plane.id(),
+        camera,
+        crate::rc::params(),
+    ));
     axes.subplot_spec = spec;
     axes.computed_zorder = options.computed_zorder;
     let mut figure_state = state.borrow_mut();
     let id = match placing {
-        Placing::InFigure => figure_state.adopt(frame, Box::new(axes)),
-        Placing::Removed => figure_state.insert_removed(Box::new(axes)),
+        Placing::InFigure => figure_state.adopt(frame, axes),
+        Placing::Removed => figure_state.insert_removed(axes),
     };
     // The plane is drawn by the 3-D axes, not by the frame.
     if let Some(owner) = figure_state.artist_mut(frame) {

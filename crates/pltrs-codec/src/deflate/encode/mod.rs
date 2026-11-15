@@ -156,7 +156,13 @@ impl Deflater {
     /// buffer cannot be allocated.
     pub(crate) fn new(options: Options, wrap: Wrap) -> Result<Self, OutOfMemory> {
         let syms = Symbols::new(options.memory_level.symbol_buffer())?;
-        Ok(Self::with_tables(options, wrap, Window::new()?, syms))
+        Ok(Self::with_tables(
+            options,
+            wrap,
+            Window::new()?,
+            syms,
+            Trees::new(),
+        ))
     }
 
     /// A stream compressing at most `len` bytes with `options`, made of
@@ -173,7 +179,12 @@ impl Deflater {
         wrap: Wrap,
         len: usize,
     ) -> Result<Self, OutOfMemory> {
-        let Self { mut win, syms, .. } = self;
+        let Self {
+            mut win,
+            syms,
+            trees,
+            ..
+        } = self;
         win.restart(len);
         let symbol_buffer = options.memory_level.symbol_buffer();
         let syms = if syms.capacity() == symbol_buffer {
@@ -181,12 +192,12 @@ impl Deflater {
         } else {
             Symbols::new(symbol_buffer)?
         };
-        Ok(Self::with_tables(options, wrap, win, syms))
+        Ok(Self::with_tables(options, wrap, win, syms, trees.cleared()))
     }
 
     /// A stream at its start with these tables, which hold what a new
     /// stream's hold as far as it reads them.
-    fn with_tables(options: Options, wrap: Wrap, win: Window, syms: Symbols) -> Self {
+    fn with_tables(options: Options, wrap: Wrap, win: Window, syms: Symbols, trees: Trees) -> Self {
         let symbol_buffer = syms.capacity();
         Self {
             level: options.level.get(),
@@ -205,7 +216,7 @@ impl Deflater {
             match_available: false,
             ins_h: 0,
             syms,
-            trees: Trees::new(),
+            trees,
             block_open: 0,
             pending_buf_size: 4 * symbol_buffer,
             adler: Adler32::new(),

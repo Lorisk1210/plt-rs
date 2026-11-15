@@ -67,6 +67,10 @@ impl Figure {
     /// # Errors
     ///
     /// As for [`Figure::to_pgf`].
+    // Its own frame, not `to_format`'s: inlined there, every format's
+    // renderer would share one frame of tens of kilobytes, which a save in
+    // a thread of a small stack (musl's 128 KiB) cannot spare.
+    #[inline(never)]
     pub fn to_pgf_with(&self, options: SaveOptions) -> Result<String, SaveError> {
         self.pgf_document(&options, None)
             .map(|document| document.text)

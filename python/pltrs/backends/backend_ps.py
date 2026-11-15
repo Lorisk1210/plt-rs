@@ -185,6 +185,10 @@ class RendererPS(PsArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
     The renderer handles all the drawing primitives using a graphics
     context instance that controls the colors/styles.
     """
+    #: How the renderer measures the text pltrs (Rust) lays out with it:
+    #: as matplotlib's PostScript backend (see `._text_metrics`).
+    _text_metrics = "ps"
+
     # pltrs (Rust) writes the documents itself: this is the renderer the
     # program's drawing receives while a figure is saved as PostScript
     # (`FigureCanvasPS._program_renderer`), which draws into the document
@@ -364,6 +368,12 @@ class FigureCanvasPS(FigureCanvasBase):
 
     def get_default_filetype(self):
         return 'ps'
+
+    def _print_renderer(self):
+        """The renderer the figure is laid out with for its PostScript
+        document (the one matplotlib's ``print_ps`` measures with)."""
+        width, height = self.figure.get_size_inches()
+        return RendererPS(width, height, None, imagedpi=self.figure.dpi)
 
     def _program_renderer(self, dpi, bbox_inches_restore):
         """The renderer the program's drawing receives while the figure is

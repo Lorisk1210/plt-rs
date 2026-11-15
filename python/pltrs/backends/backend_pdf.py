@@ -1173,6 +1173,10 @@ class RendererPdf(PdfArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
     # (`FigureCanvasPdf._program_renderer`), which draws into the document
     # pltrs (Rust) writes (*file* is None for both).
 
+    #: How the renderer measures the text pltrs (Rust) lays out with it:
+    #: as matplotlib's PDF backend (see `._text_metrics`).
+    _text_metrics = "pdf"
+
     _afm_font_dir = cbook._get_data_path("fonts/pdfcorefonts")
     _use_afm_rc_name = "pdf.use14corefonts"
 

@@ -239,11 +239,28 @@ def _measured_by(renderer, dpi):
 
 def _measured_by_given(renderer, artist):
     """`_measured_by` *renderer* for a layout of *artist*'s figure when the
-    program gave a renderer, else nothing."""
+    program gave a renderer, else `_measured_by_print`."""
     figure = artist.get_figure(root=True)
-    if renderer is None or figure is None:
+    if figure is None:
         return contextlib.nullcontext()
+    if renderer is None:
+        return _measured_by_print(figure)
     return _measured_by(renderer, figure.dpi)
+
+
+def _measured_by_print(figure):
+    """What a measure the program asks for without a renderer measures
+    with. matplotlib's asks *figure* for its renderer (``_get_renderer``):
+    a canvas without one of its own (SVG, PDF, PostScript) runs its print
+    up to the draw, which leaves the figure at the canvas' fixed resolution
+    (72 dpi) and measures the texts as the print measures them. Other
+    canvases' renderers measure as pltrs (Rust) does."""
+    canvas = figure.canvas
+    if (canvas.fixed_dpi is None or hasattr(canvas, "get_renderer")
+            or not hasattr(canvas, "_print_renderer")):
+        return contextlib.nullcontext()
+    figure.dpi = canvas.fixed_dpi
+    return _measuring_with(canvas._print_renderer())
 
 
 class _TextFont(_mirrors.Mirroring):

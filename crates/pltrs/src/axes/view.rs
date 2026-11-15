@@ -5,7 +5,7 @@
 use std::rc::Rc;
 
 use super::PlotError;
-use super::axis::{AxisRole, AxisState};
+use super::axis::{AxisRole, AxisState, BoundAxis};
 use super::limits::oriented;
 use super::state::{AxesState, AxisSpace, SharedData};
 use super::tick_compute::axis_length_points;
@@ -13,7 +13,7 @@ use crate::artist::{ArtistId, ArtistLookup, DrawError, DrawErrorKind};
 use crate::figure::FigureState;
 use crate::layout::failures;
 use crate::scale::{Scale, ScaleName};
-use crate::ticker::{AxisName, TickSpace};
+use crate::ticker::AxisName;
 use crate::transforms::TransformContext;
 
 /// Both axis names, in matplotlib's order.
@@ -37,11 +37,11 @@ impl FigureState {
         self.shared.siblings(name, axes)
     }
 
-    /// For the x and the y axis of `axes`, how many ticks fit along the
-    /// axis of another axes its locators are bound to, if they are
-    /// (matplotlib's `locator.axis.get_tick_space()` for locators shared
-    /// with a sibling of another size).
-    pub(crate) fn shared_tick_spaces(&self, axes: ArtistId) -> [Option<TickSpace>; 2] {
+    /// For the x and the y axis of `axes`, what its tick helpers read from
+    /// the axis of another axes they are bound to, if they are (matplotlib's
+    /// `locator.axis` for helpers shared with a sibling of another size or
+    /// other data).
+    pub(crate) fn bound_axes(&self, axes: ArtistId) -> [Option<BoundAxis>; 2] {
         AXES.map(|name| {
             let owner = self
                 .axes_state(axes)?
@@ -49,7 +49,13 @@ impl FigureState {
                 .ticker_owner
                 .filter(|&owner| owner != axes)?;
             let points = self.axis_length_points(owner, name)?;
-            Some(self.axes_state(owner)?.axis(name).tick_space(points))
+            let state = self.axes_state(owner)?;
+            let (data, minpos) = state.data_interval(name);
+            Some(BoundAxis {
+                tick_space: state.axis(name).tick_space(points),
+                data,
+                minpos,
+            })
         })
     }
 
@@ -230,7 +236,9 @@ impl FigureState {
             v0 > v1
         });
         // Round-number limits depend on how many ticks fit along the axis.
-        let [x_space, y_space] = self.shared_tick_spaces(axes);
+        let [x_space, y_space] = self
+            .bound_axes(axes)
+            .map(|bound| bound.map(|b| b.tick_space));
         let space = AxisSpace {
             length_points: self.axis_length_points(axes, name).unwrap_or(0.0),
             tick_space: match name {

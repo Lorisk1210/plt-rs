@@ -44,6 +44,19 @@ pltrs_core::archive_struct!(AutoscaleState {
     stale
 });
 
+/// What the tick helpers of an axis read from the axis of another axes
+/// they are bound to (helpers shared by `sharex` or `sharey`, which
+/// matplotlib leaves bound to the axis that set them): how many ticks fit
+/// along it, its data interval and its smallest positive datum
+/// (`locator.axis.get_tick_space()`, `get_data_interval()`,
+/// `get_minpos()`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct BoundAxis {
+    pub(crate) tick_space: TickSpace,
+    pub(crate) data: (f64, f64),
+    pub(crate) minpos: f64,
+}
+
 /// The geometry an axis needs to place its ticks.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct AxisGeometry {

@@ -23,6 +23,7 @@ mod tree;
 
 use super::kiwi::SolverError;
 use crate::figure::FigureState;
+use crate::numeric::numpy_arith;
 use crate::rc::RcParams;
 use tree::FIGURE;
 
@@ -96,18 +97,9 @@ pub(super) fn execute(fig: &mut FigureState, params: &ConstrainedLayout) -> Opti
     let (width, height) = fig.size_inches;
     // matplotlib divides the pads by the figure's size with numpy, which
     // warns of a size of zero.
-    for (pad, side) in [(params.w_pad, width), (params.h_pad, height)] {
-        if side == 0.0 {
-            crate::warnings::warn_runtime(if pad == 0.0 {
-                "invalid value encountered in scalar divide"
-            } else {
-                "divide by zero encountered in scalar divide"
-            });
-        }
-    }
     let pads = Pads {
-        w_pad: params.w_pad / width,
-        h_pad: params.h_pad / height,
+        w_pad: numpy_arith::divide(params.w_pad, width),
+        h_pad: numpy_arith::divide(params.h_pad, height),
         wspace: params.wspace,
         hspace: params.hspace,
     };

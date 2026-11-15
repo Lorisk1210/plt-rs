@@ -9,10 +9,10 @@ mod select;
 use std::collections::HashMap;
 use std::fmt;
 
-use pltrs_font::{FontDatabase, FontError, FontId, GlyphId, KerningMode, Rect, Size};
+use pltrs_font::{FontDatabase, FontError, FontId, GlyphId, Hinting, KerningMode, Size};
 
 pub(crate) use constants::FontConstants;
-use faces::FaceCache;
+use faces::{FaceCache, hinted_glyph};
 use select::GlyphSet;
 
 use super::font_name::FontName;
@@ -167,6 +167,8 @@ pub(crate) struct Fonts<'e> {
     /// `mathtext.default`, the class used to measure reference glyphs.
     default_class: FontName,
     dpi: f64,
+    /// The hinting glyphs are loaded with (see [`MathStyle::hinting`]).
+    hinting: Hinting,
     infos: HashMap<InfoKey, FontInfo>,
     /// The size each face was last set to: `FreeType` kerning uses the
     /// face's current size, which matplotlib only updates when a glyph
@@ -187,6 +189,7 @@ impl<'e> Fonts<'e> {
             constants: MathFonts::of(style).constants(),
             default_class: style.default.into(),
             dpi: style.dpi,
+            hinting: style.hinting,
             infos: HashMap::new(),
             current_size: HashMap::new(),
         })
@@ -224,18 +227,29 @@ impl<'e> Fonts<'e> {
         let glyph = self
             .set
             .glyph(&mut self.faces, key.font, key.class, key.symbol)?;
+        let db = self.faces.db();
         let face = self.faces.face(glyph.font)?;
         // matplotlib's mathtext sets the size of every glyph's font.
         let size = Size::checked(face, key.fontsize, self.dpi).map_err(FontError::from)?;
         let glyph_id = face.glyph_index_for_code(glyph.code).unwrap_or(GlyphId(0));
-        let cbox = size.glyph_cbox(face, glyph_id)?.unwrap_or(Rect {
-            x_min: 0,
-            y_min: 0,
-            x_max: 0,
-            y_max: 0,
-        });
+        // `glyph.bbox`, `glyph.width`, `glyph.height` and
+        // `glyph.horiBearingY` of the glyph `load_char` gives: FreeType
+        // grid-fits the metrics of a hinted glyph.
+        let hinted = hinted_glyph(db, (glyph.font, face), &size, glyph_id, self.hinting)?;
+        let (cbox, (width, height, top)) = if let Some(hinted) = hinted {
+            let m = hinted.metrics();
+            (hinted.control_box(), (m.width, m.height, m.hori_bearing_y))
+        } else {
+            let cbox = size.glyph_cbox(face, glyph_id)?;
+            let rect = cbox.unwrap_or_default();
+            (
+                cbox,
+                (rect.x_max - rect.x_min, rect.y_max - rect.y_min, rect.y_max),
+            )
+        };
+        let cbox = cbox.unwrap_or_default();
         let px = |v: i32| f64::from(v) / 64.0;
-        let height = px(cbox.y_max - cbox.y_min);
+        let height = px(height);
         let offset = if face.postscript_name().as_deref() == Some("Cmex10") {
             height / 2.0 + key.fontsize / 3.0 * self.dpi / 72.0
         } else {
@@ -244,12 +258,12 @@ impl<'e> Fonts<'e> {
         let metrics = FontMetrics {
             advance: size.linear_advance(face, glyph_id) as f64 / 65536.0,
             height,
-            width: px(cbox.x_max - cbox.x_min),
+            width: px(width),
             xmin: px(cbox.x_min),
             xmax: px(cbox.x_max),
             ymin: px(cbox.y_min) + offset,
             ymax: px(cbox.y_max) + offset,
-            iceberg: px(cbox.y_max) + offset,
+            iceberg: px(top) + offset,
             slanted: glyph.slanted,
         };
         Ok(FontInfo {

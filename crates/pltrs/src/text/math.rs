@@ -3,6 +3,7 @@
 
 use std::borrow::Cow;
 
+use pltrs_text::Hinting;
 use pltrs_text::mathtext::{CustomFonts, MathStyle, PatternDefaults, is_math_text};
 
 use crate::fonts::FontProperties;
@@ -37,7 +38,8 @@ impl<'a> Line<'a> {
 
 /// The mathtext configuration for text in `font` at `dpi`: the fontset is
 /// the font's math font family, the rest comes from `mathtext.*` in `rc`
-/// (what matplotlib's `MathTextParser.parse(s, dpi, prop)` typesets with).
+/// (what matplotlib's `MathTextParser("path").parse(s, dpi, prop)`
+/// typesets with: glyphs loaded unhinted).
 pub fn math_style(font: &FontProperties, dpi: f64, rc: &RcParams) -> MathStyle {
     MathStyle {
         fontset: font.math_fontfamily,
@@ -56,6 +58,7 @@ pub fn math_style(font: &FontProperties, dpi: f64, rc: &RcParams) -> MathStyle {
         font: font.drawn_request(),
         pattern_defaults: PatternDefaults::of(&FontProperties::from_rc(rc).request(rc)),
         dpi,
+        hinting: Hinting::None,
     }
 }
 

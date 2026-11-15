@@ -310,6 +310,10 @@ class RendererSVG(SvgArgumentsMixin, DocumentDrawingMixin, RendererBase):
     # pltrs (Rust) writes. One the program makes around an *svgwriter* of its
     # own draws into a document of its own, which `finalize` writes there.
 
+    #: How the renderer measures the text pltrs (Rust) lays out with it:
+    #: as matplotlib's SVG backend (see `._text_metrics`).
+    _text_metrics = "svg"
+
     def __init__(self, width, height, svgwriter, basename=None, image_dpi=72,
                  *, metadata=None):
         super().__init__()
@@ -532,6 +536,12 @@ class FigureCanvasSVG(FigureCanvasBase):
 
     def get_default_filetype(self):
         return 'svg'
+
+    def _print_renderer(self):
+        """The renderer the figure is laid out with for its SVG document
+        (the one matplotlib's ``print_svg`` measures with)."""
+        width, height = self.figure.get_size_inches()
+        return RendererSVG._of_save(width * 72, height * 72, self.figure.dpi)
 
     def _program_renderer(self, dpi, bbox_inches_restore):
         """The renderer the program's drawing receives while the figure is

@@ -48,6 +48,15 @@ def current_renderer():
     return renderers[-1] if renderers else None
 
 
+def _measures_as(renderer):
+    """How *renderer* measures the lines pltrs (Rust) lays out with it: as
+    its vector backend (``_text_metrics`` of its class: ``"pdf"``,
+    ``"ps"``, ``"svg"``), that of its vector renderer for a mixed-mode
+    renderer, else as Agg (``"raster"``)."""
+    measuring = getattr(renderer, "_vector_renderer", renderer)
+    return getattr(type(measuring), "_text_metrics", "raster")
+
+
 class TextMetrics:
     """
     The text metrics cache of the renderer *renderer_ref* refers to:
@@ -58,7 +67,7 @@ class TextMetrics:
 
     def __init__(self, renderer_ref):
         self._renderer_ref = renderer_ref
-        self._native = _native.new_metrics_cache()
+        self._native = _native.new_metrics_cache(_measures_as(renderer_ref()))
 
     def __call__(self, text, fontprop, ismath, dpi):
         def measure():

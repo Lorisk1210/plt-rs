@@ -1518,11 +1518,15 @@ The parasites of an axes_grid1 host whose view limits follow the host's
 (`twin`, `get_aux_axes(viewlim_mode=...)`) take them when the host's
 limits change, as matplotlib's `_sync_lims` does on the host's
 `xlim_changed` and `ylim_changed` (`FigureState::sync_parasites`); between
-two changes a parasite keeps limits of its own. pltrs (Rust) draws a
-parasite over its host's box whatever position it is given; the position
-given (`set_position`, `set_subplotspec`, its host's `apply_aspect(rect)`)
-is kept by the Python object for its getters, as matplotlib's parasite
-keeps a position of its own that only its host's draw replaces.
+two changes a parasite keeps limits of its own. A parasite without an aux
+transform has a box of its own, as matplotlib's (whose transforms are its
+own; one with an aux transform takes its host's `transAxes`): its own
+position, the host's box from the host's draw (`HostAxes.draw` gives it
+`apply_aspect(rect)`) until `apply_aspect()` brings it back, as every
+measure of its tight box does (`Parasite::active`); its ticks, tight box and
+transforms between draws are those of that box. The positions given
+(`set_position`, `set_subplotspec`) are kept by the Python object for its
+getters as given.
 
 A draw matplotlib makes before printing (with a layout engine, or to cut
 the figure to its tight box) runs no renderer: what a print renderer notes
@@ -1869,10 +1873,19 @@ every line it measures meanwhile is found in or added to it without a call
 into Python, and measuring from Python goes through the same cache. The
 renderer installed is also the one a replaced `_get_text_metrics_with_cache`
 receives (a stand-in only when none is installed), as matplotlib hands it
-the renderer laying out (`text._layout_renderer`): under the PDF canvas that
-is a `RendererPdf` (`FigureCanvasPdf._print_renderer`), which measures as
-the PDF backend does but draws nothing, so `fig._get_renderer()` stays the
-Agg renderer drawing onto the raster canvas. matplotlib's `Text.draw` lays
+the renderer laying out (`text._layout_renderer`): under the PDF,
+PostScript and SVG canvases that is the renderer of their print
+(`_print_renderer`), which measures as that backend does but draws
+nothing, so `fig._get_renderer()` stays the Agg renderer drawing onto the
+raster canvas. A cache knows how its renderer measures (the `_text_metrics`
+of `RendererPdf`, `RendererPS` and `RendererSVG`, that of the vector
+renderer of a `MixedModeRenderer`; `pltrs::text::RendererMetrics`): while it
+is installed, pltrs (Rust) lays the whole text out as that backend does
+(unhinted, in AFM metrics where `pdf.use14corefonts` or `ps.useafm` asks,
+through `TextToPath`). A measure the program asks for without a renderer
+on such a canvas measures with its print renderer and leaves the figure at
+72 dpi, as matplotlib's `_get_renderer` runs the print up to its draw
+(`text._measured_by_print`). matplotlib's `Text.draw` lays
 a tick label out again where it draws it; while a cache is installed, pltrs
 (Rust) looks the label's lines up in it again where it draws the label
 (`LaidOutText::measure_again`), so the cache sees the same lookups without

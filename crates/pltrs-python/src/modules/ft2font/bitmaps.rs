@@ -19,7 +19,7 @@ fn glyph_bitmap(
     antialiased: bool,
 ) -> PyResult<Option<GlyphBitmap>> {
     let face = font.chain_face(glyph.face)?;
-    let size = font.size_of(&face);
+    let size = glyph.size.of(&face);
     let outline = match font.load_hinted(glyph.face, &face, &size, glyph.glyph, glyph.hinting)? {
         Some(hinted) => hinted.scan_outline(),
         None => size
@@ -148,7 +148,7 @@ fn render_glyph_at(
     let font = font.borrow();
     let ([[xx, _], [yx, _]], [dx, dy]) = font.transform;
     let angle = (yx as f64).atan2(xx as f64).to_degrees();
-    let glyph = Loaded::new(0, GlyphId(index), font.hinting(flags), (dx, dy), angle);
+    let glyph = Loaded::new(0, GlyphId(index), font.loading(flags), (dx, dy), angle);
     match glyph_bitmap(&font, &glyph, !mono)? {
         Some(bitmap) => {
             let shape = vec![bitmap.rows as usize, bitmap.width as usize];

@@ -20,6 +20,7 @@ use std::sync::Arc;
 use pltrs_font::{Autohinter, Face, FontError, GlyphId, Hinting, KerningMode, Size, face_count};
 
 use crate::binding::prelude::*;
+use glyphs::LoadSize;
 
 /// The bytes of a font file and the face of it in use.
 #[derive(Debug)]
@@ -101,20 +102,20 @@ impl Ft2Font {
         Ok(face)
     }
 
-    /// The point size and resolution glyphs of `face` load at: those set,
-    /// else those mapping font units to 26.6 pixels unchanged (`units_per_EM
-    /// / 64` points at 72 dpi), as `FreeType` loads glyphs unscaled while a
-    /// face has no size.
-    fn points_and_dpi(&self, face: &Face<'_>) -> (f64, f64) {
+    /// The size glyphs load at without `FT_LOAD_NO_SCALE`: the one set,
+    /// else none.
+    fn load_size(&self) -> LoadSize {
         self.size
-            .unwrap_or_else(|| (f64::from(face.units_per_em()) / 64.0, 72.0))
+            .map_or(LoadSize::Unscaled, |(points, dpi)| LoadSize::Scaled {
+                points,
+                dpi,
+            })
     }
 
     /// The size glyphs of `face` load at (see
-    /// [`points_and_dpi`](Self::points_and_dpi)).
+    /// [`load_size`](Self::load_size)).
     fn size_of(&self, face: &Face<'_>) -> Size {
-        let (points, dpi) = self.points_and_dpi(face);
-        Size::new(face, points, dpi)
+        self.load_size().of(face)
     }
 
     /// Whether glyphs load unscaled, the face having no size.
@@ -133,14 +134,20 @@ impl Ft2Font {
         }
     }
 
-    /// The hinting the load flags `flags` select: none while glyphs load
-    /// unscaled (`FreeType` adds `FT_LOAD_NO_HINTING` to `FT_LOAD_NO_SCALE`).
-    fn hinting(&self, flags: u32) -> Hinting {
-        if self.unscaled() {
-            Hinting::None
+    /// The size and hinting the load flags `flags` load glyphs with:
+    /// unscaled for `FT_LOAD_NO_SCALE` or a face with no size, and then
+    /// unhinted (`FreeType` adds `FT_LOAD_NO_HINTING` to `FT_LOAD_NO_SCALE`).
+    fn loading(&self, flags: u32) -> (LoadSize, Hinting) {
+        let size = if flags & glyphs::NO_SCALE == 0 {
+            self.load_size()
         } else {
-            glyphs::hinting(flags)
-        }
+            LoadSize::Unscaled
+        };
+        let hinting = match size {
+            LoadSize::Unscaled => Hinting::None,
+            LoadSize::Scaled { .. } => glyphs::hinting(flags),
+        };
+        (size, hinting)
     }
 }
 

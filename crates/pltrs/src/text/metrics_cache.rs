@@ -20,6 +20,7 @@ use self::lru::Lines;
 use super::font_notes;
 use super::layout::{LaidOutText, Typesetting, measure_uncached, measured_as};
 use super::math::Line;
+use super::metrics::RendererMetrics;
 use super::overrides::LineKind;
 use super::tex::{measure_tex_again, tex_height_metrics};
 use crate::fonts::FontProperties;
@@ -40,16 +41,27 @@ pub struct MetricsCacheInfo {
     pub size: usize,
 }
 
-/// The metrics of the lines measured with one renderer.
+/// The metrics of the lines measured with one renderer, which measures
+/// them as its kind of renderer does.
 #[derive(Debug, Default)]
 pub struct MetricsCache {
     lines: RefCell<Lines>,
+    metrics: RendererMetrics,
 }
 
 impl MetricsCache {
-    /// An empty cache.
+    /// An empty cache of a renderer measuring as Agg does.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// An empty cache of a renderer measuring as `metrics` says (a vector
+    /// backend's renderer).
+    pub fn measuring_as(metrics: RendererMetrics) -> Self {
+        Self {
+            metrics,
+            ..Self::default()
+        }
     }
 
     /// The metrics of `line` in `font` typeset as `kind` at `dpi`: the
@@ -104,6 +116,16 @@ pub fn set_metrics_cache(cache: Option<Rc<MetricsCache>>) -> Option<Rc<MetricsCa
 /// Whether a cache is installed on the thread.
 pub(crate) fn installed() -> bool {
     CURRENT.with_borrow(Option::is_some)
+}
+
+/// How the renderer of the cache installed on the thread measures text
+/// (Agg's when none is installed).
+pub(super) fn installed_metrics() -> RendererMetrics {
+    CURRENT.with_borrow(|current| {
+        current
+            .as_ref()
+            .map_or_else(RendererMetrics::default, |cache| cache.metrics)
+    })
 }
 
 /// The cache installed on the thread, held weakly: what tells the

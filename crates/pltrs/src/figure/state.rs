@@ -16,7 +16,7 @@ use crate::axes::{
     AxesState, LimitCallbacks, PatchOutline, ShareGroups, SharesAcross, TickUpdater,
 };
 use crate::colors::Color;
-use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
+use crate::events::{CallbackRegistry, CursorShape, LockOwner, PickedAxes, TimerRegistry};
 use crate::gridspec::{GridSpecError, SubplotOverrides, SubplotParams};
 use crate::gui::tools::ToolRegistry;
 use crate::layout::LayoutState;
@@ -136,6 +136,11 @@ enum Preparation {
     /// Read as it is between draws: no layout engine, no aspect applied,
     /// and secondary axes keep the limits they had.
     AsIs,
+    /// Read as it is between draws for a pick, which computes the ticks
+    /// of the axes whose children it reaches alone (matplotlib's
+    /// `Artist.pick`): what the arithmetic of the others' warns about is
+    /// not said.
+    Picking(PickedAxes),
     /// Measured (a tight box, a layout).
     Measuring,
     /// Drawn: the boxes of 3-D axes are made square too.
@@ -346,8 +351,8 @@ impl FigureState {
             return;
         };
         let dpi = self.dpi();
-        let tick_space = self.shared_tick_spaces(axes)[usize::from(name == AxisName::Y)];
-        self.tick_axis_now(axes, name, &extent, dpi, tick_space);
+        let bound = self.bound_axes(axes)[usize::from(name == AxisName::Y)];
+        self.tick_axis_now(axes, name, &extent, dpi, bound);
     }
 
     /// [`update_ticks_as_is`](Self::update_ticks_as_is) as matplotlib's
@@ -372,9 +377,9 @@ impl FigureState {
             return;
         };
         let dpi = self.dpi();
-        let tick_space = self.shared_tick_spaces(axes)[usize::from(name == AxisName::Y)];
+        let bound = self.bound_axes(axes)[usize::from(name == AxisName::Y)];
         if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
-            let geometry = state.axis_geometry(name, &extent, dpi, tick_space);
+            let geometry = state.axis_geometry(name, &extent, dpi, bound);
             state.axis_mut(name).update_level_ticks(&geometry, minor);
         }
     }
@@ -392,8 +397,8 @@ impl FigureState {
             return;
         };
         let dpi = self.dpi();
-        let shared = self.shared_tick_spaces(axes);
-        for (name, tick_space) in [AxisName::X, AxisName::Y].into_iter().zip(shared) {
+        let bound = self.bound_axes(axes);
+        for (name, bound) in [AxisName::X, AxisName::Y].into_iter().zip(bound) {
             if self.program_ticker(axes, name).is_some() != program
                 || self.axis_left_out(axes, name)
             {
@@ -402,13 +407,13 @@ impl FigureState {
             if self.axis_shown(axes, name)
                 || crate::axisartist::reads_hidden_axes(&self.store, axes)
             {
-                self.tick_axis_now(axes, name, &extent, dpi, tick_space);
+                self.tick_axis_now(axes, name, &extent, dpi, bound);
             } else {
                 // matplotlib ticks no hidden axis (but for the axis
                 // artists that read it): what its arithmetic warns about is
                 // not said.
                 crate::warnings::capturing_runtime(|| {
-                    self.tick_axis_now(axes, name, &extent, dpi, tick_space);
+                    self.tick_axis_now(axes, name, &extent, dpi, bound);
                 });
             }
         }
@@ -431,7 +436,7 @@ impl FigureState {
         preparation: Preparation,
         after_failure: bool,
     ) -> bool {
-        let laid_out = if preparation == Preparation::AsIs {
+        let laid_out = if matches!(preparation, Preparation::AsIs | Preparation::Picking(_)) {
             self.unstale_axes(id);
             true
         } else {
@@ -439,15 +444,20 @@ impl FigureState {
         };
         crate::polar::update_spine_visibility(self, id);
         if laid_out {
-            if self.drawn_by_figure(id) && !after_failure {
+            let picked_elsewhere =
+                matches!(preparation, Preparation::Picking(reached) if !reached.reaches(id));
+            if self.drawn_by_figure(id) && !after_failure && !picked_elsewhere {
                 self.tick_axes(id, false);
             } else {
                 // matplotlib computes no ticks of the axes its draw leaves
-                // out (hidden or animated ones): what their arithmetic
-                // warns about is not said there.
+                // out (hidden or animated ones), nor of those a pick does
+                // not reach: what their arithmetic warns about is not said
+                // there.
                 crate::warnings::capturing_runtime(|| self.tick_axes(id, false));
             }
-            if !matches!(preparation, Preparation::Drawing(_)) {
+            // matplotlib's pick asks no helper of the axes it does not
+            // reach: the program's are not called.
+            if !picked_elsewhere && !matches!(preparation, Preparation::Drawing(_)) {
                 self.tick_axes(id, true);
             }
         }
@@ -460,8 +470,20 @@ impl FigureState {
     /// computes ticks between draws without either). A due layout pass
     /// stays due.
     pub(crate) fn prepare_as_is(&mut self) {
+        self.prepare_between_draws(Preparation::AsIs);
+    }
+
+    /// [`prepare_as_is`](Self::prepare_as_is) for a pick reaching the
+    /// children of the axes `reached` says.
+    pub(crate) fn prepare_for_pick(&mut self, reached: PickedAxes) {
+        self.prepare_between_draws(Preparation::Picking(reached));
+    }
+
+    /// `preparation`, one of those between draws, with a due layout pass
+    /// left due.
+    fn prepare_between_draws(&mut self, preparation: Preparation) {
         let pending = std::mem::take(&mut self.layout.pending);
-        self.prepare_with(Preparation::AsIs, 0);
+        self.prepare_with(preparation, 0);
         self.layout.pending |= pending;
     }
 
@@ -521,6 +543,9 @@ impl FigureState {
         let laid_out: Vec<ArtistId> = (axes.iter().copied())
             .filter(|&id| {
                 let laid_out = self.prepare_axes(id, preparation, failed);
+                if drawing && laid_out {
+                    self.place_parasites_at_host(id);
+                }
                 if !failed {
                     ticked.push(id);
                 }
@@ -530,7 +555,7 @@ impl FigureState {
             .collect();
         let painting = match preparation {
             Preparation::Drawing(painting) => Some(painting),
-            Preparation::AsIs | Preparation::Measuring => None,
+            Preparation::AsIs | Preparation::Picking(_) | Preparation::Measuring => None,
         };
         if painting.is_some() {
             self.program_figure_drawn(&axes, draws);
@@ -728,6 +753,9 @@ impl TransformContext for FigureState {
         let Some(state) = self.artist_as::<AxesState>(axes) else {
             return crate::mplot3d::axes3d_bbox(self, axes);
         };
+        if let Some(extent) = self.parasite_extent(axes) {
+            return Some(extent);
+        }
         let parent = state.base().parent.or(state.home).unwrap_or(self.root);
         let position = state.aspect.active_position(&state.position);
         if let Some(frame) = self.frame_bbox(parent) {

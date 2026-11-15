@@ -87,7 +87,8 @@ impl fmt::Display for ParasiteError {
 impl std::error::Error for ParasiteError {}
 
 /// What makes an axes a parasite (matplotlib's `ParasiteAxesBase`): its
-/// host draws it, at the host's position.
+/// host draws it, at the host's position, and one without an aux
+/// transform has a box of its own between the host's draws.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Parasite {
     /// The host axes.
@@ -102,9 +103,14 @@ pub(crate) struct Parasite {
     twin: bool,
     /// The position matplotlib's parasite has of its own, in the fractions
     /// of its host's (sub)figure: its host's active position when it was
-    /// made, until one is given. Its host draws it at the host's
-    /// position, but its tight box is measured here.
+    /// made, until one is given.
     position: Bbox,
+    /// Its active position, in the same fractions: the host's at the
+    /// host's last draw (matplotlib's `HostAxes.draw` gives its parasites
+    /// `apply_aspect(rect)`), `None` for its own `position`, to which
+    /// `apply_aspect(None)` brings it back (its `get_tightbbox` and
+    /// `get_position`).
+    active: Option<Bbox>,
 }
 
 pltrs_core::archive_struct!(Parasite {
@@ -112,7 +118,8 @@ pltrs_core::archive_struct!(Parasite {
     link,
     view_map,
     twin,
-    position
+    position,
+    active
 });
 
 /// An axes that can carry parasite axes (matplotlib's `HostAxes`, made by
@@ -338,6 +345,7 @@ impl HostAxes {
                 view_map,
                 twin,
                 position,
+                active: None,
             });
             if let ParasiteLink::Transform(aux) = link {
                 parasite.aux_transform = Some(ResolvedTransform::affine(aux));
@@ -421,20 +429,38 @@ impl ParasiteAxes {
 
     /// The position the parasite has of its own, in figure fractions
     /// (matplotlib's `get_position(original=True)` of a parasite): its
-    /// host's active position when it was made, until one is set. Its
-    /// host draws it at the host's position; its tight box is measured at
-    /// this one.
+    /// host's active position when it was made, until one is set.
     pub fn own_position(&self) -> Bbox {
         self.parasite().position
     }
 
     /// Gives the parasite a position of its own, in figure fractions
-    /// (matplotlib's `set_position` of a parasite, which its host's draws
-    /// override).
+    /// (matplotlib's `set_position(pos, which="original")` of a parasite).
     pub fn set_own_position(&self, position: Bbox) {
         self.axes.raw().with_mut::<AxesState, _>(|state| {
             if let Some(parasite) = &mut state.parasite {
                 parasite.position = position;
+            }
+        });
+    }
+
+    /// The position the parasite is at, in figure fractions (matplotlib's
+    /// active position of a parasite): its host's at the host's last
+    /// draw, else its own. A parasite without an aux transform is placed
+    /// there between its host's draws; one with an aux transform follows
+    /// its host (matplotlib's takes its host's `transAxes`).
+    pub fn active_position(&self) -> Bbox {
+        let parasite = self.parasite();
+        parasite.active.unwrap_or(parasite.position)
+    }
+
+    /// Places the parasite at `position`, in figure fractions, until its
+    /// host's next draw (matplotlib's `apply_aspect(position)` of a
+    /// parasite), or at its own position for `None` (`apply_aspect()`).
+    pub fn set_active_position(&self, position: Option<Bbox>) {
+        self.axes.raw().with_mut::<AxesState, _>(|state| {
+            if let Some(parasite) = &mut state.parasite {
+                parasite.active = position;
             }
         });
     }
@@ -526,21 +552,55 @@ pub(crate) fn parasites_of(store: &impl ArtistLookup, axes: ArtistId) -> Vec<Art
 }
 
 impl FigureState {
-    /// The display box of the parasite `axes` at its own position, which
-    /// its tight box takes in (matplotlib's parasite `get_tightbbox`
-    /// applies its aspect to its own position, where its host's draws
-    /// place it at theirs); `None` for an axes that is no parasite, and
-    /// for the parasite of a host placed by a locator, which matplotlib's
-    /// parasite borrows to be measured where its host is placed.
-    pub(crate) fn parasite_own_extent(&self, axes: ArtistId) -> Option<Bbox> {
+    /// The display box of the parasite `axes` at its active position
+    /// (see [`ParasiteAxes::active_position`]); `None` for an axes that is
+    /// no parasite or that follows its host's box: a parasite with an aux
+    /// transform, and the parasite of a host placed by a locator, which
+    /// matplotlib's parasite borrows to be placed where its host is.
+    pub(crate) fn parasite_extent(&self, axes: ArtistId) -> Option<Bbox> {
         let parasite = self.store.get_as::<AxesState>(axes)?.parasite?;
         let host = self.store.get_as::<AxesState>(parasite.host)?;
-        if placed_by_locator(host) {
+        if matches!(parasite.link, ParasiteLink::Transform(_)) || placed_by_locator(host) {
             return None;
         }
         let frame = host.base().parent.or(host.home).unwrap_or(self.root);
         let frame = self.frame_bbox(frame)?;
-        Some(parasite.position.transformed(&unit_to_bbox(&frame)))
+        let position = parasite.active.unwrap_or(parasite.position);
+        Some(position.transformed(&unit_to_bbox(&frame)))
+    }
+
+    /// Places the parasites of `host` at the host's active position, as
+    /// matplotlib's `HostAxes.draw` does before it draws them.
+    pub(crate) fn place_parasites_at_host(&mut self, host: ArtistId) {
+        let Some(position) = self
+            .store
+            .get_as::<AxesState>(host)
+            .map(|state| state.aspect.active_position(&state.position))
+        else {
+            return;
+        };
+        for parasite in parasites_of(&self.store, host) {
+            if let Some(Some(state)) = self
+                .store
+                .get_as_mut::<AxesState>(parasite)
+                .map(|state| state.parasite.as_mut())
+            {
+                state.active = Some(position);
+            }
+        }
+    }
+
+    /// Brings the parasite `axes` back to its own position (matplotlib's
+    /// `apply_aspect(None)`, which its `get_tightbbox` calls); nothing for
+    /// an axes that is no parasite.
+    pub(crate) fn reset_parasite_position(&mut self, axes: ArtistId) {
+        if let Some(Some(parasite)) = self
+            .store
+            .get_as_mut::<AxesState>(axes)
+            .map(|state| state.parasite.as_mut())
+        {
+            parasite.active = None;
+        }
     }
 
     /// Gives the parasites of `host` that follow its view limits the

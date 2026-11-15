@@ -330,10 +330,7 @@ impl FigureState {
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
             return Ok(());
         };
-        let box_aspect = multiply(
-            fig_aspect,
-            scalar_divide(position.height(), position.width()),
-        );
+        let box_aspect = multiply(fig_aspect, divide(position.height(), position.width()));
         // matplotlib computes with the numpy scalars its transforms give,
         // which warn where the arithmetic meets infinities.
         let (xmin, xmax) = state.scaled_bound(AxisName::X);
@@ -415,17 +412,4 @@ impl FigureState {
         self.set_axis_limits(axes, name, bound, None, true);
         Ok(())
     }
-}
-
-/// numpy's division of the scalars `numerator / denominator`, with the
-/// warnings it issues dividing by zero.
-fn scalar_divide(numerator: f64, denominator: f64) -> f64 {
-    if denominator == 0.0 {
-        crate::warnings::warn_runtime(if numerator == 0.0 || numerator.is_nan() {
-            "invalid value encountered in scalar divide"
-        } else {
-            "divide by zero encountered in scalar divide"
-        });
-    }
-    numerator / denominator
 }

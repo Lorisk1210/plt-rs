@@ -18,6 +18,8 @@
 
 use pltrs_core::numeric::ACCELERATE_BLAS;
 
+use crate::numeric::numpy_arith;
+
 /// A point or direction in 3-D space.
 pub type Vec3 = [f64; 3];
 
@@ -348,10 +350,10 @@ pub fn world_transformation(limits: [f64; 6], aspect: Vec3) -> Matrix4 {
 pub(crate) fn warn_world_transformation(limits: [f64; 6], aspect: Vec3) {
     let [xmin, xmax, ymin, ymax, zmin, zmax] = limits;
     let spans = [(xmin, xmax), (ymin, ymax), (zmin, zmax)].map(|(lo, hi)| scalar_subtract(hi, lo));
-    let deltas = [0, 1, 2].map(|i| scalar_divide(spans[i], aspect[i]));
+    let deltas = [0, 1, 2].map(|i| numpy_arith::divide(spans[i], aspect[i]));
     for (min, delta) in [xmin, ymin, zmin].into_iter().zip(deltas) {
-        scalar_divide(1.0, delta);
-        scalar_divide(-min, delta);
+        numpy_arith::divide(1.0, delta);
+        numpy_arith::divide(-min, delta);
     }
 }
 
@@ -363,21 +365,6 @@ fn scalar_subtract(a: f64, b: f64) -> f64 {
         crate::warnings::warn_runtime("invalid value encountered in scalar subtract");
     }
     difference
-}
-
-/// numpy's division of float64 scalars, warning as numpy does when it
-/// divides a finite number other than zero by zero, or makes no number of
-/// numbers (`0 / 0`, `inf / inf`).
-pub(crate) fn scalar_divide(a: f64, b: f64) -> f64 {
-    let quotient = a / b;
-    if !a.is_nan() && !b.is_nan() {
-        if quotient.is_nan() {
-            crate::warnings::warn_runtime("invalid value encountered in scalar divide");
-        } else if b == 0.0 && a.is_finite() {
-            crate::warnings::warn_runtime("divide by zero encountered in scalar divide");
-        }
-    }
-    quotient
 }
 
 /// The rotation by `angle` radians about the direction `v`

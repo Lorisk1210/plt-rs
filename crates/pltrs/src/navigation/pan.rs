@@ -8,6 +8,7 @@ use crate::artist::ArtistHandle;
 use crate::axes::{Axes, AxesState, AxisName};
 use crate::colorbar::Colorbar;
 use crate::figure::FigureState;
+use crate::numeric::numpy_arith;
 use crate::polar::{PolarAxes, with_radial_frame};
 use crate::projections::{FrozenView, PanStart, Projection};
 use crate::rc::Aspect;
@@ -341,8 +342,10 @@ fn drag_polar(
             polar.set_rlabel_position(angle - turn);
         }
         PolarPan::Zoom => {
-            let scale = to.y / from.y;
-            polar.set_rmax(rmax / scale);
+            // matplotlib divides numpy's scalars, which warn of a zoom
+            // from the centre (a radius of zero).
+            let scale = numpy_arith::divide(to.y, from.y);
+            polar.set_rmax(numpy_arith::divide(rmax, scale));
         }
         PolarPan::Idle => {}
     }
@@ -421,5 +424,30 @@ mod tests {
             display(&polar, 0.0, 2.0),
         );
         assert!((polar.rmax() - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_polar_zoom_from_the_centre_divides_as_numpy() {
+        let polar = Figure::new().polar_subplot();
+        let centre = Point::new(0.0, 0.0);
+        let ((), warnings) = crate::warnings::capturing_runtime(|| {
+            // matplotlib's `r / startr` and `rmax / scale` of numpy floats:
+            // 0 / 0, then 1 / 0.
+            drag_polar(&polar, PolarPan::Zoom, (centre, centre), 2.0, 22.5);
+            drag_polar(
+                &polar,
+                PolarPan::Zoom,
+                (centre, Point::new(0.0, 1.0)),
+                2.0,
+                22.5,
+            );
+        });
+        assert_eq!(
+            warnings,
+            [
+                "invalid value encountered in scalar divide",
+                "divide by zero encountered in scalar divide"
+            ]
+        );
     }
 }

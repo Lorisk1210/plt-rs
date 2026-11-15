@@ -142,11 +142,12 @@ class ParasiteAxesBase:
         self.stale = True
 
     # matplotlib's parasite has a position of its own, its host's when it
-    # was made, which its host's draw replaces by the host's box for that
-    # draw (``ax.apply_aspect(rect)``). pltrs (Rust) draws a parasite over
-    # its host whatever position it has, and measures its tight box at its
-    # own original position; the active one is kept here, for the getters
-    # to read back.
+    # was made, which its host's draw replaces by the host's box
+    # (``ax.apply_aspect(rect)``) until ``apply_aspect()`` brings it back.
+    # pltrs (Rust) places a parasite without an aux transform at its active
+    # position between its host's draws, and sets it to the host's box when
+    # the host is drawn; the positions given are kept here as given, for
+    # the getters to read back.
 
     def _own_positions(self):
         """The parasite's own original and active positions: both the
@@ -165,9 +166,11 @@ class ParasiteAxesBase:
         for kept in ("active", "original"):
             if which in ("both", kept):
                 own[kept] = pos.frozen()
+        bounds = tuple(map(float, pos.bounds))
         if which in ("both", "original"):
-            _axes_grid1.set_own_position(self._native,
-                                         tuple(map(float, pos.bounds)))
+            _axes_grid1.set_own_position(self._native, bounds)
+        if which in ("both", "active"):
+            _axes_grid1.set_active_position(self._native, bounds)
         self.stale = True
 
     @_docstring.copy(maxes.Axes.set_position)

@@ -103,6 +103,21 @@ fn set_own_position(axes: Axes, rect: (f64, f64, f64, f64)) -> PyResult<()> {
     Ok(())
 }
 
+/// `(left, bottom, right, top)` of the position the parasite `axes` is
+/// at, in figure fractions (its active position).
+fn active_position(axes: Axes) -> PyResult<(f64, f64, f64, f64)> {
+    Ok(parasite_of(&axes)?.active_position().extents())
+}
+
+/// Places the parasite `axes` at `rect`, `[left, bottom, width, height]`
+/// in figure fractions, until its host's next draw (its
+/// `apply_aspect(rect)`).
+fn set_active_position(axes: Axes, rect: (f64, f64, f64, f64)) -> PyResult<()> {
+    let (left, bottom, width, height) = rect;
+    parasite_of(&axes)?.set_active_position(Some(Bbox::from_bounds(left, bottom, width, height)));
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("aux_axes", aux_axes)?;
@@ -110,5 +125,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("parasites", parasites)?;
     module.add("own_position", own_position)?;
     module.add("set_own_position", set_own_position)?;
+    module.add("active_position", active_position)?;
+    module.add("set_active_position", set_active_position)?;
     module.add("remove_parasite", remove_parasite)
 }

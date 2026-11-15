@@ -327,6 +327,14 @@ impl FigureState {
         self.dpi.set(dpi);
     }
 
+    /// The figure's size in inches as matplotlib's figure has it now: the
+    /// size of the window a print running now is cut to (its print makes
+    /// `fig.bbox_inches` the window's size), else the figure's own.
+    pub(crate) fn printed_size_inches(&self) -> (f64, f64) {
+        self.print_window
+            .map_or(self.size_inches, |window| (window.width(), window.height()))
+    }
+
     /// Canvas size in pixels.
     pub(crate) fn size_pixels(&self) -> (f64, f64) {
         let dpi = self.dpi();

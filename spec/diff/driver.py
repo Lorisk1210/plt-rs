@@ -69,6 +69,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import compare  # noqa: E402
 import corpora  # noqa: E402
+import install  # noqa: E402
 
 #: Seconds a program may run under one implementation.
 TIMEOUT = 300
@@ -114,6 +115,8 @@ class Setup:
         self.out = pathlib.Path(args.out).resolve()
         self.gallery = pathlib.Path(args.gallery).resolve()
         self.pltrs_python = args.pltrs_python
+        #: The ``site-packages`` pltrs is installed in for a corpus run.
+        self.installed: pathlib.Path | None = None
         self.mpl_python = args.mpl_python or sys.executable
         #: The variables of each corpus' manifest table (`corpora.environment`).
         self._corpus_environments: dict[str, dict[str, str]] = {}
@@ -125,6 +128,8 @@ class Setup:
         command = [python, str(HERE / "trace.py"), "--impl", impl, "--mode", program.mode]
         if program.corpus is None:
             return [*command, str(program.path), str(out)]
+        if program.corpus.corpus.shell:
+            command += ["--shell", program.corpus.corpus.shell]
         tree = out / "tree"
         return [*command, "--in-tree", str(tree), str(program.corpus.lay_out(tree)), str(out)]
 
@@ -156,8 +161,10 @@ class Setup:
             # pltrs, and the `matplotlib` distribution's aliases of it, so
             # that the libraries a program plots through (pandas) get pltrs
             # where they import matplotlib, as they do where it is installed
-            # as matplotlib.
-            path += [str(self.root / "python" / part) for part in ("", "alias")]
+            # as matplotlib: for a corpus' program installed in its venv
+            # (`install.py`), for the others from the tree.
+            if program is None or program.corpus is None:
+                path += [str(self.root / "python" / part) for part in ("", "alias")]
         if path:
             env["PYTHONPATH"] = os.pathsep.join(path)
         return env
@@ -240,7 +247,8 @@ class Program:
         corpus' tree and venvs, the tester's harness (`HEADLESS` too where
         the programs get it), the network it is refused (`OFFLINE`) and
         the processor level numpy is held to (`PROCESSOR_LEVEL`)."""
-        harness = b"".join((HERE / name).read_bytes() for name in ("trace.py", "describe.py", "corpora.py"))
+        harness = b"".join((HERE / name).read_bytes()
+                           for name in ("trace.py", "describe.py", "corpora.py", "ipython_shell.py"))
         if NEEDS_HEADLESS:
             harness += (HEADLESS / "sitecustomize.py").read_bytes()
         tree = (self.corpus.corpus.sha256.encode() + CORPUS_REQUIREMENTS.read_bytes()
@@ -252,7 +260,8 @@ class Program:
         if self.corpus:
             # What a corpus program starts with, besides its tree.
             network += json.dumps([HOME_DIRECTORIES, OWN_CONFIG_FILES]).encode()
-        return hashlib.sha256(self.path.read_bytes() + self.mode.encode() + tree + harness
+        shell = self.corpus.corpus.shell.encode() if self.corpus else b""
+        return hashlib.sha256(self.path.read_bytes() + self.mode.encode() + shell + tree + harness
                               + network).hexdigest()[:16]
 
     def directory(self, setup: Setup) -> pathlib.Path:
@@ -369,6 +378,9 @@ def run_program(setup: Setup, program: Program) -> dict[str, Any]:
         # package its first cell imports, say) tests nothing.
         result["skipped"] = f"{lacking[0]['type']}: {lacking[0]['message'][:200]}"
         return result
+    if setup.installed is not None and not install.alias_present(setup.installed):
+        raise install.InstallError(f"the matplotlib alias left {setup.installed} during the run: "
+                                   "something changed the venv under it")
     pltrs = _run(setup, "pltrs", program, directory / "pltrs")
     if pltrs is None:
         failure = (directory / "pltrs" / "failure").read_text()
@@ -678,6 +690,7 @@ def main() -> int:
         programs += generated_programs(setup)
     if args.suite == "corpus":
         programs += corpus_programs(setup, args.patterns)
+        setup.installed = install.install(setup.root, setup.pltrs_python)
         setup.prepare_configs()
         setup.prepare_environments(programs)
     if args.patterns:
@@ -687,7 +700,12 @@ def main() -> int:
     with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
         futures = {pool.submit(run_program, setup, program): program for program in programs}
         for done, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            result = future.result()
+            try:
+                result = future.result()
+            except install.InstallError as err:
+                # Every later program would fail alike: stop at once.
+                pool.shutdown(wait=False, cancel_futures=True)
+                raise SystemExit(f"driver.py: {err}") from None
             results.append(result)
             marker = "skip" if "skipped" in result else len(result.get("differences", []))
             print(f"[{done}/{len(programs)}] {result['program']}: {marker}", file=sys.stderr, flush=True)

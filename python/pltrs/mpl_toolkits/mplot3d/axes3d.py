@@ -2140,12 +2140,20 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
     def add_collection(self, collection, autolim=True):
         # docstring inherited
+        # matplotlib's Axes3D adds collections with Axes.add_collection,
+        # whose data limits update_datalim leaves alone in 3-D: a collection
+        # added so asks for the view's autoscale only (add_collection3d
+        # takes its limits in).
         if (isinstance(collection, art3d._Loose3D)
                 and collection._pending_key() in collection.__dict__):
-            return collection._adopt_into(self, bool(autolim), False)
-        # A 3-D collection removed from a 3-D axes takes back its geometry
-        # as it is added (`_add_to_axes`).
-        return self._without_projection(super().add_collection(collection, autolim))
+            added = collection._adopt_into(self, False, False)
+        else:
+            # A 3-D collection removed from a 3-D axes takes back its
+            # geometry as it is added (`_add_to_axes`).
+            added = self._without_projection(super().add_collection(collection, False))
+        if autolim and autolim != "_datalim_only":
+            self._request_autoscale_view()
+        return added
 
     def add_patch(self, p):
         # docstring inherited

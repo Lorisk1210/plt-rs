@@ -189,8 +189,8 @@ pub use tick_set::{Labelling, Tick, TickSet};
 pub use tick_updates::{
     SpineAxis, TickLevels, TickUpdater, UpdateSite, UpdatedLevel, UpdatedTicks,
 };
-pub(crate) use ticks::grid_level_on;
 pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickPosition, TickStyle};
+pub(crate) use ticks::{grid_level_on, tick_sides};
 pub(crate) use tight_bbox::fully_clipped;
 pub(crate) use tight_bbox::spine_extent_with_ticks;
 pub(crate) use tight_bbox::{clipped_extent, collapse_x};

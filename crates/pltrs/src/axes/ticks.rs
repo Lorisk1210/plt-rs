@@ -489,7 +489,7 @@ fn tick_dimensions(axis: AxisName, major: bool, rc: &RcParams) -> (f64, f64, f64
 /// own switch and this tick level's (matplotlib's `Axes.__init__` calls
 /// `tick_params(bottom=xtick.bottom and xtick.major.bottom,
 /// labelbottom=xtick.labelbottom and xtick.major.bottom, ...)`).
-fn tick_sides(axis: AxisName, major: bool, rc: &RcParams) -> (Sides, Sides) {
+pub(crate) fn tick_sides(axis: AxisName, major: bool, rc: &RcParams) -> (Sides, Sides) {
     let (sides, levels, labels) = match (axis, major) {
         (AxisName::X, true) => (
             (rc.xtick_bottom, rc.xtick_top),

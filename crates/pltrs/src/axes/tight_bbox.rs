@@ -151,6 +151,28 @@ impl FigureState {
         axis_tight_bbox(LayoutContext::new(self), &painter, for_layout_only)
     }
 
+    /// Brings up to date the ticks of the axes whose labels align with
+    /// the automatically placed labels of `axes`, which placing them
+    /// measures (matplotlib's `_get_tick_boxes_siblings` updates each
+    /// sibling's ticks): a figure measured before it was ever laid out
+    /// has none yet. The program ticks its own axes as it visits them.
+    fn tick_label_siblings(&mut self, axes: ArtistId) {
+        for name in [AxisName::X, AxisName::Y] {
+            let placed_by_hand = self
+                .store
+                .get_as::<AxesState>(axes)
+                .is_none_or(|state| state.axis(name).label.coords.is_some());
+            if placed_by_hand {
+                continue;
+            }
+            for sibling in self.label_siblings(axes, name) {
+                if sibling != axes && self.program_ticker(sibling, name).is_none() {
+                    self.update_ticks_as_is(sibling, name);
+                }
+            }
+        }
+    }
+
     /// matplotlib's `ax.get_tightbbox(for_layout_only=...)` in display
     /// coordinates, or `None` for an invisible axes: brings the axes up to
     /// date (autoscaling, aspect, ticks), then unites its box with the
@@ -301,6 +323,7 @@ impl FigureState {
         let dpi = self.dpi();
         let bound = self.bound_axes(axes);
         self.tick_axes_now(axes, &extent, dpi, bound);
+        self.tick_label_siblings(axes);
         let children = self.store.get_as::<AxesState>(axes)?.children.clone();
         self.update_title_position(axes);
         self.measuring_evaluated(axes, |fig| {

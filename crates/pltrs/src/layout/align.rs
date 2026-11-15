@@ -243,6 +243,8 @@ impl Figure {
 mod tests {
     use super::*;
     use crate::artist::LayoutContext;
+    use crate::layout::TightLayout;
+    use pltrs_core::Bbox;
 
     #[test]
     fn groups_belong_to_their_figure() {
@@ -287,5 +289,38 @@ mod tests {
             sorted(layout.label_siblings(ids[0], AxisName::Y)),
             vec![ids[0], ids[2]]
         );
+    }
+
+    /// A figure of two rows whose upper y label aligns with the wide tick
+    /// labels of the lower axes, after `measure_first` or not.
+    #[allow(
+        clippy::approx_constant,
+        reason = "a Bode plot's tick values, as python-control prints them"
+    )]
+    fn aligned_rows_laid_out(measure_first: bool) -> Bbox {
+        let fig = Figure::new();
+        let axs = fig.subplots(2, 1).unwrap();
+        let (upper, lower) = (&axs[(0, 0)], &axs[(1, 0)]);
+        fig.align_labels(None);
+        upper.plot([0.0, 1.0], [-45.0, -3.0]).unwrap();
+        lower.plot([0.0, 1.0], [-4.4, 0.0]).unwrap();
+        lower
+            .yaxis()
+            .set_ticks(vec![0.0, -0.785, -1.571, -2.356, -3.142, -3.927]);
+        upper.set_ylabel("Magnitude [dB]");
+        if measure_first {
+            fig.tight_bbox();
+        }
+        fig.tight_layout(TightLayout::default()).unwrap();
+        upper.position()
+    }
+
+    #[test]
+    fn a_first_layout_places_labels_beyond_the_siblings_tick_labels() {
+        // matplotlib measures the siblings' ticks anew (0.150960 of the
+        // figure's width is where its tight layout puts both axes).
+        let laid_out = aligned_rows_laid_out(false);
+        assert_eq!(laid_out, aligned_rows_laid_out(true));
+        assert!((laid_out.x0() - 0.150_960).abs() < 1e-6, "{laid_out:?}");
     }
 }

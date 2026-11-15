@@ -117,10 +117,10 @@ impl Obstacles {
     }
 }
 
-/// A line's drawn path in display pixels.
+/// A line's drawn path in display pixels: for an infinite line, the part
+/// of it in view (matplotlib's `AxLine.get_transform`).
 fn line_path(ctx: LayoutContext<'_>, line: &LineArtist) -> Option<Path> {
-    let transform = line.base().transform.clone().unwrap_or(Transform::Display);
-    let resolved = ctx.resolve(&transform)?;
+    let resolved = line.drawn_transform(ctx).ok().flatten()?;
     Some(resolved.transform_path(&Path::polyline(line.drawn_points())))
 }
 

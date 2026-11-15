@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use pltrs_core::numeric::{py_max, py_min};
 
-use super::axis3d::{Tickers3D, tick_style};
+use super::axis3d::{Tickers3D, rc_sides, tick_style};
 use super::coords::Axis3;
 use super::error::Axes3DError;
 use super::geometry::AxisPosition;
@@ -495,11 +495,7 @@ impl Axis3D {
     /// length and width and the second label side.
     pub fn set_tick_params(&self, params: TickParams) -> &Self {
         let rc = crate::rc::params();
-        let sides = if self.dir == Axis3::X {
-            AxisName::X
-        } else {
-            AxisName::Y
-        };
+        let sides = rc_sides(self.dir);
         let unreset = TickParams {
             reset: false,
             ..params.clone()
@@ -608,6 +604,22 @@ mod tests {
         ));
         ax.zaxis().set_major_locator(locator(5));
         assert!(ax.zaxis().ticks().is_ok());
+    }
+
+    #[test]
+    fn new_axes_take_the_tick_sides_of_the_rc_like_matplotlib() {
+        let (x, y, z) = crate::rc::context(|| {
+            crate::rc::set("xtick.labelbottom", "False").unwrap();
+            crate::rc::set("ytick.labelleft", "True").unwrap();
+            crate::rc::set("ytick.left", "False").unwrap();
+            let ax = Figure::new().subplot_3d();
+            let style = |dir: Axis3| ax.with(|axes| axes.axis(dir).major_style.clone());
+            (style(Axis3::X), style(Axis3::Y), style(Axis3::Z))
+        });
+        // x follows the xtick switches, y and z the ytick ones.
+        assert!(!x.labels.first && x.ticks.first);
+        assert!(y.labels.first && !y.ticks.first);
+        assert!(z.labels.first && !z.ticks.first);
     }
 
     #[test]

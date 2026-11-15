@@ -9,7 +9,7 @@ use pltrs_core::Rgba;
 use crate::artist::ArtistId;
 use crate::axes::axis::TickOverrides;
 use crate::axes::axis_artists::AxisGids;
-use crate::axes::{Tick, TickSet, TickStyle, TickerDefaults, grid_level_on};
+use crate::axes::{Tick, TickSet, TickStyle, TickerDefaults, grid_level_on, tick_sides};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::lines::LineStyle;
@@ -39,6 +39,31 @@ pub(crate) fn tick_style(major: bool, rc: &RcParams) -> TickStyle {
     TickStyle {
         grid_on: grid_level_on(major, rc),
         ..TickStyle::from_rc(AxisName::X, major, rc)
+    }
+}
+
+/// [`tick_style`] with the sides of ticks and labels the axes gives the
+/// axis `dir` when it is made: matplotlib's `Axes.__init__` calls
+/// `tick_params` with the `xtick` switches (`bottom`, `labelbottom`...)
+/// for the x axis and the `ytick` ones (`left`, `labelleft`...) for the y
+/// axis, which the z axis follows.
+pub(crate) fn initial_tick_style(dir: Axis3, major: bool, rc: &RcParams) -> TickStyle {
+    let (ticks, labels) = tick_sides(rc_sides(dir), major, rc);
+    TickStyle {
+        ticks,
+        labels,
+        ..tick_style(major, rc)
+    }
+}
+
+/// The 2-D axis whose tick switches the 3-D axis `dir` takes: the x
+/// axis', `bottom` and `top`, for x, the y axis', `left` and `right`, for
+/// y and z.
+pub(crate) fn rc_sides(dir: Axis3) -> AxisName {
+    if dir == Axis3::X {
+        AxisName::X
+    } else {
+        AxisName::Y
     }
 }
 
@@ -376,8 +401,8 @@ impl Axis3DState {
             pane_color: pane_color.clone(),
             pane_style: None,
             style: AxisStyle::from_rc(dir, rc),
-            major_style: tick_style(true, rc),
-            minor_style: tick_style(false, rc),
+            major_style: initial_tick_style(dir, true, rc),
+            minor_style: initial_tick_style(dir, false, rc),
             offset_color: rc.xtick_color.clone(),
             ticks: Ok(TickSet::default()),
             tick_warnings: Vec::new(),

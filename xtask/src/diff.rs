@@ -80,6 +80,8 @@
 //! contain it, `--failures` prints every difference and `--strict` fails
 //! while any remains.
 
+mod venv_lock;
+
 use std::env;
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
@@ -250,6 +252,11 @@ fn run_diff(args: &[String]) -> Result<(), String> {
     if build {
         crate::python::build(crate::python::Profile::Release)?;
     }
+    // (Held until the run ends: no other run's venv step or install under
+    // its programs.)
+    let _venvs = (mode != Mode::Types && corpus)
+        .then(|| venv_lock::hold(&crate::python::root().join("target/diff/venvs")))
+        .transpose()?;
     if mode == Mode::Types {
         let (pltrs, reference) = types_venvs()?;
         script

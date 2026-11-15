@@ -19,6 +19,7 @@ use super::named;
 /// assert_eq!(Color::from("red").resolve()?, Rgba::opaque(1.0, 0.0, 0.0));
 /// assert_eq!(Color::from("#00f8").resolve()?.a, 0x88 as f64 / 255.0);
 /// assert!(Color::from("not a colour").resolve().is_err());
+/// assert_eq!(Color::from("red").with_alpha(0.5).resolve()?.a, 0.5);
 /// # Ok::<(), pltrs::colors::ColorError>(())
 /// ```
 #[derive(Clone, Debug, PartialEq)]
@@ -27,17 +28,34 @@ pub enum Color {
     Rgba(Rgba),
     /// A colour string: a name, hex code, grey level, `"Cn"` or `"none"`.
     Spec(String),
+    /// matplotlib's `(color, alpha)` pair: the colour with its alpha
+    /// replaced (kept for `None`), unless an alpha given where it is
+    /// resolved replaces it in turn (`to_rgba(("red", 0.5), alpha=0.2)` is
+    /// red at 0.2).
+    WithAlpha(Box<Color>, Option<f64>),
 }
 
 pltrs_core::archive_enum!(Color {
     Rgba(v0),
     Spec(v0),
+    WithAlpha(v0, v1),
 });
 
 impl Color {
     /// matplotlib's `"none"`: draw nothing.
     pub fn none() -> Self {
         Self::Spec("none".to_owned())
+    }
+
+    /// This colour paired with `alpha` (matplotlib's `(color, alpha)`
+    /// pair), the pair's colour for a pair.
+    #[must_use]
+    pub fn with_alpha(self, alpha: impl Into<Option<f64>>) -> Self {
+        let alpha = alpha.into();
+        match self {
+            Self::WithAlpha(color, _) => Self::WithAlpha(color, alpha),
+            color => Self::WithAlpha(Box::new(color), alpha),
+        }
     }
 
     /// Validates a colour string now rather than when it is used.
@@ -76,7 +94,11 @@ impl Color {
     /// assert!(!Color::from([0.0, 0.5, 1.0]).refers_to_cycle());
     /// ```
     pub fn refers_to_cycle(&self) -> bool {
-        matches!(self, Self::Spec(spec) if is_cycle_reference(spec))
+        match self {
+            Self::Spec(spec) => is_cycle_reference(spec),
+            Self::WithAlpha(color, _) => color.refers_to_cycle(),
+            Self::Rgba(_) => false,
+        }
     }
 
     /// Resolves to RGBA using an explicit colour cycle for `"Cn"`
@@ -89,6 +111,7 @@ impl Color {
         }
         match self {
             Self::Rgba(rgba) => from_components(*rgba, alpha),
+            Self::WithAlpha(color, own) => color.resolve_with(alpha.or(*own), cycle),
             Self::Spec(spec) => match cycle_index(spec) {
                 Some(n) => {
                     let base = if cycle.is_empty() {
@@ -123,6 +146,8 @@ impl Color {
             Self::Spec(spec) if spec.starts_with('#') && matches!(spec.len(), 5 | 9) => {
                 self.resolve().ok()?
             }
+            Self::WithAlpha(color, None) => return color.split_alpha(),
+            Self::WithAlpha(_, Some(_)) => self.resolve().ok()?,
             Self::Rgba(_) | Self::Spec(_) => return None,
         };
         Some((Self::Rgba(Rgba::opaque(rgba.r, rgba.g, rgba.b)), rgba.a))
@@ -132,6 +157,7 @@ impl Color {
     pub fn is_none(&self) -> bool {
         match self {
             Self::Spec(spec) => spec.eq_ignore_ascii_case("none"),
+            Self::WithAlpha(color, _) => color.is_none(),
             Self::Rgba(_) => false,
         }
     }
@@ -192,6 +218,8 @@ impl fmt::Display for Color {
         match self {
             Self::Spec(spec) => f.write_str(spec),
             Self::Rgba(rgba) => write!(f, "({}, {}, {}, {})", rgba.r, rgba.g, rgba.b, rgba.a),
+            Self::WithAlpha(color, Some(alpha)) => write!(f, "({color}, {alpha})"),
+            Self::WithAlpha(color, None) => write!(f, "({color}, None)"),
         }
     }
 }
@@ -358,6 +386,53 @@ mod tests {
 
     fn rgba(spec: &str) -> Result<Rgba, ColorError> {
         Color::from(spec).resolve_with(None, &[Rgba::opaque(0.1, 0.2, 0.3), Rgba::WHITE])
+    }
+
+    #[test]
+    fn a_colour_alpha_pair_replaces_the_colours_alpha() {
+        let cycle = [Rgba::opaque(0.1, 0.2, 0.3)];
+        let pair = Color::from("#ff000080").with_alpha(0.25);
+        assert_eq!(
+            pair.resolve_with(None, &cycle),
+            Ok(Rgba::new(1.0, 0.0, 0.0, 0.25))
+        );
+        // An alpha given where it is resolved wins over the pair's.
+        assert_eq!(
+            pair.resolve_with(Some(0.5), &cycle),
+            Ok(Rgba::new(1.0, 0.0, 0.0, 0.5))
+        );
+        let kept = Color::from([0.0, 0.0, 1.0, 0.5]).with_alpha(None);
+        assert_eq!(
+            kept.resolve_with(None, &cycle),
+            Ok(Rgba::new(0.0, 0.0, 1.0, 0.5))
+        );
+        let cycled = Color::from("C0").with_alpha(0.5);
+        assert!(cycled.refers_to_cycle());
+        assert_eq!(
+            cycled.resolve_with(None, &cycle),
+            Ok(Rgba::new(0.1, 0.2, 0.3, 0.5))
+        );
+        assert!(Color::none().with_alpha(0.5).is_none());
+        assert_eq!(
+            Color::none().with_alpha(0.5).resolve_with(None, &cycle),
+            Ok(Rgba::TRANSPARENT)
+        );
+        assert_eq!(
+            Color::from("red")
+                .with_alpha(1.5)
+                .resolve_with(None, &cycle),
+            Err(ColorError::AlphaOutOfRange(1.5))
+        );
+        // A pair of a pair pairs the colour again.
+        assert_eq!(
+            pair.with_alpha(0.75),
+            Color::from("#ff000080").with_alpha(0.75)
+        );
+        assert_eq!(
+            Color::from("red").with_alpha(0.5).split_alpha(),
+            Some((Color::from([1.0, 0.0, 0.0]), 0.5))
+        );
+        assert_eq!(Color::from("red").with_alpha(None).split_alpha(), None);
     }
 
     #[test]

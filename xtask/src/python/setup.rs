@@ -96,11 +96,18 @@ fn make_venv(venv: &Path) -> Result<PathBuf, String> {
     Ok(python)
 }
 
+/// What [`refuse_matplotlib`] runs: exits 0 when `matplotlib` imports and
+/// is matplotlib, 3 when it is pltrs' own `matplotlib` distribution (the
+/// aliases loading pltrs, which the corpus driver installs).
+const REAL_MATPLOTLIB: &str = "import pathlib, matplotlib\n\
+     raise SystemExit(3 if pathlib.Path(matplotlib.__file__).parent.name == 'pltrs' else 0)";
+
 /// Fails if `python`, the interpreter of the venv `venv`, can import
-/// matplotlib, which a venv running pltrs must not hold.
+/// matplotlib, which a venv running pltrs must not hold (pltrs' own
+/// `matplotlib` distribution aside).
 fn refuse_matplotlib(python: &Path, venv: &Path) -> Result<(), String> {
     let leaked = Command::new(python)
-        .args(["-c", "import matplotlib"])
+        .args(["-c", REAL_MATPLOTLIB])
         .output()
         .map_err(|err| format!("cannot run {}: {err}", python.display()))?;
     if leaked.status.success() {

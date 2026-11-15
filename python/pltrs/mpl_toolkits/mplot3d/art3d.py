@@ -1938,7 +1938,8 @@ class Text3D(mtext.Text):
             .. versionadded:: 3.10
         """
         axes = _axes3d(self)
-        if _lifted(self) is not None:
+        if self._has_3d():
+            # (Lifted, or pending: set_position moved the pending x and y.)
             x, y = self.get_position_3d()[:2]
         else:
             x, y = mtext.Text.get_position(self)

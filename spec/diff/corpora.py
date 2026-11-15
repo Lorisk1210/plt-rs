@@ -10,9 +10,13 @@ uses this module to
 2. list its programs (``programs``): the files its ``programs`` globs
    match, but those its ``exclude`` globs match and those naming a URL
    outside its ``data-urls`` (they would need the network); a notebook, a
-   Markdown page or a reStructuredText page (its IPython directives)
-   becomes a script of cells (``# %%`` lines, the percent format), the
-   corpus' ``prelude`` its first, under ``OUT/corpora/<name>/converted``,
+   Markdown page or a reStructuredText page (its IPython directives and
+   plot directives, ``doc_examples.py``) becomes a script of cells (``# %%``
+   lines, the percent format), the corpus' ``prelude`` its first, under
+   ``OUT/corpora/<name>/converted``, as do the ``Examples`` sections of the
+   docstrings of the modules its ``docstrings`` globs match (under
+   ``docstrings/`` in the tree a run sees, away from the module's own
+   directory, whose modules would shadow others),
    as does a script whose URLs of the repository's files are rewritten
    into the tree (as paths, or as ``file:`` URLs for the programs that
    download them);
@@ -43,7 +47,10 @@ import stat
 import subprocess
 import textwrap
 import tomllib
+import urllib.parse
 from typing import Any, Iterator
+
+import doc_examples
 
 HERE = pathlib.Path(__file__).resolve().parent
 #: The manifest of the corpora.
@@ -108,6 +115,13 @@ class Corpus:
     #: ``"code"``, or ``"data"`` for an entry other corpora's programs read
     #: (named in their `environment`), whose files never run.
     kind: str = "code"
+    #: Whether the doctest blocks of its reStructuredText pages run too.
+    doctests: bool = False
+    #: Globs of modules whose docstrings' ``Examples`` sections are programs.
+    docstrings: tuple[str, ...] = ()
+    #: ``"ipython"`` for a corpus whose cells run in an IPython shell, as
+    #: Jupyter runs them (`shell_cell`), else ``""``.
+    shell: str = ""
 
     def directory(self, out: pathlib.Path) -> pathlib.Path:
         """Where the corpus' tree and converted programs go."""
@@ -116,6 +130,11 @@ class Corpus:
     def tree(self, out: pathlib.Path) -> pathlib.Path:
         """The fetched tree."""
         return self.directory(out) / "tree"
+
+
+#: The fields of a corpus that choose what of its tree is read, not what is
+#: fetched: left out of the stamp of a fetched tree.
+_READING_ONLY = ("doctests", "docstrings", "shell")
 
 
 def _output_listing(tree: pathlib.Path) -> pathlib.Path:
@@ -176,6 +195,9 @@ def load(manifest: pathlib.Path = MANIFEST) -> list[Corpus]:
             prelude=table.get("prelude", ""),
             environment=tuple(table.get("environment", {}).items()),
             kind=table.get("kind", "code"),
+            doctests=table.get("doctests", False),
+            docstrings=tuple(table.get("docstrings", ())),
+            shell=table.get("shell", ""),
         )
         for name, table in tables.items()
     ]
@@ -233,7 +255,8 @@ def fetch(corpus: Corpus, out: pathlib.Path) -> pathlib.Path:
     directory = corpus.directory(out)
     tree = corpus.tree(out)
     stamp = directory / "fetched.json"
-    entry = json.dumps(dataclasses.asdict(corpus), sort_keys=True)
+    entry = json.dumps({key: value for key, value in dataclasses.asdict(corpus).items()
+                        if key not in _READING_ONLY}, sort_keys=True)
     if stamp.exists() and stamp.read_text() == entry and tree.is_dir():
         return tree
     if directory.exists():
@@ -316,9 +339,13 @@ def _rewrite_urls(text: str, corpus: Corpus, tree: pathlib.Path) -> str:
     """*text* with the URLs of the repository's own files made paths into
     *tree* (``data-urls``) or ``file:`` URLs of them (``file-urls``)."""
     text = _join_url_sums(text, corpus.data_urls + corpus.file_urls)
-    for prefixes, into in ((corpus.data_urls, tree.as_posix() + "/"), (corpus.file_urls, tree.as_uri() + "/")):
-        for prefix in prefixes:
-            text = re.sub(re.escape(prefix), lambda _, into=into: into, text, flags=re.I)
+    for prefix in corpus.data_urls:
+        # (A path names the file as the server decodes the URL: ``%26`` is
+        # ``&``.)
+        text = re.sub(re.escape(prefix) + r"([^\s'\"]*)",
+                      lambda match: tree.as_posix() + "/" + urllib.parse.unquote(match[1]), text, flags=re.I)
+    for prefix in corpus.file_urls:
+        text = re.sub(re.escape(prefix), lambda _: tree.as_uri() + "/", text, flags=re.I)
     return text
 
 
@@ -411,6 +438,21 @@ def _cell_code(source: str) -> str | None:
     return code
 
 
+#: A line magic choosing matplotlib's backend (``%matplotlib inline``,
+#: ``%pylab``): the tester shows and closes the figures of each cell as the
+#: inline backend does already, whatever the backend.
+_BACKEND_MAGIC = re.compile(r"^\s*%(?:matplotlib|pylab)\b.*$", re.M)
+
+
+def shell_cell(source: str) -> str | None:
+    """A cell of a corpus run in an IPython shell (``shell = "ipython"``):
+    as it is, IPython's input transformer making it Python where it runs
+    (``trace.py --shell ipython``), but for the magics choosing
+    matplotlib's backend; None for a cell of them alone."""
+    code = _BACKEND_MAGIC.sub("", source)
+    return code if code.strip() else None
+
+
 def _notebook_sources(notebook: dict[str, Any]) -> list[str]:
     """The sources of a notebook's code cells: of its ``cells`` (nbformat 4)
     or of its worksheets' (nbformat 3, the source under ``input``)."""
@@ -419,32 +461,47 @@ def _notebook_sources(notebook: dict[str, Any]) -> list[str]:
     return ["".join(source) if isinstance(source, list) else source for source in sources]
 
 
-def _rst_sources(text: str) -> list[str]:
+def _rst_sources(text: str, doctests: bool) -> list[str]:
     """The code of a reStructuredText page's IPython directives, as Sphinx'
-    ``ipython`` directive runs them: their options and pseudo-decorators
-    left out, those shown only (``:verbatim:``) too."""
+    ``ipython`` directive runs them (their options and pseudo-decorators
+    left out, those shown only, ``:verbatim:``, too), and of its plot
+    directives and, with *doctests*, its doctest blocks
+    (`doc_examples.page_sources`), in the page's order."""
     sources = []
+    directives = []
     for match in _RST_IPYTHON.finditer(text):
+        directives.append(match.span())
         body = textwrap.dedent(match["body"])
         options = _RST_OPTIONS.match(body)[0]
         if ":verbatim:" not in options:
-            sources.append(_RST_DECORATOR.sub("", body[len(options):]))
-    return sources
+            sources.append((match.start(), _RST_DECORATOR.sub("", body[len(options):])))
+    sources += [(start, code) for start, code in doc_examples.page_sources(text, doctests)
+                if not any(begin <= start < end for begin, end in directives)]
+    return [code for _start, code in sorted(sources)]
 
 
-def cells(path: pathlib.Path) -> list[str]:
+def cells(path: pathlib.Path, doctests: bool = False, shell: str = "") -> list[str]:
     """The code cells of a notebook, of a MyST page (its ``{code-cell}``
     blocks, their options left out), of a Markdown page's Python blocks or
-    of a reStructuredText page's IPython directives."""
+    of a reStructuredText page's directives (`_rst_sources`; its doctest
+    blocks too with *doctests*); for a *shell* (``"ipython"``), the cells
+    an IPython shell runs (`shell_cell`)."""
     if path.suffix == ".ipynb":
         sources = _notebook_sources(json.loads(path.read_text()))
     elif path.suffix == ".rst":
-        sources = _rst_sources(path.read_text())
+        sources = _rst_sources(path.read_text(), doctests)
     else:
         text = path.read_text()
         sources = ([_MYST_OPTIONS.sub("", block, count=1) for block in _MYST_CODE.findall(text)]
                    or _MARKDOWN_CODE.findall(text))
-    return [code for code in map(_cell_code, sources) if code is not None and code.strip()]
+    return _usable(sources, shell)
+
+
+def _usable(sources: list[str], shell: str = "") -> list[str]:
+    """The code cells of *sources*: those with Python after `_cell_code`
+    (or `shell_cell`, for a *shell*)."""
+    convert = shell_cell if shell else _cell_code
+    return [code for code in map(convert, sources) if code is not None and code.strip()]
 
 
 def as_script(code_cells: list[str]) -> str:
@@ -460,24 +517,42 @@ def programs(corpus: Corpus, out: pathlib.Path) -> list[CorpusProgram]:
     tree = fetch(corpus, out)
     converted = corpus.directory(out) / "converted"
     found = []
-    for pattern in corpus.programs:
+
+    def add(relative: str, path: pathlib.Path, text: str, cellwise: bool) -> None:
+        rewritten = _rewrite_urls(text, corpus, tree)
+        if _names_url(rewritten):
+            return
+        if cellwise or rewritten != text:
+            path = converted / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(rewritten)
+        found.append(CorpusProgram(corpus, tree, relative, path, "cells" if cellwise else "program"))
+
+    def as_cells(code_cells: list[str]) -> str:
+        return as_script([corpus.prelude] * bool(corpus.prelude) + code_cells)
+
+    for relative, path in _matching(tree, corpus.programs, corpus.exclude):
+        run_as = relative.removesuffix(path.suffix) + ".py"
+        if path.suffix not in CELL_SUFFIXES:
+            add(run_as, path, path.read_text(), cellwise=False)
+        elif code_cells := cells(path, corpus.doctests, corpus.shell):
+            # (A page without code, or of code shown only, is no program.)
+            add(run_as, path, as_cells(code_cells), cellwise=True)
+    for relative, path in _matching(tree, corpus.docstrings, corpus.exclude):
+        if code_cells := _usable(doc_examples.docstring_sources(path.read_text())):
+            add(f"docstrings/{relative}", path, as_cells(code_cells), cellwise=True)
+    return found
+
+
+def _matching(tree: pathlib.Path, patterns: tuple[str, ...],
+              exclude: tuple[str, ...]) -> Iterator[tuple[str, pathlib.Path]]:
+    """The files of *tree* matching *patterns* but not *exclude*, each with
+    its path relative to *tree*."""
+    for pattern in patterns:
         for path in sorted(tree.glob(pattern)):
             relative = path.relative_to(tree).as_posix()
-            if _matches(relative, corpus.exclude):
-                continue
-            cellwise = path.suffix in CELL_SUFFIXES
-            text = (as_script([corpus.prelude] * bool(corpus.prelude) + cells(path))
-                    if cellwise else path.read_text())
-            rewritten = _rewrite_urls(text, corpus, tree)
-            if _names_url(rewritten):
-                continue
-            run_as = relative.removesuffix(path.suffix) + ".py"
-            if cellwise or rewritten != text:
-                path = converted / run_as
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(rewritten)
-            found.append(CorpusProgram(corpus, tree, run_as, path, "cells" if cellwise else "program"))
-    return found
+            if not _matches(relative, exclude):
+                yield relative, path
 
 
 def shadow(corpus: Corpus, tree: pathlib.Path, into: pathlib.Path) -> None:

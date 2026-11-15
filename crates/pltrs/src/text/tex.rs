@@ -138,8 +138,8 @@ fn tex_metrics(
 }
 
 /// Looks the line `line`, typeset by TeX in `font` at `dpi`, up again in
-/// the thread's metrics cache as [`tex_run`] does, measuring it again if
-/// the cache no longer holds it (see
+/// the thread's metrics cache as [`tex_run`] does, measuring it again
+/// with the rcParams in effect now if the cache no longer holds it (see
 /// [`LaidOutText::measure_again`](super::LaidOutText::measure_again)).
 ///
 /// # Errors

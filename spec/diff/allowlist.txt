@@ -462,3 +462,6 @@ api/module_matplotlib_pyplot_0$ | ^warning missing: RuntimeWarning: overflow enc
 # follow from the limits.
 ^generated/overrides/PathCollection- | ^value\[contains\]: bool$ @ ^112:0$ | matplotlib's limits of a directly made PathCollection with transData offsets are in display pixels (x 99..1341 for data in 1..9, an empty Axes); pltrs keeps the data's, so the point the program asks about is inside the collection under pltrs only
 ^generated/overrides/PathCollection- | ^image: RMS > 1$ @ ^figure 2$ | the unpickled copy autoscales to matplotlib's limits in display pixels (an empty Axes) and to the data's under pltrs
+# Corpus round 11 (CORP11): pltrs' looks and backend, listed with matplotlib's.
+corpus/dataviz-course/2\. Style sheets$ | ^value\[sorted\]: list length$ | the notebook sorts style.available, which lists pltrs' two looks (pltrs-modern, pltrs-modern-dark) with matplotlib's sheets
+corpus/matplotlib-docs/doc/release/prev_whats_new/whats_new_3\.9\.0$ | ^value\[list_all\]: list length$ | backend_registry.list_all() lists pltrs' own backend, 'pltrs', after matplotlib's built-in ones

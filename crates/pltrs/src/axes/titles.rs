@@ -243,4 +243,17 @@ mod tests {
         ax.set_title("again");
         assert_eq!(ax.title_pad(), crate::rc::params().axes_titlepad);
     }
+
+    #[test]
+    fn a_title_set_in_a_context_is_sized_by_its_font_size() {
+        // The axes made at matplotlib's 10 points; its title set where
+        // `font.size` is 12 (the classic style) is 1.2 times 12.
+        let ax = crate::figure::Figure::new().subplot();
+        let size = crate::rc::context(|| {
+            crate::rc::set("font.size", "12").unwrap();
+            crate::rc::set("axes.titlesize", "large").unwrap();
+            ax.set_title("classic").font().size
+        });
+        assert!((size - 14.4).abs() < 1e-12, "{size}");
+    }
 }

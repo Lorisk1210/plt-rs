@@ -1558,6 +1558,12 @@ def _contour_args(fn, args, kwargs):
         levels = args[0]
     if np.issubdtype(z.dtype, bool) and levels is None:
         levels = [0, .5, 1] if fn == "contourf" else [.5]
+    if np.iscomplexobj(z):
+        # matplotlib takes the extremes of complex data as floats (its
+        # zmax and zmin) before contourpy casts the field, each cast
+        # warning that it discards the imaginary part.
+        ma.masked_invalid(z, copy=False).max().astype(float)
+        ma.masked_invalid(z, copy=False).min().astype(float)
     z = ma.masked_invalid(z.astype(float), copy=False)
     if levels is not None and not isinstance(levels, Integral):
         levels = np.asarray(levels, np.float64)

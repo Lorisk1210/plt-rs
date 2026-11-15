@@ -42,18 +42,25 @@ class Names:
     the packages, which messages naming files replace with ``<package>``,
     ``config_dir`` the run's configuration directory, ``work_dir`` its
     working directory and ``venv_dir`` its venv (each implementation has
-    its own), replaced with ``<config>``, ``<cwd>`` and ``<venv>``. The
+    its own; absolute or relative to the working directory), replaced
+    with ``<config>``, ``<cwd>`` and ``<venv>``, and ``run_dir`` the
+    directory the run writes to (named after the implementation: `mpl`
+    or `pltrs`), where a corpus' tree is laid out, with ``<run>``. The
     random names of temporary files become ``<tmp>``.
     """
 
     def __init__(self, prefixes: list[tuple[str, str]], package_dirs: list[str],
                  config_dir: str | None = None, work_dir: str | None = None,
-                 venv_dir: str | None = None) -> None:
+                 venv_dir: str | None = None, run_dir: str | None = None) -> None:
         self.prefixes = prefixes
         self.package_dirs = sorted(package_dirs, key=len, reverse=True)
         self.config_dir = config_dir
         self.work_dir = work_dir
         self.venv_dir = venv_dir
+        self.run_dir = run_dir
+        # (The venv as a path relative to the working directory, as numba
+        # names the files of its errors.)
+        self.venv_relative = os.path.relpath(venv_dir) if venv_dir else None
         self._word = [
             (re.compile(r"(?<![\w.])" + re.escape(alias) + r"(?![\w])"), real)
             for alias, real in prefixes
@@ -75,8 +82,12 @@ class Names:
             text = text.replace(self.config_dir, "<config>")
         if self.work_dir:
             text = text.replace(self.work_dir, "<cwd>")
+        if self.run_dir:
+            text = text.replace(self.run_dir, "<run>")
         if self.venv_dir:
             text = text.replace(self.venv_dir, "<venv>")
+        if self.venv_relative:
+            text = text.replace(self.venv_relative, "<venv>")
         for pattern, real in self._word:
             text = pattern.sub(real, text)
         return _ADDRESS.sub("0x?", _TEMPORARY.sub("<tmp>", text))

@@ -9,7 +9,7 @@ use pltrs_core::Bbox;
 
 use super::make::{ImageCore, MadeImage, Placement, RenderedImage};
 use super::resample::Resampling;
-use super::shared::{canvas_bbox, draw_rendered, split_alpha};
+use super::shared::{draw_rendered, split_alpha};
 use super::{Extent, ImageAlpha, ImageData, ImageError, Origin, rc_defaults};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, ProgramShaping, RawHandle,
@@ -75,7 +75,8 @@ impl Artist for FigureImageArtist {
         if !program || !self.base.visible {
             return None;
         }
-        let placement = self.placement(layout.figure_box(), 1.0, 1.0);
+        let ((width, height), dpi) = (layout.figure_state().printed_size_inches(), layout.dpi());
+        let placement = self.placement((width * dpi, height * dpi), 1.0, 1.0);
         let alpha = self.core.alpha(self.base.alpha);
         let core = self.core.clone();
         Some(Box::new(move || {
@@ -123,24 +124,31 @@ impl FigureImageArtist {
         ctx: &mut DrawContext<'_>,
         magnification: f64,
     ) -> Result<Option<RenderedImage>, ImageError> {
-        let canvas = canvas_bbox(ctx);
-        let fac = ctx.renderer().dpi() / ctx.layout().dpi();
-        let placement = self.placement(canvas, fac, magnification);
+        let renderer_dpi = ctx.renderer().dpi();
+        let fac = renderer_dpi / ctx.layout().dpi();
+        let (width, height) = ctx.layout().figure_state().printed_size_inches();
+        let placement = self.placement(
+            (width * renderer_dpi, height * renderer_dpi),
+            fac,
+            magnification,
+        );
         // A norm of the program's maps the data with the figure free.
         ctx.free();
         let alpha = self.core.alpha(self.base.alpha);
         self.core.make_image(&placement, alpha.as_ref())
     }
 
-    /// Where the image goes on `canvas`, drawn at `fac` times the
-    /// figure's resolution and magnified by `magnification`.
-    fn placement(&self, canvas: Bbox, fac: f64, magnification: f64) -> Placement {
+    /// Where the image goes, drawn at `fac` times the figure's resolution
+    /// and magnified by `magnification`, clipped to the figure's `size` in
+    /// the renderer's pixels (matplotlib's `get_size_inches()` times the
+    /// renderer's resolution, rather than at the 72 dpi vector canvases
+    /// measure in, and in a print of a window the window's size in inches,
+    /// a width such as `5.1 - -0.1` rounding down).
+    fn placement(&self, (width, height): (f64, f64), fac: f64, magnification: f64) -> Placement {
         let (rows, cols) = self.core.data.shape();
         let (x0, y0) = (self.offset.0 / fac, self.offset.1 / fac);
         let (x1, y1) = (x0 + cols as f64, y0 + rows as f64);
-        // Like the image, the clip box is the figure at the renderer's
-        // resolution rather than at the 72 dpi vector canvases measure in.
-        let clip = Bbox::from_extents(0.0, 0.0, canvas.width() * fac, canvas.height() * fac);
+        let clip = Bbox::from_extents(0.0, 0.0, width, height);
         Placement {
             extent: Extent::new(x0, x1, y0, y1),
             transform: None,
@@ -273,10 +281,9 @@ impl FigureImage {
 
     fn made(&self, magnification: f64, unsampled: bool) -> Result<Option<MadeImage>, ImageError> {
         let state = self.raw.figure_state().borrow();
-        let (width, height) = state.size_pixels();
-        let canvas = Bbox::from_extents(0.0, 0.0, width, height);
+        let ((width, height), dpi) = (state.printed_size_inches(), state.dpi());
         self.raw.with::<FigureImageArtist, _>(|image| {
-            let placement = image.placement(canvas, 1.0, magnification);
+            let placement = image.placement((width * dpi, height * dpi), 1.0, magnification);
             let alpha = image.core.alpha(image.base.alpha);
             image.core.made(&placement, alpha.as_ref(), unsampled)
         })
@@ -429,6 +436,42 @@ mod tests {
             .unwrap();
         assert_eq!(fig.size_pixels(), (80.0, 50.0));
         assert_eq!(image.shape(), (50, 80));
+    }
+
+    #[test]
+    fn a_window_printed_clips_to_its_size_in_inches() {
+        // A tight print at 80 dpi of a figure of 100 dpi fitted to a
+        // 500 × 500 image: matplotlib clips the image to the window's
+        // size in inches times 80, 5.1 - -0.1 = 5.199999999999999 inches,
+        // so 415 of the 416 columns and rows.
+        let fig = Figure::with_size(6.4, 4.8, 100.0);
+        let options = FigimageOptions {
+            resize: true,
+            ..FigimageOptions::default()
+        };
+        fig.figimage(Grid::filled(500, 500, 1.0), options).unwrap();
+        let printed = fig
+            .render_raster_with(crate::figure::SaveOptions {
+                dpi: Some(80.0),
+                bbox_inches: Some(crate::figure::BboxInches::Tight),
+                ..crate::figure::SaveOptions::default()
+            })
+            .unwrap();
+        let pixmap = printed.pixmap();
+        assert_eq!((pixmap.width(), pixmap.height()), (416, 416));
+        let white = |x, y| {
+            pixmap
+                .pixel(x, y)
+                .is_some_and(|p| (p.r, p.g, p.b) == (255, 255, 255))
+        };
+        assert!(
+            !white(414, 200) && white(415, 200),
+            "the last column is the background"
+        );
+        assert!(
+            white(200, 0) && !white(200, 1),
+            "the first row is the background"
+        );
     }
 
     #[test]

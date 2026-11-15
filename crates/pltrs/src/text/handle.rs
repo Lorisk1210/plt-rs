@@ -50,8 +50,11 @@ impl Text {
     /// ```
     pub fn set_fontsize(&self, size: impl Into<FontSize>) -> &Self {
         let size = size.into();
+        // A relative size is relative to `font.size` as it is now
+        // (matplotlib's `FontProperties.set_size`), not as the text was
+        // made: `set_title` in a style's context sizes the title by it.
+        let base = crate::rc::params().font_size;
         self.raw.with_mut::<TextArtist, _>(|t| {
-            let base = t.rc.font_size;
             t.font.set_size(size, base);
         });
         self

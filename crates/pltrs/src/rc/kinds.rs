@@ -54,6 +54,9 @@ impl RcValue for Color {
         match self {
             Self::Spec(spec) => spec.clone(),
             Self::Rgba(c) => format!("({}, {}, {}, {})", c.r, c.g, c.b, c.a),
+            Self::WithAlpha(color, alpha) => {
+                format!("({}, {})", color.format_rc(), alpha.format_rc())
+            }
         }
     }
 }

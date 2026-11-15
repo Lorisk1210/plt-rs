@@ -1,4 +1,5 @@
-//! Removed artists standing in their figure while they are measured.
+//! Removed artists standing in their figure while they are measured or
+//! drawn by their own `draw`.
 //!
 //! matplotlib's `remove` and `clear` only take an artist out of the lists
 //! of its figure and axes: the artist keeps its transforms, and an axes
@@ -14,7 +15,10 @@
 //! engine, while the pass before a measure ([`FigureState::prepare`])
 //! autoscales, places and ticks its axes as any other's, and every lookup
 //! by id finds its artists. The tree goes back apart when the measure
-//! ends ([`StandingIn`]).
+//! ends ([`StandingIn`]). matplotlib's `artist.draw(renderer)` draws a
+//! removed artist with all it owns too, and an Axes made for a figure
+//! but never added (pltrs makes it removed): its tree stands in for the
+//! length of that draw.
 //!
 //! [`DetachedArtists`]: crate::artist::DetachedArtists
 
@@ -82,6 +86,14 @@ pub(crate) struct StandingIn {
     tree: Option<(Rc<FigureCell>, ArtistId)>,
 }
 
+impl StandingIn {
+    /// Whether a removed tree moved in (rather than the artist being in
+    /// its figure, or its figure busy).
+    pub(crate) fn moved(&self) -> bool {
+        self.tree.is_some()
+    }
+}
+
 impl Drop for StandingIn {
     fn drop(&mut self) {
         if let Some((cell, root)) = self.tree.take()
@@ -117,7 +129,7 @@ impl RawHandle {
 
     /// Has the removed tree the artist is in stand in its figure until
     /// what is returned is dropped (see the module), for a measure of the
-    /// artist. Nothing moves for an artist in the figure, nor while code
+    /// artist or a draw of it by its own `draw`. Nothing moves for an artist in the figure, nor while code
     /// further up the call stack uses the figure.
     pub(crate) fn standing_in(&self) -> StandingIn {
         let cell = self.figure_state();

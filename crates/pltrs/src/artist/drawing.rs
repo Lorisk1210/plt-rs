@@ -14,8 +14,12 @@ use pltrs_core::{Affine2D, Path, Point, Rgba};
 use pltrs_render::{GraphicsContext, PathCollectionData, QuadMeshData, Renderer, RgbaImage};
 use pltrs_text::{TextRun, TextSource};
 
-use super::{AggFilter, Artist, ArtistId, DrawContext, DrawError, DrawErrorKind, RawHandle};
+use super::{
+    AggFilter, Artist, ArtistHandle, ArtistId, DrawContext, DrawError, DrawErrorKind, RawHandle,
+    TypedHandle,
+};
 use crate::figure::StateRole;
+use crate::legend::{LegendArtist, lay_out_legend};
 use crate::table::TableCell;
 
 /// One drawing call of a [`Drawing`].
@@ -347,10 +351,41 @@ impl DrawContext<'_> {
     pub fn draw_as_drawn(&mut self, drawn: &DrawnArtist) {
         match &drawn.as_drawn {
             Some(artist) if self.draws(drawn.handle.figure_state()) => {
-                self.draw_own_filtered(&**artist, Some(drawn.handle.id()), drawn.own_filter);
+                let _standing = self.stand_in(&drawn.handle);
+                if drawn.handle.is::<LegendArtist>() {
+                    // Placed by its draw: drawn as it stands now.
+                    self.draw_unpainted(drawn.handle.id());
+                } else {
+                    self.draw_own_filtered(&**artist, Some(drawn.handle.id()), drawn.own_filter);
+                }
             }
             _ => self.draw_handle(&drawn.handle),
         }
+    }
+
+    /// Has the removed tree of `artist`, of the figure drawn, stand in
+    /// while the program's `draw` draws it (see [`RawHandle::standing_in`]):
+    /// a removed artist (an Axes never added among them) draws all it
+    /// owns, an Axes so first bringing its view and ticks up to date, as
+    /// matplotlib's `Axes.draw` does. A legend is placed, as matplotlib's
+    /// `Legend.draw` places itself.
+    fn stand_in(&mut self, artist: &RawHandle) -> crate::figure::StandingIn {
+        self.free();
+        let standing = artist.standing_in();
+        if standing.moved()
+            && let Some(axes) = crate::axes::Axes::from_raw_handle(artist)
+            && axes.visible()
+        {
+            axes.prepare_to_draw_alone();
+        }
+        if artist.is::<LegendArtist>()
+            && let Some(mut state) = artist.figure_state().try_borrow_mut()
+            && let Err(problem) = lay_out_legend(&mut state, artist.id())
+        {
+            drop(state);
+            self.report_kind(problem.artist, problem.kind, problem.message);
+        }
+        standing
     }
 
     /// Draws `artist` as pltrs draws it, its painter left out, where this
@@ -363,6 +398,7 @@ impl DrawContext<'_> {
     /// context's resolution, its problems reported as this context's.
     pub fn draw_handle(&mut self, artist: &RawHandle) {
         if self.draws(artist.figure_state()) {
+            let _standing = self.stand_in(artist);
             self.draw_unpainted(artist.id());
             return;
         }

@@ -40,12 +40,12 @@ impl Finder<'_> {
     /// `findfont` logs about it (a family no font has, as the `cursive` of
     /// the custom fontset's `mathtext.cal` here, or a face of another
     /// weight).
-    /// The weight is named in messages as `weight_keyword`, if it was
-    /// given as a name.
+    /// The weight is named in messages as `weight_keyword`, and the
+    /// stretch as `stretch_keyword`, if they were given as names.
     fn query(
         self,
         query: &FontQuery,
-        weight_keyword: Option<&'static str>,
+        (weight_keyword, stretch_keyword): (Option<&'static str>, Option<&'static str>),
     ) -> Result<FontId, TextError> {
         let best = (self.db)
             .best_entry(query, self.generics)
@@ -55,6 +55,7 @@ impl Finder<'_> {
             query: query.clone(),
             generics: Arc::clone(self.generics),
             weight_keyword,
+            stretch_keyword,
         };
         lookups::note(lookup, &[best.map(|(entry, _)| entry.weight)]);
         Ok(self.db.find_font_with(query, self.generics)?)
@@ -63,7 +64,10 @@ impl Finder<'_> {
     /// `findfont(FontProperties(pattern))`.
     fn find(self, pattern: &str) -> Result<FontId, TextError> {
         let parsed = parse_pattern(pattern, self.defaults)?;
-        self.query(&parsed.query, parsed.weight_keyword)
+        self.query(
+            &parsed.query,
+            (parsed.weight_keyword, parsed.stretch_keyword),
+        )
     }
 
     fn find_all(self, entries: &[(FontName, &str)]) -> Result<Vec<(FontName, FontId)>, TextError> {
@@ -244,7 +248,7 @@ impl GlyphSet {
         ])?;
         set.fontmap.push((
             FontName::Ex,
-            db.query(&FontQuery::families(["cmex10"]), None)?,
+            db.query(&FontQuery::families(["cmex10"]), (None, None))?,
         ));
         if set
             .fallback

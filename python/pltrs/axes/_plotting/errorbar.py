@@ -376,6 +376,11 @@ class ErrorbarMixin:
              None if thickness is not None else capthick, bool(barsabove)),
             tuple(flags), everymask.tolist())
         barcols = wrap_all(self, barcols, mcoll.LineCollection)
+        if "clip_box" in kwargs:
+            # matplotlib's ``vlines`` sets it on the bars it added (the
+            # data line and the caps, made with it, are clipped as added).
+            for barcol in barcols:
+                barcol.set_clip_box(kwargs["clip_box"])
         if widths is not None:
             for barcol in barcols:
                 barcol.set_linewidth(widths)

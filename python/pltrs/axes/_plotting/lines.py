@@ -788,7 +788,7 @@ class LinesMixin:
         # Made without a colour, its face is :rc:`patch.facecolor`.
         _values.remember(patch, "facecolor", None)
         _span_geometry(patch, xmin, ymin, width, height)
-        patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
+        patch._made_with(cbook.normalize_kwargs(kwargs, Rectangle))
         _share_span_steps()
         _transform_trees.patches_added(self, [patch])
         return patch
@@ -847,7 +847,7 @@ class LinesMixin:
         # Made without a colour, its face is :rc:`patch.facecolor`.
         _values.remember(patch, "facecolor", None)
         _span_geometry(patch, xmin, ymin, width, height)
-        patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
+        patch._made_with(cbook.normalize_kwargs(kwargs, Rectangle))
         _share_span_steps()
         _transform_trees.patches_added(self, [patch])
         return patch

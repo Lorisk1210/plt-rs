@@ -105,6 +105,9 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
             # the view then keeps; through the program's `autoscale_view`
             # where its class overrides it.
             self._unstale_viewLim()
+            # It then asks its figure's canvas whether it saves (to leave
+            # animated artists out), which an Axes removed has none of.
+            self.get_figure(root=True).canvas.is_saving()
         super().draw(renderer)
 
     _axis_names = ("x", "y")

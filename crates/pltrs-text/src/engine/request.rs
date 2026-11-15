@@ -30,6 +30,10 @@ pub struct FontRequest {
     /// PGF backend sets only weights named bold in bold, as matplotlib's
     /// does.
     pub weight_keyword: Option<&'static str>,
+    /// The keyword the stretch was given as (`"normal"`, ...), if it was:
+    /// matplotlib's font properties keep it so, and its font manager
+    /// caches lookups by it.
+    pub stretch_keyword: Option<&'static str>,
     /// A face to set the text in instead of matching the query
     /// (matplotlib's `FontProperties(fname=...)`).
     pub file: Option<FontId>,
@@ -45,6 +49,7 @@ impl FontRequest {
             last_resort: true,
             hinting: Hinting::None,
             weight_keyword: None,
+            stretch_keyword: None,
             file: None,
         }
     }
@@ -132,6 +137,7 @@ impl FontRequest {
                 query: self.query.clone(),
                 generics: self.generics.clone(),
                 weight_keyword: self.weight_keyword,
+                stretch_keyword: self.stretch_keyword,
             },
             weights,
         );

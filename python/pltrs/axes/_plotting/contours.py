@@ -156,7 +156,7 @@ def _style(contours, look, kwargs):
         _contour_arguments.check_linestyles(contours, contours._orig_linestyles)
     _contour_arguments.keep_unheld(contours, contours.__dict__.get("_given_transform"),
                                    widths)
-    contours._internal_update(kwargs)
+    contours._made_with(kwargs)
     return contours
 
 

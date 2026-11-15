@@ -135,13 +135,8 @@ pub(super) fn poly_collection(
         .resolved_colors()
         .map_err(LegendError::HandleColors)?;
     let first = |colors: &[Rgba]| colors.first().copied().unwrap_or(Rgba::TRANSPARENT);
-    let hatch_color = match edges.first() {
-        Some(&edge) => edge,
-        None => source
-            .rc()
-            .patch_edgecolor
-            .resolve_alpha(source.base().alpha)?,
-    };
+    // The collection's own first hatch colour (its edge's unless given).
+    let hatch_color = first(&source.hatch_colors(&edges)?);
     let mut rect = rectangle(ctx, area);
     let style = &mut rect.style;
     style.facecolor = Some(first(&faces).into());

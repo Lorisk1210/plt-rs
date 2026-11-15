@@ -84,9 +84,9 @@ enum Extras {
 
 impl Axis {
     /// The extent of the axis' tick labels, label and offset text in
-    /// display pixels, the figure laid out first (matplotlib's
-    /// `Axis.get_tightbbox`); `None` for a hidden axis or one showing no
-    /// text.
+    /// display pixels, its ticks brought up to date where the axes stands
+    /// (matplotlib's `Axis.get_tightbbox`, which applies no aspect and runs
+    /// no layout engine); `None` for a hidden axis or one showing no text.
     ///
     /// ```
     /// use pltrs::prelude::*;
@@ -116,7 +116,7 @@ impl Axis {
     pub fn tight_bbox_with(&self, for_layout_only: bool) -> Option<Bbox> {
         let _standing = self.axes.raw().standing_in();
         self.axes.raw().figure_state().work_on(|state| {
-            state.prepare();
+            state.prepare_as_is();
             state.tight_bbox_of_axis(self.axes.id(), self.name, for_layout_only)
         })
     }
@@ -124,14 +124,13 @@ impl Axis {
 
 impl FigureState {
     /// [`Axis::tight_bbox_with`] of axis `name` of `axes`, its ticks
-    /// brought up to date.
+    /// brought up to date where the axes stands.
     fn tight_bbox_of_axis(
         &mut self,
         axes: ArtistId,
         name: AxisName,
         for_layout_only: bool,
     ) -> Option<Bbox> {
-        self.lay_out_axes(axes);
         if self.store.get_as::<AxesState>(axes)?.axis(name).visible {
             self.program_axis_visited(axes, name, super::tick_sites::AxisVisit::Measured);
         }

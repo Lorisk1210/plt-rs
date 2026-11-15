@@ -275,7 +275,8 @@ class EventsMixin:
         collections = wrap_all(self, native, mcoll.EventCollection)
         _remember_rows(collections, *given)
         for collection in collections:
-            collection._made_with(kwargs)
+            # matplotlib's eventplot sets them on the collections it added.
+            collection._internal_update(kwargs)
         return collections
 
     @_preprocess_data()

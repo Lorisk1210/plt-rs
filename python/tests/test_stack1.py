@@ -351,10 +351,12 @@ def test_a_draw_inside_a_draw_on_a_small_stack_says_what_to_do(tmp_path):
     """)
     first, rest = ast.literal_eval(_run(source, tmp_path)).split("\n", 1)
     assert first == "maximum recursion depth exceeded"
-    # 128 KiB as asked, and what the C library adds to it (musl: 131,
-    # macOS: 140).
+    # 128 KiB as asked, and what the C library adds to it: musl 131,
+    # glibc up to 136; macOS reports 12 KiB more than asked for every size
+    # (its 16 KiB guard page apart, `pthread_get_stacksize_np`).
+    low, high = (140, 140) if sys.platform == "darwin" else (128, 136)
     size = re.search(r"pltrs: this thread's stack is (\d+) KiB", rest)
-    assert size is not None and 128 <= int(size.group(1)) <= 140, rest
+    assert size is not None and low <= int(size.group(1)) <= high, rest
     assert "threading.stack_size(1048576)" in rest
 
 

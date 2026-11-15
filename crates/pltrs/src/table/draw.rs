@@ -1,14 +1,16 @@
 //! Drawing the cells of a table: all of them as the table draws itself,
 //! or one alone (matplotlib's `Cell.draw`).
 
+use std::rc::Rc;
+
 use pltrs_render::Renderer;
 
 use super::TableArtist;
 use super::cell::PlacedCell;
 use super::handle::TableCell;
 use super::layout::AxesMaps;
-use crate::artist::{ArtistHandle, ArtistId, DrawContext};
-use crate::figure::{CanvasError, DrawErrors, Figure, FigureState};
+use crate::artist::{ArtistHandle, ArtistId, DrawContext, RawHandle};
+use crate::figure::{CanvasError, DrawErrors, Figure, FigureState, StateRole};
 
 impl TableArtist {
     /// The maps of the table's axes and its cells placed in the layout
@@ -61,15 +63,34 @@ impl TableArtist {
 /// Draws the cell at `key` of the table `table` alone, where the table
 /// places it.
 fn draw_alone(ctx: &mut DrawContext<'_>, table: ArtistId, key: (i32, i32)) {
-    let Some(artist) = ctx.layout().store().shared_as::<TableArtist>(table) else {
-        return;
-    };
-    let Some(index) = artist.cells.iter().position(|(at, _)| *at == key) else {
-        return;
-    };
-    if let Some((maps, placed)) = artist.placed_for_drawing(ctx) {
-        artist.draw_cell(ctx, index, &placed[index], &maps);
+    if let Some(artist) = ctx.layout().store().shared_as::<TableArtist>(table) {
+        draw_cell_of(ctx, &artist, key);
     }
+}
+
+/// Draws the cell at `key` of `table` alone in `ctx`, where the table
+/// places it in the layout `ctx` draws in.
+fn draw_cell_of(ctx: &mut DrawContext<'_>, table: &TableArtist, key: (i32, i32)) {
+    let Some(index) = table.cells.iter().position(|(at, _)| *at == key) else {
+        return;
+    };
+    if let Some((maps, placed)) = table.placed_for_drawing(ctx) {
+        table.draw_cell(ctx, index, &placed[index], &maps);
+    }
+}
+
+/// The table of `raw` when it is loose (made for an axes, not added):
+/// matplotlib's table draws its cells where the figure drawn places that
+/// axes, as a loose artist's transforms resolve in the figure drawn.
+fn loose_table(raw: &RawHandle) -> Option<Rc<TableArtist>> {
+    if raw.figure_state().borrow().role != StateRole::LooseHolder {
+        return None;
+    }
+    let _standing = raw.standing_in();
+    raw.figure_state()
+        .borrow()
+        .store
+        .shared_as::<TableArtist>(raw.id())
 }
 
 impl TableCell {
@@ -85,6 +106,8 @@ impl TableCell {
             ctx.layout().figure_state(),
         ) {
             draw_alone(ctx, raw.id(), self.key());
+        } else if let Some(table) = loose_table(raw) {
+            draw_cell_of(ctx, &table, self.key());
         } else if let Err(errors) = self.draw_onto(ctx.renderer()) {
             for error in errors.0 {
                 ctx.report_kind(error.artist, error.kind, error.message);
@@ -140,6 +163,9 @@ impl Figure {
     pub fn draw_cell(&self, cell: &TableCell) -> Result<(), CanvasError> {
         let table = cell.table().raw();
         let canvas = self.canvas();
+        if let Some(loose) = loose_table(table) {
+            return canvas.paint_here(|_| {}, |ctx| draw_cell_of(ctx, &loose, cell.key()));
+        }
         if !canvas.holds(table) {
             return canvas.draw_foreign(|renderer| cell.draw_onto(renderer));
         }

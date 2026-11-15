@@ -105,6 +105,14 @@ fn axes_tables(axes: Axes) -> PyResult<Vec<Table>> {
     Ok(axes.tables())
 }
 
+/// The table's box in display space where the figure of `axes` places
+/// it, for a table made for `axes` and not added (`Table.get_window_extent`).
+fn extent_for(table: Table, axes: Axes) -> PyResult<Option<Extents>> {
+    Ok(table
+        .extent_for(&axes)
+        .map(|bbox| (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())))
+}
+
 /// The `(row, column)` keys of the cells, in the order they were made.
 fn cell_keys(table: Table) -> PyResult<Vec<(i32, i32)>> {
     Ok(table.cell_keys())
@@ -272,6 +280,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new", new)?;
     module.add("axes_tables", axes_tables)?;
     module.add("cell_keys", cell_keys)?;
+    module.add("extent_for", extent_for)?;
     module.add("has_cell", has_cell)?;
     module.add("add_cell", add_cell)?;
     module.add("put_cell", put_cell)?;

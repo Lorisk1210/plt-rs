@@ -476,8 +476,55 @@ fn is_log_base(base: f64) -> PyResult<bool> {
     Ok(LogBase::new(base).is_some())
 }
 
+/// Hands the count of default scalar formatters pltrs (Rust) gave axes on
+/// this thread (a linear or function scale's) to the package's
+/// `scalar_formatters_made(count)` (registered by `ticker`), which checks
+/// the text font once per formatter, as matplotlib's `ScalarFormatter`
+/// constructor does, and answers whether it found nothing to say; then
+/// the formatters made under the same parameters are not counted. Without
+/// the package (the extension's own tests) nothing checks.
+pub(super) fn report_scalar_formatters(py: Python<'_>) -> PyResult<()> {
+    let made = pltrs::scale::take_scalar_formatters_made();
+    if made == 0 {
+        return Ok(());
+    }
+    let Ok(check) = crate::binding::lookup(py, "scalar_formatters_made") else {
+        return Ok(());
+    };
+    if check.call(&[made.into_py(py)?], &[])?.is_truthy()? {
+        pltrs::scale::scalar_formatters_quiet();
+    }
+    Ok(())
+}
+
+/// What a default `ScalarFormatter` of matplotlib's says checking the text
+/// font (`set_useMathText(None)`, while `axes.formatter.use_mathtext` is
+/// off: `findfont(FontProperties(family=font.family),
+/// fallback_to_default=False)`): whether the font manager logs about the
+/// lookup (it finds a face of another weight than asked), and whether it
+/// finds cmr10. Nothing when the setting is on, or no family has a face.
+fn text_font_check() -> PyResult<(bool, bool)> {
+    let rc = pltrs::rc::params();
+    if rc.axes_formatter_use_mathtext {
+        return Ok((false, false));
+    }
+    let request = pltrs::fonts::FontProperties::from_rc(&rc).request(&rc);
+    let db = pltrs_text::TextEngine::global().database();
+    let Some((entry, _)) =
+        (db.best_entry(&request.query, &request.generics)).filter(|&(_, score)| score < 10.0)
+    else {
+        return Ok((false, false));
+    };
+    let cmr10 = db
+        .source(entry.font)
+        .and_then(pltrs_text::FontSource::file_name)
+        == Some("cmr10.ttf");
+    Ok((entry.weight != request.query.weight.0, cmr10))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("text_font_check", text_font_check)?;
     module.add("follow_locale", follow_locale)?;
     module.add("tick_values", tick_values)?;
     module.add("locate", locate)?;

@@ -322,6 +322,8 @@ pub struct PatternDefaults {
     pub weight_keyword: Option<&'static str>,
     /// `font.stretch`.
     pub stretch: Stretch,
+    /// The name `font.stretch` was given as, if it was one.
+    pub stretch_keyword: Option<&'static str>,
 }
 
 impl PatternDefaults {
@@ -334,6 +336,7 @@ impl PatternDefaults {
             weight: query.weight,
             weight_keyword: request.weight_keyword,
             stretch: query.stretch,
+            stretch_keyword: request.stretch_keyword,
         }
     }
 }

@@ -48,6 +48,9 @@ pub struct FontLookup {
     /// The keyword the weight was given as, if it was (matplotlib's
     /// message names it).
     pub weight_keyword: Option<&'static str>,
+    /// The keyword the stretch was given as, if it was (matplotlib's font
+    /// manager caches lookups by it).
+    pub stretch_keyword: Option<&'static str>,
 }
 
 impl FontLookup {
@@ -55,6 +58,7 @@ impl FontLookup {
     fn repeats(&self, other: &Self) -> bool {
         self.kind == other.kind
             && self.weight_keyword == other.weight_keyword
+            && self.stretch_keyword == other.stretch_keyword
             && self.query == other.query
             && (Arc::ptr_eq(&self.generics, &other.generics) || self.generics == other.generics)
     }
@@ -209,6 +213,7 @@ mod tests {
             },
             generics: Arc::default(),
             weight_keyword: None,
+            stretch_keyword: None,
         }
     }
 

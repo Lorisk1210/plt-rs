@@ -847,6 +847,7 @@ class Legend(Artist):
         entry_handles = self.__dict__.get("_entry_handles", [])
         if index < len(entry_handles):
             _values.inherit(drawn, entry_handles[index])
+            _copy_unheld(drawn, entry_handles[index])
         return drawn
 
     def get_lines(self):
@@ -1255,6 +1256,26 @@ def _fresh(box):
     for child in box.get_children():
         if isinstance(child, OffsetBox):
             _fresh(child)
+
+
+#: What matplotlib's ``update_from`` copies that pltrs (Rust) does not
+#: hold: the path effects as given, and an alpha per item.
+_UNHELD = ("_path_effects", "_array_alpha")
+
+
+def _copy_unheld(drawn, entry):
+    """Give the handle *drawn* what matplotlib's handler copies from the
+    entry's handle *entry* with ``update_from`` (`_UNHELD`): from the
+    artist itself when the handle is of its class, from the first patch
+    of a bar container."""
+    from .container import BarContainer
+    source = (entry.patches[0] if isinstance(entry, BarContainer) and entry.patches
+              else entry)
+    if type(source) is not type(drawn):
+        return
+    for name in _UNHELD:
+        if name in getattr(source, "__dict__", {}):
+            drawn.__dict__[name] = source.__dict__[name]
 
 
 def _get_legend_handles(axs, legend_handler_map=None):

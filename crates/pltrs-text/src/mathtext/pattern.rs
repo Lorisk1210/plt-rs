@@ -2,7 +2,7 @@
 //! `FontProperties(pattern)` does for the custom fontset's
 //! `mathtext.rm`, `mathtext.it`, ... values.
 
-use pltrs_font::{FontQuery, FontVariant, Weight};
+use pltrs_font::{FontQuery, FontVariant, Stretch, Weight};
 
 use crate::error::TextError;
 use crate::fontconfig::FontconfigPattern;
@@ -16,6 +16,8 @@ pub(crate) struct ParsedPattern {
     /// The name its weight was given as, if it was one (the font
     /// manager's messages name it).
     pub(crate) weight_keyword: Option<&'static str>,
+    /// The name its stretch was given as, if it was one.
+    pub(crate) stretch_keyword: Option<&'static str>,
 }
 
 /// Parses a fontconfig pattern into a font query (only the first family
@@ -34,6 +36,7 @@ pub(crate) fn parse_pattern(
         ..FontQuery::default()
     };
     let mut weight_keyword = defaults.weight_keyword;
+    let mut stretch_keyword = defaults.stretch_keyword;
     for (key, values) in parsed.properties() {
         let value = values.first().map_or("", String::as_str);
         let invalid = || TextError::Font(format!("invalid font {key} {value:?} in {pattern:?}"));
@@ -47,7 +50,10 @@ pub(crate) fn parse_pattern(
                 weight_keyword = Weight::keyword(value);
             }
             "slant" | "style" => query.style = value.parse().map_err(|_| invalid())?,
-            "width" | "stretch" => query.stretch = value.parse().map_err(|_| invalid())?,
+            "width" | "stretch" => {
+                query.stretch = value.parse().map_err(|_| invalid())?;
+                stretch_keyword = Stretch::keyword(value);
+            }
             "variant" => {
                 query.variant = match value {
                     "normal" => FontVariant::Normal,
@@ -61,6 +67,7 @@ pub(crate) fn parse_pattern(
     Ok(ParsedPattern {
         query,
         weight_keyword,
+        stretch_keyword,
     })
 }
 

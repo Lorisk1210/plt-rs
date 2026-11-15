@@ -2383,7 +2383,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             # before the collection becomes 3-D: no warning that a
             # `Path3DCollection` ignores it.
             _artist.set_rasterized(collection._native, bool(kwargs.pop("rasterized")))
-        collection._internal_update(kwargs)
+        # Made with them as matplotlib's 2-D scatter makes its collection.
+        collection._made_with(kwargs)
         return collection
 
     scatter3D = scatter

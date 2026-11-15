@@ -171,7 +171,7 @@ fn set_bound_ends(spine: Spine, low: Option<f64>, high: Option<f64>) -> PyResult
 fn window_extent(spine: Spine) -> PyResult<Option<(f64, f64, f64, f64)>> {
     Ok(spine
         .raw()
-        .measured_extent()
+        .measured_extent_as_is()
         .map(|bbox| (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())))
 }
 

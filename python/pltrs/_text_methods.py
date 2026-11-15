@@ -13,6 +13,7 @@ from . import _docstring
 from . import _handles, _lazy_imports, units as munits
 from ._native import annotation as _annotation, text as _text
 from ._annotation_kept import annotate_arguments, warn_textcoords
+from ._artist_clipping import clipped_as_added
 from ._program_classes import takes_from_program
 from .text import Annotation, Text, _is_offset, _place
 
@@ -28,14 +29,17 @@ def _text_kwargs(fontdict, kwargs):
 def _init_added(text, properties):
     """
     Apply *properties* to the *text* just added, as matplotlib's
-    ``Text.__init__`` applies them before the text is added: a property
-    failing leaves no text.
+    ``Text.__init__`` applies them before the text is added, then clipped
+    as matplotlib's ``Axes.text`` leaves it (`clipped_as_added`): a
+    property failing leaves no text.
     """
     try:
         text._init_properties(properties)
     except Exception:
         text.remove()
         raise
+    if "clip_box" in properties or "clip_path" in properties:
+        clipped_as_added(text, properties)
 
 
 def _in_data_units(axes, xy, coords):

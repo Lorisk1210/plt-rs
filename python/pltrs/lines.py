@@ -223,6 +223,10 @@ def _native_kwargs(kwargs):
     fillstyle = kwargs.get("fillstyle")
     if "marker" in kwargs:
         kwargs["marker"] = _marker_spec(kwargs["marker"], fillstyle)
+        if fillstyle is not None:
+            # matplotlib's `MarkerStyle(marker, fillstyle)` copies a style
+            # given whole, its fill style with it.
+            kwargs["fillstyle"] = kwargs["marker"][1]
     if "dashes" in kwargs:
         seq = kwargs.pop("dashes")
         if seq == (None, None) or len(seq) == 0:
@@ -1082,7 +1086,9 @@ class Line2D(Artist):
             fs = _rcParams()['markers.fillstyle']
         _api.check_in_list(MarkerStyle.fillstyles, fillstyle=fs)
         self.__dict__.pop("_marker_style", None)
-        self._set_native(fillstyle=fs)
+        # matplotlib's makes the marker anew of its shape and *fs*: a
+        # transform, cap or join style the marker was given goes.
+        self._set_native(marker=self.get_marker(), fillstyle=fs)
 
     def get_markersize(self):
         """
@@ -1460,7 +1466,7 @@ class Line2D(Artist):
             dash_joinstyle=other.get_dash_joinstyle(),
             solid_capstyle=other.get_solid_capstyle(),
             solid_joinstyle=other.get_solid_joinstyle(),
-            marker=other.get_marker(), fillstyle=other.get_fillstyle(),
+            marker=_copied_marker(other), fillstyle=other.get_fillstyle(),
             drawstyle=other.get_drawstyle())
 
     def get_bbox(self):
@@ -1511,6 +1517,17 @@ _deferred_data = _lines.defer_data({}, _push_deferred_data)
 def _copied(values):
     """``copy.copy(values)``, sparing its type dispatch for numpy arrays."""
     return values.__copy__() if type(values) is np.ndarray else copy.copy(values)
+
+
+def _copied_marker(line):
+    """The marker `Line2D.update_from` gives a copy of *line*: matplotlib's
+    copies the line's `.MarkerStyle` whole, with the transform, cap and
+    join styles it was given."""
+    given = line.__dict__.get("_given_marker")
+    if not isinstance(given, MarkerStyle):
+        return line.get_marker()
+    return MarkerStyle(given.get_marker(), line.get_fillstyle(), given.get_user_transform(),
+                       given._user_capstyle, given._user_joinstyle)
 
 
 def _draws_marker(marker):

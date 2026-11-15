@@ -466,5 +466,5 @@ class Bins2dMixin:
             mapping)
         mesh = wrap(self, native, mcoll.QuadMesh)
         mesh._attach_native_mapping(colorizer=made)
-        mesh._internal_update(cbook.normalize_kwargs(kwargs, mcoll.QuadMesh))
+        mesh._made_with(cbook.normalize_kwargs(kwargs, mcoll.QuadMesh))
         return h, xedges, yedges, mesh

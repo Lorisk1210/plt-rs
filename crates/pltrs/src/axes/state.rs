@@ -342,6 +342,11 @@ pltrs_core::archive_enum!(NextData { Replaces, Extends });
 impl AxesState {
     /// Axes at `position` (frame fractions) configured from `rc`.
     pub(crate) fn new(position: Bbox, rc: Rc<RcParams>) -> Self {
+        // matplotlib's `Axes.clear`, run as an Axes is made and cleared,
+        // sets both of its axes' scales anew, linear.
+        for _ in 0..2 {
+            crate::scale::note_default_formatter(crate::scale::ScaleName::Linear);
+        }
         Self {
             base: ArtistBase::default(),
             position,

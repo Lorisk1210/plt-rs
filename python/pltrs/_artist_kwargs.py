@@ -9,13 +9,14 @@ calls, as `.Artist.set_picker` keeps it; so does the clip path's object.
 constructors do.
 """
 
-from ._artist_clipping import clip_path_spec
+from ._artist_clipping import clip_path_spec, clipped_as_added
 
 
 def native_artist_kwargs(kwargs):
     """
     *kwargs* (aliases resolved) with ``clip_path``, ``path_effects`` and
-    ``picker`` in native form; the others as they are.
+    ``picker`` in native form, without ``clip_box``; the others as they
+    are.
     """
     native = dict(kwargs)
     if native.get("clip_path") is not None:
@@ -25,6 +26,8 @@ def native_artist_kwargs(kwargs):
                                   for effect in native["path_effects"]]
     if callable(native.get("picker")):
         del native["picker"]
+    # The clip box stays with the Python artist (`keep_python_kwargs`).
+    native.pop("clip_box", None)
     return native
 
 
@@ -33,24 +36,27 @@ def keep_python_kwargs(artist, kwargs):
     Give *artist*, made natively with the keyword arguments *kwargs*, what
     of them stays with the Python artist; return *artist*.
 
-    The callable picker they hold, which the pick calls, and any other
-    picker as given (``picker=5`` reads back as ``5``, as matplotlib's
-    ``set_picker`` keeps it); the clip path as `.Artist.set_clip_path`
-    keeps it (its object, a patch followed as it changes). A `.Rectangle`
-    sets only the clip box, which the Axes adding the artist replaces with
-    its own patch's, as matplotlib's ``add_line`` does.
+    The path effects as given; the callable picker they hold, which the
+    pick calls, and any other picker as given (``picker=5`` reads back as
+    ``5``, as matplotlib's ``set_picker`` keeps it); the clip box and the
+    clip path as `.Artist.set_clip_box` and `.Artist.set_clip_path` keep
+    them, then clipped as matplotlib's add method leaves the artist
+    (`clipped_as_added`).
     """
-    from .patches import Rectangle
+    if "path_effects" in kwargs:
+        # As `.Artist.set_path_effects` keeps them, the very list given.
+        artist.__dict__["_path_effects"] = kwargs["path_effects"]
     picker = kwargs.get("picker")
     if callable(picker):
         artist.set_picker(picker)
     elif "picker" in kwargs:
         artist._keep_picker(picker)
-    clip_path = kwargs.get("clip_path")
-    if isinstance(clip_path, Rectangle) and artist.axes is not None:
-        artist.set_clip_path(artist.axes.patch)
-    elif clip_path is not None:
-        artist.set_clip_path(clip_path)
+    if "clip_box" in kwargs:
+        artist.set_clip_box(kwargs["clip_box"])
+    if kwargs.get("clip_path") is not None:
+        artist.set_clip_path(kwargs["clip_path"])
+    if "clip_box" in kwargs or "clip_path" in kwargs:
+        clipped_as_added(artist, kwargs)
     return artist
 
 

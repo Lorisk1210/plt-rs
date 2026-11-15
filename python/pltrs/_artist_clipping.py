@@ -47,6 +47,26 @@ def _rectangle_clip_box(transform):
     return box
 
 
+def clipped_as_added(artist, kwargs):
+    """
+    Leave *artist*, which a plotting method made in its Axes with the
+    keyword arguments *kwargs* (applied already), clipped as matplotlib's
+    add method leaves it after its constructor took them, when they give a
+    clip box or a clip path: an artist without a clip path is clipped to
+    the Axes' patch (``set_clip_path(axes.patch)``: a `.Rectangle` replaces
+    the box given with its own, another shape adds its outline); one with
+    a clip path keeps the box given, none by default, where pltrs (Rust)
+    made it clipped to its Axes. Callers ask only when *kwargs* give
+    either, so that calls without them do nothing more.
+    """
+    if artist.axes is None:
+        return
+    if artist.get_clip_path() is None:
+        artist.set_clip_path(artist.axes.patch)
+    else:
+        artist.set_clip_box(kwargs.get("clip_box"))
+
+
 def patch_clip_box(artist, axes):
     """
     The clip box of *artist* clipped to the patch of *axes*, as
@@ -215,15 +235,12 @@ class ClippingMixin:
         """
         Give the artist, which a plotting method just made in its Axes, the
         properties *kwargs* it is made with, as matplotlib's constructor
-        takes them before the Axes adds the artist: a clip path among them
-        then stands alone, since matplotlib's add methods clip an artist to
-        the Axes' patch (which gives it its clip box) only when it has no
-        clip path, while pltrs (Rust) makes every artist clipped to its
-        Axes.
+        takes them before the Axes adds the artist, clipped then as the
+        add leaves it (`clipped_as_added`).
         """
         ret = self._internal_update(kwargs)
-        if kwargs.get("clip_path") is not None and self.get_clip_path() is not None:
-            self.set_clip_box(None)
+        if "clip_box" in kwargs or "clip_path" in kwargs:
+            clipped_as_added(self, kwargs)
         return ret
 
     def get_clip_box(self):

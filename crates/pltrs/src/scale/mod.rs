@@ -28,6 +28,7 @@
 )]
 
 mod asinh;
+mod formatters_made;
 mod linear;
 mod log;
 mod logit;
@@ -42,6 +43,8 @@ use std::rc::Rc;
 
 pub use crate::ticker::LogBase;
 pub use asinh::AsinhScale;
+pub(crate) use formatters_made::note_default_formatter;
+pub use formatters_made::{scalar_formatters_quiet, take_scalar_formatters_made};
 pub use linear::{FuncScale, LinearScale};
 pub use log::{FuncScaleLog, LogScale};
 pub use logit::LogitScale;

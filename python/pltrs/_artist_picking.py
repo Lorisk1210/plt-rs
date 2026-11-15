@@ -9,14 +9,13 @@ pick as matplotlib's recursion over the children does. A callable picker
 stays with the Python artist, which `PickingMixin.pick` asks itself.
 """
 
-import functools
 import logging
 from numbers import Number
 
 import numpy as np
 
 from ._native import artist as _artist
-from ._program_classes import takes_from_program
+from ._program_classes import class_cache, takes_from_program
 
 #: The logger of the `.artist` module, which matplotlib's warns with.
 _log = logging.getLogger(__name__.rpartition(".")[0] + ".artist")
@@ -83,7 +82,7 @@ def _pick_as_matplotlib(artist, mouseevent):
         _pick_as_matplotlib(child, mouseevent)
 
 
-@functools.cache
+@class_cache
 def _is_bare_artist(cls):
     """Whether *cls* derives from `.Artist` through classes of the
     program's only, whose ``contains`` is matplotlib's `.Artist`'s (it has

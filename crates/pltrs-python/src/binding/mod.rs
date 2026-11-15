@@ -62,7 +62,7 @@ pub(crate) use buffer::{Element, FloatArray, NdArray};
 pub(crate) use callback::{
     Callback, current_call, failed as callback_failed, forgive, report, setting_failure_aside,
 };
-pub(crate) use containers::{dict_items, dict_value, new_dict};
+pub(crate) use containers::{dict_items, dict_value, new_dict, tuple};
 pub(crate) use convert::{Bytes, FromPy, IntoPy};
 pub(crate) use deferred::install as install_deferred;
 pub(crate) use error::{ExceptionKind, PyErr, PyResult, runtime_warning};
@@ -71,7 +71,7 @@ pub(crate) use home::{set_loop_waker, wake_loop};
 pub(crate) use init::init_module;
 pub(crate) use module::Module;
 pub(crate) use native::{
-    Native, artist_handle, native_value, retyped, wrap as wrap_native, wrap_artist,
+    Native, artist_handle, live_objects, native_value, retyped, wrap as wrap_native, wrap_artist,
     wrap_thread_bound,
 };
 pub(crate) use object::{Bound, Owned};

@@ -14,7 +14,12 @@ so that the runner tells which task a panic's message on stderr belongs
 to.
 
 Every Python exception a line raises is the program's business, and is
-not reported: matplotlib raises too.
+not reported as a bug (matplotlib raises too), but for what matplotlib
+never raises: a `SystemError` (a C-level call gone wrong) and pltrs's
+refusal of a change to a figure it is laying out (``refused``: the code
+it runs may change the figure in matplotlib). After each line a ``ran``
+event says which exception it raised, if any, which the runner compares
+with matplotlib's for the same program when asked (`.compare`).
 """
 
 import faulthandler
@@ -28,6 +33,10 @@ from . import actions, memory
 
 #: What a panic of pltrs (Rust) looks like once it reaches Python.
 PANIC = "Rust panic"
+
+#: What pltrs says when it refuses a change to a figure it is laying out
+#: or changing, which matplotlib never refuses.
+REFUSED = "is being laid out or changed by pltrs"
 
 #: The stderr line that starts a task.
 MARKER = "@@pltrs-fuzz-task"
@@ -56,17 +65,31 @@ def _send(event, **fields):
 
 
 def _run_line(line, namespace):
-    """Runs one line; reports it first, and a bug if it raised one."""
+    """Runs one line; reports it first, a bug if it raised one, and which
+    exception it raised."""
     _send("line", line=line)
+    raised = None
     try:
         exec(compile(line, "<fuzz>", "exec"), namespace)  # noqa: S102 - the fuzzed program
     except MemoryError as error:
+        raised = "MemoryError"
         if _raised_by_pltrs(error) and _ran_away():
             _send("bug", kind="memory", line=line, message="MemoryError")
-    except Exception as error:  # noqa: BLE001 - the program's exceptions are its own
+    except KeyboardInterrupt:
+        raise
+    except BaseException as error:  # noqa: BLE001 - the program's exceptions are its own
+        # (`SystemExit` and pytest's outcomes, which `testing`'s helpers
+        # raise, too: they end no worker.)
+        raised = type(error).__name__
         message = str(error)
+        first = (message.splitlines() or [""])[0][:300]
         if PANIC in message:
-            _send("bug", kind="panic", line=line, message=message.splitlines()[0][:300])
+            _send("bug", kind="panic", line=line, message=first)
+        elif isinstance(error, SystemError):
+            _send("bug", kind="system", line=line, message=first)
+        elif REFUSED in message:
+            _send("bug", kind="refused", line=line, message=first)
+    _send("ran", raised=raised)
 
 
 def _ran_away():

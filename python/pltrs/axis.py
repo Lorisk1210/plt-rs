@@ -694,7 +694,7 @@ class Axis(DrawnWith, Artist):
         if self.axes.name != "3d":
             # pltrs (Rust) draws the axis with its Axes, through the filter.
             _axis.set_agg_filter(*self._args(), None if filter_func is None else
-                                 functools.partial(_artist_effects.filtered, filter_func))
+                                 _artist_effects.held_filter(self))
 
     #: The zorder of an axis by the ``axisbelow`` of its Axes (matplotlib's
     #: ``set_axisbelow`` sets it on the axes of the Axes).
@@ -1192,8 +1192,10 @@ class Axis(DrawnWith, Artist):
         pltrs (Rust) calls."""
         native = _native_scale_of(scale)
         if native is None:
-            # pltrs (Rust) maps through it as `scale._program_scale` says.
-            _native_scale.set_python_scale(*self._args(), scale)
+            # pltrs (Rust) maps through it as `scale._program_scale` says,
+            # holding it weakly (the figure holds it).
+            _native_scale.set_python_scale(
+                *self._args(), _program_classes.held(scale, self.axes.get_figure(root=True)))
         else:
             _native_scale.set_scale(*self._args(), *native)
         if native is None or scale.name in ("function", "functionlog"):

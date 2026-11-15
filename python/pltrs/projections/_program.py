@@ -55,7 +55,7 @@ import weakref
 import numpy as np
 
 from .. import _lazy_imports, _transform_trees
-from .._program_classes import takes_from_program
+from .._program_classes import class_cache, takes_from_program
 from .._native import artist as _artist
 from .._native import polar as _polar
 from .._native import projections as _projections, spines as _spines
@@ -136,7 +136,7 @@ def is_program_class(cls):
             and getattr(cls, "_make_native", None) is None)
 
 
-@functools.cache
+@class_cache
 def _overrides_projection_hooks(cls):
     """Whether the class *cls* takes one of `_PROJECTION_HOOKS` from the
     program (kept per class, as `.takes_from_program` keeps its answers)."""

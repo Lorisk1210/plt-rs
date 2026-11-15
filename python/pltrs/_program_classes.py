@@ -11,8 +11,9 @@ import functools
 from numbers import Real
 import os
 import sys
+import weakref
 
-from ._native import artist as _artist
+from ._native import artist as _artist, caches as _caches
 
 #: Where the package's modules are.
 _PACKAGE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -63,7 +64,40 @@ def _outside_package(path):
     return not os.path.realpath(path).startswith(_PACKAGE_DIR + os.sep)
 
 
-@functools.cache
+def class_cache(function):
+    """
+    `functools.cache` for a *function* of a class and at most one hashable
+    argument more, holding the class weakly: a class of the program's made
+    for a figure (defined in a function, made by ``type()``) goes once the
+    program forgets it, with what its methods refer to, rather than living
+    as long as the cache. A hit runs no Python code (the native lookup of
+    `_native.caches`, bound in a `functools.partial`); a miss computes,
+    stores, and has the class' entries forgotten when the class goes.
+    """
+    entries = {}
+    owners = set()
+
+    def forget(owner):
+        owners.discard(owner)
+        for key in [key for key in entries if key[0] == owner]:
+            del entries[key]
+
+    def miss(cls, *args):
+        value = entries[(id(cls), *args)] = function(cls, *args)
+        if id(cls) not in owners:
+            owners.add(id(cls))
+            # The entries go before the class' id can be another's.
+            weakref.finalize(cls, forget, id(cls))
+        return value
+
+    lookup = _caches.get1 if function.__code__.co_argcount == 1 else _caches.get2
+    cached = functools.partial(lookup, entries, miss)
+    cached.__wrapped__ = function
+    cached.__doc__ = function.__doc__
+    return cached
+
+
+@class_cache
 def takes_from_program(cls, name):
     """Whether the class *cls* takes its attribute *name* from a class of
     the program's rather than one of this package (False when it has
@@ -73,6 +107,60 @@ def takes_from_program(cls, name):
             path = getattr(sys.modules.get(klass.__module__), "__file__", None)
             return path is None or _outside_package(path)
     return False
+
+
+class Held:
+    """
+    What pltrs (Rust) holds for an object of the program's handed to it
+    for a figure (a scale, a transform an artist is given, a path effect):
+    the object, weakly, while the figure's Python object holds it
+    (`held`). pltrs (Rust)'s references are no part of the graph Python's
+    collector sees, so an object of the program's that refers back to its
+    figure (a scale keeping its axis, a transform keeping its Axes) would
+    keep the figure alive for good if pltrs (Rust) held it; the figure's
+    own reference is seen. A pickle holds the object itself (`held`
+    objects read back from one are held by pltrs (Rust) alone).
+    """
+
+    __slots__ = ("_target", "__weakref__")
+
+    def __init__(self, target):
+        self._target = weakref.ref(target)
+
+    def __reduce__(self):
+        return (_itself, (self.target(),))
+
+    def target(self):
+        """The object; `ReferenceError` once it is gone (its figure gone)."""
+        target = self._target()
+        if target is None:
+            raise ReferenceError("the object of the program's pltrs held is gone")
+        return target
+
+
+def _itself(target):
+    return target
+
+
+def held(target, owner):
+    """*target* as pltrs (Rust) holds it for *owner*, which holds it from
+    then on (``_held_for_native``): a root figure, which keeps every object
+    handed over for it, as pltrs (Rust) may share it among its artists and
+    axes, or an artist in no figure yet. A `Held`, or *target* itself
+    without an owner or where it takes no weak reference."""
+    if owner is None:
+        return target
+    try:
+        proxy = Held(target)
+    except TypeError:
+        return target
+    vars(owner).setdefault("_held_for_native", {})[id(target)] = target
+    return proxy
+
+
+def unheld(value):
+    """The object *value* (`held`) stands for."""
+    return value.target() if isinstance(value, Held) else value
 
 
 def from_program(function):

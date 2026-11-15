@@ -1,14 +1,18 @@
 """
 A fuzzer for pltrs (Python): seeded random programs, looking for what no
 program may meet, whatever it does: a Rust panic, a crash, a hang or
-runaway memory. Python's exceptions are fine, as matplotlib raises them
-too.
+runaway memory, a `SystemError`, or pltrs refusing a change to a figure
+it is laying out. Other Python exceptions are fine, as matplotlib raises
+them too; ``--compare`` runs the programs under matplotlib as well and
+lists the lines raising otherwise (`compare`).
 
 The programs are the fuzzer's own (`actions`: random calls of the public
 API with valid, borderline and absurd arguments, property changes between
 draws, saves in every format, pickles, events, callbacks changing the
-figure while it is drawn) and the differential tester's (`corpus`,
-mutated). Workers run them (`worker`), the runner (`runner`) reduces each
+figure while it is drawn; and, for odd seeds, `paths`: subclasses
+overriding what libraries override, private names, callbacks entering
+their figure, assigned attributes) and the differential tester's
+(`corpus`, every family in turn, mutated). Workers run them (`worker`), the runner (`runner`) reduces each
 bug to a minimal program in ``target/python-fuzz/failures``.
 
     PYTHONPATH=python:python/tests .venv-pltrs/bin/python -m fuzz [--scale N]

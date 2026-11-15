@@ -72,6 +72,18 @@ impl fmt::Debug for LimitCallbacks {
 }
 
 impl LimitCallbacks {
+    /// Takes out the callbacks of the axes `gone` (let go for good), for
+    /// the caller to drop once the figure is free (what they hold may run
+    /// the program's code as it goes).
+    pub(crate) fn forget(&mut self, gone: &[ArtistId]) -> Vec<impl Sized + use<>> {
+        self.pending.retain(|(axes, _)| !gone.contains(axes));
+        let (forgotten, kept) = std::mem::take(&mut self.callbacks)
+            .into_iter()
+            .partition(|(_, axes, _, _)| gone.contains(axes));
+        self.callbacks = kept;
+        forgotten
+    }
+
     /// Queues a change of axis `name` of `axes` when a callback waits for
     /// it.
     pub(crate) fn notify(&mut self, axes: ArtistId, name: impl Into<LimitAxis>) {

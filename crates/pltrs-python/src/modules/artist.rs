@@ -4,7 +4,7 @@
 //! `add_artist`, `add_line`, `add_patch`, `add_image`, `add_collection`).
 
 use pltrs::artist::{
-    Artist, ArtistBase, ArtistHandle, AttachError, Custom, DrawContext, RawHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistId, AttachError, Custom, DrawContext, RawHandle,
 };
 use pltrs::axes::{AddAs, Axes};
 use pltrs::figure::Figure;
@@ -282,6 +282,18 @@ fn figure_in_use(artist: RawHandle) -> PyResult<bool> {
     Ok(artist.figure_in_use())
 }
 
+/// For each of the artist ids `ids` of `artist`'s figure, the id of the
+/// removed artist whose tree holds it, `None` for an artist in the figure
+/// (see `RawHandle::removed_roots`).
+fn removed_roots(artist: RawHandle, ids: Vec<u32>) -> PyResult<Vec<Option<u32>>> {
+    let ids: Vec<ArtistId> = ids.into_iter().map(ArtistId::from_index).collect();
+    Ok(artist
+        .removed_roots(&ids)
+        .into_iter()
+        .map(|root| root.map(ArtistId::index))
+        .collect())
+}
+
 /// Removes the artist from its figure.
 fn remove(artist: RawHandle) -> PyResult<()> {
     artist.remove();
@@ -330,6 +342,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("is_attached", is_attached)?;
     module.add("figure_in_use", figure_in_use)?;
     module.add("remove", remove)?;
+    module.add("removed_roots", removed_roots)?;
     classes::register(module)?;
     clip::register(module)?;
     copy::register(module)?;

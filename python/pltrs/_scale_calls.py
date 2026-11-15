@@ -24,6 +24,7 @@ class ScaleCalls:
     *transform*."""
 
     def __init__(self, scale, transform):
+        #: The scale, or what pltrs holds for it (`._program_classes.held`).
         self._scale = scale
         self._transform = transform
         #: The inverse of *transform*, made when first needed.
@@ -36,7 +37,8 @@ class ScaleCalls:
         as autoscaling does, through the transform it asks for."""
         if np.ndim(values) == 1:
             return self._transform.transform_non_affine(values)
-        self._autoscaling = self._scale.get_transform()
+        from ._program_classes import unheld
+        self._autoscaling = unheld(self._scale).get_transform()
         return self._autoscaling.transform(values)
 
     def inverse(self, values):

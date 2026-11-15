@@ -38,10 +38,18 @@ impl Archive for DetachedArtists {
         for (&id, artist) in &mut artists {
             artist.get_mut().base_mut().assign_id(id);
         }
+        crate::diagnostics::count_removed_artists(true, artists.len());
         Ok(Self {
             artists,
             standing: Vec::new(),
         })
+    }
+}
+
+/// Counted while kept (see [`crate::diagnostics`]).
+impl Drop for DetachedArtists {
+    fn drop(&mut self) {
+        crate::diagnostics::count_removed_artists(false, self.artists.len());
     }
 }
 
@@ -69,18 +77,62 @@ impl DetachedArtists {
 
     /// Keeps `artist`, removed from the figure, under `id`.
     pub(crate) fn insert(&mut self, id: ArtistId, artist: KeptArtist) {
-        self.artists.insert(id, artist);
+        if self.artists.insert(id, artist).is_none() {
+            crate::diagnostics::count_removed_artists(true, 1);
+        }
     }
 
     /// Takes the removed artist `id` out.
     pub(crate) fn take(&mut self, id: ArtistId) -> Option<KeptArtist> {
-        self.artists.remove(&id)
+        let taken = self.artists.remove(&id);
+        if taken.is_some() {
+            crate::diagnostics::count_removed_artists(false, 1);
+        }
+        taken
     }
 
     /// Takes the removed artist `id` and, recursively, every artist it
     /// owns out, the artist first.
     pub(crate) fn take_tree(&mut self, id: ArtistId) -> Vec<(ArtistId, KeptArtist)> {
         take_tree(id, |id| self.take(id))
+    }
+
+    /// Takes out every tree of removed artists none of whose artists is
+    /// `held` (and which stands in no store meanwhile), for the caller to
+    /// drop.
+    pub(crate) fn release_unheld(
+        &mut self,
+        held: impl Fn(ArtistId) -> bool,
+    ) -> Vec<(ArtistId, KeptArtist)> {
+        let roots: Vec<ArtistId> = (self.artists.iter())
+            .filter(|&(id, artist)| {
+                !self.standing.contains(id)
+                    && (artist.get().base().parent)
+                        .is_none_or(|parent| !self.artists.contains_key(&parent))
+            })
+            .map(|(&id, _)| id)
+            .collect();
+        let mut released = Vec::new();
+        for root in roots {
+            if !self.tree(root).into_iter().any(&held) {
+                released.extend(self.take_tree(root));
+            }
+        }
+        released
+    }
+
+    /// The ids of the removed artist `root` and of every removed artist
+    /// it owns.
+    fn tree(&self, root: ArtistId) -> Vec<ArtistId> {
+        let mut ids = Vec::new();
+        let mut pending = vec![root];
+        while let Some(id) = pending.pop() {
+            if let Some(artist) = self.artists.get(&id) {
+                pending.extend(artist.get().children());
+                ids.push(id);
+            }
+        }
+        ids
     }
 
     /// The ids of the removed artists, in creation order.

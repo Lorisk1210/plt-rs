@@ -29,11 +29,15 @@ import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from . import actions, corpus, memory
+from . import actions, compare, corpus, memory
 from .worker import CAPS_ADDRESS_SPACE, MARKER, MEMORY_LIMIT
 
 #: The directory of the fuzzer's package, put on the workers' path.
 TESTS = pathlib.Path(__file__).resolve().parents[1]
+
+#: What makes ``import pltrs`` import matplotlib in a reference worker
+#: (the leak harness's alias, `leaks.alias`).
+ALIAS = TESTS / "leaks" / "alias"
 
 
 def _pltrs_home():
@@ -67,8 +71,12 @@ WATCH_INTERVAL = 0.5
 
 #: The seeds whose programs met a bug once, run before the others in every
 #: run (from any *first*), so that a bug coming back is met at any scale:
-#: 22, a formatter saving its own figure (the native stack overflowed).
-FAILED_SEEDS = (22,)
+#: 22, a formatter saving its own figure (the native stack overflowed);
+#: 1019, a locator whose ``nonsingular`` sets the other axis' limits while
+#: the figure is drawn, and 100015, one measuring the figure while limits
+#: are set (pltrs refused both); 101239, a norm drawing its figure while a
+#: colorbar of it is ticked (a Rust panic).
+FAILED_SEEDS = (22, 1019, 100015, 101239)
 
 #: The soft stack limit, in KiB, the workers run under where the system
 #: sets one (``ulimit -s``): below every platform's main-thread stack
@@ -113,13 +121,17 @@ def _interpreter():
 class Worker:
     """A worker process and the threads reading its output."""
 
-    def __init__(self, directory):
+    def __init__(self, directory, reference=False):
         # The worker imports the pltrs this process does: the source
-        # tree's, or an installed one.
+        # tree's, or an installed one; a *reference* worker imports
+        # matplotlib for it, with the reference venv's interpreter.
         program, variables = _interpreter()
         environment = {**os.environ, **variables}
         environment["PYTHONPATH"] = os.pathsep.join(
             [str(PLTRS_HOME), environment.get("PYTHONPATH", "")])
+        if reference:
+            program = str(corpus.REFERENCE_PYTHON)
+            environment["PYTHONPATH"] = str(ALIAS)
         command = [program, "-c", BOOT]
         if os.name == "posix":
             # The shell sets the limit and becomes the interpreter.
@@ -153,8 +165,10 @@ class Worker:
 
     def run(self, task, time_limit=PROGRAM_TIME):
         """Runs *task*, for up to *time_limit* seconds; returns the lines
-        it ran and the bugs it met."""
+        it ran and the bugs it met (and keeps the exception each line
+        raised, or None, in `outcomes`)."""
         lines, bugs = [], []
+        self.outcomes = []
         start = len(self.stderr)
         self.process.stdin.write(json.dumps(task) + "\n")
         self.process.stdin.flush()
@@ -177,6 +191,8 @@ class Worker:
                 break
             if event["event"] == "line":
                 lines.append(event["line"])
+            elif event["event"] == "ran":
+                self.outcomes.append(event["raised"])
             elif event["event"] == "bug":
                 bugs.append(Bug(event["kind"], f"{event['kind']}:{event['message'][:120]}",
                                 list(lines), event["message"]))
@@ -225,14 +241,15 @@ class Worker:
 
 def _task(seed, steps, programs):
     if programs and seed % 3 == 0:
-        source = programs[(seed // 3) % len(programs)]
-        return {"id": seed, "lines": corpus.mutate(source, seed)}
+        return {"id": seed, "lines": corpus.mutate(corpus.chosen(programs, seed // 3), seed)}
     return {"id": seed, "seed": seed, "steps": steps}
 
 
-def _run_seeds(seeds, steps, programs, directory):
+def _run_seeds(seeds, steps, programs, directory, ran=None):
     """Runs the programs of *seeds* in workers of their own, a new one
-    every `WORKER_TASKS` programs and after each crash or hang."""
+    every `WORKER_TASKS` programs and after each crash or hang; appends
+    ``(seed, lines, outcomes)`` of each program meeting no bug to *ran*,
+    if given."""
     found = []
     worker = None
     for count, seed in enumerate(seeds):
@@ -240,10 +257,12 @@ def _run_seeds(seeds, steps, programs, directory):
             if worker is not None:
                 worker.stop()
             worker = Worker(directory)
-        _, bugs = worker.run(_task(seed, steps, programs))
+        lines, bugs = worker.run(_task(seed, steps, programs))
         for bug in bugs:
             bug.seed = seed
         found += bugs
+        if ran is not None and not bugs:
+            ran.append((seed, lines, worker.outcomes))
     if worker is not None:
         worker.stop()
     return found
@@ -284,12 +303,17 @@ def reduce(bug, directory):
     return head + body
 
 
-def run(scale=1, replay=None, jobs=4, reduce_bugs=True, directory=None, first=0):
+def run(scale=1, replay=None, jobs=4, reduce_bugs=True, directory=None, first=0,
+        compare_with_matplotlib=False):
     """Runs the programs of `FAILED_SEEDS`, then ``24 × scale`` programs
     from seed *first* on (or the one of seed *replay* only) on *jobs*
     workers; returns the distinct bugs met, each
-    reduced and written to ``failures/`` under *directory*."""
-    directory = pathlib.Path(directory or TESTS.parents[1] / "target" / "python-fuzz")
+    reduced and written to ``failures/`` under *directory*. With
+    *compare_with_matplotlib*, the programs meeting no bug run under
+    matplotlib too, and where a line raised another exception than
+    matplotlib's (or none where it raised one) is written to
+    ``differences.md`` under *directory* (`.compare`)."""
+    directory = pathlib.Path(directory or TESTS.parents[1] / "target" / "python-fuzz").resolve()
     (directory / "failures").mkdir(parents=True, exist_ok=True)
     programs = corpus.load(directory)
     steps = 100
@@ -299,10 +323,13 @@ def run(scale=1, replay=None, jobs=4, reduce_bugs=True, directory=None, first=0)
         seeds = [*FAILED_SEEDS, *(seed for seed in range(first, first + 24 * scale)
                                   if seed not in FAILED_SEEDS)]
     shares = [seeds[i::jobs] for i in range(jobs)]
+    ran = [] if compare_with_matplotlib else None
     with ThreadPoolExecutor(jobs) as pool:
         found = [bug for bugs in pool.map(lambda share: _run_seeds(share, steps, programs,
-                                                                   directory), shares)
+                                                                   directory, ran), shares)
                  for bug in bugs]
+    if ran:
+        compare.write(compare.differences(ran, directory, jobs), directory)
     distinct = {}
     for bug in found:
         distinct.setdefault(bug.signature, bug)

@@ -1024,22 +1024,25 @@ if scale_factory.__doc__:
 def _program_scale(scale, three_d):
     """
     How pltrs (Rust) maps through *scale*, a scale of the program's (of an
-    axis of 3-D axes if *three_d*): its name, the forward and inverse
+    axis of 3-D axes if *three_d*; `._program_classes.held` where its axis
+    holds it, which the functions then hold as weakly): its name, the forward and inverse
     functions it calls with arrays, as matplotlib's code maps through the
     scale's transform (`._scale_calls`; through the transform's and its
     inverse's ``transform`` on 3-D axes), and its ``limit_range(vmin, vmax,
     minpos)``. pltrs (Rust) asks for them when the scale is set and when a
     figure holding it is unpickled.
     """
+    from ._program_classes import unheld
+    holding, scale = scale, unheld(scale)
     if three_d:
         transform = scale.get_transform()
         functions = (transform.transform, transform.inverted().transform)
     else:
         from ._scale_calls import ScaleCalls
-        calls = ScaleCalls(scale, scale.get_transform())
+        calls = ScaleCalls(holding, scale.get_transform())
         functions = (calls.forward, calls.inverse)
     return scale.name, functions, lambda vmin, vmax, minpos: tuple(
-        map(float, scale.limit_range_for_scale(vmin, vmax, minpos)))
+        map(float, unheld(holding).limit_range_for_scale(vmin, vmax, minpos)))
 
 
 _register("program_scale", _program_scale)

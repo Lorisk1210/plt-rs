@@ -541,6 +541,7 @@ impl Figure {
         if self.layout_engine().is_some_and(|engine| engine.measures()) {
             self.root_handle().measure_painters_for_layout();
         }
+        self.state.release_unheld();
         self.state.work_on(|state| state.prepare_for_draw(painting));
         crate::offsetbox::measure_program_boxes(&self.root_handle());
         crate::axes::run_limit_callbacks(&self.state);

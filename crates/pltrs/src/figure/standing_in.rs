@@ -93,6 +93,28 @@ impl Drop for StandingIn {
 }
 
 impl RawHandle {
+    /// For each of `ids`, artists of this handle's figure: the removed
+    /// artist whose tree holds it (itself, or the removed artist owning
+    /// it), `None` for an artist in the figure. Bindings keeping one object
+    /// per artist hold those of removed artists only while the program
+    /// does, as matplotlib's figure holds no removed artist.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let line = ax.plot([0.0, 1.0], [1.0, 0.0])?;
+    /// ax.remove();
+    /// let roots = line.raw().removed_roots(&[line.raw().id(), ax.raw().id()]);
+    /// assert_eq!(roots, [Some(ax.raw().id()), Some(ax.raw().id())]);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    #[must_use]
+    pub fn removed_roots(&self, ids: &[ArtistId]) -> Vec<Option<ArtistId>> {
+        let state = self.figure_state().borrow();
+        ids.iter().map(|&id| state.removed_root(id)).collect()
+    }
+
     /// Has the removed tree the artist is in stand in its figure until
     /// what is returned is dropped (see the module), for a measure of the
     /// artist. Nothing moves for an artist in the figure, nor while code

@@ -352,9 +352,9 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
                 self.pchanged()
                 return
             t = t._as_mpl_transform(axes)
-        if _live_transforms.holds_natively(t):
-            _transforms.set_transform(self._native, _live_transforms.to_native(t))
         self._given_transform = t
+        if _live_transforms.holds_natively(t):
+            _transforms.set_transform(self._native, _live_transforms.to_native(t, held_by=self._figure or self))
         self.pchanged()
 
     def is_transform_set(self):

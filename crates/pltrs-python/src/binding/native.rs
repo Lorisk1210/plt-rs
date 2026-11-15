@@ -31,6 +31,7 @@ use std::marker::PhantomData;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr::NonNull;
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread::ThreadId;
 
 use super::convert::{FromPy, IntoPy};
@@ -66,6 +67,15 @@ unsafe impl Send for NativeType {}
 unsafe impl Sync for NativeType {}
 
 static NATIVE_TYPE: OnceLock<NativeType> = OnceLock::new();
+
+/// How many native objects are alive (see [`live_objects`]).
+static LIVE_OBJECTS: AtomicUsize = AtomicUsize::new(0);
+
+/// How many native objects are alive in the process: the handles and
+/// values Python holds (`_native.diagnostics`).
+pub(crate) fn live_objects() -> usize {
+    LIVE_OBJECTS.load(Ordering::Relaxed)
+}
 
 /// The type of native objects.
 fn native_type() -> *mut ffi::PyTypeObject {
@@ -156,6 +166,7 @@ unsafe extern "C" fn dealloc(object: *mut ffi::PyObject) {
         {
             let _ = catch_unwind(AssertUnwindSafe(|| std::ptr::drop_in_place(data)));
         }
+        LIVE_OBJECTS.fetch_sub(1, Ordering::Relaxed);
         drop(scope);
         let class = (*object).ob_type;
         let free: Option<ffi::freefunc> =
@@ -225,6 +236,7 @@ fn wrap_cell<T: Any>(
             .cast::<NativeCell>()
             .write(cell);
     }
+    LIVE_OBJECTS.fetch_add(1, Ordering::Relaxed);
     Ok(object)
 }
 

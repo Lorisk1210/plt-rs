@@ -1093,6 +1093,55 @@ over a `ValueError` of that pass and draws without the rest of the
 layout; and measuring an axis for a layout measures it again in full
 after a `TypeError` (matplotlib's `_get_tightbbox_for_layout_only`).
 
+### What keeps a figure alive
+
+A figure goes when the program forgets it, as in matplotlib: a web
+server drawing per request, a notebook kernel or a window redrawn for
+hours must not grow. Two rules keep it so.
+
+* **pltrs (Rust) holds no Python object that reaches back to its
+  figure.** Python's collector sees the references Python objects hold,
+  not those pltrs (Rust) holds (native objects take no part in garbage
+  collection), so a cycle through native state is never collected. An
+  object of the program's pltrs (Rust) calls is held by the Python object
+  of its figure, and pltrs (Rust) holds it weakly: scales, transforms
+  artists are given and path effects through `_program_classes.held` (the
+  root figure keeps them in ``_held_for_native``, as pltrs (Rust) shares
+  a scale among the axes sharing it; an artist in no figure yet keeps its
+  own; a `Held` proxy's pickle holds the object itself), tick helpers
+  through their adapters (the axis holds them), agg filters through
+  `_artist_effects.held_filter` (the artist holds them). Caches keyed by a class of the program's
+  hold the class weakly (`_program_classes.class_cache`), and nothing the
+  package shares between figures (a class attribute, a module's table)
+  may refer to one figure's objects (`Rectangle.get_path`'s shared unit
+  rectangle refers to its rectangle weakly). Where a plotting method's
+  keyword gives pltrs (Rust) an object no Python object keeps (a
+  ``transform=``, ``path_effects=``, a norm), pltrs (Rust) still holds it
+  strongly; ``python/tests/leaks/scenes.py`` lists those (`KNOWN`).
+* **A removed artist lives only while something reaches it.** pltrs
+  (Rust) counts the handles of each artist (`FigureCell`'s census);
+  before a draw a figure lets go of the removed artists no handle reaches
+  (`FigureCell::release_unheld`). The figure's registry of Python objects
+  (`_handles.Registry`) holds the objects of artists in the figure, and
+  those of removed ones weakly (swept there when it has doubled since
+  its last sweep, if they were out of the figure at the sweep before too,
+  as an artist made for the figure is until it is added; at once by
+  `Figure.clear`), the object of a removed artist holding those of the
+  removed artists it owns; a tick helper registry
+  hands the helpers of a removed Axes to the Axes.
+
+`_native.diagnostics.live_counts()` gives pltrs (Rust)'s counts of figure
+states, native objects and removed artists kept (`pltrs::diagnostics`).
+The leak harness, `python -m leaks` (from `python/tests`), makes, draws,
+saves and drops a few hundred scenes under pltrs and under matplotlib and
+reports what stays alive or grows under pltrs only; ``python -m
+leaks.holders SCENE`` shows what holds a leaking scene's objects (on the
+Python side: the objects whose references Python's collector cannot
+account for, and the chain from a module to them). Its short mode runs
+in `cargo xtask python test` (`leaks/test_leaks.py`, against matplotlib's
+outcomes recorded in `leaks/reference.json` by ``python -m leaks
+--record``).
+
 ### Private names other libraries use
 
 Libraries read, write and call matplotlib's private names

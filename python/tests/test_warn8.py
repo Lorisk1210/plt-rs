@@ -259,7 +259,10 @@ def test_coherence_divides_as_numpy():
     y = np.cos(np.arange(256) * 0.2)
     divide = "invalid value encountered in divide"
     assert warned(lambda: ax.cohere(x, y[:0], NFFT=64)) == {divide: 1}
-    assert warned(lambda: ax.cohere(x, y, NFFT=64, Fs=NAN)) == {divide: 3}
+    # A NaN rate divides the complex spectra by NaN: numpy warns of it
+    # where its complex division raises the invalid exception.
+    nan_rate = {divide: 3} if build_facts.COMPLEX_DIVISION_OF_NAN_WARNS else {}
+    assert warned(lambda: ax.cohere(x, y, NFFT=64, Fs=NAN)) == nan_rate
     assert warned(lambda: ax.cohere(x, y, NFFT=64)) == {}
 
 

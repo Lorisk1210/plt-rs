@@ -1076,8 +1076,10 @@ title = "flexitext (styled text in matplotlib), its documentation"
 repository = "https://github.com/tomicapretto/flexitext"
 commit = "989fa6b984da745d8eba64f4af08190a3f637dc1"
 licence = "MIT (LICENSE)"
-fetch = ["/LICENSE", "/README.md", "/docsite/docs/"]
-sha256 = "a92c38704bac8a4305de292d970af8319d10f3904ed49457e0df7bc8ce6c15bf"
+# Only the usage pages: docsite/docs/reference holds FlexiText.md beside
+# flexitext.md, one file on a case-insensitive file system (macOS).
+fetch = ["/LICENSE", "/README.md", "/docsite/docs/usage/"]
+sha256 = "dc26b29526bbd872f9be3cd0ef990a989fd05ec0ba253ab022ec70f02cd559ff"
 programs = ["README.md", "docsite/docs/usage/*.md"]
 exclude = []
 outputs = []

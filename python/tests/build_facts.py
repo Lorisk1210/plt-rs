@@ -19,7 +19,12 @@ The builds of matplotlib and numpy on this system:
   only those of ``@``;
 * whether numpy warns where it floor-divides an infinity or takes its
   remainder: not on macOS, whose ``fmod`` raises no invalid exception for
-  an infinite dividend.
+  an infinite dividend;
+* whether numpy warns where a NaN meets its complex division or its
+  determinant (`COMPLEX_DIVISION_OF_NAN_WARNS`,
+  `DETERMINANT_OF_NAN_WARNS`): numpy 2 does, numpy 1.26's arm64 macOS
+  wheel (its loops' comparisons and its OpenBLAS raising no invalid
+  exception for a NaN) does not.
 
 The versions of the dependencies:
 
@@ -78,6 +83,12 @@ PRODUCTS_WARN = {product.__name__: _warns(
 
 #: Whether numpy's scalar floor division and remainder of an infinity warn.
 FLOOR_DIVIDING_INFINITY_WARNS = _warns(lambda: np.float64(np.inf) // 1.0)
+
+#: Whether numpy warns where it divides complex numbers by a NaN.
+COMPLEX_DIVISION_OF_NAN_WARNS = _warns(lambda: np.array([1 + 1j]) / np.float64(np.nan))
+
+#: Whether numpy warns where it takes the determinant of a NaN.
+DETERMINANT_OF_NAN_WARNS = _warns(lambda: np.linalg.det(np.array([[np.nan]])))
 
 
 def _zones_agree(name, local_times):

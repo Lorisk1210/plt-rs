@@ -10,9 +10,13 @@
 //! calls into pltrs on it, since Python's threads may have small stacks
 //! (musl's 128 KiB, a size the program set). On a thread whose end is not
 //! known, the work runs where it is called, as any other code does.
+//!
+//! With `PLTRS_DEEP_WORK_APART` set, such work always runs on a thread of
+//! its own: what is left on the caller's stack is then what everything
+//! else takes, which pltrs (Python)'s smoke tests measure and bound.
 
 use std::cell::Cell;
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Mutex, OnceLock, PoisonError};
 
 thread_local! {
     /// The lowest address the calling thread's stack may reach, if known.
@@ -44,7 +48,7 @@ pub fn left() -> Option<usize> {
 /// not depend on the thread it runs on: it must not read or leave values
 /// in thread-locals the caller reads, nor need a lock the caller holds.
 pub fn with_room<R: Send>(need: usize, work: impl FnOnce() -> R + Send) -> R {
-    if left().is_none_or(|left| left >= need) {
+    if !always_apart() && left().is_none_or(|left| left >= need) {
         return work();
     }
     // Kept where the caller can take it back if no thread can be started.
@@ -69,6 +73,13 @@ pub fn with_room<R: Send>(need: usize, work: impl FnOnce() -> R + Send) -> R {
             Err(_) => take()(),
         }
     })
+}
+
+/// Whether work that goes deep always runs on a thread of its own
+/// (`PLTRS_DEEP_WORK_APART` set when first asked).
+fn always_apart() -> bool {
+    static APART: OnceLock<bool> = OnceLock::new();
+    *APART.get_or_init(|| std::env::var_os("PLTRS_DEEP_WORK_APART").is_some())
 }
 
 #[cfg(test)]

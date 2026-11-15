@@ -81,6 +81,8 @@ impl AxisPainter<'_> {
     /// `loc` and beyond the spine, its ticks and the tick labels
     /// `label_boxes` on its side by the label's pad (matplotlib's
     /// `_update_label_position`); `None` for axes not laid out.
+    // Out of the frame laying the axis label out, which text layout runs below.
+    #[inline(never)]
     pub(super) fn axis_label_anchor(
         &self,
         cx: &mut impl FigureReader,
@@ -110,6 +112,8 @@ impl AxisPainter<'_> {
     }
 
     /// The offset text at the end of the axis, beyond the tick labels.
+    // Out of the frame laying the axis label out, which text layout runs below.
+    #[inline(never)]
     pub(super) fn offset_text(
         &self,
         cx: &mut impl FigureReader,
@@ -140,6 +144,8 @@ impl AxisPainter<'_> {
     /// Where the offset text goes, shown or not: its anchor in display
     /// coordinates, beyond the tick labels `label_boxes`, and its
     /// alignment (matplotlib's `_update_offset_text_position`).
+    // Out of the frame laying the axis label out, which text layout runs below.
+    #[inline(never)]
     pub(super) fn offset_placement(
         &self,
         layout: LayoutContext<'_>,

@@ -60,6 +60,12 @@ pub(super) unsafe fn run() -> bool {
     if unsafe { ffi::PyDict_Size(deferred.queue.as_ptr()) } <= 0 {
         return true;
     }
+    // The flush is a call into Python, refused as every other one is where
+    // little of the stack is left (`stack::check_call_into_python`).
+    if let Err(err) = super::stack::check_call_into_python() {
+        super::gil::Python::with_gil(|py| err.restore(py));
+        return false;
+    }
     // SAFETY: (caller) the GIL is held; copying a dict runs no Python code
     // and gives a new reference (or NULL with an error set), which keeps
     // the items alive, so that clearing the queue frees none of them and

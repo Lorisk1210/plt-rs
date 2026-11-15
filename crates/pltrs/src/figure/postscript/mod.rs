@@ -19,7 +19,7 @@ use self::distill::{Distillation, WorkFile, gs_distill, xpdf_distill};
 pub(crate) use self::programs::{Executable, Workspace};
 use self::psfrag::{Layout, print_figure_tex};
 use super::Figure;
-use super::print::SaveOptions;
+use super::print::{SaveOptions, finished};
 use super::save::{SaveError, embedding, simplify_settings};
 use crate::rc::Distiller;
 pub use distill::{DistillOptions, distill_file};
@@ -124,15 +124,14 @@ impl Figure {
             orientation: ps.orientation,
         };
         // Text the backend draws in AFM fonts is laid out with their metrics.
-        let output = crate::text::with_afm_metrics(ps.afm_directory(), || {
+        let renderer = crate::text::with_afm_metrics(ps.afm_directory(), || {
             self.render_vector_noting(
                 options,
                 |width, height, dpi| PsRenderer::new(width, height, dpi, ps),
                 log_drawing_notes,
             )
-        })?
-        .finish()
-        .map_err(SaveError::Vector)?;
+        })?;
+        let output = finished(renderer, PsRenderer::finish).map_err(SaveError::Vector)?;
         let document = match output {
             PsOutput::Psfrag(figure) => {
                 return print_figure_tex(&figure, layout, &rc, source_date);

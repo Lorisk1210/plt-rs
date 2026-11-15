@@ -16,10 +16,13 @@
 //!
 //! That is where every round of such a recursion passes: the Python code
 //! a native call runs reaches native code again only through a native
-//! function. The calls back into Python are not checked: some are queries
-//! whose failure native code takes as "no answer" and goes on (whether a
-//! class of the program's draws its Axes itself), so a refused one would
-//! change what is drawn instead of raising.
+//! function. The calls native code makes into Python are checked too, with
+//! less left ([`TO_PYTHON`]), only so that CPython 3.14's own check of the
+//! stack never refuses a round first: its `RecursionError` says "Stack
+//! overflow (used 478 kB)", not matplotlib's "maximum recursion depth
+//! exceeded", and which of the two a recursion ends with would depend on
+//! where in a round the stack happens to run out (an admitted native call
+//! goes some 40 KiB deeper before it calls the program's formatter).
 //!
 //! The bounds of the thread's stack are found once per thread
 //! ([`bounds`]: the operating system's, for the main thread on Linux the
@@ -33,6 +36,7 @@
 use std::cell::OnceCell;
 
 use super::error::{ExceptionKind, PyErr, PyResult};
+use super::module::Module;
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -44,13 +48,14 @@ mod linux;
 /// and a colorbar, recursing through a formatter, a locator or an
 /// artist's `draw`: a round takes at most 44 KiB from one nested call to
 /// the next (an optimised build, a tight PDF save), and a call goes on at
-/// most 61 KiB below the check that let it in, the nested calls it makes
-/// refused (an SVG save under constrained layout measuring its tick
-/// labels; 58 KiB optimised). Shaping a new line of text and typesetting
-/// a formula, which go deeper with their input, run where the stack has
-/// room for them (`pltrs_text`, `pltrs_core::stack`). So a thread of 128
-/// KiB (musl's default) draws with callbacks of the program's, as
-/// matplotlib does there.
+/// most 47 KiB below the check that let it in, the nested calls it makes
+/// refused (an SVG save under constrained layout drawing its tick labels;
+/// 46 KiB optimised), which `test_stack1.py` keeps 12 KiB under the
+/// reserve of the system it runs on. Shaping a new line of text and
+/// typesetting a formula, which go deeper with their input, run where the
+/// stack has room for them (`pltrs_text`, `pltrs_core::stack`). So a
+/// thread of 128 KiB (musl's default) draws with callbacks of the
+/// program's, as matplotlib does there.
 #[cfg(not(target_os = "macos"))]
 const RESERVE: usize = 64 * 1024;
 
@@ -61,9 +66,23 @@ const RESERVE: usize = 64 * 1024;
 /// stack of a 512 KiB thread before the check refuses a call; from 72 to
 /// 88 KiB every recursion ends in `RecursionError` and a thread asked for
 /// 128 KiB (macOS gives it 140) still makes its nested calls, which 96 KiB
-/// refuses to a PDF save there.
+/// refuses to a PDF save there. (Measured before the frames a draw runs
+/// below were made leaner; `test_stack1.py`'s ceiling of the stretch does
+/// not run on macOS yet.)
 #[cfg(target_os = "macos")]
 const RESERVE: usize = 80 * 1024;
+
+/// The stack a call from native code into Python needs left. CPython 3.14
+/// refuses a Python call once less than twice `_PyOS_STACK_MARGIN_BYTES`
+/// (2,048 pointers, 16 KiB on 64-bit systems) is left above the end of
+/// the thread's stack, as it reads the bounds: 32 KiB (`Stack overflow`;
+/// measured: a thread of 256 KiB, 512 KiB or 1 MiB refuses with 36 KiB of
+/// what was asked for left, its guard page included). Refusing here with
+/// 16 KiB more leaves the Python code a callback runs (a formatter calling
+/// `savefig`: 4.4 KiB of CPython's frames) room to reach pltrs' own check,
+/// so that every round ends with matplotlib's message. CPython 3.12 and
+/// 3.13 do not check the stack (they count nested C calls, 10,000).
+const TO_PYTHON: usize = 48 * 1024;
 
 /// The most of a larger stack native recursion may use, below where the
 /// thread was first measured: twice Linux's default stack. A round of
@@ -110,7 +129,20 @@ thread_local! {
 /// Refuses a native call with `RecursionError` ([`message`]) when less
 /// than [`RESERVE`] is left of the thread's stack below the caller.
 pub(super) fn check() -> PyResult<()> {
-    match nearly_full() {
+    refused_below(RESERVE)
+}
+
+/// Refuses a call from native code into Python with `RecursionError`
+/// ([`message`]) when less than [`TO_PYTHON`] is left of the thread's
+/// stack below the caller.
+pub(super) fn check_call_into_python() -> PyResult<()> {
+    refused_below(TO_PYTHON)
+}
+
+/// `RecursionError` ([`message`]) when less than `reserve` is left of the
+/// thread's stack below the caller.
+fn refused_below(reserve: usize) -> PyResult<()> {
+    match nearly_full(reserve) {
         Some(size) => Err(PyErr::new(ExceptionKind::RecursionError, message(size))),
         None => Ok(()),
     }
@@ -135,15 +167,15 @@ fn measured(here: usize) -> Option<Stack> {
     })
 }
 
-/// The size of the calling thread's stack when less than [`RESERVE`] is
+/// The size of the calling thread's stack when less than `reserve` is
 /// left of it below the caller's frame.
-fn nearly_full() -> Option<usize> {
+fn nearly_full(reserve: usize) -> Option<usize> {
     let here = here();
     // Above the stack's end by less than the reserve; an address below
     // the end (a stack other than the thread's own) wraps around to far
     // above it.
     measured(here)
-        .filter(|stack| here.wrapping_sub(stack.end) < RESERVE)
+        .filter(|stack| here.wrapping_sub(stack.end) < reserve)
         .map(|stack| stack.size)
 }
 
@@ -162,6 +194,25 @@ fn message(size: usize) -> String {
         size / 1024,
         RESERVE / 1024,
     )
+}
+
+/// Adds `_stack_room()` to the extension: where the stack of the calling
+/// thread is, for the smoke tests that measure how much of it a draw
+/// takes (`test_stack1.py`) on any system.
+pub(crate) fn add_to(module: &Module<'_>) -> PyResult<()> {
+    module.add("_stack_room", stack_room)
+}
+
+/// The address of a local of this native call, the lowest address native
+/// recursion may reach on the calling thread (0 where not known) and the
+/// stack a nested native call needs left ([`RESERVE`]).
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "a native function returns a result"
+)]
+fn stack_room() -> PyResult<(usize, usize, usize)> {
+    let here = here();
+    Ok((here, measured(here).map_or(0, |stack| stack.end), RESERVE))
 }
 
 /// The address of a local, where the caller's frame ends (about).
@@ -240,7 +291,7 @@ mod tests {
             .stack_size(size)
             .spawn(|| {
                 let size = stack_of(here()).map_or(0, |stack| stack.size);
-                (size, nearly_full().is_some())
+                (size, nearly_full(RESERVE).is_some())
             })
             .unwrap()
             .join()
@@ -249,7 +300,7 @@ mod tests {
 
     #[test]
     fn a_fresh_stack_is_far_from_full() {
-        assert_eq!(nearly_full(), None);
+        assert_eq!(nearly_full(RESERVE), None);
         assert!(check().is_ok());
     }
 
@@ -268,7 +319,7 @@ mod tests {
         /// full: how much of it was left there.
         fn left() -> usize {
             let frame = std::hint::black_box([0_u8; 1024]);
-            if nearly_full().is_some() {
+            if nearly_full(RESERVE).is_some() {
                 let here = here();
                 return here - stack_of(here).unwrap().end + usize::from(frame[0]);
             }

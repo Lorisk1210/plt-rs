@@ -12,9 +12,9 @@ use pltrs_render::{ClipPath, GraphicsContext, SnapMode};
 use super::AxesState;
 use super::axis_artists::{AxisGroup, TickGroups, TickPart, tick_group_name};
 pub(crate) use super::axis_layout::AxisTextDraw;
-use super::axis_layout::{AxisPainter, PlacedText, TickLabel, rc_with_effects};
+use super::axis_layout::{AxisPainter, AxisTexts, PlacedText, TickLabel, rc_with_effects};
 use super::grid_props::{GridClip, GridLineProps};
-use super::tick_set::Tick;
+use super::tick_set::{Tick, TickSet};
 use super::ticks::{GridStyle, TickDirection, TickStyle};
 use crate::artist::{AggFilter, ArtistBase, ArtistId, DrawContext, rc_sketch};
 use crate::colors::{Color, ColorError};
@@ -52,6 +52,21 @@ impl AxisPainter<'_> {
             Err(err) => return ctx.report_kind(self.axes_id, err.draw_kind(), err),
         };
         let texts = self.texts(ctx, rc);
+        self.draw_ticks_and_texts(ctx, rc, ticks, &texts);
+    }
+
+    /// Draws the ticks with their labels, the axis label and the offset
+    /// text, laid out as `texts`. Out of
+    /// [`draw_contents`](Self::draw_contents)' frame, which the texts'
+    /// layout runs below (on what is left of the stack in a nested draw).
+    #[inline(never)]
+    fn draw_ticks_and_texts(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        rc: &RcParams,
+        ticks: &TickSet,
+        texts: &AxisTexts,
+    ) {
         for problem in &texts.problems {
             ctx.report_kind(self.axes_id, problem.kind, problem);
         }

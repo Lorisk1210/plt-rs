@@ -417,8 +417,7 @@ fn line_run(
         let run = slot.take().expect("measured at most once");
         if let Some(at) = apart {
             slot = Some(run);
-            let other = measured_line(typeset(line, font, at, rc)?, line, font, at, measuring)?;
-            return Ok(metrics(&other));
+            return measured_apart(line, font, at, rc, measuring);
         }
         let run = measured_line(run, line, font, dpi, measuring)?;
         let measured = metrics(&run);
@@ -427,6 +426,22 @@ fn line_run(
     })?;
     let run = slot.expect("the run is back in its slot");
     Ok(with_metrics(run, metrics))
+}
+
+/// The metrics of `line` typeset and measured at `at`, the resolution
+/// lines are measured at apart from the one they are drawn at. Out of
+/// the frame of [`line_run`]'s measuring, which the measure of a line runs
+/// below (on what is left of the stack in a nested draw).
+#[inline(never)]
+fn measured_apart(
+    line: &Line<'_>,
+    font: &FontProperties,
+    at: f64,
+    rc: &RcParams,
+    measuring: bool,
+) -> Result<LineMetrics, TextError> {
+    let other = measured_line(typeset(line, font, at, rc)?, line, font, at, measuring)?;
+    Ok(metrics(&other))
 }
 
 /// One line of `text` typeset as `kind` in `font` at `dpi`, as a

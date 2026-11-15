@@ -376,8 +376,99 @@ def test_the_fuzzer_keeps_a_crashs_fault_address_and_first_lines(tmp_path):
     assert "pltrs: fatal signal 11 at address 0x10" in first, first
     assert "Fatal Python error: Segmentation fault" in first, first
     lowest, highest = worker.stack
-    assert highest - lowest == 1024 << 10
+    # The span ulimit -s gives (under qemu-user, qemu's own stack instead).
+    assert lowest < highest
     below = runner._fault_note("pltrs: fatal signal 11 at address 0x1000\n", [0x3000, 0x5000])
     assert below == "fault at 0x1000, 8.0 KiB below the main thread's stack limit: a stack overflow\n"
     kept = runner._kept([str(n) for n in range(100)])
     assert kept[:2] == ["0", "1"] and kept[-1] == "99" and "[45 lines left out]" in kept
+
+
+#: How much of its reserve a nested draw must leave: what it takes of the
+#: stack below the check that let its native call in, when what goes
+#: deep with its input (shaping a new line of text, typesetting a
+#: formula) runs on a stack of its own (`PLTRS_DEEP_WORK_APART`), must be
+#: at least this much less than the reserve the guard checks for
+#: (`binding/stack.rs`), on the system the test runs on: what the call
+#: does below that check, after the calls it makes are refused too, must
+#: fit, or the process dies; the margin is for the draws these four
+#: scenes do not take. The calls into Python a draw makes are refused
+#: before CPython 3.14's own check would (48 KiB left against its 32), so
+#: the message does not depend on the reserve. Measured (KiB below the
+#: formatter's native call, development / optimised build): Linux x86-64,
+#: reserve 64: PNG 39.3 / 37.4, SVG 47.1 / 45.6, PDF 42.3 / 42.9, EPS
+#: 42.2 / 40.1 (61 and more before the renderers, the figure state a
+#: layout works on and the axis draw's locals left the frames the layout
+#: runs below). A change taking more of the stack on that path fails here,
+#: in its author's smoke tests, not in a draw on a small thread or a merge
+#: check.
+STRETCH_MARGIN = 12 << 10
+
+#: The scenes measured: each figure saved with a formatter that saves it
+#: again once (a nested native call), in each format.
+STRETCH_SCENES = {
+    "png, tight": dict(format="png", bbox_inches="tight"),
+    "svg, constrained": dict(format="svg"),
+    "pdf, constrained": dict(format="pdf"),
+    "eps, constrained": dict(format="eps"),
+}
+
+#: The program measuring the stretch: the stack of a thread of 1 MiB is
+#: painted below the formatter's frame before the nested save, and
+#: scanned for the deepest byte the save wrote; pltrs tells where the
+#: stack is and the reserve (`_stack_room`). Prints the stretch and the
+#: reserve.
+STRETCH_PROGRAM = """
+import ctypes, io, threading
+import numpy as np
+import pltrs
+pltrs.use("agg")
+import pltrs.pyplot as plt
+from pltrs import _native, ticker
+
+PATTERN = 0xA5
+
+def run():
+    fig = plt.figure(layout="constrained")
+    ax = fig.subplots()
+    ax.plot(np.linspace(0, 1, 20) ** 2, label="line")
+    ax.set_title(r"$\\sum_i x_i$")
+    ax.set_xlabel("x")
+    ax.legend()
+    fig.colorbar(ax.imshow(np.arange(16).reshape(4, 4)), ax=ax)
+    kwargs = {kwargs!r}
+    state = {{"armed": False, "stretch": 0, "reserve": 0}}
+    def label(value, pos):
+        if state["armed"]:
+            state["armed"] = False
+            here, end, state["reserve"] = _native._stack_room()
+            start, top = end + 4096, here - (16 << 10)
+            ctypes.memset(start, PATTERN, top - start)
+            fig.savefig(io.BytesIO(), **kwargs)
+            data = ctypes.string_at(start, top - start)
+            deepest = start + len(data) - len(data.lstrip(bytes([PATTERN])))
+            state["stretch"] = max(state["stretch"], here - deepest)
+        return f"{{value:.2f}}"
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(label))
+    for _ in range(2):
+        state["armed"] = True
+        fig.savefig(io.BytesIO(), **kwargs)
+    print(state["stretch"], state["reserve"])
+
+threading.stack_size(1 << 20)
+thread = threading.Thread(target=run)
+thread.start()
+thread.join()
+"""
+
+
+@pytest.mark.skipif(sys.platform == "win32" or pltrs.__name__ != "pltrs",
+                    reason="pltrs' own stack, painted below a thread's stack pointer "
+                           "(Windows commits a thread's stack as it grows)")
+@pytest.mark.parametrize("scene", STRETCH_SCENES)
+def test_a_nested_draw_leaves_a_margin_of_its_reserve(scene, tmp_path, monkeypatch):
+    monkeypatch.setenv("PLTRS_DEEP_WORK_APART", "1")
+    source = STRETCH_PROGRAM.format(kwargs=STRETCH_SCENES[scene])
+    stretch, reserve = map(int, _run(source, tmp_path).split())
+    assert 0 < stretch <= reserve - STRETCH_MARGIN, (
+        f"{stretch / 1024:.1f} KiB of a reserve of {reserve / 1024:.0f} KiB")

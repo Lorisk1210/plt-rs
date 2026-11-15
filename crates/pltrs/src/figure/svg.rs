@@ -6,7 +6,7 @@ use std::path::Path as FsPath;
 use pltrs_render::{ImageFile, Metadata, SvgOptions, SvgRenderer};
 
 use super::Figure;
-use super::print::SaveOptions;
+use super::print::{SaveOptions, finished};
 use super::save::{SaveError, simplify_settings};
 
 impl Figure {
@@ -95,13 +95,12 @@ impl Figure {
     ) -> Result<(String, Vec<ImageFile>), SaveError> {
         let svg = svg_options(options.metadata.clone().unwrap_or_default(), image_files);
         // matplotlib's SVG backend measures text with `TextToPath`.
-        crate::text::with_text_path_metrics(|| {
+        let renderer = crate::text::with_text_path_metrics(|| {
             self.render_vector_with(options, |width, height, dpi| {
                 SvgRenderer::new(width * 72.0, height * 72.0, dpi, svg)
             })
-        })?
-        .finish_with_images()
-        .map_err(SaveError::Vector)
+        })?;
+        finished(renderer, SvgRenderer::finish_with_images).map_err(SaveError::Vector)
     }
 }
 

@@ -253,12 +253,17 @@ impl Figure {
     }
 
     /// Renders the figure as [`Figure::savefig_with`] would for raster
-    /// output.
+    /// output. The canvas is on the heap: the draw runs below the frames
+    /// holding it, on what is left of the stack (a nested draw, a thread
+    /// of 128 KiB).
     ///
     /// # Errors
     ///
     /// When the canvas cannot be created or some artists cannot be drawn.
-    pub fn render_raster_with(&self, options: SaveOptions) -> Result<RasterRenderer, SaveError> {
+    pub fn render_raster_with(
+        &self,
+        options: SaveOptions,
+    ) -> Result<Box<RasterRenderer>, SaveError> {
         let (canvas, problems) = self.render_raster_partial(options)?;
         problems.map_or(Ok(canvas), |errors| Err(SaveError::Draw(errors)))
     }
@@ -277,10 +282,10 @@ impl Figure {
     pub fn render_raster_partial(
         &self,
         options: SaveOptions,
-    ) -> Result<(RasterRenderer, Option<DrawErrors>), SaveError> {
+    ) -> Result<(Box<RasterRenderer>, Option<DrawErrors>), SaveError> {
         let (saving, page) = self.begin_print(&options, None, Output::Raster);
-        let mut canvas = Self::raster_canvas_sized(page.width, page.height, page.dpi)?;
-        let drawn = font_notes::predrawn(page.pre_draw, || self.draw_without_event(&mut canvas));
+        let mut canvas = raster_canvas(&page)?;
+        let drawn = font_notes::predrawn(page.pre_draw, || self.draw_without_event(&mut *canvas));
         let problems = DrawErrors::with_refused_memory(drawn, &mut canvas, self.root.id()).err();
         let printed = self.canvas().printing(canvas).map_err(SaveError::Backend);
         drop(saving);
@@ -298,7 +303,7 @@ impl Figure {
         &self,
         options: &SaveOptions,
         make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
-    ) -> Result<R, SaveError> {
+    ) -> Result<Box<R>, SaveError> {
         self.render_vector_noting(options, make, |_| {})
     }
 
@@ -312,7 +317,7 @@ impl Figure {
         options: &SaveOptions,
         make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
         drawn: impl FnOnce(&R),
-    ) -> Result<R, SaveError> {
+    ) -> Result<Box<R>, SaveError> {
         // matplotlib's vector backends lay text out unhinted.
         crate::text::without_hinting(|| {
             self.render_into(options, Some(POINTS_PER_INCH), make, drawn)
@@ -327,7 +332,7 @@ impl Figure {
         &self,
         options: &SaveOptions,
         make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
-    ) -> Result<R, SaveError> {
+    ) -> Result<Box<R>, SaveError> {
         self.render_into(options, None, make, |_| {})
     }
 
@@ -335,16 +340,20 @@ impl Figure {
     /// into the renderer `make` creates from the page size in inches and
     /// the save resolution, then hands `drawn` the renderer, unless the
     /// draw failed where matplotlib's draw before the print fails first.
+    ///
+    /// The renderer is kept on the heap (a document's renderer is
+    /// kilobytes): the draw runs below this frame and its callers', on
+    /// what is left of the stack (a nested draw, a thread of 128 KiB).
     fn render_into<R: Renderer>(
         &self,
         options: &SaveOptions,
         canvas_dpi: Option<f64>,
         make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
         drawn: impl FnOnce(&R),
-    ) -> Result<R, SaveError> {
+    ) -> Result<Box<R>, SaveError> {
         let (saving, page) = self.begin_print(options, canvas_dpi, Output::Vector);
-        let mut renderer = make(page.width, page.height, page.dpi).map_err(SaveError::Vector)?;
-        let result = self.draw_mixed(&mut renderer, page);
+        let mut renderer = boxed(make, page.width, page.height, page.dpi)?;
+        let result = self.draw_mixed(&mut *renderer, page);
         if result.is_ok() || page.pre_draw.is_none() {
             drawn(&renderer);
         }
@@ -379,18 +388,58 @@ impl Figure {
     /// Draws the prepared figure into the vector `renderer` of `page`,
     /// rasterized artists at the page's resolution.
     fn draw_mixed(&self, renderer: &mut dyn Renderer, page: Page) -> Result<(), SaveError> {
-        let mut mixed = MixedModeRenderer::new(
-            renderer,
-            page.width,
-            page.height,
-            page.dpi,
-            super::save::simplify_settings(),
-        );
+        let mut mixed = mixed(renderer, &page);
         let drawn =
-            font_notes::predrawn(page.pre_draw, || self.draw(&mut mixed)).map_err(SaveError::Draw);
-        let rasterized = mixed.finish().map_err(SaveError::Backend);
+            font_notes::predrawn(page.pre_draw, || self.draw(&mut *mixed)).map_err(SaveError::Draw);
+        let rasterized = finished(mixed, MixedModeRenderer::finish).map_err(SaveError::Backend);
         drawn.and(rasterized)
     }
+}
+
+/// The canvas of `page`, on the heap, made in a frame of its own (see
+/// [`boxed`]).
+#[inline(never)]
+fn raster_canvas(page: &Page) -> Result<Box<RasterRenderer>, SaveError> {
+    Figure::raster_canvas_sized(page.width, page.height, page.dpi).map(Box::new)
+}
+
+/// The renderer `make` creates for a page of `width` by `height` inches
+/// at `dpi`, on the heap: made in a frame of its own, so that the frame of
+/// the caller, which the draw runs below, holds no renderer.
+#[inline(never)]
+fn boxed<R>(
+    make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
+    width: f64,
+    height: f64,
+    dpi: f64,
+) -> Result<Box<R>, SaveError> {
+    make(width, height, dpi)
+        .map(Box::new)
+        .map_err(SaveError::Vector)
+}
+
+/// The renderer drawing `page` into `renderer`, rasterized artists into
+/// images, on the heap as [`boxed`] makes a document's.
+#[inline(never)]
+fn mixed<'a>(renderer: &'a mut dyn Renderer, page: &Page) -> Box<MixedModeRenderer<'a>> {
+    Box::new(MixedModeRenderer::new(
+        renderer,
+        page.width,
+        page.height,
+        page.dpi,
+        super::save::simplify_settings(),
+    ))
+}
+
+/// What `finish` makes of the renderer drawn into: in a frame of its own,
+/// as [`boxed`] makes it.
+#[inline(never)]
+#[expect(
+    clippy::boxed_local,
+    reason = "the renderer comes boxed out of the frames a draw runs below, and leaves the box here"
+)]
+pub(crate) fn finished<R, T>(renderer: Box<R>, finish: impl FnOnce(R) -> T) -> T {
+    finish(*renderer)
 }
 
 #[cfg(test)]

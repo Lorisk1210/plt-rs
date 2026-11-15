@@ -1496,11 +1496,14 @@ class Axis(DrawnWith, Artist):
         array of tick locations
         """
         if self._drawn_info is not None and not minor:
-            if self._ticking:
-                # The program's code ticking the axis reads its locator,
-                # as matplotlib's does.
-                return self.major.locator()
-            return self._drawn_fields()[3]
+            drawn = None if self._ticking else self._drawn_fields()[3]
+            if drawn is not None and len(drawn):
+                return drawn
+            # The program's code ticking the axis reads its locator, as
+            # matplotlib's does, and so does a helper the axis shares with
+            # the axis being ticked (a twin's `.AutoMinorLocator`), whose
+            # description holds no major ticks yet.
+            return self.major.locator()
         if not minor and _program_classes.takes_from_program(
                 type(self), "get_view_interval"):
             # matplotlib's locator asks the program's class for the view.

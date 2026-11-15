@@ -482,7 +482,7 @@ impl<'a> Painter<'a> {
             self.draw_ticks(sink, axis, edge.points[0], deltas_per_point, position);
             self.draw_offset_text(sink, axis, &edge, label_deltas);
             if sink.warns() {
-                self.warn_moving(ticks::offset_corner(&edge, dir), label_deltas, dir);
+                self.warn_moving(edge.points[ticks::outer_end(axis)], label_deltas, dir);
             }
         }
         if axis.label.text.is_empty() || !sink.takes_labels() {
@@ -549,9 +549,10 @@ impl<'a> Painter<'a> {
 
     /// The box edge along `dir` at `position`.
     fn edge(&self, dir: Axis3, position: AxisPosition) -> AxisEdge {
+        let line = (dir, self.axes.axis(dir).juggled);
         let points = self
             .geometry
-            .axis_line(dir, self.axes.camera.vertical, position);
+            .axis_line(line, self.axes.camera.vertical, position);
         let projected = self.projection.project_transformed_all(&points);
         let ends = [projected[0], projected[1]];
         // Texts along the edge follow it in axes coordinates.

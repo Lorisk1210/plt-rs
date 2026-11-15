@@ -131,6 +131,20 @@ class _Updater:
             except Exception:
                 return None, None
 
+    def locate(self, axes, name, info):
+        """The locations matplotlib's ``Axis.get_children`` asks the axis'
+        locators for, which a pick reaching the axis' children calls
+        (``get_major_ticks``, then ``get_minor_ticks``): no formatter is
+        called."""
+        axis = self._axis(axes, name)
+        if axis is None:
+            return
+        from ._tick_helpers import drawing
+        with _ticking(axis, info):
+            with drawing(axis.major.locator, info) as locator:
+                locator()
+            _minor_locs(axis, info)
+
     def inverted(self, axes, name):
         """Whether the axis is inverted, as its class answers (an axis of
         the program's class answering ``get_view_interval`` itself, which
@@ -269,11 +283,7 @@ def _minor_locs(axis, info):
     """matplotlib's ``Axis.get_minorticklocs``: the minor locator's ticks
     without those on major ticks, unless the axis keeps them."""
     from ._tick_helpers import drawing
-    from .ticker import AutoMinorLocator
     locator = axis.minor.locator
-    if type(locator) is AutoMinorLocator:
-        # matplotlib's locator reads the major ticks from the axis.
-        info = _axis.with_major_ticks(info, _floats(axis.major.locator()))
     with drawing(locator, info):
         minor_locs = np.asarray(locator())
     if axis.remove_overlapping_locs:

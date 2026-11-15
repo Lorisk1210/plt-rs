@@ -415,6 +415,10 @@ impl FigureState {
                 if sibling == axes || self.set_deep_view(sibling, name, limits, auto) {
                     continue;
                 }
+                // matplotlib's `_set_lim` of the sibling reads its view
+                // limits first, which applies the autoscaling pending
+                // along its other axis.
+                self.unstale_axes(sibling);
                 self.set_axis_view(sibling, name, limits, auto, false);
                 self.limit_callbacks.notify(sibling, name);
                 self.sync_parasites(sibling);

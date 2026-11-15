@@ -61,6 +61,9 @@ pub enum Axes3DError {
     /// An aspect other than `auto`, `equal`, `equalxy`, `equalxz` and
     /// `equalyz`.
     UnknownAspect(String),
+    /// A coordinate index of an axis' juggled triple above 2 (numpy's
+    /// `IndexError` when matplotlib draws the axis).
+    JuggledIndex(usize),
     /// A scale that cannot be created.
     Scale(ScaleError),
     /// An axis or the view is already shared with another axes (what is
@@ -133,6 +136,9 @@ impl fmt::Display for Axes3DError {
                 f,
                 "{name:?} is not a 3-D aspect (auto, equal, equalxy, equalxz or equalyz)"
             ),
+            Self::JuggledIndex(index) => {
+                write!(f, "index {index} is out of bounds for axis 0 with size 3")
+            }
             Self::AlreadyShared(what) => write!(f, "{what} is already shared"),
             Self::OtherFigure => f.write_str("axes of another figure cannot be shared with"),
             Self::NoFlatAxis(axis) => {

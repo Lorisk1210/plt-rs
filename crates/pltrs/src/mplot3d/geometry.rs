@@ -170,10 +170,11 @@ impl BoxGeometry {
 
     /// The end points of the line of `axis` along the edge `position`
     /// ([`AxisPosition::Default`], [`AxisPosition::Lower`] or
-    /// [`AxisPosition::Upper`]; matplotlib's `_get_axis_line_edge_points`).
+    /// [`AxisPosition::Upper`]), its coordinates taken from the near corner
+    /// in the order `juggled` (matplotlib's `_get_axis_line_edge_points`).
     pub(crate) fn axis_line(
         &self,
-        axis: Axis3,
+        (axis, juggled): (Axis3, [usize; 3]),
         vertical: Axis3,
         position: AxisPosition,
     ) -> [Vec3; 2] {
@@ -186,7 +187,6 @@ impl BoxGeometry {
             [forward, forward, forward],
         ];
         let [start, end] = table[vertical.index()][axis.index()];
-        let juggled = juggled(axis);
         let last = juggled[2];
         let across_last = match position {
             AxisPosition::Lower => end[last] < start[last],
@@ -287,7 +287,8 @@ impl Axis3D {
             let position = *axes.axis(self.dir).tick_position.edges().last()?;
             let projection = axes.projection();
             let geometry = BoxGeometry::new(axes.scaled_limits(), &projection);
-            let ends = geometry.axis_line(self.dir, axes.camera.vertical, position);
+            let line = (self.dir, axes.axis(self.dir).juggled);
+            let ends = geometry.axis_line(line, axes.camera.vertical, position);
             let q = projection.project_transformed_all(&ends);
             Some(([q[0][0], q[1][0]], [q[0][1], q[1][1]]))
         })
@@ -327,8 +328,9 @@ impl Axis3D {
 }
 
 /// The order in which the coordinates of an axis line are taken from the
-/// near corner (matplotlib's `_AXINFO[...]['juggled']`).
-pub(crate) const fn juggled(axis: Axis3) -> [usize; 3] {
+/// near corner, unless the program gives another (matplotlib's
+/// `_AXINFO[...]['juggled']`).
+pub(crate) const fn default_juggled(axis: Axis3) -> [usize; 3] {
     match axis {
         Axis3::X => [1, 0, 2],
         Axis3::Y => [0, 1, 2],
@@ -401,13 +403,18 @@ mod tests {
     fn axis_lines_run_along_their_axis() {
         let (geometry, camera) = default_box();
         for axis in Axis3::ALL {
-            let [p0, p1] = geometry.axis_line(axis, camera.vertical, AxisPosition::Default);
+            let line = (axis, default_juggled(axis));
+            let [p0, p1] = geometry.axis_line(line, camera.vertical, AxisPosition::Default);
             let differing: Vec<usize> = (0..3).filter(|&i| (p0[i] - p1[i]).abs() > 0.0).collect();
             assert_eq!(differing, [axis.index()]);
         }
         // matplotlib's x axis line runs along y = 0, z = 0.
         assert_eq!(
-            geometry.axis_line(Axis3::X, camera.vertical, AxisPosition::Default),
+            geometry.axis_line(
+                (Axis3::X, default_juggled(Axis3::X)),
+                camera.vertical,
+                AxisPosition::Default
+            ),
             [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]
         );
     }
@@ -467,7 +474,7 @@ mod tests {
             ),
         ];
         for (axis, position, edge, tickdir) in cases {
-            let line = geometry.axis_line(axis, camera.vertical, position);
+            let line = geometry.axis_line((axis, default_juggled(axis)), camera.vertical, position);
             assert_eq!(line, edge, "{axis:?} {position:?}");
             let direction = tick_direction(axis, &camera, position);
             assert_eq!(direction, tickdir, "{axis:?} {position:?}");

@@ -183,6 +183,11 @@ impl<'e> Fonts<'e> {
         style: &MathStyle,
         text_font: FontId,
     ) -> Result<Self, TextError> {
+        if let Some(source) = db.source(text_font) {
+            // matplotlib's fontset opens its default font as it is made,
+            // before the formula is parsed (`TruetypeFonts.__init__`).
+            crate::lookups::note_open(source, false);
+        }
         Ok(Self {
             faces: FaceCache::new(db),
             set: GlyphSet::for_style(db, style, text_font)?,

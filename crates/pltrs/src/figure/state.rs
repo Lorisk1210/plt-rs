@@ -455,10 +455,15 @@ impl FigureState {
                 // there.
                 crate::warnings::capturing_runtime(|| self.tick_axes(id, false));
             }
-            // matplotlib's pick asks no helper of the axes it does not
-            // reach: the program's are not called.
-            if !picked_elsewhere && !matches!(preparation, Preparation::Drawing(_)) {
-                self.tick_axes(id, true);
+            match preparation {
+                // matplotlib's pick asks the locators of the axes it
+                // reaches for their locations, no formatter, and no helper
+                // of the others.
+                Preparation::Picking(reached) if reached.reaches(id) => {
+                    self.locate_program_ticks(id);
+                }
+                Preparation::Picking(_) | Preparation::Drawing(_) => {}
+                Preparation::AsIs | Preparation::Measuring => self.tick_axes(id, true),
             }
         }
         laid_out
@@ -471,6 +476,14 @@ impl FigureState {
     /// stays due.
     pub(crate) fn prepare_as_is(&mut self) {
         self.prepare_between_draws(Preparation::AsIs);
+    }
+
+    /// Brings `axes` up to date to be drawn alone, as matplotlib's
+    /// `Axes.draw` does: its view autoscaled, its ticks placed over its
+    /// box as it is now, by the program's helpers too; neither the layout
+    /// engine nor the aspect runs.
+    pub(crate) fn prepare_axes_alone(&mut self, axes: ArtistId) {
+        self.prepare_axes(axes, Preparation::AsIs, false);
     }
 
     /// [`prepare_as_is`](Self::prepare_as_is) for a pick reaching the

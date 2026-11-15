@@ -24,7 +24,7 @@ use crate::transforms::interval_contains_close;
 use crate::units::{AxisUnits, Categories};
 
 use super::coords::Axis3;
-use super::geometry::AxisPosition;
+use super::geometry::{AxisPosition, default_juggled};
 use super::scaling::AxisScale;
 
 /// The view inset matplotlib checks tick visibility against with
@@ -301,6 +301,10 @@ pub(crate) struct Axis3DState {
     pub(crate) visible: bool,
     /// The gids of the axis, its texts and its ticks in SVG output.
     pub(crate) gids: AxisGids,
+    /// The order in which the coordinates of the axis line are taken from
+    /// the box's near corner (matplotlib's `_axinfo["juggled"]`, which a
+    /// program may replace).
+    pub(crate) juggled: [usize; 3],
 }
 
 pltrs_core::archive_struct!(Axis3DState {
@@ -328,7 +332,8 @@ pltrs_core::archive_struct!(Axis3DState {
     offset_shown,
     remove_overlapping,
     visible,
-    gids
+    gids,
+    juggled
 });
 
 /// The look of a pane restyled through its polygon: the patch style and
@@ -385,6 +390,7 @@ impl Axis3DState {
             remove_overlapping: true,
             visible: true,
             gids: AxisGids::default(),
+            juggled: default_juggled(dir),
         }
     }
 

@@ -24,11 +24,18 @@ impl<'e> FaceCache<'e> {
         }
     }
 
-    /// The parsed face `id`.
+    /// The parsed face `id`; parsing it opens its font, as matplotlib's
+    /// mathtext does while it parses a formula (`get_font`), which is
+    /// noted.
     pub(crate) fn face(&mut self, id: FontId) -> Result<&Face<'e>, FontError> {
         match self.faces.entry(id) {
             Entry::Occupied(entry) => Ok(entry.into_mut()),
-            Entry::Vacant(entry) => Ok(entry.insert(self.db.face(id)?)),
+            Entry::Vacant(entry) => {
+                if let Some(source) = self.db.source(id) {
+                    crate::lookups::note_open(source, true);
+                }
+                Ok(entry.insert(self.db.face(id)?))
+            }
         }
     }
 

@@ -96,7 +96,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     pltrs::rc::restore_startup();
     crate::binding::install_after_call(vec![
         text_helpers::warn_missing_glyphs,
-        text_helpers::report_font_lookups,
+        text_helpers::report_font_notes,
         text_helpers::log_mathtext_messages,
         transforms::sync_watched,
     ]);

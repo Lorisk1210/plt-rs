@@ -410,6 +410,41 @@ impl Axis3D {
         self.axes.with(|axes| axes.axis(self.dir).line_visible)
     }
 
+    /// Takes the coordinates of the axis line from the box's near corner
+    /// in the order `juggled` (matplotlib's `_axinfo["juggled"]`): the
+    /// last index is the coordinate the line runs along, the first the
+    /// one its start takes from the far corner, so another order moves
+    /// the line, its ticks and its labels to other edges of the box.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// assert_eq!(ax.xaxis().juggled(), [1, 0, 2]);
+    /// ax.xaxis().set_juggled([2, 0, 1])?;
+    /// assert_eq!(ax.xaxis().juggled(), [2, 0, 1]);
+    /// assert!(ax.xaxis().set_juggled([3, 0, 1]).is_err());
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`Axes3DError::JuggledIndex`] for an index above 2.
+    pub fn set_juggled(&self, juggled: [usize; 3]) -> Result<&Self, Axes3DError> {
+        if let Some(&index) = juggled.iter().find(|&&index| index > 2) {
+            return Err(Axes3DError::JuggledIndex(index));
+        }
+        let dir = self.dir;
+        self.axes
+            .with_mut(|axes| axes.axis_mut(dir).juggled = juggled);
+        Ok(self)
+    }
+
+    /// The order in which the axis line's coordinates are taken from the
+    /// box's near corner (see [`set_juggled`](Self::set_juggled)).
+    pub fn juggled(&self) -> [usize; 3] {
+        self.axes.with(|axes| axes.axis(self.dir).juggled)
+    }
+
     /// Chooses the box edges carrying the axis line, tick marks, tick
     /// labels and offset text (matplotlib's `set_ticks_position`).
     ///

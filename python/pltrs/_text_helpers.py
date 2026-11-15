@@ -70,6 +70,36 @@ def report_font_lookup(kind, family, style, variant, weight, stretch, size,
 _register("report_font_lookup", report_font_lookup)
 
 
+def report_font_open(name, path, parsing):
+    """
+    Open, with the program's ``get_font``, a font pltrs (Rust)'s mathtext
+    opened while the deprecated ``text.kerning_factor`` is set: one pltrs
+    bundles, by file *name*, or the one at *path*. matplotlib's mathtext
+    opens the default font of a formula as it makes its fontset, then,
+    *parsing* it, each font it takes a glyph from or checks for one, which
+    warns of the deprecation for a font not opened before.
+    """
+    import sys
+    import warnings
+    from . import cbook
+    from .font_manager import get_font
+    font = path if path is not None else cbook._get_data_path("fonts/ttf", name)
+    if not parsing:
+        get_font(font)
+        return
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        get_font(font)
+    # matplotlib's mathtext parses inside pyparsing, whose frame, outside
+    # matplotlib, the warnings point at: here, this one.
+    line = sys._getframe().f_lineno
+    for warning in caught:
+        warnings.warn_explicit(warning.message, warning.category, __file__, line)
+
+
+_register("report_font_open", report_font_open)
+
+
 def layout(string: str, font: FT2Font, *,
            features: tuple[str] | None = None,
            language: str | tuple[tuple[str, int, int], ...] | None = None

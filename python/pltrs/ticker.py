@@ -2808,6 +2808,12 @@ class AutoMinorLocator(_NativeLocator):
     def __call__(self):
         # docstring inherited
         info = self._axis_info()
+        if self._drawn_axis is not None and self.axis is not None:
+            # Ticking from a description of its axis (`_tick_helpers.drawing`),
+            # the locator reads the major ticks from the axis, as
+            # matplotlib's does in its call (`get_majorticklocs`).
+            majors = np.asarray(self.axis.get_majorticklocs(), dtype=float).ravel()
+            info = _axis.with_major_ticks(info, [float(v) for v in majors])
         locs = _ticker.locate(self._spec(), info)
         if self.ndivs is None:
             self._settle_ndivs(info)

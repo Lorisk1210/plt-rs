@@ -26,6 +26,7 @@ type Level = (Vec<f64>, Vec<String>, Vec<bool>);
 #[derive(Debug)]
 struct PyTickUpdater {
     update: Callback,
+    locate: Callback,
     offset: Callback,
     spines: Callback,
     inverted: Callback,
@@ -65,6 +66,14 @@ impl TickUpdater for PyTickUpdater {
             .unwrap_or_default())
     }
 
+    /// The Python updater's `locate(axes, name, info)` (its exception
+    /// surfaces from the native call that picked).
+    fn locate(&self, axes: &Axes, axis: AxisName, info: &AxisInfo) {
+        let _ = self
+            .locate
+            .call::<Owned>((axes.clone(), axis.name(), info.clone()));
+    }
+
     fn offset(&self, axes: &Axes, axis: AxisName, info: &AxisInfo) -> String {
         self.offset
             .call((axes.clone(), axis.name(), info.clone()))
@@ -99,7 +108,7 @@ impl TickUpdater for PyTickUpdater {
     }
 }
 
-/// Has the methods `update`, `offset`, `spines` and `inverted` of
+/// Has the methods `update`, `locate`, `offset`, `spines` and `inverted` of
 /// `updater` tick the
 /// axes of `figure` whose helpers or scale are Python's (None removes it).
 fn set_tick_updater(figure: Figure, updater: Option<Owned>) -> PyResult<()> {
@@ -109,6 +118,7 @@ fn set_tick_updater(figure: Figure, updater: Option<Owned>) -> PyResult<()> {
                 let updater = updater.bind(py);
                 Ok::<_, PyErr>(PyTickUpdater {
                     update: updater.getattr("update")?.extract()?,
+                    locate: updater.getattr("locate")?.extract()?,
                     offset: updater.getattr("offset")?.extract()?,
                     spines: updater.getattr("spines")?.extract()?,
                     inverted: updater.getattr("inverted")?.extract()?,

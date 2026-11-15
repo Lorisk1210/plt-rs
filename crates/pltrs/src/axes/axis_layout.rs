@@ -247,12 +247,10 @@ impl<'a> AxisPainter<'a> {
             .map(|(anchor, _)| anchor);
         self.axis.offset_placed.set(texts.offset_anchor);
         let aligned = self.aligned_label_boxes(cx, &boxes);
-        // Placed when it is drawn: an empty or hidden label is not (which
-        // leaves the program's transforms uncalled for its spine).
-        let label = &self.axis.label;
-        texts.label_anchor = (!label.text.is_empty() && label.visible)
-            .then(|| self.axis_label_anchor(cx, &aligned))
-            .flatten();
+        // matplotlib places the label whatever its text and visibility
+        // (`_update_label_position`, which asks the spine for its extent),
+        // and draws it only with text.
+        texts.label_anchor = self.axis_label_anchor(cx, &aligned);
         self.axis.label_placed.set(texts.label_anchor);
         let label = self.axis_label(cx, rc, texts.label_anchor);
         let offset = self.offset_text(cx, rc, &boxes);

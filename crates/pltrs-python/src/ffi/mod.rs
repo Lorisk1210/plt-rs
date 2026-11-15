@@ -47,6 +47,8 @@ mod object;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod pthread;
 mod runtime;
+#[cfg(target_os = "linux")]
+mod signal;
 mod types;
 mod values;
 #[cfg(windows)]
@@ -60,6 +62,8 @@ pub(crate) use object::*;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(crate) use pthread::*;
 pub(crate) use runtime::*;
+#[cfg(target_os = "linux")]
+pub(crate) use signal::*;
 pub(crate) use types::*;
 pub(crate) use values::*;
 #[cfg(windows)]

@@ -93,6 +93,16 @@ BOOT = (f"import sys; sys.path.insert(0, {str(TESTS)!r}); "
 #: Where a panic of pltrs (Rust) reports itself on stderr.
 PANICKED = re.compile(r"panicked at (\S+)")
 
+#: The line pltrs (Rust) writes on a fatal fault in a worker (which sets
+#: ``PLTRS_REPORT_FAULTS``), before Python's ``faulthandler`` reports where
+#: Python and the native code were: the address the fault touched.
+FAULT = re.compile(r"pltrs: fatal signal \d+ at address (0x[0-9a-f]+)")
+
+#: How many lines of a bug's output its failure file keeps from the start
+#: (a crash's: the fault, then where each thread was) and from the end.
+DETAIL_HEAD = 40
+DETAIL_TAIL = 15
+
 
 class Bug:
     """A bug a program met: its kind, a signature telling bugs apart, and
@@ -129,6 +139,7 @@ class Worker:
         environment = {**os.environ, **variables}
         environment["PYTHONPATH"] = os.pathsep.join(
             [str(PLTRS_HOME), environment.get("PYTHONPATH", "")])
+        environment["PLTRS_REPORT_FAULTS"] = "1"
         if reference:
             program = str(corpus.REFERENCE_PYTHON)
             environment["PYTHONPATH"] = str(ALIAS)
@@ -145,6 +156,8 @@ class Worker:
         # venv's python.exe is a launcher starting it as a process of its
         # own (which ends with the launcher).
         self.pid = self.process.pid
+        # The main thread's stack, as the worker reports it.
+        self.stack = None
         self.events = queue.Queue()
         self.stderr = []
         threading.Thread(target=self._read_events, daemon=True).start()
@@ -155,6 +168,7 @@ class Worker:
             event = json.loads(line)
             if event["event"] == "ready":
                 self.pid = event["pid"]
+                self.stack = event.get("stack")
             else:
                 self.events.put(event)
         self.events.put(None)
@@ -187,7 +201,8 @@ class Worker:
                 self.process.wait()
                 stderr = "".join(self.stderr[start:])
                 kind = "memory" if "memory allocation" in stderr else "crash"
-                bugs.append(Bug(kind, f"{kind}:{self.process.returncode}", lines, stderr[-2000:]))
+                detail = _fault_note(stderr, self.stack) + stderr
+                bugs.append(Bug(kind, f"{kind}:{self.process.returncode}", lines, detail))
                 break
             if event["event"] == "line":
                 lines.append(event["line"])
@@ -344,10 +359,40 @@ def run(scale=1, replay=None, jobs=4, reduce_bugs=True, directory=None, first=0,
                 "as run (did not reproduce alone)" if reduce_bugs else "as run")
         path = directory / "failures" / f"bug{number}-seed{bug.seed}.py"
         path.write_text(f"# {bug.signature}\n# seed {bug.seed}, {note}\n"
-                        + "".join(f"# {line}\n" for line in bug.detail.splitlines()[-15:])
+                        + "".join(f"# {line}\n" for line in _kept(bug.detail.splitlines()))
                         + "\n".join(program) + "\n", encoding="utf-8")
         bug.path = path
     return list(distinct.values())
+
+
+def _fault_note(stderr, stack):
+    """A line placing the address a crash touched (``FAULT``) against the
+    worker's main stack, ``[lowest, highest]`` (`worker._main_stack`):
+    below the lowest by less than the guard gap glibc and the kernel leave
+    is a stack overflow. Empty without the address."""
+    found = FAULT.search(stderr)
+    if found is None:
+        return ""
+    address = int(found.group(1), 16)
+    if stack is None:
+        return f"fault at {address:#x}\n"
+    lowest, highest = stack
+    if lowest - (1 << 20) <= address < lowest + 4096:
+        where = f"{(lowest - address) / 1024:.1f} KiB below the main thread's stack limit: a stack overflow"
+    elif lowest <= address < highest:
+        where = f"in the main thread's stack, {(highest - address) / 1024:.1f} KiB below its top"
+    else:
+        where = "outside the main thread's stack"
+    return f"fault at {address:#x}, {where}\n"
+
+
+def _kept(lines):
+    """The lines of a bug's output its failure file keeps: the first
+    `DETAIL_HEAD` and the last `DETAIL_TAIL`."""
+    if len(lines) <= DETAIL_HEAD + DETAIL_TAIL:
+        return lines
+    left_out = len(lines) - DETAIL_HEAD - DETAIL_TAIL
+    return [*lines[:DETAIL_HEAD], f"[{left_out} lines left out]", *lines[-DETAIL_TAIL:]]
 
 
 def summary(bugs):

@@ -28,7 +28,7 @@ use crate::error::TextError;
 
 /// Deepest nesting of placeables accepted. matplotlib's parser runs out of
 /// Python stack (`RecursionError`) well before this.
-const MAX_NESTING: usize = 100;
+pub(crate) const MAX_NESTING: usize = 100;
 
 /// The result of a grammar element: where it ended and what it built.
 type Parsed<T> = Result<(usize, T), Fail>;

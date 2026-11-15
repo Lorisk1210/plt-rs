@@ -92,6 +92,11 @@ pub fn keep_every_lookup(every: bool) {
     EVERY.set(every);
 }
 
+/// Whether every lookup is kept on this thread ([`keep_every_lookup`]).
+pub(crate) fn keeps_every() -> bool {
+    EVERY.get()
+}
+
 /// Records `lookup` if matplotlib's font manager logs about it: a family
 /// of the query has no face (`found` holds the weight of the best face of
 /// each family, `None` for none), or a face found has another weight than
@@ -106,15 +111,26 @@ pub(crate) fn note(lookup: FontLookup, found: &[Option<u16>]) {
     if !(logged || EVERY.get() || matches!(lookup.kind, LookupKind::Afm(_))) {
         return;
     }
+    keep(LookupRun { lookup, times: 1 });
+}
+
+/// Keeps `runs`, the lookups noted on another thread for work of this
+/// one's, as if they had been noted here.
+pub(crate) fn adopt(runs: Vec<LookupRun>) {
+    runs.into_iter().for_each(keep);
+}
+
+/// Keeps `run`, as part of the last run kept if it repeats its lookup.
+fn keep(run: LookupRun) {
     LOOKUPS.with(|lookups| {
         let mut lookups = lookups.borrow_mut();
         if let Some(last) = lookups
             .last_mut()
-            .filter(|last| last.lookup.repeats(&lookup))
+            .filter(|last| last.lookup.repeats(&run.lookup))
         {
-            last.times += 1;
+            last.times += run.times;
         } else if lookups.len() < MAX_KEPT {
-            lookups.push(LookupRun { lookup, times: 1 });
+            lookups.push(run);
         }
     });
 }

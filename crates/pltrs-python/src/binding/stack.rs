@@ -43,10 +43,14 @@ mod linux;
 /// figures with nested subfigures, constrained layout, mathtext, a legend
 /// and a colorbar, recursing through a formatter, a locator or an
 /// artist's `draw`: a round takes at most 44 KiB from one nested call to
-/// the next (an optimised build, a tight PDF save), and a draw goes on at
-/// most 48 KiB below its last nested call (56 KiB unoptimised). So a
-/// thread of 128 KiB (musl's default) draws with callbacks of the
-/// program's, as matplotlib does there.
+/// the next (an optimised build, a tight PDF save), and a call goes on at
+/// most 61 KiB below the check that let it in, the nested calls it makes
+/// refused (an SVG save under constrained layout measuring its tick
+/// labels; 58 KiB optimised). Shaping a new line of text and typesetting
+/// a formula, which go deeper with their input, run where the stack has
+/// room for them (`pltrs_text`, `pltrs_core::stack`). So a thread of 128
+/// KiB (musl's default) draws with callbacks of the program's, as
+/// matplotlib does there.
 const RESERVE: usize = 64 * 1024;
 
 /// The most of a larger stack native recursion may use, below where the
@@ -100,6 +104,25 @@ pub(super) fn check() -> PyResult<()> {
     }
 }
 
+/// Measures the calling thread's stack, once: pltrs (Rust) then knows
+/// where it ends, and runs work that goes deep where it has room for it
+/// (`pltrs_core::stack`). Called by the thread's outermost native call.
+pub(super) fn measure() {
+    measured(here());
+}
+
+/// The calling thread's stack, measured the first time (`here` being an
+/// address on it), when pltrs (Rust) is told where it ends.
+fn measured(here: usize) -> Option<Stack> {
+    STACK.with(|stack| {
+        *stack.get_or_init(|| {
+            let stack = stack_of(here);
+            pltrs_core::stack::set_end(stack.map(|stack| stack.end));
+            stack
+        })
+    })
+}
+
 /// The size of the calling thread's stack when less than [`RESERVE`] is
 /// left of it below the caller's frame.
 fn nearly_full() -> Option<usize> {
@@ -107,8 +130,7 @@ fn nearly_full() -> Option<usize> {
     // Above the stack's end by less than the reserve; an address below
     // the end (a stack other than the thread's own) wraps around to far
     // above it.
-    STACK
-        .with(|stack| *stack.get_or_init(|| stack_of(here)))
+    measured(here)
         .filter(|stack| here.wrapping_sub(stack.end) < RESERVE)
         .map(|stack| stack.size)
 }

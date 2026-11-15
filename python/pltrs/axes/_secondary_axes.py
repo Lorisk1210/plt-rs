@@ -17,6 +17,13 @@ from ._insets import _TransformedBoundsLocator
 _program_locators = _lazy_imports.module(globals(), "._program_locators")
 
 
+def _made_in_set_functions(function):
+    """*function*, a lambda named as matplotlib's `set_functions` makes it
+    (which pickle names when it refuses it)."""
+    function.__qualname__ = "SecondaryAxis.set_functions.<locals>.<lambda>"
+    return function
+
+
 class SecondaryAxis(Axes):
     """
     General class to hold a Secondary_X/Yaxis.
@@ -232,9 +239,9 @@ class SecondaryAxis(Axes):
             return functions
         if isinstance(functions, transforms.Transform):
             return (functions.transform,
-                    lambda x: functions.inverted().transform(x))
+                    _made_in_set_functions(lambda x: functions.inverted().transform(x)))
         if functions is None:
-            return (lambda x: x, lambda x: x)
+            return (_made_in_set_functions(lambda x: x), _made_in_set_functions(lambda x: x))
         raise ValueError('functions argument of secondary Axes '
                          'must be a two-tuple of callable functions '
                          'with the first function being the transform '

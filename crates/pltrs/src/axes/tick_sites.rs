@@ -469,7 +469,8 @@ mod tests {
 
     use crate::artist::ArtistHandle;
     use crate::axes::{
-        Axes, SpineAxis, TickLevels, TickUpdater, TitleLocation, UpdatedLevel, UpdatedTicks,
+        Axes, SpineAxis, TickLevels, TickUpdater, TitleLocation, UpdateSite, UpdatedLevel,
+        UpdatedTicks,
     };
     use crate::figure::Figure;
     use crate::layout::LayoutEngine;
@@ -508,6 +509,7 @@ mod tests {
             axis: AxisName,
             _: &AxisInfo,
             _: TickLevels,
+            _: UpdateSite,
         ) -> Result<UpdatedTicks, TickerError> {
             self.updates.borrow_mut().push(axis);
             let title = axes.title(TitleLocation::Center);

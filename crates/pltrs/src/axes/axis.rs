@@ -348,8 +348,14 @@ pub(crate) struct AxisState {
     /// Whether the program's class of the axis answers its view interval
     /// itself (overrides matplotlib's `get_view_interval`), which
     /// matplotlib's tick updates ask: the program's tick updater ticks the
-    /// axis then. Set by the program's class, again whenever it is made.
+    /// axis then. Set by the program's class when it is made, kept by a
+    /// pickle of the figure.
     pub(crate) program_view: bool,
+    /// Whether the program gave the axis an `_update_ticks` of its own
+    /// (ultraplot's tick cache assigns one to the object), which
+    /// matplotlib's draws and measures call: the program's tick updater
+    /// ticks the axis then.
+    pub(crate) program_update: bool,
 }
 
 pltrs_core::archive_struct!(AxisState {
@@ -389,8 +395,10 @@ pltrs_core::archive_struct!(AxisState {
     label_placed,
     offset_placed,
     follows_units,
-    scaled_view
-} skip { program_ticked, program_view });
+    scaled_view,
+    program_view,
+    program_update
+} skip { program_ticked });
 
 impl AxisState {
     /// A linear axis configured from `rc`.
@@ -470,6 +478,7 @@ impl AxisState {
             scaled_view: Cell::new(None),
             program_ticked: None,
             program_view: false,
+            program_update: false,
         }
     }
 

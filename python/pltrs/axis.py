@@ -19,7 +19,7 @@ import numpy as np
 
 from . import (
     _api, _artist_clipping, _artist_effects, _docstring, _lazy_imports, _program_classes,
-    _tick_helpers, _unusable, _values, cbook, units as munits)
+    _tick_helpers, _unusable, _values, cbook, scale as mscale, units as munits)
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._drawn_with import DrawnWith
 from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
@@ -93,7 +93,6 @@ def _typed_locs(locator, locs, minor, view):
 def _native_scale_of(scale):
     """The name and options of pltrs (Rust)'s scale matching the scale
     object *scale*, None for a scale of the program's."""
-    from . import scale as mscale
     kind = type(scale)
     if kind is mscale.LinearScale:
         return "linear", {}
@@ -626,6 +625,10 @@ class Axis(DrawnWith, Artist):
         self._category_units = None
         #: The scale object the axis was last given (see `_scale`).
         self._given_scale = None
+        if mscale.scale_factory is not mscale._own_scale_factory:
+            # matplotlib's axis makes its scale when made, through the
+            # module's `scale_factory`, which the program replaced.
+            self._scale  # noqa: B018
         self._given_converter = None
         #: The converter of the program's units pltrs (Rust) converts with
         #: (dates, categories), as the registry found it then.
@@ -1156,7 +1159,14 @@ class Axis(DrawnWith, Artist):
         given = self._given_scale
         if given is not None and given.name == name:
             return given
-        return self.axes._default_axis_scale(self, name)
+        scale = self.axes._default_axis_scale(self, name)
+        if name not in ("function", "functionlog"):
+            # Kept, as matplotlib's axis keeps the scale its clear made:
+            # the same object each time, made once through the module's
+            # ``scale_factory`` of the moment. (A colorbar's function
+            # scale stands for pltrs (Rust)'s map, `_tick_updates`.)
+            self._given_scale = scale
+        return scale
 
     @_scale.setter
     def _scale(self, scale):
@@ -1221,16 +1231,17 @@ class Axis(DrawnWith, Artist):
             If *value* is a string, keywords are passed to the instantiation method of
             the respective class.
         """
-        from . import scale as mscale
-        if isinstance(value, mscale.ScaleBase):
-            scale = value
-        else:
-            scale = mscale.scale_factory(value, self, **kwargs)
         shared = self._get_shared_axis()
         for axis in shared:
             # Given before pltrs (Rust) changes the scale: the transform
-            # trees it brings up to date after the change read it.
-            axis._given_scale = scale
+            # trees it brings up to date after the change read it. As
+            # matplotlib's, each shared axis makes a scale of its own from
+            # a name, in the group's order, through the module's
+            # ``scale_factory`` of the moment (which proplot and ultraplot
+            # replace).
+            axis._given_scale = (value if isinstance(value, mscale.ScaleBase)
+                                 else mscale.scale_factory(value, axis, **kwargs))
+        scale = self._given_scale
         # The scale installs its tick helpers itself, as matplotlib's do;
         # one of the program's may keep the axis' (seaborn's categorical
         # scale keeps the category locator).
@@ -1430,7 +1441,22 @@ class Axis(DrawnWith, Artist):
         Update ticks (position and labels) using the current data interval of
         the axes.  Return the list of ticks that will be drawn.
         """
-        _axis.place_ticks(*self._args())
+        own = self.__dict__.get("_own_update")
+        if own:
+            # Called by the program's `_update_ticks` of the object, which
+            # pltrs (Rust) ticks the axis through.
+            from . import _tick_updates
+            return _tick_updates.own_update(self, *own)
+        # Called by the program's `_update_ticks` itself: the axis is
+        # ticked meanwhile as if it had none.
+        placing = own is None and "_update_ticks" in self.__dict__
+        if placing:
+            self.__dict__["_own_update"] = ()
+        try:
+            _axis.place_ticks(*self._args())
+        finally:
+            if placing:
+                del self.__dict__["_own_update"]
         self._moved_ticks()
         ticks = []
         for minor in (False, True):
@@ -2381,6 +2407,8 @@ class Axis(DrawnWith, Artist):
         too-long labels when doing their layout.
         """
         from .transforms import Bbox
+        if _program_classes.takes_from_program(type(self), "_get_ticklabel_bboxes"):
+            return self._tightbbox_by_class(renderer, for_layout_only)
         with _measured_by_given(renderer, self):
             extent = _axis.get_tightbbox(*self._args(), bool(for_layout_only))
         if extent is None:
@@ -2388,6 +2416,34 @@ class Axis(DrawnWith, Artist):
         self._moved_ticks()
         x0, y0, x1, y1 = extent
         return Bbox([[x0, y0], [x1, y1]])
+
+    def _tightbbox_by_class(self, renderer, for_layout_only):
+        """matplotlib's `get_tightbbox`, for a class of the program's
+        giving the boxes of its tick labels itself (MetPy's skewed x axis
+        leaves out those beyond its bounds)."""
+        from .transforms import Bbox
+        if not self.get_visible() or for_layout_only and not self.get_in_layout():
+            return None
+        if renderer is None:
+            renderer = self.get_figure(root=True)._get_renderer()
+        ticks_to_draw = self._update_ticks()
+        tlb1, tlb2 = self._get_ticklabel_bboxes(ticks_to_draw, renderer)
+        bboxes = [*(text.get_window_extent(renderer) for text in [self.offsetText]
+                    if text.get_visible()), *tlb1, *tlb2]
+        if self.label.get_visible():
+            bb = self.label.get_window_extent(renderer)
+            # Collapse the label's long side to a pixel for layouts, as
+            # matplotlib's does.
+            if for_layout_only:
+                if self.axis_name == "x" and bb.width > 0:
+                    bb.x0 = (bb.x0 + bb.x1) / 2 - 0.5
+                    bb.x1 = bb.x0 + 1.0
+                if self.axis_name == "y" and bb.height > 0:
+                    bb.y0 = (bb.y0 + bb.y1) / 2 - 0.5
+                    bb.y1 = bb.y0 + 1.0
+            bboxes.append(bb)
+        bboxes = [b for b in bboxes if 0 < b.width < np.inf and 0 < b.height < np.inf]
+        return Bbox.union(bboxes) if bboxes else None
 
     def get_pickradius(self):
         """Return the depth of the axis used by the picker."""

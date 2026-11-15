@@ -186,7 +186,9 @@ pub(crate) use tick_compute::axis_length_points;
 pub use tick_config::{LocatorParams, TickLabelProps, TickParams, TicklabelFormat};
 pub use tick_lines::{GridLine, TickLine, TickLineProps, TickMarkProps};
 pub use tick_set::{Labelling, Tick, TickSet};
-pub use tick_updates::{SpineAxis, TickLevels, TickUpdater, UpdatedLevel, UpdatedTicks};
+pub use tick_updates::{
+    SpineAxis, TickLevels, TickUpdater, UpdateSite, UpdatedLevel, UpdatedTicks,
+};
 pub(crate) use ticks::grid_level_on;
 pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickPosition, TickStyle};
 pub(crate) use tight_bbox::fully_clipped;

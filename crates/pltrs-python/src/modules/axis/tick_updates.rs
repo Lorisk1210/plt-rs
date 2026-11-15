@@ -3,14 +3,17 @@
 //! ([`pltrs::axes::TickUpdater`]) at matplotlib's call sites, lent the
 //! figure. The updater is `_tick_updates`'s, which runs matplotlib's
 //! `Axis._update_ticks` with the program's objects: `update(axes, name,
-//! info, major, minor)` returns the locations, labels and drawn flags of
-//! each level computed (None for the others), `offset(axes, name, info)`
+//! info, major, minor, quiet, called)` returns the locations, labels and
+//! drawn flags of each level computed (None for the others; *called* says
+//! whether matplotlib calls `_update_ticks` there), `offset(axes, name, info)`
 //! the major formatter's offset text, `spines(axes)` the spines of an
 //! axes of a projection pltrs (Rust) does not know, `(name, shown, axis
 //! name or None)`, and `inverted(axes, name)` whether an axis whose class
 //! answers its view interval itself is inverted.
 
-use pltrs::axes::{Axes, SpineAxis, TickLevels, TickUpdater, UpdatedLevel, UpdatedTicks};
+use pltrs::axes::{
+    Axes, SpineAxis, TickLevels, TickUpdater, UpdateSite, UpdatedLevel, UpdatedTicks,
+};
 use pltrs::figure::Figure;
 use pltrs::ticker::{AxisInfo, AxisName, TickerError};
 
@@ -37,6 +40,7 @@ impl TickUpdater for PyTickUpdater {
         axis: AxisName,
         info: &AxisInfo,
         levels: TickLevels,
+        site: UpdateSite,
     ) -> Result<UpdatedTicks, TickerError> {
         let level = |(locs, labels, drawn): Level| UpdatedLevel {
             locs,
@@ -52,6 +56,7 @@ impl TickUpdater for PyTickUpdater {
                 levels.major,
                 levels.minor,
                 pltrs::warnings::capturing(),
+                site == UpdateSite::Matplotlib,
             ))
             .map(|(major, minor)| UpdatedTicks {
                 major: major.map(level),

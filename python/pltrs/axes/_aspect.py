@@ -167,7 +167,15 @@ class AspectMixin:
         and independently on each Axes as it is drawn.
         """
         _api.check_in_list(["box", "datalim"], adjustable=adjustable)
-        for ax in self._aspect_group(share):
+        axs = self._aspect_group(share)
+        if (adjustable == "datalim"
+                and any(getattr(ax.get_data_ratio, "__func__", None)
+                        is not AspectMixin.get_data_ratio for ax in axs)):
+            # Limits adjustment by apply_aspect assumes that the axes' aspect
+            # ratio can be computed from the data limits and scales.
+            raise ValueError("Cannot set Axes adjustable to 'datalim' for "
+                             "Axes which override 'get_data_ratio'")
+        for ax in axs:
             _axes_base.set_adjustable(ax._native, adjustable)
 
     def get_anchor(self):

@@ -1,0 +1,653 @@
+{
+ "matplotlib": "3.11.2",
+ "libraries_read": [
+  "Bio",
+  "IPython",
+  "SALib",
+  "adjustText",
+  "animatplot",
+  "aplpy",
+  "arch",
+  "arviz_base",
+  "arviz_plots",
+  "arviz_stats",
+  "ase",
+  "astroML",
+  "astroplan",
+  "astropy",
+  "blosc2",
+  "bokeh",
+  "brokenaxes",
+  "build",
+  "cartopy",
+  "celluloid",
+  "chainconsumer",
+  "circlify",
+  "cmasher",
+  "cmcrameri",
+  "cmocean",
+  "colorcet",
+  "contourpy",
+  "control",
+  "corner",
+  "corpus:adjusttext",
+  "corpus:aeropython",
+  "corpus:aquarel",
+  "corpus:arch",
+  "corpus:astroml-figures",
+  "corpus:bayesian-optimization",
+  "corpus:bitesizebayes",
+  "corpus:boost-histogram",
+  "corpus:brokenaxes",
+  "corpus:celluloid",
+  "corpus:cfd-python",
+  "corpus:cheatsheets",
+  "corpus:cmcrameri",
+  "corpus:colour",
+  "corpus:data-science-handbook",
+  "corpus:data-visualization-recipes",
+  "corpus:dna-features-viewer",
+  "corpus:dynesty",
+  "corpus:elements-of-data-science",
+  "corpus:emcee",
+  "corpus:flexitext",
+  "corpus:from-python-to-numpy",
+  "corpus:gif",
+  "corpus:handson-ml3",
+  "corpus:hdbscan",
+  "corpus:highlight-text",
+  "corpus:hist",
+  "corpus:hyppo",
+  "corpus:imbalanced-learn",
+  "corpus:ipython-cookbook",
+  "corpus:johansson-lectures",
+  "corpus:joypy",
+  "corpus:july",
+  "corpus:kalman-filters",
+  "corpus:lifelines",
+  "corpus:lightgbm",
+  "corpus:lmfit",
+  "corpus:machine-learning-book",
+  "corpus:mastering-matplotlib",
+  "corpus:matplotlib-2-by-example",
+  "corpus:matplotlib-3-cookbook",
+  "corpus:matplotlib-3d",
+  "corpus:matplotlib-for-python-developers",
+  "corpus:matplotlib-label-lines",
+  "corpus:matplotlib-scalebar",
+  "corpus:matplotlib-tutorial",
+  "corpus:matplotx",
+  "corpus:metpy",
+  "corpus:metric-learn",
+  "corpus:minisom",
+  "corpus:modsimpy",
+  "corpus:mpl-chord-diagram",
+  "corpus:mpl-scatter-density",
+  "corpus:mplcursors",
+  "corpus:mplfinance",
+  "corpus:mplhep",
+  "corpus:mplsoccer",
+  "corpus:mplstereonet",
+  "corpus:mpltern",
+  "corpus:networkx-examples",
+  "corpus:neurokit2",
+  "corpus:numerical-mooc",
+  "corpus:numpy-tutorials",
+  "corpus:pandas-data-analysis",
+  "corpus:plotnine-examples",
+  "corpus:pmdarima",
+  "corpus:prml",
+  "corpus:ptitprince",
+  "corpus:py-pde",
+  "corpus:pydata-book",
+  "corpus:pydmd",
+  "corpus:pygad",
+  "corpus:pygtc",
+  "corpus:pykalman",
+  "corpus:pykrige",
+  "corpus:pymoo",
+  "corpus:pyod",
+  "corpus:pyroomacoustics",
+  "corpus:pysindy",
+  "corpus:pythia-foundations",
+  "corpus:python-control",
+  "corpus:python-data-visualization-matplotlib",
+  "corpus:python-for-signal-processing",
+  "corpus:python-graph-gallery",
+  "corpus:python-novice-gapminder",
+  "corpus:python-novice-inflammation",
+  "corpus:python-ternary",
+  "corpus:pytransform3d",
+  "corpus:pyts",
+  "corpus:pywaffle",
+  "corpus:pywavelets",
+  "corpus:qutip-tutorials",
+  "corpus:rougier-book",
+  "corpus:salib",
+  "corpus:scienceplots",
+  "corpus:scientific-python-lectures",
+  "corpus:scikit-gstat",
+  "corpus:scikit-learn-examples",
+  "corpus:scikit-learn-mooc",
+  "corpus:scikit-opt",
+  "corpus:scikit-optimize",
+  "corpus:scikit-plot",
+  "corpus:scipy-cookbook",
+  "corpus:scqubits",
+  "corpus:seaborn",
+  "corpus:seaborn-image",
+  "corpus:statannotations",
+  "corpus:statsmodels-examples",
+  "corpus:supervenn",
+  "corpus:tensorly",
+  "corpus:think-bayes",
+  "corpus:think-dsp",
+  "corpus:think-stats",
+  "corpus:umap",
+  "corpus:upsetplot",
+  "corpus:windrose",
+  "corpus:wordcloud",
+  "dabest",
+  "dask",
+  "dask_image",
+  "debugpy",
+  "dna_features_viewer",
+  "dtreeviz",
+  "empiricaldist",
+  "filterpy",
+  "flexitext",
+  "fontTools",
+  "geopandas",
+  "gif",
+  "gwpy",
+  "healpy",
+  "highlight_text",
+  "hist",
+  "holoviews",
+  "imageio",
+  "ipykernel",
+  "ipympl",
+  "ipywidgets",
+  "jedi",
+  "joypy",
+  "kneed",
+  "labellines",
+  "legendkit",
+  "librosa",
+  "lifelines",
+  "lightgbm",
+  "lmfit",
+  "mapclassify",
+  "marsilea",
+  "matplot2tikz",
+  "matplotlib_inline",
+  "matplotlib_scalebar",
+  "matplotlib_venn",
+  "matplotx",
+  "metpy",
+  "missingno",
+  "mizani",
+  "mlxtend",
+  "mne",
+  "mpl_animators",
+  "mpl_axes_aligner",
+  "mpl_chord_diagram",
+  "mpl_fontkit",
+  "mpl_interactions",
+  "mpl_scatter_density",
+  "mplcursors",
+  "mplcyberpunk",
+  "mpld3",
+  "mplfinance",
+  "mplhep",
+  "mplsignal",
+  "mplsoccer",
+  "mplstereonet",
+  "mpltern",
+  "mpmath",
+  "nbval",
+  "nc_time_axis",
+  "networkx",
+  "nibabel",
+  "nilearn",
+  "numpy",
+  "obspy",
+  "oncoprinter",
+  "optuna",
+  "palettable",
+  "pandas",
+  "panel",
+  "panel_material_ui",
+  "pde",
+  "pennylane",
+  "periodictable",
+  "photutils",
+  "pims",
+  "pingouin",
+  "pint",
+  "plasmapy",
+  "plotly",
+  "plotnine",
+  "plottable",
+  "pmdarima",
+  "polars",
+  "probscale",
+  "prophet",
+  "proplot",
+  "pvlib",
+  "pyart",
+  "pycirclize",
+  "pycm",
+  "pydmd",
+  "pygtc",
+  "pymatgen",
+  "pyregion",
+  "pyrolite",
+  "pyroomacoustics",
+  "pysmithchart",
+  "pytest_mpl",
+  "pytransform3d",
+  "pyvista",
+  "pywaffle",
+  "pywt",
+  "qiskit",
+  "regions",
+  "scanpy",
+  "scienceplots",
+  "scikitplot",
+  "scipy",
+  "seaborn",
+  "seaborn_image",
+  "shap",
+  "shapely",
+  "sk_dsp_comm",
+  "skimage",
+  "sklearn",
+  "sklearn_compat",
+  "skrf",
+  "skrub",
+  "sktime",
+  "squarify",
+  "statannotations",
+  "statsmodels",
+  "sunpy",
+  "supervenn",
+  "sympy",
+  "ternary",
+  "tifffile",
+  "tikzplotlib",
+  "tqdm",
+  "tueplots",
+  "ultralytics",
+  "ultraplot",
+  "umap",
+  "upsetplot",
+  "windrose",
+  "wordcloud",
+  "xarray",
+  "xarray_einstats",
+  "xgboost",
+  "yellowbrick"
+ ],
+ "libraries_patching": 10,
+ "names": 14,
+ "unread_modules": [
+  "sympy.polys.numberfields.resolvent_lookup"
+ ],
+ "rows": [
+  {
+   "name": "format_coord",
+   "owner": null,
+   "candidates": [
+    "matplotlib.axes._base._AxesBase",
+    "matplotlib.projections.geo.GeoAxes",
+    "matplotlib.projections.polar.PolarAxes",
+    "mpl_toolkits.mplot3d.axes3d.Axes3D"
+   ],
+   "target": "instance",
+   "libraries": [
+    "mne",
+    "pandas"
+   ],
+   "count": 2,
+   "effects": {
+    "mne": "replaces",
+    "pandas": "replaces"
+   },
+   "where": {
+    "mne": "mne.viz.topo:203",
+    "pandas": "pandas.plotting._matplotlib.timeseries:481"
+   },
+   "name_count": 3
+  },
+  {
+   "name": "format_coord",
+   "owner": "matplotlib.axes._base._AxesBase",
+   "candidates": [],
+   "target": "instance",
+   "libraries": [
+    "astropy"
+   ],
+   "count": 1,
+   "effects": {
+    "astropy": "unknown"
+   },
+   "where": {
+    "astropy": "astropy.visualization.wcsaxes.core:149"
+   },
+   "name_count": 3
+  },
+  {
+   "name": "scale_factory",
+   "owner": "matplotlib.scale",
+   "candidates": [],
+   "target": "module",
+   "libraries": [
+    "proplot",
+    "ultraplot"
+   ],
+   "count": 2,
+   "effects": {
+    "proplot": "replaces",
+    "ultraplot": "replaces"
+   },
+   "where": {
+    "proplot": "proplot.scale:910",
+    "ultraplot": "ultraplot.scale:968"
+   },
+   "name_count": 2
+  },
+  {
+   "name": "__init__",
+   "owner": "matplotlib.collections.PathCollection",
+   "candidates": [],
+   "target": "class",
+   "libraries": [
+    "mplcursors"
+   ],
+   "count": 1,
+   "effects": {
+    "mplcursors": "replaces"
+   },
+   "where": {
+    "mplcursors": "mplcursors._pick_info:50"
+   },
+   "name_count": 1
+  },
+  {
+   "name": "_repr_html_",
+   "owner": "matplotlib.colors.Colormap",
+   "candidates": [],
+   "target": "class",
+   "libraries": [
+    "seaborn"
+   ],
+   "count": 1,
+   "effects": {
+    "seaborn": "replaces"
+   },
+   "where": {
+    "seaborn": "seaborn.palettes:119"
+   },
+   "name_count": 1
+  },
+  {
+   "name": "_repr_png_",
+   "owner": "matplotlib.colors.Colormap",
+   "candidates": [],
+   "target": "class",
+   "libraries": [
+    "seaborn"
+   ],
+   "count": 1,
+   "effects": {
+    "seaborn": "replaces"
+   },
+   "where": {
+    "seaborn": "seaborn.palettes:118"
+   },
+   "name_count": 1
+  },
+  {
+   "name": "_update_ticks",
+   "owner": null,
+   "candidates": [
+    "matplotlib.axis.Axis",
+    "mpl_toolkits.axisartist.axis_artist.AxisArtist"
+   ],
+   "target": "instance",
+   "libraries": [
+    "ultraplot"
+   ],
+   "count": 1,
+   "effects": {
+    "ultraplot": "records"
+   },
+   "where": {
+    "ultraplot": "ultraplot._layout:160"
+   },
+   "name_count": 1
+  },
+  {
+   "name": "draw",
+   "owner": null,
+   "candidates": [
+    "matplotlib.artist.Artist",
+    "matplotlib.axes._base._AxesBase",
+    "matplotlib.axes._secondary_axes.SecondaryAxis",
+    "matplotlib.axis.Axis",
+    "matplotlib.axis.Tick",
+    "matplotlib.backend_bases.FigureCanvasBase",
+    "matplotlib.backends.backend_agg.FigureCanvasAgg",
+    "matplotlib.backends.backend_pdf.FigureCanvasPdf",
+    "matplotlib.backends.backend_pgf.FigureCanvasPgf",
+    "matplotlib.backends.backend_ps.FigureCanvasPS",
+    "matplotlib.backends.backend_qt.FigureCanvasQT",
+    "matplotlib.backends.backend_svg.FigureCanvasSVG",
+    "matplotlib.backends.backend_template.FigureCanvasTemplate",
+    "matplotlib.backends.backend_tkagg.FigureCanvasTkAgg",
+    "matplotlib.backends.backend_webagg_core.FigureCanvasWebAggCore",
+    "matplotlib.collections.Collection",
+    "matplotlib.collections.EllipseCollection",
+    "matplotlib.collections.QuadMesh",
+    "matplotlib.collections.RegularPolyCollection",
+    "matplotlib.collections.TriMesh",
+    "matplotlib.collections._CollectionWithSizes",
+    "matplotlib.colorbar._ColorbarSpine",
+    "matplotlib.colorizer.ColorizingArtist",
+    "matplotlib.contour.ContourSet",
+    "matplotlib.figure.Figure",
+    "matplotlib.figure.FigureBase",
+    "matplotlib.figure.SubFigure",
+    "matplotlib.image._ImageBase",
+    "matplotlib.inset.InsetIndicator",
+    "matplotlib.legend.Legend",
+    "matplotlib.lines.AxLine",
+    "matplotlib.lines.Line2D",
+    "matplotlib.offsetbox.AnchoredOffsetbox",
+    "matplotlib.offsetbox.AnnotationBbox",
+    "matplotlib.offsetbox.AuxTransformBox",
+    "matplotlib.offsetbox.DrawingArea",
+    "matplotlib.offsetbox.OffsetBox",
+    "matplotlib.offsetbox.OffsetImage",
+    "matplotlib.offsetbox.PaddedBox",
+    "matplotlib.offsetbox.TextArea",
+    "matplotlib.patches.Arc",
+    "matplotlib.patches.ConnectionPatch",
+    "matplotlib.patches.FancyArrowPatch",
+    "matplotlib.patches.Patch",
+    "matplotlib.patches.Shadow",
+    "matplotlib.projections.polar.PolarAxes",
+    "matplotlib.quiver.Quiver",
+    "matplotlib.quiver.QuiverKey",
+    "matplotlib.spines.Spine",
+    "matplotlib.table.Cell",
+    "matplotlib.table.Table",
+    "matplotlib.text.Annotation",
+    "matplotlib.text.Text",
+    "mpl_toolkits.axes_grid1.inset_locator.AnchoredLocatorBase",
+    "mpl_toolkits.axes_grid1.mpl_axes.SimpleAxisArtist",
+    "mpl_toolkits.axisartist.axis_artist.AxisArtist",
+    "mpl_toolkits.axisartist.axis_artist.AxisLabel",
+    "mpl_toolkits.axisartist.axis_artist.GridlinesCollection",
+    "mpl_toolkits.axisartist.axis_artist.LabelBase",
+    "mpl_toolkits.axisartist.axis_artist.TickLabels",
+    "mpl_toolkits.axisartist.axis_artist.Ticks",
+    "mpl_toolkits.axisartist.axisline_style._FancyAxislineStyle.SimpleArrow",
+    "mpl_toolkits.mplot3d.art3d.Line3D",
+    "mpl_toolkits.mplot3d.art3d.Path3DCollection",
+    "mpl_toolkits.mplot3d.art3d.Text3D",
+    "mpl_toolkits.mplot3d.axes3d.Axes3D",
+    "mpl_toolkits.mplot3d.axis3d.Axis"
+   ],
+   "target": "instance",
+   "libraries": [
+    "ultraplot"
+   ],
+   "count": 1,
+   "effects": {
+    "ultraplot": "wraps"
+   },
+   "where": {
+    "ultraplot": "ultraplot.axes.geo:440"
+   },
+   "name_count": 1
+  },
+  {
+   "name": "keyPressEvent",
+   "owner": null,
+   "candidates": [
+    "matplotlib.backends.backend_qt.FigureCanvasQT"
+   ],
+   "target": "instance",
+   "libraries": [
+    "mne"
+   ],
+   "count": 1,
+   "effects": {
+    "mne": "replaces"
+   },
+   "where": {
+    "mne": "mne.viz.backends._qt:845"
+   },
+   "name_count": 1
+  },
+  {
+   "name": "new_gc",
+   "owner": "matplotlib.backend_bases.RendererBase",
+   "candidates": [],
+   "target": "class",
+   "libraries": [
+    "corpus:rougier-book"
+   ],
+   "count": 1,
+   "effects": {
+    "corpus:rougier-book": "replaces"
+   },
+   "where": {
+    "corpus:rougier-book": "corpus.rougier_book.tree.code.showcases.windmap:199"
+   },
+   "name_count": 1
+  },
+  {
+   "name": "scatter",
+   "owner": "matplotlib.axes._axes.Axes",
+   "candidates": [],
+   "target": "class",
+   "libraries": [
+    "mplcursors"
+   ],
+   "count": 1,
+   "effects": {
+    "mplcursors": "replaces"
+   },
+   "where": {
+    "mplcursors": "mplcursors._pick_info:58"
+   },
+   "name_count": 1
+  },
+  {
+   "name": "set_x",
+   "owner": null,
+   "candidates": [
+    "matplotlib.patches.FancyBboxPatch",
+    "matplotlib.patches.Rectangle",
+    "matplotlib.text.Text"
+   ],
+   "target": "instance",
+   "libraries": [
+    "pygtc"
+   ],
+   "count": 1,
+   "effects": {
+    "pygtc": "wraps"
+   },
+   "where": {
+    "pygtc": "pygtc.pygtc:697"
+   },
+   "name_count": 1
+  },
+  {
+   "name": "set_y",
+   "owner": null,
+   "candidates": [
+    "matplotlib.patches.FancyBboxPatch",
+    "matplotlib.patches.Rectangle",
+    "matplotlib.text.Text"
+   ],
+   "target": "instance",
+   "libraries": [
+    "pygtc"
+   ],
+   "count": 1,
+   "effects": {
+    "pygtc": "wraps"
+   },
+   "where": {
+    "pygtc": "pygtc.pygtc:730"
+   },
+   "name_count": 1
+  },
+  {
+   "name": "show",
+   "owner": null,
+   "candidates": [
+    "matplotlib.backend_bases.FigureManagerBase",
+    "matplotlib.backends._backend_tk.FigureManagerTk",
+    "matplotlib.backends.backend_qt.FigureManagerQT",
+    "matplotlib.backends.backend_webagg_core.FigureCanvasWebAggCore",
+    "matplotlib.backends.backend_webagg_core.FigureManagerWebAgg",
+    "matplotlib.figure.Figure"
+   ],
+   "target": "instance",
+   "libraries": [
+    "matplotlib_inline"
+   ],
+   "count": 1,
+   "effects": {
+    "matplotlib_inline": "replaces"
+   },
+   "where": {
+    "matplotlib_inline": "matplotlib_inline.backend_inline:47"
+   },
+   "name_count": 1
+  },
+  {
+   "name": "update",
+   "owner": "matplotlib.text.Text",
+   "candidates": [],
+   "target": "instance",
+   "libraries": [
+    "ultraplot"
+   ],
+   "count": 1,
+   "effects": {
+    "ultraplot": "unknown"
+   },
+   "where": {
+    "ultraplot": "ultraplot.text:141"
+   },
+   "name_count": 1
+  }
+ ]
+}

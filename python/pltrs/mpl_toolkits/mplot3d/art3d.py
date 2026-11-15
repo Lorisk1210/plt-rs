@@ -465,14 +465,14 @@ class Line3D(lines.Line2D):
                 raise problem
         super().draw(renderer)
 
-    @_docstring.copy(lines.Line2D.set_data)
-    def set_data(self, *args):
+    def _set_data(self, x, y):
         # docstring inherited; the 2-D data, which the next draw replaces
-        # with the projection of the 3-D data, as matplotlib's draw sets it.
+        # with the projection of the 3-D data, as matplotlib's draw sets it
+        # (through `set_data`, `set_xdata` or `set_ydata`).
         before = self.__dict__.get('_data_set_at')
         self._data_set_at = _artist.draw_count(self._native)
         try:
-            super().set_data(*args)
+            super()._set_data(x, y)
         except RuntimeError:
             self._data_set_at = before
             raise

@@ -404,6 +404,9 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         `.axes._program_locators`): its tree as it is now, the boxes among
         the children of a box of the program's, and its offset where a
         callable puts it."""
+        if self.__dict__.get("_decoupled"):
+            # Removed or cleared: matplotlib's draw no longer reaches it.
+            return
         self._sync_tree()
         figure = self.get_figure(root=True)
         if self._sizes_itself() and figure is not None:
@@ -1492,6 +1495,14 @@ class AuxTransformBox(_FollowsLayout, OffsetBox):
         self.stale = False
 
 
+def _class_zorder(box, kwargs, zorder):
+    """Give *box* the z-order *zorder* matplotlib's class declares (a class
+    attribute, set through no setter), unless it is given one or its class
+    of the program's declares its own."""
+    if "zorder" not in kwargs and not takes_from_program(type(box), "zorder"):
+        _artist.set_zorder(box._native, float(zorder))
+
+
 class AnchoredOffsetbox(OffsetBox):
     """
     An OffsetBox placed according to location *loc*.
@@ -1558,8 +1569,8 @@ class AnchoredOffsetbox(OffsetBox):
         -----
         See `.Legend` for a detailed description of the anchoring mechanism.
         """
-        kwargs.setdefault("zorder", 5)
         super().__init__(**kwargs)
+        _class_zorder(self, kwargs, 5)
         self.set_bbox_to_anchor(bbox_to_anchor, bbox_transform)
         self.set_child(child)
         if isinstance(loc, str):
@@ -1736,7 +1747,7 @@ class AnchoredOffsetbox(OffsetBox):
         # docstring inherited; the child then goes where a ``get_offset``
         # of the program's puts it, as matplotlib's ``draw`` asks it.
         super()._locate_by_program(renderer)
-        if takes_from_program(type(self), "get_offset"):
+        if takes_from_program(type(self), "get_offset") and not self.__dict__.get("_decoupled"):
             offset = self.get_offset(self.get_bbox(renderer), renderer)
             _offsetbox.set_anchored_offset(self._tree_handle,
                                            tuple(map(float, offset)))
@@ -2226,7 +2237,6 @@ or callable, default: value of *xycoords*
             Other `AnnotationBbox` properties.  See `.AnnotationBbox.set` for
             a list.
         """
-        kwargs.setdefault("zorder", 3)
         super().__init__()
         self._draggable = None
         self._xy = self._xybox = None
@@ -2249,6 +2259,7 @@ or callable, default: value of *xycoords*
             from .patches import FancyBboxPatch
             FancyBboxPatch.set(**bboxprops)
         self._bboxprops = dict(bboxprops or {})
+        _class_zorder(self, kwargs, 3)
         self._internal_update(kwargs)
 
     def _add_to_axes(self, axes, kind, autolim=True):

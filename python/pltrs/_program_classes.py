@@ -19,6 +19,37 @@ from ._native import artist as _artist, caches as _caches
 _PACKAGE_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
+#: The top-level packages whose classes are this package's (pltrs (Python)
+#: loads as matplotlib in its suite's runs).
+_OWN_PACKAGES = frozenset({"pltrs", "matplotlib", "mpl_toolkits", "pylab"})
+
+
+def program_setters(cls):
+    """The setters (``set_*`` and ``_set_*``) the artist class *cls* takes
+    from the program, found once as the class is made (`.Artist`'s
+    ``_program_setters``): none for this package's classes, which are
+    told apart by their module's name alone, so that making them costs
+    nothing more."""
+    if cls.__module__.partition(".")[0] in _OWN_PACKAGES:
+        return frozenset()
+    return frozenset(name for name in dir(cls)
+                     if name.startswith(("set_", "_set_")) and takes_from_program(cls, name))
+
+
+def replay_setters(artist, calls):
+    """Call each setter of *calls*, ``(name, arguments)`` pairs in the
+    order matplotlib's constructor calls them, that the class of *artist*
+    takes from the program, with the arguments matplotlib's constructor
+    gives it:
+    pltrs (Rust) made the artist with those values, and the program's
+    setter sees and changes what it would under matplotlib (PRIV3's
+    ``Polygon.set_xy``)."""
+    overridden = type(artist)._program_setters
+    for name, arguments in calls:
+        if name in overridden:
+            getattr(artist, name)(*arguments)
+
+
 def set_artist_props(artist, had_transform, axes=None):
     """
     Set on *artist*, just added to a figure or to *axes*, what matplotlib's

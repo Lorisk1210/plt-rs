@@ -25,6 +25,7 @@ from . import (_api, _artist_copying, _lazy_imports, _live_transforms,
                colorizer as mcolorizer, colors as mcolors, lines as mlines, path as mpath,
                transforms as mtransforms)
 from ._enums import CapStyle, JoinStyle
+from . import _program_classes
 from ._program_classes import takes_from_program
 from ._native import artist as _artist, collections as _collections
 from ._native import tri as _tri
@@ -211,6 +212,14 @@ def _limit_as_scaled(limit, values):
     if limit is None or dtype.kind not in "biu":
         return limit
     return dtype.type(limit)
+
+
+def _set_identity_transform(collection):
+    """Call the ``set_transform`` the class of *collection* takes from the
+    program as matplotlib's constructors of the collections drawn in
+    display units call it (pltrs (Rust) made them so)."""
+    from .transforms import IdentityTransform
+    collection.set_transform(IdentityTransform())
 
 
 @_api.define_aliases({
@@ -1612,9 +1621,13 @@ class PolyCollection(_CollectionWithSizes):
         """
         self._native = _collections.new_poly_collection(_polygon_vertices(verts, closed))
         super().__init__(**kwargs)
-        if sizes is not None:
+        overridden = self._program_setters
+        if overridden:
+            _program_classes.replay_setters(
+                self, [("set_sizes", (sizes,)), ("set_verts", (verts, closed))])
+        if sizes is not None and "set_sizes" not in overridden:
             self.set_sizes(sizes)
-        if not closed:
+        if not closed and "set_verts" not in overridden:
             self.set_verts(verts, closed=False)
 
     def set_verts(self, verts, closed=True):
@@ -1928,6 +1941,8 @@ class RegularPolyCollection(_CollectionWithSizes):
             3, float(rotation) if usable else 0., np.zeros(0))
         super().__init__(**kwargs)
         self.set_sizes(sizes)
+        if "set_transform" in self._program_setters:
+            _set_identity_transform(self)
         self._numsides = numsides
         _collections.set_paths(self._native, [self._path_generator(numsides)])
         _values.remember(self, "rotation", rotation)
@@ -2026,6 +2041,8 @@ class LineCollection(Collection):
         self._native = _collections.new_line_collection(
             [] if segments is None else [_path_vertices(seg) for seg in segments])
         super().__init__(zorder=zorder, **kwargs)
+        if self._program_setters:
+            _program_classes.replay_setters(self, [("set_segments", (segments,))])
 
     def set_segments(self, segments):
         if segments is None:
@@ -2187,6 +2204,7 @@ class EventCollection(LineCollection):
         if color is not None:
             mcolors.to_rgba_array(color)
         _api.check_in_list(['horizontal', 'vertical'], orientation=orientation)
+        given = positions
         positions = _event_positions(positions, lineoffset, linelength)
         self._native = _collections.new_event_collection(
             positions, orientation == 'vertical', float(lineoffset), float(linelength))
@@ -2195,6 +2213,12 @@ class EventCollection(LineCollection):
         Collection.__init__(self, linewidths=linewidth, linestyles=linestyle,
                             antialiaseds=antialiased, facecolors='none',
                             zorder=2, **kwargs)
+        if self._program_setters:
+            # matplotlib's line collection is made empty, then oriented and
+            # placed.
+            _program_classes.replay_setters(self, [
+                ("set_segments", ([],)), ("set_orientation", (orientation,)),
+                ("set_positions", (given,))])
         if color is not None:
             self.set_color(color)
 
@@ -2319,6 +2343,8 @@ class CircleCollection(_CollectionWithSizes):
         self._native = _collections.new_circle_collection(np.zeros(0))
         super().__init__(**kwargs)
         self.set_sizes(sizes)
+        if "set_transform" in self._program_setters:
+            _set_identity_transform(self)
 
 
 #: The units `EllipseCollection` sizes its ellipses in.
@@ -2362,6 +2388,8 @@ class EllipseCollection(Collection):
         self.set_widths(widths)
         self.set_heights(heights)
         self.set_angles(angles)
+        if "set_transform" in self._program_setters:
+            _set_identity_transform(self)
         self._units = units
         # The unit circle itself, as matplotlib's collection keeps it,
         # until other paths are set.
@@ -2455,6 +2483,34 @@ class EllipseCollection(Collection):
         super().draw(renderer)
 
 
+#: The keywords of `Collection` its constructor sets through a setter,
+#: after the colours, widths and styles, with their defaults.
+_COLLECTION_KEYWORDS = {
+    "pickradius": ("set_pickradius", 5.0),
+    "urls": ("set_urls", None),
+    "hatch": ("set_hatch", None),
+    "hatchcolors": ("set_hatchcolor", None),
+    "zorder": ("set_zorder", 1),
+}
+
+
+def _original_setters(patches, kwargs):
+    """The setters matplotlib's `Collection` constructor calls for a
+    `PatchCollection` matching its *patches* (``match_original``), with the
+    patches' own properties and the keywords *kwargs*, in its order (for
+    `._program_classes.replay_setters`)."""
+    return [
+        ("set_facecolor", ([p.get_facecolor() if p.get_fill() else [0, 0, 0, 0]
+                            for p in patches],)),
+        ("set_edgecolor", ([p.get_edgecolor() for p in patches],)),
+        ("set_linewidth", ([p.get_linewidth() for p in patches],)),
+        ("set_linestyle", ([p.get_linestyle() for p in patches],)),
+        ("set_antialiased", ([p.get_antialiased() for p in patches],)),
+        *((setter, (kwargs.get(keyword, default),))
+          for keyword, (setter, default) in _COLLECTION_KEYWORDS.items()),
+    ]
+
+
 class PatchCollection(Collection):
     """
     A generic collection of patches.
@@ -2503,12 +2559,18 @@ class PatchCollection(Collection):
             self._attach_colorizer(self._get_colorizer(
                 kwargs.pop("cmap", None), kwargs.pop("norm", None),
                 kwargs.pop("colorizer", None)))
+            overridden = self._program_setters
+            if overridden:
+                _program_classes.replay_setters(self, _original_setters(patches, kwargs))
+                # (Set once, as matplotlib's constructor sets them.)
+                kwargs = {keyword: value for keyword, value in kwargs.items()
+                          if _COLLECTION_KEYWORDS.get(keyword, ("",))[0] not in overridden}
             self._internal_update(kwargs)
         else:
             super().__init__(**kwargs)
-        if held is None:
+        if held is None or "set_paths" in self._program_setters:
             # As matplotlib's collection sets its paths, failing on what
-            # is no patch.
+            # is no patch (through the class' own setter).
             self.set_paths(patches)
 
     def set_paths(self, patches):

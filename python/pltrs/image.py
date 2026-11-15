@@ -23,7 +23,8 @@ import numpy as np
 import PIL.Image
 import PIL.PngImagePlugin
 
-from . import (_api, _image, _lazy_imports, _live_transforms, _named, _unusable, _values, cbook,
+from . import (_api, _image, _lazy_imports, _live_transforms, _named, _program_classes,
+               _unusable, _values, cbook,
                colorizer as mcolorizer, colors as mcolors)
 from . import _docstring, artist as martist
 from ._program_classes import takes_from_program
@@ -240,6 +241,12 @@ class _ImageBase(mcolorizer.ColorizingArtist):
             interpolation, interpolation_stage, origin, filternorm, filterrad, resample))
         super().__init__(colorizer)
         self._keep_data(self._A)
+        if self._program_setters:
+            _program_classes.replay_setters(self, [
+                ("set_filternorm", (filternorm,)), ("set_filterrad", (filterrad,)),
+                ("set_interpolation", (interpolation,)),
+                ("set_interpolation_stage", (interpolation_stage,)),
+                ("set_resample", (resample,))])
         self.axes = ax
         self._internal_update(kwargs)
 

@@ -131,6 +131,11 @@ class TitlesMixin:
                             None if y is None or kept_y else float(y)),
             Text, self._figure)
         title.set_text(label)
+        if "update" in title.__dict__:
+            # The program gave the title an `update` of its own
+            # (ultraplot's labels), which matplotlib's `set_title` calls
+            # with the title's defaults.
+            title.update(_title_defaults(loc))
         if fontdict is not None:
             title.update(fontdict)
         title._internal_update(kwargs)
@@ -230,3 +235,18 @@ class TitlesMixin:
         """Place the titles as the class does, as matplotlib's ``draw``
         does before it draws the Axes' artists."""
         self._place_titles_by_program()
+
+
+def _title_defaults(loc):
+    """The properties matplotlib's `set_title` updates a title with first
+    (which pltrs (Rust) gives it itself)."""
+    from .. import cbook, rcParams
+    default = {
+        'fontsize': rcParams['axes.titlesize'],
+        'fontweight': rcParams['axes.titleweight'],
+        'verticalalignment': 'baseline',
+        'horizontalalignment': loc}
+    titlecolor = rcParams['axes.titlecolor']
+    if not cbook._str_lower_equal(titlecolor, 'auto'):
+        default["color"] = titlecolor
+    return default

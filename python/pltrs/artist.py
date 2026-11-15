@@ -42,6 +42,8 @@ from ._native import transforms as _transforms
 _drawn_with = _lazy_imports.module(globals(), "._drawn_with")
 #: Loaded when a program first gives an artist a position setter.
 _axis_artists = _lazy_imports.module(globals(), "._axis_artists")
+#: Loaded when a program first gives an axis an ``_update_ticks``.
+_tick_updates = _lazy_imports.module(globals(), "._tick_updates")
 
 #: The setters a program may give an artist to follow where pltrs (Rust)
 #: places it (see `._axis_artists.follow_program_setters`).
@@ -153,6 +155,9 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         elif name in _POSITION_SETTERS:
             # An axis label's (ultraplot's spanning labels follow them).
             _axis_artists.follow_program_setters(self)
+        elif name == "_update_ticks":
+            # An axis' (ultraplot's tick cache).
+            _tick_updates.follow_program_update(self)
 
     def __delattr__(self, name):
         super().__delattr__(name)

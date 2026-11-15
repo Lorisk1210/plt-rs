@@ -18,7 +18,7 @@ from . import _docstring
 from . import _api, _live_transforms, _mirrors, _unusable, _values, cbook, units
 from ._artist_kwargs import native_artist_kwargs
 from ._native import artist as _artist, lines as _lines
-from ._program_classes import takes_from_program
+from . import _program_classes
 from .artist import Artist, _check_alpha
 from .cbook import ls_mapper, ls_mapper_r, STEP_LOOKUP_MAP  # noqa: F401
 from .markers import _check_rc as _check_rc_marker
@@ -264,6 +264,34 @@ def _remember_given(line, props):
         line._given_dash_pattern = _get_dash_pattern(props["linestyle"])
 
 
+def _constructor_setters(linewidth, linestyle, color, markersize, antialiased,
+                         dash_capstyle, dash_joinstyle, solid_capstyle, solid_joinstyle,
+                         drawstyle, gapcolor, markevery, markerfacecolor,
+                         markerfacecoloralt, markeredgecolor, markeredgewidth):
+    """The setters matplotlib's `Line2D` constructor calls, in its order,
+    with the values it gives them (its defaults taken from the rcParams),
+    for `._program_classes.replay_setters`."""
+    from . import _val_or_rc
+    return [
+        ("set_dash_capstyle", (_val_or_rc(dash_capstyle, "lines.dash_capstyle"),)),
+        ("set_dash_joinstyle", (_val_or_rc(dash_joinstyle, "lines.dash_joinstyle"),)),
+        ("set_solid_capstyle", (_val_or_rc(solid_capstyle, "lines.solid_capstyle"),)),
+        ("set_solid_joinstyle", (_val_or_rc(solid_joinstyle, "lines.solid_joinstyle"),)),
+        ("set_linewidth", (_val_or_rc(linewidth, "lines.linewidth"),)),
+        ("set_linestyle", (_val_or_rc(linestyle, "lines.linestyle"),)),
+        ("set_drawstyle", ("default" if drawstyle is None else drawstyle,)),
+        ("set_color", (_val_or_rc(color, "lines.color"),)),
+        ("set_gapcolor", (gapcolor,)),
+        ("set_markevery", (markevery,)),
+        ("set_antialiased", (_val_or_rc(antialiased, "lines.antialiased"),)),
+        ("set_markersize", (_val_or_rc(markersize, "lines.markersize"),)),
+        ("set_markerfacecolor", (markerfacecolor,)),
+        ("set_markerfacecoloralt", (markerfacecoloralt,)),
+        ("set_markeredgecolor", (markeredgecolor,)),
+        ("set_markeredgewidth", (markeredgewidth,)),
+    ]
+
+
 @_docstring.interpd
 @_api.define_aliases({
     "antialiased": ["aa"],
@@ -278,6 +306,7 @@ def _remember_given(line, props):
     "markersize": ["ms"],
 })
 @_mirrors.mirrorable
+
 class Line2D(Artist):
     """
     A line - the line can have both a solid linestyle connecting all
@@ -435,13 +464,19 @@ class Line2D(Artist):
         for name, color in unheld_colors.items():
             self._set_marker_color(name, color)
         self._xorig, self._yorig = copy.copy(xdata), copy.copy(ydata)
-        # matplotlib's __init__ sets the data through `set_data`, which a
-        # class of the program's may override.
-        if takes_from_program(type(self), "set_data"):
-            self.set_data(xdata, ydata)
-        if markevery is not None:
+        if self._program_setters:
+            _program_classes.replay_setters(self, _constructor_setters(
+                linewidth, linestyle, color, markersize, antialiased, dash_capstyle,
+                dash_joinstyle, solid_capstyle, solid_joinstyle, drawstyle, gapcolor,
+                markevery, markerfacecolor, markerfacecoloralt, markeredgecolor,
+                markeredgewidth))
+        if markevery is not None and "set_markevery" not in self._program_setters:
             self.set_markevery(markevery)
         self._internal_update(kwargs)
+        # matplotlib's __init__ sets the data through `set_data`, which a
+        # class of the program's may override, after the other properties.
+        if {"set_data", "set_xdata", "set_ydata"} & self._program_setters:
+            self.set_data(xdata, ydata)
 
     def _get(self, name):
         """The native property *name*."""
@@ -581,6 +616,16 @@ class Line2D(Artist):
             (x, y), = args
         else:
             x, y = args
+        if {"set_xdata", "set_ydata"} & self._program_setters:
+            # matplotlib's sets each through its setter, which a class of
+            # the program's overrides.
+            self.set_xdata(x)
+            self.set_ydata(y)
+        else:
+            self._set_data(x, y)
+
+    def _set_data(self, x, y):
+        """Set the x and y data (`set_data` of matplotlib's setters)."""
         if not np.iterable(x):
             raise RuntimeError('x must be a sequence')
         if not np.iterable(y):
@@ -643,7 +688,7 @@ class Line2D(Artist):
         """
         if not np.iterable(x):
             raise RuntimeError('x must be a sequence')
-        self.set_data(x, self.get_ydata(orig=True))
+        self._set_data(x, self.get_ydata(orig=True))
 
     def set_ydata(self, y):
         """
@@ -660,7 +705,7 @@ class Line2D(Artist):
         """
         if not np.iterable(y):
             raise RuntimeError('y must be a sequence')
-        self.set_data(self.get_xdata(orig=True), y)
+        self._set_data(self.get_xdata(orig=True), y)
 
     # -- style ------------------------------------------------------------
 

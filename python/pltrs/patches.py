@@ -18,7 +18,7 @@ from numbers import Number, Real
 import numpy as np
 
 from . import _docstring
-from . import (_api, _kept_geometry, _lazy_imports, _mirrors,
+from . import (_api, _kept_geometry, _lazy_imports, _mirrors, _program_classes,
                _python_drawing, _unusable, _values, cbook, colors as mcolors, units)
 from ._artist_kwargs import check_known
 from ._enums import CapStyle, JoinStyle
@@ -182,7 +182,8 @@ class Patch(Artist):
             capstyle = CapStyle.butt
         if joinstyle is None:
             joinstyle = JoinStyle.miter
-        self.set_fill(fill)
+        # (As matplotlib's, through no setter.)
+        self._set_native(fill=bool(fill))
         if color is not None:
             if edgecolor is not None or facecolor is not None:
                 _api.warn_external(
@@ -199,7 +200,9 @@ class Patch(Artist):
         self.set_hatch(hatch)
         self.set_capstyle(capstyle)
         self.set_joinstyle(joinstyle)
-        if edgegapcolor is not None:
+        if edgegapcolor is not None or "set_edgegapcolor" in self._program_setters:
+            # (matplotlib's sets the default too, through a setter of the
+            # program's.)
             self.set_edgegapcolor(edgegapcolor)
         if len(kwargs):
             self._internal_update(kwargs)
@@ -1550,6 +1553,8 @@ class Polygon(Patch):
         _, _ = xy.shape  # (N, 2): matplotlib's set_xy unpacks it, failing otherwise.
         self._native = _patches.new_polygon(xy.astype(float), bool(closed))
         super().__init__(**kwargs)
+        if self._program_setters:
+            _program_classes.replay_setters(self, [("set_xy", (xy,))])
 
     def get_path(self):
         """Get the `.Path` of the polygon."""
@@ -1987,6 +1992,9 @@ class FancyArrow(Polygon):
         self._head_starts_at_zero = head_starts_at_zero
         self._make_verts()
         Patch.__init__(self, **kwargs)
+        if self._program_setters:
+            # matplotlib's `Polygon` constructor sets the arrow's vertices.
+            _program_classes.replay_setters(self, [("set_xy", (self.get_xy(),))])
 
     def _make_verts(self):
         """Make the arrow's polygon of what it keeps: pltrs (Rust) makes it
@@ -2438,11 +2446,12 @@ class Annulus(Patch):
         """
         self._native = _patches.new_annulus((0., 0.), (1., 1.), 0., 0.)
         super().__init__(**kwargs)
-        # matplotlib's constructor sets them one by one.
+        # matplotlib's constructor sets them one by one, the last three
+        # through the properties (this class' own setters).
         self.set_radii(r)
-        self.set_center(xy)
-        self.set_width(width)
-        self.set_angle(angle)
+        self.center = xy
+        self.width = width
+        self.angle = angle
 
     def get_path(self):
         # docstring inherited

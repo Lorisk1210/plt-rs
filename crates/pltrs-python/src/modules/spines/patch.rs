@@ -39,6 +39,14 @@ fn set_patch_path(spine: Spine, path: PyPath) -> PyResult<()> {
     Ok(())
 }
 
+/// Lays the linear spine out as the `Path` `path` in display pixels, as
+/// its class of the program's laid it out (`_adjust_location` and its
+/// transforms), or by pltrs again with `None`.
+fn set_program_path(spine: Spine, path: Option<PyPath>) -> PyResult<()> {
+    spine.set_program_path(path.map(|path| path.path));
+    Ok(())
+}
+
 /// The kind of the spine's shape: `"line"`, `"arc"` or `"circle"`
 /// (matplotlib's `_patch_type`, `"line"` for a path of the program's).
 fn patch_type(spine: Spine) -> PyResult<&'static str> {
@@ -60,6 +68,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_patch_circle", set_patch_circle)?;
     module.add("set_patch_line", set_patch_line)?;
     module.add("set_patch_path", set_patch_path)?;
+    module.add("set_program_path", set_program_path)?;
     module.add("patch_type", patch_type)?;
     module.add("spine_transform", spine_transform)
 }

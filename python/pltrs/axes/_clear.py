@@ -14,7 +14,7 @@ import functools
 import weakref
 
 from .._program_classes import takes_from_program
-from .. import _api, _handles, cbook
+from .. import _api, _handles, cbook, scale as mscale
 from .._native import artist as _artist, axes as _axes
 from .. import _lazy_imports
 from . import _sharing
@@ -57,6 +57,11 @@ class ClearMixin:
         # made again on first use.
         state = super().__getstate__()
         state.pop("_limit_callbacks_connected", None)
+        measured = state.pop("_measured_in_relim", None)
+        if measured:
+            # The collections `relim` measures, as a list (see
+            # `_measure_in_relim`).
+            state["_measured_in_relim"] = list(measured)
         return _sharing.with_peers(self, state)
 
     def __clear(self):
@@ -73,6 +78,8 @@ class ClearMixin:
         self._decouple_children()
         for axis in self._axis_map.values():
             axis._retire_ticks()
+        if mscale.scale_factory is not mscale._own_scale_factory:
+            self._make_cleared_scales()
         for native in self._clear_natively():
             artist = figure._artists.get(_artist.id(native))
             if artist is not None and "_child_of" in artist.__dict__:
@@ -164,6 +171,17 @@ class ClearMixin:
             artist = self._figure._artists.get(_artist.id(native))
             if artist is not None:
                 artist._decouple(removed=False)
+
+    def _make_cleared_scales(self):
+        """Make the linear scales matplotlib's clear makes, through the
+        module's `scale_factory`, which the program replaced: each axis'
+        own, then those of the axes it shares, which clearing resets.
+        (Made before pltrs (Rust) clears, whose transform trees read
+        them.)"""
+        for axis in self._axis_map.values():
+            for other in (axis, *(other for other in axis._get_shared_axis()
+                                  if other is not axis)):
+                other._given_scale = other.axes._default_axis_scale(other, "linear")
 
     def clear(self):
         """Clear the Axes."""

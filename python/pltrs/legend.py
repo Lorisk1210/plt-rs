@@ -16,6 +16,7 @@ import time
 
 import numpy as np
 
+from . import _program_classes
 from ._program_classes import takes_from_program
 from . import _docstring
 from . import _api, _handles, _lazy_imports, _live_transforms, _values, colors, rcParams
@@ -637,7 +638,12 @@ class Legend(Artist):
         elif own_axes or not self.isaxes:
             _artist.remove(native)
         made.adopt(self)
-        if anchor_box is not None:
+        overridden = self._program_setters
+        if overridden:
+            _program_classes.replay_setters(self, [
+                ("set_figure", (parent.get_figure(root=False) if self.isaxes else parent,)),
+                ("set_bbox_to_anchor", (bbox_to_anchor, bbox_transform))])
+        if anchor_box is not None and "set_bbox_to_anchor" not in overridden:
             self.set_bbox_to_anchor(anchor_box, bbox_transform)
         _legend_checks.keep_borderaxespad(self, borderaxespad)
         if takes_from_program(type(self), "set_loc"):
@@ -646,7 +652,7 @@ class Legend(Artist):
         self._made_handles = made.returned
         self._entry_handles = kept_handles
         _legend_label_colors.remember(self, labelcolor)
-        if draggable:
+        if draggable and "set_draggable" not in overridden:
             self.set_draggable(True)
         if title_fontproperties is not None:
             title_prop_fp = FontProperties._from_any(title_fontproperties)
@@ -654,6 +660,12 @@ class Legend(Artist):
                     and "size" not in title_fontproperties):
                 title_prop_fp.set_size(rcParams["legend.title_fontsize"])
             self.get_title().set_fontproperties(title_prop_fp)
+        if overridden:
+            # matplotlib's constructor titles the legend, then makes it
+            # draggable or not, through these.
+            _program_classes.replay_setters(self, [
+                ("set_title", (title, self.get_title().get_fontproperties())),
+                ("set_draggable", (draggable,))])
 
     def _add_to_axes(self, axes, kind, autolim=True):
         """Keep the legend of *axes* as an ordinary artist of it

@@ -678,6 +678,20 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         self._twinned_axes.join(self, twin)
         return twin
 
+    def _unjoined_twin(self, shared, axes_class, kwargs):
+        """Add the twin matplotlib's ``_make_twin_axes`` adds and have both
+        Axes adjust their data limits, as matplotlib's does before it joins
+        them (which may refuse)."""
+        kwargs = {**kwargs, f"share{shared}": self}
+        if axes_class:
+            kwargs["axes_class"] = axes_class
+        fig = self.get_figure(root=False)
+        spec = self.get_subplotspec()
+        twin = (fig.add_subplot(spec, **kwargs) if spec is not None
+                else fig.add_axes(self.get_position(True), **kwargs))
+        self.set_adjustable('datalim')
+        twin.set_adjustable('datalim')
+
     def _twin_sharing(self, shared, axes_class, delta_zorder, kwargs):
         """
         Make a twin of the Axes sharing the axis *shared* (``"x"`` or
@@ -692,6 +706,10 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
             name = "add_subplot" if self.get_subplotspec() else "add_axes"
             raise AttributeError(f"'NoneType' object has no attribute '{name}'",
                                  name=name, obj=None)
+        if getattr(self.get_data_ratio, "__func__", None) is not AspectMixin.get_data_ratio:
+            # matplotlib adds the twin, then refuses to have an Axes
+            # overriding get_data_ratio adjust its data limits.
+            self._unjoined_twin(shared, axes_class, kwargs)
         try:
             self.get_zorder() + delta_zorder
         except TypeError:
@@ -699,15 +717,7 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
             # adjust their data limits, then fails to set the twin's
             # z-order: the twin stays as it was made, not joined as a twin
             # nor set up by `twinx`.
-            kwargs = {**kwargs, f"share{shared}": self}
-            if axes_class:
-                kwargs["axes_class"] = axes_class
-            fig = self.get_figure(root=False)
-            spec = self.get_subplotspec()
-            twin = (fig.add_subplot(spec, **kwargs) if spec is not None
-                    else fig.add_axes(self.get_position(True), **kwargs))
-            self.set_adjustable('datalim')
-            twin.set_adjustable('datalim')
+            self._unjoined_twin(shared, axes_class, kwargs)
             raise
         if not axes_class and not kwargs:
             from ._axes import Axes

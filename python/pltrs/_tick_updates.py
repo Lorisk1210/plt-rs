@@ -71,6 +71,56 @@ def follow_program_update(axis):
     install(axis.axes.figure)
 
 
+#: The tick labels of each axis given the position setter of the
+#: program's that matplotlib's tick update calls with the tick's location
+#: (`follow_label_setter`), held weakly.
+_LABEL_SETTERS = weakref.WeakKeyDictionary()
+
+
+def follow_label_setter(axis, label):
+    """Have each update of *axis* at matplotlib's call sites call the
+    position setter of the program's that its tick label *label* was given
+    (``set_x`` of an x tick's label, ``set_y`` of a y tick's: pygtc shifts
+    its tick labels so), as matplotlib's ``Tick.update_position`` does,
+    and draw the label where it puts it."""
+    from .axis import Axis
+    if not isinstance(axis, Axis) or axis.axis_name not in ("x", "y"):
+        return
+    _LABEL_SETTERS.setdefault(axis, weakref.WeakSet()).add(label)
+    _axis.set_program_update(*axis._args(), True)
+    install(axis.axes.figure)
+
+
+def _set_labels(axis, levels):
+    """Call the position setters the program gave the labels of the ticks
+    of *axis* with their ticks' locations in *levels* (an update's), as
+    matplotlib's ``update_position`` does, and draw each label where its
+    setter put it along the axis. A label whose tick is no longer one of
+    the axis' (the axis cleared, its ticks made anew) is no longer
+    followed, as matplotlib's update no longer reaches it."""
+    from . import _mirrors
+    labels = _LABEL_SETTERS.get(axis, ())
+    along = 1 if axis.axis_name == "y" else 0
+    setter = "set_y" if along else "set_x"
+    for label in list(labels):
+        tick = getattr(_mirrors.mirroring(label), "owner", None)
+        if (tick is None or getattr(tick, "_tick_axis", None) is not axis
+                or label not in (tick.label1, tick.label2)):
+            labels.discard(label)
+            continue
+        level = levels[0 if tick._major else 1]
+        if level is None or tick._index >= len(level[0]):
+            continue
+        loc = float(level[0][tick._index])
+        getattr(label, setter)(loc)
+        placed = float(label.get_position()[along])
+        _axis.set_tick_label_along(*axis._args(), not tick._major, tick._index,
+                                   label is tick.label2, None if placed == loc else placed)
+    if not labels and "_update_ticks" not in vars(axis):
+        _LABEL_SETTERS.pop(axis, None)
+        _axis.set_program_update(*axis._args(), False)
+
+
 class _Updater:
     """What pltrs (Rust) calls to tick an axis of its figure, which it
     holds weakly."""
@@ -123,7 +173,10 @@ class _Updater:
                           and "_own_update" not in vars(axis))
                       else _update_ticks)
             if not quiet:
-                return update(axis, info, major, minor)
+                levels = update(axis, info, major, minor)
+                if called and axis in _LABEL_SETTERS:
+                    _set_labels(axis, levels)
+                return levels
             try:
                 return update(axis, info, major, minor)
             except (RecursionError, MemoryError):

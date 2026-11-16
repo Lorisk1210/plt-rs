@@ -2236,7 +2236,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             if label is not None:
                 props["label"] = label
             native = _mplot3d.plot(self._native, _floats(x, y, z), zdir, fmt,
-                                   mlines._native_kwargs(props, _live_transforms.root_figure(self)),
+                                   mlines._native_kwargs(props, _live_transforms.root_figure(self)
+                                                         if "transform" in props else None),
                                    bool(axlim_clip))
             line = mlines._set_after(keep_python_kwargs(wrap(self, native, art3d.Line3D), props),
                                      props)

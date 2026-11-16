@@ -94,7 +94,7 @@ def _contour_look(axes, kwargs):
                   "_orig_linestyles": linestyles,
                   "negative_linestyles": negative_linestyles, "_extend": extend,
                   "colors": given_colors, "hatches": hatches,
-                  "logscale": logscale, "origin": None, "extent": None,
+                  "logscale": logscale, "locator": locator, "origin": None, "extent": None,
                   "nchunk": 0}
     if transform is not None:
         # The transform object itself, as matplotlib's set keeps it (its
@@ -112,16 +112,19 @@ def _levels(levels):
     return None if levels is None else np.asarray(levels, dtype=float)
 
 
-def _finish(cls, native, axes, look, kwargs, made=None):
+def _finish(cls, native, axes, look, kwargs, made=None, levels=None):
     """The *cls* contour set of *native* (or *made*, a contour set being
     made, around it), mapping its levels through the colorizer of *look*
-    (`_contour_look`), its attributes and remaining *kwargs* set."""
+    (`_contour_look`), its attributes and remaining *kwargs* set, its
+    ``locator`` the one given or the one that chose its *levels* (given as
+    a count, or none)."""
     if made is None:
         made = cls._from_contour(native, axes)
     else:
         _handles.adopt(made, _contour.get_collections(native)[0], axes.figure)
         made._take_contour(native, axes)
     contours = _style(made, look, kwargs)
+    contours._keep_locator(contours.locator, levels)
     # matplotlib's contour sets autoscale the view when made
     # (``autoscale_view(tight=True)``), where pltrs (Rust) waits.
     axes._unstale_viewLim()
@@ -217,7 +220,7 @@ class ContoursMixin:
         look = _contour_look(self, kwargs)
         native = _contour.contour(self._native, bool(filled), *generator.field,
                                   _levels(levels), *look[:2])
-        contours = _finish(mcontour.QuadContourSet, native, self, look, kwargs, made)
+        contours = _finish(mcontour.QuadContourSet, native, self, look, kwargs, made, levels)
         contours._generator = generator
         if origin == 'image':
             from ... import rcParams
@@ -267,7 +270,7 @@ class ContoursMixin:
         look = _contour_look(self, kwargs)
         native = _contour.tricontour(self._native, bool(filled), tri._native, z,
                                      _levels(levels), *look[:2])
-        contours = _finish(TriContourSet, native, self, look, kwargs, made)
+        contours = _finish(TriContourSet, native, self, look, kwargs, made, levels)
         contours._generator = generator
         return contours
 

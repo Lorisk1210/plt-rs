@@ -226,6 +226,31 @@ def take(obj, *names):
     return {name: found.pop(name) for name in names if name in found}
 
 
+def reassignable(getter):
+    """An attribute matplotlib keeps as a plain field that pltrs answers
+    from its own state (`assignable`'s decorator): the object *getter*
+    gives assigned back changes nothing (and forgets an earlier
+    assignment), another value reads back as assigned, which only
+    matplotlib's later reads of the attribute see."""
+    name = getter.__name__
+
+    def get(obj):
+        # `assigned`, in line: reading the attribute while a figure is
+        # built costs this one call beside its getter's.
+        found = obj.__dict__.get(_ASSIGNED)
+        if found is not None and name in found:
+            return found[name]
+        return getter(obj)
+
+    def set_(obj, value):
+        if value is getter(obj):
+            take(obj, name)
+        else:
+            assign(obj, name, value)
+
+    return property(get, set_, doc=getter.__doc__)
+
+
 def assignable(getter, setter=None):
     """An attribute a program assigns: read through *getter*, assigned
     through *setter* (its effect where matplotlib reads the attribute
@@ -238,7 +263,12 @@ def assignable(getter, setter=None):
     name = getter.__name__
 
     def get(obj):
-        return assigned(obj, name, lambda: getter(obj))
+        # `assigned`, in line: reading the attribute while a figure is
+        # built costs this one call beside its getter's.
+        found = obj.__dict__.get(_ASSIGNED)
+        if found is not None and name in found:
+            return found[name]
+        return getter(obj)
 
     def set_(obj, value):
         assign(obj, name, value)

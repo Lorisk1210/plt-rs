@@ -156,6 +156,15 @@ impl Axis3D {
         self.read(|axes| axes.axis(self.dir).label.is_default)
     }
 
+    /// Says whether the label text counts as never set (matplotlib's
+    /// `isDefault_label` assigned).
+    pub fn set_default_label(&self, default: bool) -> &Self {
+        let dir = self.dir;
+        self.axes
+            .with_mut(|axes| axes.axis_mut(dir).label.is_default = default);
+        self
+    }
+
     /// Whether the major (or `minor`) locator is still the one the scale
     /// installed (matplotlib's `isDefault_majloc`, `isDefault_minloc`).
     pub fn is_default_locator(&self, minor: bool) -> bool {

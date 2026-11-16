@@ -13,7 +13,8 @@ import inspect
 import numpy as np
 
 from . import _docstring
-from . import _api, _handles, _python_drawing, _unusable, _values, rcParams
+from . import (_api, _axis_artists, _handles, _python_drawing, _unusable, _values,
+               rcParams)
 from .colors import to_rgba
 from ._native import artist as _artist, axis as _axis, spines as _spines
 from ._program_classes import takes_from_program
@@ -733,6 +734,7 @@ class Spine(Patch):
         properties when needed.
         """
         self._axis = axis
+        _spines.set_unregistered(self._native, axis is None)
         # matplotlib measures the spine with its axis' ticks while the axis
         # is visible, which an object that is no axis fails (`_locate`).
         self._watch_location()
@@ -855,6 +857,11 @@ class Spine(Patch):
         """Return the transform of the spine's path: the identity for the
         spines whose `get_path` is in display coordinates."""
         if self._is_linear or self._keeps_given_path():
+            if ("_given_transform" not in self.__dict__ and self.axes is not None
+                    and _spines.unplaced(self._native)):
+                # matplotlib's new spine keeps the transform it was made
+                # with until something places it.
+                return self.axes.transData
             return super().get_transform()
         return IdentityTransform()
 
@@ -946,7 +953,9 @@ def _keep_tick_spine(old):
     axis = {"bottom": "xaxis", "top": "xaxis", "left": "yaxis", "right": "yaxis"}.get(side)
     axis = getattr(old.axes, axis, None) if axis else None
     if axis is not None and any(axis.__dict__.get("_ticks_seen", {}).values()):
-        _axis.keep_tick_spine(*axis._args(), side in ("top", "right"))
+        high = side in ("top", "right")
+        _axis.keep_tick_spine(*axis._args(), high)
+        _axis_artists.keep_tick_side(axis, high, old.get_spine_transform())
 
 
 def _locate_label_spines(axes):
@@ -1093,10 +1102,20 @@ class Spines(MutableMapping):
             # (`Spine.register_axis`), as matplotlib's new spine has none,
             # and the transform it was made with, ``transData``, until
             # something places it.
-            value.__dict__.setdefault("_axis", None)
+            if value.__dict__.setdefault("_axis", None) is None:
+                # It measures as its line alone (`get_window_extent`).
+                _spines.set_unregistered(value._native, True)
             if not value.__dict__.get("_placed"):
                 _spines.leave_unplaced(value._native)
         _replace_drawn(self._dict.get(key), value)
+        if (isinstance(value, Spine) and value.__dict__.get("_made")
+                and not value.__dict__.get("_placed")
+                and takes_from_program(type(value), "_ensure_position_is_set")):
+            # Placed only if its class' `_ensure_position_is_set`, which
+            # matplotlib's axes call as they make their ticks, places it
+            # (`set_position`): a class that only assigns `_position`
+            # leaves it drawn in data coordinates, as matplotlib's.
+            _spines.leave_unplaced(value._native)
         if (isinstance(value, Spine) and value._is_linear
                 and any(takes_from_program(type(value), hook) for hook in _LAYOUT_HOOKS)
                 and not _in_program_projection(value)):

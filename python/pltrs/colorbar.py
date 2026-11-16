@@ -529,6 +529,7 @@ class Colorbar:
                        layout=layout, made=made, **kwargs)
         # matplotlib's make_axes labels the Axes it makes.
         colorbar.ax.set_label('<colorbar>')
+        colorbar.ax._projection_init = (type(colorbar.ax), {'label': '<colorbar>'})
         return colorbar
 
     # Keywords matplotlib's constructor does not take are refused in its
@@ -1284,6 +1285,9 @@ def _made_axes(make, parents, natives, kwargs):
     figure = parents[0].get_figure(root=True)
     cax = _handles.wrap(native, Axes, figure)
     cax.set_label('<colorbar>')
+    # Made as matplotlib's ``make_axes`` makes it (``add_axes`` or
+    # ``add_subplot`` with that label).
+    cax._projection_init = (Axes, {'label': '<colorbar>'})
     if aspect is None:
         cax.set_box_aspect(None)
     return cax, kwargs

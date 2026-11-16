@@ -115,6 +115,13 @@ fn leave_unplaced(spine: Spine) -> PyResult<()> {
     Ok(())
 }
 
+/// Has `spine`, one the program made, measure without the ticks of the
+/// axis of its side while no axis is registered with it (`unregistered`).
+fn set_unregistered(spine: Spine, unregistered: bool) -> PyResult<()> {
+    spine.set_unregistered(unregistered);
+    Ok(())
+}
+
 /// Where the spine is placed, as `set_position` takes it.
 fn get_position(spine: Spine) -> PyResult<(&'static str, f64)> {
     Ok(match spine.position() {
@@ -194,6 +201,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_position", set_position)?;
     module.add("unplaced", unplaced)?;
     module.add("leave_unplaced", leave_unplaced)?;
+    module.add("set_unregistered", set_unregistered)?;
     module.add("get_position", get_position)?;
     module.add("set_bound_ends", set_bound_ends)?;
     module.add("window_extent", window_extent)?;

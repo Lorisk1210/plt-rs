@@ -174,6 +174,21 @@ impl Axis {
         self.read(|axis| axis.label.is_default)
     }
 
+    /// Says whether the label text counts as never set, which a unit
+    /// converter's label then replaces (matplotlib's `isDefault_label`
+    /// assigned).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.xaxis().set_default_label(false);
+    /// assert!(!ax.xaxis().is_default_label());
+    /// ```
+    pub fn set_default_label(&self, default: bool) -> &Self {
+        self.update(|axis| axis.label.is_default = default);
+        self
+    }
+
     /// Puts the axis label on `side` (matplotlib's `set_label_position`),
     /// with the vertical alignment of that side.
     ///

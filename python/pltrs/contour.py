@@ -239,6 +239,9 @@ class ContourLabeler:
             fontsize = FontProperties(size=fontsize).get_size_in_points()
         self._keep_label_setup(fmt_given, levels, fontsize_given, colors,
                                (manual, rightside_up, zorder, use_clabeltext))
+        # matplotlib's clabel makes the lists of the labels' levels and
+        # positions (`labelLevelList`, `labelXYs`), absent before.
+        self._label_lists_made = True
         if colors is not None:
             from .colors import to_rgba_array
             colors = [tuple(c) for c in to_rgba_array(colors)]
@@ -422,10 +425,16 @@ class ContourLabeler:
     def labelXYs(self):
         """The display positions of the labels: numpy floats, as
         matplotlib's placement computes them, or as given to `add_label`."""
+        self._check_label_lists("labelXYs")
         adopted = self.__dict__.get("_adopted_labels", {})
         return [adopted[key][0] if key in adopted else (np.float64(x), np.float64(y))
                 for key, (x, y) in zip(self._label_ids(),
                                        _contour.label_positions(self._contour))]
+
+    def _check_label_lists(self, name):
+        """Refuse *name*, a list matplotlib's `clabel` makes, before it."""
+        if "_label_lists_made" not in self.__dict__:
+            raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     def _label_ids(self):
         """The ids of the label texts, in order."""
@@ -449,6 +458,7 @@ class ContourLabeler:
         """The levels the last `clabel` labelled: the set's levels when it
         labelled them all, else a list of those it labelled, as matplotlib
         keeps them."""
+        self._check_label_lists("labelLevelList")
         if self.__dict__.get("_labelled_all_levels"):
             return _contour.get_levels(self._contour)
         return [np.float64(level) for level in _contour.label_levels(self._contour)]
@@ -1090,6 +1100,18 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         (as given; any other value extends neither end)."""
         return self.__dict__.get("_extend", _contour.get_state(self._contour)[3])
 
+
+    def _keep_locator(self, given, levels):
+        """Keep matplotlib's ``locator`` field: the locator *given*, else,
+        for *levels* given as a count or not at all, the one matplotlib's
+        set chooses them with (``_ensure_locator_exists``)."""
+        from . import ticker
+        if given is None and (levels is None or isinstance(levels, Integral)):
+            if self.logscale:
+                given = ticker.LogLocator(numticks=levels)
+            else:
+                given = ticker.MaxNLocator((7 if levels is None else levels) + 1, min_n_ticks=1)
+        self.locator = given
     @property
     def _contour_generator(self):
         """

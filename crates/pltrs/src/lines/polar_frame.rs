@@ -12,9 +12,12 @@ use crate::polar::{RadialFrame, radial_frame, with_mapped_frame};
 use crate::transforms::{ResolvedTransform, Transform};
 
 /// The radial frame a line was first drawn with, and the transform it was
-/// drawn through.
+/// drawn through; pickled with the line, as matplotlib's line pickles its
+/// transformed path.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct KeptPolarFrame(RefCell<Option<(Transform, RadialFrame)>>);
+
+pltrs_core::archive_struct!(KeptPolarFrame(v0));
 
 impl KeptPolarFrame {
     /// `resolved`, the line's `transform` resolved for a draw, mapping

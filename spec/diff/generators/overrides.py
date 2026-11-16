@@ -22,7 +22,9 @@ last: the value the tester compares. The classes are defined through
 
 Programs named ``<Class>-<member>`` record; ``<Class>-<member>-changed``
 (``overrides_changes``) change the result and read what the figure shows,
-the figure left open for its image.
+the figure left open for its image; ``<Class>-<member>-engines``, for the
+members several libraries override, record while both layout engines lay
+the figure out, drawn and printed (`ENGINES`).
 """
 
 from __future__ import annotations
@@ -185,6 +187,23 @@ MEASURE = (
     "ignore(pickle.loads(pickle.dumps(fig)))",
 )
 
+#: The census' members this many libraries override (matplotlib's own
+#: packages left out) also get a program whose figure both layout engines
+#: lay out, ``<Class>-<member>-engines``.
+ENGINE_LIBRARIES = 3
+
+#: The life of those programs: drawn and printed under the constrained
+#: engine, then under the tight one.
+ENGINES = (
+    "fig.canvas.draw()",
+    "fig.set_layout_engine('constrained')",
+    "fig.canvas.draw()",
+    "fig.savefig(io.BytesIO(), format='png')",
+    "fig.set_layout_engine('tight')",
+    "fig.canvas.draw()",
+    "fig.savefig(io.BytesIO(), format='png')",
+)
+
 #: The end of each kind of life.
 ENDS = {
     "artist": ("art.remove()", "fig.canvas.draw()", "ax.cla()", "fig.canvas.draw()"),
@@ -287,12 +306,15 @@ def _with_takes(steps: tuple[str, ...] | list[str], cls: str, member: str) -> li
     return statements
 
 
-def _program(cls: str, member: str, body: str, changed: bool, later: tuple[str, ...] = ()) -> list[str]:
+def _program(cls: str, member: str, body: str, changed: bool, later: tuple[str, ...] = (),
+             engines: bool = False) -> list[str]:
     scene = SCENES[cls]
     base, _ = _program_base(cls)
     statements = [*SETUP, *scene.imports, f'exec("""\n{_classes(cls, base, body)}""")',
                   *_with_takes((*scene.make, "event = MouseEvent('button_press_event', fig.canvas, 150, 100)"),
                                cls, member)]
+    if engines:
+        return statements + _with_takes((*ENGINES, *SHOWS), cls, member)
     if changed:
         return statements + _with_takes(("fig.canvas.draw()", *later, *(("fig.canvas.draw()",) if later else ()),
                                           *SHOWS,
@@ -305,6 +327,12 @@ def _program(cls: str, member: str, body: str, changed: bool, later: tuple[str, 
 
 def _short(cls: str) -> str:
     return cls.rpartition(".")[2]
+
+
+def _libraries(row: dict[str, Any]) -> int:
+    """How many libraries of the census override the row's member,
+    matplotlib's own packages left out."""
+    return sum(library not in ("matplotlib", "mpl_toolkits") for library in row["libraries"])
 
 
 def _census_rows() -> list[dict[str, Any]]:
@@ -355,6 +383,8 @@ def programs() -> Iterator[tuple[str, list[str]]]:
         taken[cls].add(member)
         name = f"{_short(cls)}-{member}"
         yield name, _program(cls, member, body, changed=False)
+        if _libraries(row) >= ENGINE_LIBRARIES:
+            yield f"{name}-engines", _program(cls, member, body, changed=False, engines=True)
         if (cls, member) in CHANGES:
             yield f"{name}-changed", _program(cls, member, CHANGES[cls, member], changed=True)
         elif (cls, member) in ATTRIBUTES:

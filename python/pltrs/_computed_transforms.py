@@ -19,11 +19,15 @@ objects added to an Axes that are no artists (`.axes._foreign_children`).
 
 import weakref
 
+import numpy as np
+
 from . import _lazy_imports, _live_transforms, _program_paths
 from ._program_classes import takes_from_program
-from ._native import transforms as _transforms
+from ._native import patches as _native_patches, transforms as _transforms
 
 _axes_base = _lazy_imports.module(globals(), ".axes._base", "_axes_base")
+_artist = _lazy_imports.module(globals(), ".artist", "_artist")
+_patches = _lazy_imports.module(globals(), ".patches", "_patches")
 
 #: The tracked artists of each root figure.
 _tracked = weakref.WeakKeyDictionary()
@@ -82,6 +86,16 @@ def _evaluate(figure):
         if artist._figure is not figure or artist.__dict__.get("_decoupled"):
             continue
         if _computes_transform(artist):
+            if not {"_given_transform", "_transform_set"} & artist.__dict__.keys():
+                # The transform set, which the class' ``super()`` reads
+                # still, as matplotlib's ``_transform``: the native one
+                # becomes what the class computes from it.
+                artist.__dict__["_transform_set"] = _artist.Artist.get_transform(artist)
+            if isinstance(artist, _patches.Patch):
+                # matplotlib's draw maps the patch's path through the whole
+                # transform, the patch transform in it.
+                _native_patches.set_program_path(
+                    artist._native, (artist.get_path(), np.identity(3)))
             _transforms.set_transform(
                 artist._native, _live_transforms.to_native(artist.get_transform()))
         if getattr(artist, "_evaluates_coords", False):

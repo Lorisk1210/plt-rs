@@ -6,6 +6,7 @@
 
 use std::ops::Range;
 
+use super::mappable::MappableValues;
 use super::{ColorbarError, ExtendFrac, Spacing};
 use crate::colors::{ArrayForm, Extend, Norm, NormError, NormKind, Normalized};
 use crate::image::ScalarKind;
@@ -54,7 +55,7 @@ pub(crate) struct BlockSpec<'a> {
     /// The values of the mappable, which the norm is autoscaled to before
     /// its limits are used (given for a norm of the program's, which sees
     /// matplotlib's `autoscale_None`).
-    pub(crate) data: Option<&'a [Option<f64>]>,
+    pub(crate) data: Option<&'a MappableValues>,
     /// The number of colours of the colormap.
     pub(crate) ncolors: usize,
     /// Explicit block edges (user boundaries or contour levels).
@@ -183,7 +184,7 @@ impl Blocks {
             b.push(b[b.len() - 1] + 1.0);
         }
         if let Some(data) = spec.data {
-            norm.autoscale_none(data);
+            data.autoscale(norm);
         }
         if !norm.scaled() {
             norm.set_vmin(Some(0.0));

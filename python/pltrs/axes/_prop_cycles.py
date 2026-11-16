@@ -8,7 +8,7 @@ does for a secondary y axis). Each holds the cycle's entries and position
 advance (mplhep's ``_prop_cycle.getdefaults(kwargs)``).
 """
 
-from .. import _lazy_imports, _values
+from .. import _api, _lazy_imports, _val_or_rc, _values
 from .._native import axes_base as _axes_base
 
 _plot_args_reference = _lazy_imports.module(globals(), "._plot_args_reference")
@@ -43,31 +43,48 @@ class _PropCycle:
     It expands the iterator-based Cycler into an explicit indexed list to support
     conditional advancing.
     """
+    def __init__(self, cycler):
+        self._axes = self._kind = None
+        self._own = [0, [*cycler]]
 
-    def __init__(self, axes, kind):
-        self._axes = axes
-        self._kind = kind
+    @classmethod
+    def _of(cls, axes, kind):
+        """The property cycle *kind* of *axes*, its entries and position
+        kept by pltrs (Rust)."""
+        cycle = cls.__new__(cls)
+        cycle._axes, cycle._kind = axes, kind
+        return cycle
 
     @property
     def _cycler_items(self):
         """The entries of the cycle, one dict of properties each."""
+        if self._axes is None:
+            return self._own[1]
         return [*_cycler(self._axes, self._kind)]
 
     @property
     def _idx(self):
         """The entry the cycle gives next."""
+        if self._axes is None:
+            return self._own[0]
         return _axes_base.cycle_position(self._axes._native, self._kind)
 
     @_idx.setter
     def _idx(self, index):
-        _axes_base.set_cycle_position(self._axes._native, self._kind,
-                                      index % len(self._cycler_items))
+        if self._axes is None:
+            self._own[0] = index
+        else:
+            _axes_base.set_cycle_position(self._axes._native, self._kind,
+                                          index % len(self._cycler_items))
 
     def get_next_color(self):
         """Return the next color in the cycle."""
         entry = self._cycler_items[self._idx]
         if "color" in entry:
-            _axes_base.next_cycle_color(self._axes._native, self._kind)
+            if self._axes is None:
+                self._idx = (self._idx + 1) % len(self._cycler_items)  # Advance cycler.
+            else:
+                _axes_base.next_cycle_color(self._axes._native, self._kind)
             return entry["color"]
         else:
             return "k"
@@ -101,19 +118,39 @@ class _process_plot_var_args:
     an arbitrary number of *x*, *y*, *fmt* are allowed
     """
 
-    def __init__(self, axes, kind):
-        self._axes = axes
-        self._kind = kind
-        self.output = "Line2D" if kind == "lines" else "Polygon"
+    def __init__(self, output='Line2D'):
+        _api.check_in_list(['Line2D', 'Polygon', 'coordinates'], output=output)
+        self.output = output
+        self._axes = self._kind = None
+        self.set_prop_cycle(None)
+
+    @classmethod
+    def _of(cls, axes, kind):
+        """The cycle *kind* (``"lines"`` or ``"patches"``) of *axes*."""
+        cycle = cls.__new__(cls)
+        cycle._axes, cycle._kind = axes, kind
+        cycle.output = "Line2D" if kind == "lines" else "Polygon"
+        return cycle
 
     @property
     def _prop_cycle(self):
-        """The entries of the cycle and the one it gives next."""
-        return _PropCycle(self._axes, self._kind)
+        """The entries of the cycle and the one it gives next (an Axes'
+        as pltrs (Rust) keeps it, else the cycle's own)."""
+        if self._axes is None:
+            return self.__dict__["_own_cycle"]
+        return _PropCycle._of(self._axes, self._kind)
+
+    @_prop_cycle.setter
+    def _prop_cycle(self, cycle):
+        self.__dict__["_own_cycle"] = cycle
 
     def set_prop_cycle(self, cycler):
         """Cycle over *cycler*, from its first entry (``None``:
         :rc:`axes.prop_cycle`)."""
+        if self._axes is None:
+            # A cycle made alone, as matplotlib's every cycle: its own.
+            self._prop_cycle = _PropCycle(_val_or_rc(cycler, 'axes.prop_cycle'))
+            return
         from ..rcsetup import _rc_value
         axes = _owner(self._axes, self._kind)
         _axes_base.set_prop_cycle_of(axes._native, self._kind,
@@ -188,7 +225,7 @@ class PropCycleMixin:
     @property
     def _get_lines(self):
         """The property cycle lines are drawn from."""
-        return _process_plot_var_args(self, "lines")
+        return _process_plot_var_args._of(self, "lines")
 
     @_get_lines.setter
     def _get_lines(self, cycle):
@@ -197,7 +234,7 @@ class PropCycleMixin:
     @property
     def _get_patches_for_fill(self):
         """The property cycle patches are drawn from."""
-        return _process_plot_var_args(self, "patches")
+        return _process_plot_var_args._of(self, "patches")
 
     @_get_patches_for_fill.setter
     def _get_patches_for_fill(self, cycle):

@@ -2529,13 +2529,15 @@ def _native_norm(norm, weak=True):
     of a class it has no copy of, by name: ``normalize(values, mask, clip,
     shape)`` (the values handed over as a masked array, unless *mask* is
     None, of *shape*, unless it is None), ``normalize_scalar(value)`` (a
-    value handed over alone),
+    value handed over alone), both giving the values, their mask and
+    whether they are integers, which index the colours,
     ``autoscale_none(values, mask, shape)``, ``inverse(values)``,
     ``set_limits(vmin, vmax)`` and ``state()``; ``scale``, the name and
     options of pltrs (Rust)'s scale matching the scale the norm is made
     from (``norm._scale``), if any; ``boundary``, the boundaries,
-    colour count and extension of a norm deriving from `BoundaryNorm`; and
-    ``object``, what pltrs (Rust) keeps of the norm (and archives as it).
+    colour count and extension of a norm deriving from `BoundaryNorm`;
+    ``identity``, whether it derives from `NoNorm`; and ``object``, what
+    pltrs (Rust) keeps of the norm (and archives as it).
     They take and give plain arrays, the
     mask apart. pltrs (Rust) calls them while it draws, when the norm's
     changes must not reach its mappables (which pltrs (Rust) is drawing),
@@ -2559,6 +2561,12 @@ def _native_norm(norm, weak=True):
         return (np.ma.getdata(result).ravel(),
                 np.ma.getmaskarray(result).ravel())
 
+    def normalized(result):
+        # Integers (a BoundaryNorm's) index the colormap's colours, as
+        # matplotlib's colormaps take them.
+        integers = np.ma.asarray(result).dtype.kind in "biu"
+        return (*plain(result), integers)
+
     def normalize(values, mask, clip, shape):
         norm = _alive(reference())
         if mask is not None:
@@ -2566,10 +2574,10 @@ def _native_norm(norm, weak=True):
         if shape is not None:
             values = values.reshape(shape)
         # matplotlib calls a norm with its values alone, unless it clips.
-        return plain(norm(values) if clip is None else norm(values, clip=clip))
+        return normalized(norm(values) if clip is None else norm(values, clip=clip))
 
     def normalize_scalar(value):
-        return plain(_alive(reference())(np.float64(value)))
+        return normalized(_alive(reference())(np.float64(value)))
 
     def autoscale_none(values, mask, shape=None):
         norm = _alive(reference())
@@ -2609,7 +2617,10 @@ def _native_norm(norm, weak=True):
             "autoscale_none": autoscale_none, "inverse": inverse,
             "set_limits": set_limits, "state": state,
             "scale": None if scale is None else _native_scale_of(scale),
-            "boundary": boundary, "object": Held(norm) if weak else norm}
+            "boundary": boundary,
+            # matplotlib's colorbar shows a NoNorm's colour indices.
+            "identity": isinstance(norm, NoNorm),
+            "object": Held(norm) if weak else norm}
 
 
 _register("native_norm", _native_norm)

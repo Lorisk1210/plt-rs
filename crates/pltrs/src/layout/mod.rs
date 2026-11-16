@@ -133,11 +133,19 @@ impl LayoutEngine {
         }
     }
 
-    /// Whether laying the figure out with the engine measures its artists
-    /// (their tight boxes, matplotlib's `get_tightbbox`): constrained and
-    /// tight layouts do, a placeholder does not.
-    pub fn measures(&self) -> bool {
-        !matches!(self, Self::PlaceHolder(_))
+    /// How many times laying the figure out with the engine measures its
+    /// artists before it moves them (their tight boxes, matplotlib's
+    /// `get_tightbbox`): tight layout twice (matplotlib's
+    /// `get_tight_layout_figure` fits the grid into its rect, the whole
+    /// figure by default, in a second pass that measures again),
+    /// constrained layout once (it measures again itself, where its first
+    /// pass left the axes), a placeholder never.
+    pub fn measure_passes(&self) -> usize {
+        match self {
+            Self::Constrained(_) => 1,
+            Self::Tight(_) => 2,
+            Self::PlaceHolder(_) => 0,
+        }
     }
 
     /// The placeholder standing in for this engine once it is removed.

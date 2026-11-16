@@ -90,11 +90,26 @@ impl Figure {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn draw_without_rendering(&self) -> Result<(), DrawErrors> {
-        let mut renderer = NoOutput {
+        let mut renderer = self.no_output();
+        crate::text::font_notes::without_rendering(|| self.draw(&mut renderer))
+    }
+
+    /// The program's code that matplotlib's draw before a print cut to a
+    /// window calls, with the whole figure as it is laid out: the
+    /// program's drawing, with a renderer of the figure's size that paints
+    /// nothing, and the styles shaping its artists.
+    pub(super) fn predraw_program(&self) {
+        let root = self.root_handle();
+        root.predraw_program_shapes();
+        root.prepare_painters(&self.no_output(), true, false);
+    }
+
+    /// A renderer of the figure's size and resolution that paints nothing.
+    fn no_output(&self) -> NoOutput {
+        NoOutput {
             size: self.size_pixels(),
             dpi: self.dpi(),
-        };
-        crate::text::font_notes::without_rendering(|| self.draw(&mut renderer))
+        }
     }
 }
 

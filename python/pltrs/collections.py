@@ -268,6 +268,11 @@ class Collection(mcolorizer.ColorizingArtist):
     # subclass-by-subclass basis.
     _edge_default = False
 
+    #: What matplotlib's draw reads, which a class of the program's may
+    #: compute: drawn through ``draw`` then (`._python_drawing`), the paths
+    #: handed to pltrs (Rust) first (`_push_computed`).
+    _computed = ("get_paths",)
+
     @_docstring.interpd
     def __init__(self, *,
                  edgecolors=None,
@@ -569,6 +574,11 @@ class Collection(mcolorizer.ColorizingArtist):
     _paths_container = list
 
     def get_paths(self):
+        computed_from = self.__dict__.get("_paths_set")
+        if computed_from is not None:
+            # The paths set, pltrs (Rust) drawing those the class computes
+            # from them (`_push_computed`).
+            return computed_from
         # The paths of an `EllipseCollection` before it is first drawn.
         unit_paths = self.__dict__.get("_unit_paths")
         if unit_paths is not None:
@@ -610,6 +620,7 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def set_paths(self, paths):
         self.__dict__.pop("_unit_paths", None)
+        self.__dict__.pop("_paths_set", None)
         if not (paths is None or isinstance(paths, Path)
                 or (np.iterable(paths) and all(isinstance(path, Path) for path in paths))):
             # matplotlib keeps them as given; pltrs (Rust) keeps the paths it
@@ -633,6 +644,20 @@ class Collection(mcolorizer.ColorizingArtist):
             _owned_paths.hand_out(paths, self._push_kept_paths)
             self._kept_paths = (_collections.get_paths(self._native), paths)
         _program_paths.keep(self, None if isinstance(paths, Path) else paths)
+
+    def _push_computed(self):
+        """Hand pltrs (Rust) the paths a class of the program's gives (its
+        ``get_paths``), which matplotlib's draw reads, keeping those set
+        for the class' ``super()``."""
+        if not takes_from_program(type(self), "get_paths"):
+            return
+        if "_paths_set" not in self.__dict__:
+            self.__dict__["_paths_set"] = Collection.get_paths(self)
+        paths = self.get_paths()
+        if isinstance(paths, Path):
+            _collections.set_single_path(self._native, paths)
+        elif np.iterable(paths) and all(isinstance(path, Path) for path in paths):
+            _collections.set_paths(self._native, list(paths))
 
     def get_transforms(self):
         assigned = self.__dict__.get("_assigned_transforms")

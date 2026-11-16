@@ -33,6 +33,7 @@ before it draws the Axes (plotnine places its panels so).
 import weakref
 
 from .._native import insets as _insets
+from .._python_drawing import drawing_renderer
 
 #: What locators of the program's place, per root figure, in the order
 #: they were followed: the order matplotlib's draw places the Axes in (its
@@ -164,11 +165,11 @@ def _locate(figure):
             pass
     owners = list(_followed.get(figure, ()))
     if owners:
-        renderer = figure._get_renderer()
+        renderer = drawing_renderer(figure)
         for owner in owners:
             owner._locate_by_program(renderer)
     labels = list(_labels.get(figure, ()))
     if labels:
-        renderer = figure._get_renderer()
+        renderer = drawing_renderer(figure)
         for label in labels:
             label.place_by_program(renderer)

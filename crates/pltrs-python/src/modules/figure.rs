@@ -99,6 +99,7 @@ pub(in crate::modules) fn draw_exception(kind: DrawErrorKind) -> Option<Exceptio
         DrawErrorKind::OutOfMemory => Some(ExceptionKind::MemoryError),
         DrawErrorKind::FileNotFound => Some(ExceptionKind::FileNotFoundError),
         DrawErrorKind::Library => Some(ExceptionKind::RuntimeError),
+        DrawErrorKind::DivisionByZero => Some(ExceptionKind::ZeroDivisionError),
         DrawErrorKind::Singular | DrawErrorKind::Other => None,
     }
 }

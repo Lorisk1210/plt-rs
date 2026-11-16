@@ -2352,14 +2352,20 @@ class FigureCanvasBase:
         vector format makes (``_program_renderer``, made when first needed,
         for the save resolution and *bbox_inches_restore*), as matplotlib's
         print methods draw the figure with one; the others draw with the
-        renderer drawing them.
+        renderer drawing them. The draw before a print cut to a window, and
+        the window's measuring, have one of the whole figure.
         """
-        from ._python_drawing import drawing_with
+        from ._python_drawing import drawing_with, printed_window
         make = getattr(self, "_program_renderer", None)
         if make is None:
             return nullcontext()
-        return _printing_at(self.figure, self.fixed_dpi, drawing_with(
-            functools.partial(make, self.figure.dpi, self._print_area(bbox_inches_restore))))
+        figure, dpi = self.figure, self.figure.dpi
+        area = self._print_area(bbox_inches_restore)
+
+        def make_for_window():
+            return make(dpi, None if printed_window(figure) is None else area)
+
+        return _printing_at(figure, self.fixed_dpi, drawing_with(make_for_window, figure))
 
     @classmethod
     def get_default_filetype(cls):

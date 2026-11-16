@@ -478,6 +478,12 @@ impl Figure {
         if self.prepare_layout().is_break() {
             return Ok(());
         }
+        // A layout that failed as matplotlib's engine fails ends the draw
+        // before anything is drawn, as the exception ends matplotlib's.
+        let failed = self.state.borrow_mut().take_layout_failure();
+        if let Some(failure) = failed {
+            return Err(DrawErrors(vec![failure]));
+        }
         crate::inset::choose_connectors(&mut self.state.borrow_mut());
         if self.run_draw_hook().is_break() {
             return Ok(());
@@ -485,9 +491,15 @@ impl Figure {
         // The program's drawing runs in each of matplotlib's draws this
         // one stands for (a print drawn once before lays it out), the
         // last one rendered; those pltrs does not paint shape the artists
-        // with the program's styles too.
+        // with the program's styles too. A print cut to a window ran the
+        // draw before as it began (`Figure::predraw_program`).
         let draws = crate::text::font_notes::draws_of_print();
-        for draw in 1..=draws {
+        let first = if crate::text::font_notes::program_predrawn() {
+            draws
+        } else {
+            1
+        };
+        for draw in first..=draws {
             let rendered = draw == draws;
             if !rendered {
                 self.root_handle().predraw_program_shapes();
@@ -538,8 +550,11 @@ impl Figure {
         };
         // The program's measures, which only an engine laying the figure
         // out asks for while it is drawn (matplotlib's draws ask no artist
-        // for its tight box otherwise).
-        if self.layout_engine().is_some_and(|engine| engine.measures()) {
+        // for its tight box otherwise), once per measuring pass.
+        let passes = self
+            .layout_engine()
+            .map_or(0, |engine| engine.measure_passes());
+        for _ in 0..passes {
             self.root_handle().measure_painters_for_layout();
         }
         self.state.release_unheld();

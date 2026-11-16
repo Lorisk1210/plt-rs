@@ -27,7 +27,7 @@ from . import (_api, _image, _lazy_imports, _live_transforms, _named, _program_c
                _unusable, _values, cbook,
                colorizer as mcolorizer, colors as mcolors)
 from . import _docstring, artist as martist
-from ._program_classes import takes_from_program
+from ._program_classes import takes_any_from_program, takes_from_program
 # For user convenience, the names from _image are also imported into
 # the image namespace
 from ._image import *  # noqa: F401, F403
@@ -612,6 +612,15 @@ class _ImageBase(mcolorizer.ColorizingArtist):
                 # This doesn't work for figimage.
                 or not self.axes.contains(mouseevent)[0]):
             return False, {}
+        if takes_any_from_program(type(self), ("get_extent", "get_transform")):
+            # matplotlib's test, through the extent and transform the
+            # program's class gives.
+            trans = self.get_transform().inverted()
+            x, y = trans.transform([mouseevent.x, mouseevent.y])
+            xmin, xmax, ymin, ymax = self.get_extent()
+            inside = (x is not None and (x - xmin) * (x - xmax) <= 0
+                      and y is not None and (y - ymin) * (y - ymax) <= 0)
+            return inside, {}
         # (A numpy bool, as matplotlib compares the image coordinates of the
         # event, numpy floats, with the extent.)
         inside, details = super().contains(mouseevent)
@@ -792,6 +801,11 @@ class AxesImage(_ImageBase):
     **kwargs : `~matplotlib.artist.Artist` properties
     """
 
+    #: What matplotlib's measure of the image reads, which a class of the
+    #: program's overriding it has measured through Python (see
+    #: `._python_drawing`).
+    _measured_reads = ("get_transform",)
+
     def __init__(self, ax,
                  *,
                  cmap=None,
@@ -873,7 +887,7 @@ class AxesImage(_ImageBase):
         return _values.given(self, "extent", _native_image.get_extent(self._native))
 
     def get_window_extent(self, renderer=None):
-        x0, x1, y0, y1 = self.get_extent()
+        x0, x1, y0, y1 = self._extent
         bbox = Bbox.from_extents([x0, y0, x1, y1])
         return bbox.transformed(self.get_transform())
 

@@ -63,6 +63,7 @@ impl Drop for Saving<'_> {
                 return;
             };
             state.print_window = None;
+            state.print_image_magnification = 1.0;
             state.saving = false;
             state.draws_per_layout = 1;
         }
@@ -189,6 +190,10 @@ impl Figure {
         self.set_dpi(canvas_dpi)
             .set_facecolor(face)
             .set_edgecolor(edge);
+        self.state_mut().print_image_magnification = match output {
+            Output::Raster => 1.0,
+            Output::Vector => dpi / canvas_dpi,
+        };
         let bbox = Self::bbox_inches(options);
         // matplotlib draws a figure with a layout engine, or to be cut to
         // its tight box, once before printing it (without rendering), and
@@ -201,19 +206,24 @@ impl Figure {
             Output::Raster => draw(),
             Output::Vector => font_notes::with_renderer_of_its_own(draw),
         };
+        // The draw before a print cut to a window calls the program's
+        // code with the whole figure, before the window is measured.
         match bbox {
             // The draw measuring the figure, which lays the axis artists
             // out as their draw does.
             Some(BboxInches::Tight) => first_draw(&|| {
                 self.layout();
                 crate::axisartist::lay_out_as_drawn(&self.state());
+                self.predraw_program();
             }),
             // The layout the window is cut from, at the print resolution.
             Some(BboxInches::Inches(_)) => {
                 self.state_mut().draws_per_layout = usize::from(predrawn);
                 // A hook stopping the draw leaves the window as it was.
                 first_draw(&|| {
-                    let _ = self.prepare_layout();
+                    if self.prepare_layout().is_continue() && predrawn {
+                        self.predraw_program();
+                    }
                 });
             }
             None => {}

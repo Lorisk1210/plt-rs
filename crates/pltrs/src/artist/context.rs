@@ -329,6 +329,10 @@ pub enum DrawErrorKind {
     /// `FreeType` refusing a font size, which matplotlib raises as a
     /// `RuntimeError` with the library's message.
     Library,
+    /// A division by zero in matplotlib's Python code, such as by the
+    /// first ratio of a grid constrained layout lays out (Python's
+    /// `ZeroDivisionError`).
+    DivisionByZero,
     /// Any other problem (matplotlib's `RuntimeError`).
     #[default]
     Other,
@@ -345,7 +349,8 @@ pltrs_core::archive_enum!(DrawErrorKind {
     FileNotFound,
     Singular,
     Other,
-    Library
+    Library,
+    DivisionByZero
 });
 
 /// A problem that kept (part of) an artist from being drawn, such as an

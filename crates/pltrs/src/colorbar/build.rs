@@ -64,7 +64,7 @@ impl Colorbar {
         let limits = |mapping: &ScalarMappable| (mapping.norm().vmin(), mapping.norm().vmax());
         let given = limits(&mapping);
         let ends = (extend, long.inverted());
-        let blocks = settings.blocks(contours.as_ref(), ends, &mut mapping, data.as_deref())?;
+        let blocks = settings.blocks(contours.as_ref(), ends, &mut mapping, data.as_ref())?;
         if let (Some(link), (Some(vmin), Some(vmax))) = (link, limits(&mapping))
             && limits(&mapping) != given
         {
@@ -90,7 +90,7 @@ impl Colorbar {
         // matplotlib's `_draw_all` processes the values again (as
         // `_reset_locator_formatter_scale` did), the program's norm seeing
         // it, before it meshes them.
-        let blocks = settings.blocks(contours.as_ref(), ends, &mut mapping, data.as_deref())?;
+        let blocks = settings.blocks(contours.as_ref(), ends, &mut mapping, data.as_ref())?;
         let edges = blocks.edges(mapping.norm_mut())?;
         let mut state = ColorbarState {
             link,

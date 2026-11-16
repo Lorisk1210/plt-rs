@@ -20,6 +20,8 @@ pub(crate) struct MadeAhead {
     out_bbox: Bbox,
     /// The box it was clipped to.
     clip: Bbox,
+    /// The magnification it was made at.
+    magnification: f64,
     /// The image made, or why it could not be.
     made: Result<Option<RenderedImage>, ImageError>,
 }
@@ -30,12 +32,13 @@ impl MadeAhead {
         Self {
             out_bbox: placement.out_bbox,
             clip: placement.clip,
+            magnification: placement.magnification,
             made,
         }
     }
 
     /// The image made for `placement`, if it was made for the same boxes
-    /// at the resolution of the figure.
+    /// at the same magnification.
     pub(crate) fn for_placement(
         self,
         placement: &Placement,
@@ -44,8 +47,8 @@ impl MadeAhead {
             clippy::float_cmp,
             reason = "only the very magnification the image was made at matches"
         )]
-        let unmagnified = placement.magnification == 1.0;
-        (unmagnified && self.out_bbox == placement.out_bbox && self.clip == placement.clip)
+        let same_magnification = placement.magnification == self.magnification;
+        (same_magnification && self.out_bbox == placement.out_bbox && self.clip == placement.clip)
             .then_some(self.made)
     }
 }
@@ -53,9 +56,10 @@ impl MadeAhead {
 impl FigureState {
     /// `AxesImage.draw` of the image `id`, as far as it calls the
     /// program: made through a norm of the program's, at the figure's
-    /// resolution on the canvas the figure is drawn on (the window
-    /// printed, else the whole figure), and kept for the paint; the figure
-    /// is lent meanwhile, as the norm may read it.
+    /// resolution magnified as a print's renderer magnifies images, on the
+    /// canvas the figure is drawn on (the window printed, else the whole
+    /// figure), and kept for the paint; the figure is lent meanwhile, as
+    /// the norm may read it.
     pub(crate) fn program_image_drawn(&mut self, id: ArtistId) {
         let Some(image) = self.store.shared_as::<AxesImageArtist>(id) else {
             return;
@@ -66,7 +70,9 @@ impl FigureState {
         let Some(canvas) = self.frame_patch_bbox(self.root) else {
             return;
         };
-        let Some(placement) = image.placement(LayoutContext::new(self), canvas, 1.0) else {
+        let magnification = self.print_image_magnification;
+        let Some(placement) = image.placement(LayoutContext::new(self), canvas, magnification)
+        else {
             return;
         };
         let alpha = image.core.alpha(image.base().alpha);

@@ -11,10 +11,10 @@ use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle};
 use crate::axes::{Axes, AxesState, Tripcolor};
 use crate::collections::{Collection, CollectionArtist, TriMesh};
 use crate::colorizer::{MappingChange, change_mapping};
-use crate::colors::{Extend, ScalarMappable, colormaps};
+use crate::colors::{Extend, Norm, ScalarMappable, colormaps};
 use crate::contour::{ContourSet, ContourSetArtist};
 use crate::figure::FigureCell;
-use crate::image::{AxesImage, AxesImageArtist, ScalarField, ScalarKind};
+use crate::image::{AxesImage, AxesImageArtist, ScalarKind};
 
 /// Something with a colour mapping a colorbar can show.
 ///
@@ -92,7 +92,27 @@ pub(crate) struct Source {
     /// The values of the mappable, which the colorbar autoscales a norm
     /// of the program's to (matplotlib's `_process_values` calls the
     /// mappable's `autoscale_None`): kept for those norms only.
-    pub(crate) data: Option<Vec<Option<f64>>>,
+    pub(crate) data: Option<MappableValues>,
+}
+
+/// The values of a mappable as matplotlib's mappable holds them (its
+/// `_A`), which a norm of the program's is autoscaled to.
+#[derive(Clone, Debug)]
+pub(crate) struct MappableValues {
+    /// The values, flat.
+    pub(crate) values: Vec<Option<f64>>,
+    /// The shape of the array; `None` for one dimension.
+    pub(crate) shape: Option<Vec<usize>>,
+}
+
+impl MappableValues {
+    /// Autoscales `norm` to the values, handed over in their shape.
+    pub(crate) fn autoscale(&self, norm: &mut dyn Norm) {
+        match &self.shape {
+            Some(shape) => norm.autoscale_none_shaped(&self.values, shape),
+            None => norm.autoscale_none(&self.values),
+        }
+    }
 }
 
 /// The levels and line styles of a contour set (matplotlib's `_levels`,
@@ -207,8 +227,15 @@ impl MappableLink {
                 let image = artists.artist_as::<AxesImageArtist>(id)?;
                 let mapping = image.core.mappable.borrow().clone();
                 let data = (mapping.norm().calls_program())
-                    .then(|| image.core.data.scalars().map(ScalarField::masked_values))
-                    .flatten();
+                    .then(|| image.core.data.scalars())
+                    .flatten()
+                    .map(|field| {
+                        let (rows, columns) = field.values().shape();
+                        MappableValues {
+                            values: field.masked_values(),
+                            shape: Some(vec![rows, columns]),
+                        }
+                    });
                 plain(mapping, image.base().alpha, data)
             }
             Self::Collection(id) | Self::TriMesh(id) => {
@@ -216,7 +243,10 @@ impl MappableLink {
                 let alpha = collection.base().alpha;
                 match &collection.mapping {
                     Some(mapped) => {
-                        let data = mapped.at_draw().then(|| mapped.source.values.clone());
+                        let data = mapped.at_draw().then(|| MappableValues {
+                            values: mapped.source.values.clone(),
+                            shape: mapped.shape().map(<[usize]>::to_vec),
+                        });
                         plain(mapped.source.mappable.clone(), alpha, data)
                     }
                     None => colormaps::get(&crate::rc::params().image_cmap)

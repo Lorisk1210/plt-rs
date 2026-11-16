@@ -221,10 +221,14 @@ class TitlesMixin:
         lifts them above the tick labels of its three axes, which a layout
         then makes room for)."""
         from .._python_drawing import _measures
+        if _measures(type(self)):
+            # The class measures it itself: its ``get_tightbbox`` does both
+            # (through matplotlib's, as `.Axes.get_tightbbox` does).
+            return False
         self.apply_aspect()
         self._place_titles_by_program()
-        # Measured by pltrs (Rust), unless the class measures it itself.
-        return not _measures(type(self))
+        # Measured by pltrs (Rust).
+        return True
 
     #: What a class of the program's may compute that matplotlib's ``draw``
     #: reads: the titles' place, which it places when drawn

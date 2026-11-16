@@ -43,6 +43,8 @@ unsafe extern "C" {
     pub(crate) static mut PyExc_NotImplementedError: *mut PyObject;
     /// `PyExc_AssertionError`.
     pub(crate) static mut PyExc_AssertionError: *mut PyObject;
+    /// `PyExc_ZeroDivisionError`.
+    pub(crate) static mut PyExc_ZeroDivisionError: *mut PyObject;
     /// `PyExc_RuntimeWarning`.
     pub(crate) static mut PyExc_RuntimeWarning: *mut PyObject;
 

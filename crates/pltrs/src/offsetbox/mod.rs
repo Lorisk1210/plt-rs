@@ -94,7 +94,7 @@ pub(crate) use placed_box::PlacedBoxArtist;
 pub use placed_box::PlacedOffsetBox;
 pub(crate) use program::measure_program_boxes;
 pub use program::{ProgramBox, ProgramBoxArtist, ProgramOffsetBox};
-pub use rebuild::{node_extent, node_origin, rebuild_tree};
+pub use rebuild::{holds_tree, node_extent, node_origin, rebuild_tree, tree_artists};
 
 use crate::artist::{ArtistId, ArtistStore, DrawErrorKind};
 use crate::coords::CoordError;

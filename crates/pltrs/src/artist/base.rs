@@ -61,6 +61,12 @@ pub struct ArtistBase {
     /// Rectangular clip in the coordinates of `transform`-free display
     /// space, given as the extent of an axes or figure frame.
     pub clip_box: Option<ArtistId>,
+    /// A clip box of any other kind, in place of `clip_box`: the display
+    /// bounding box of a [`ClipPathSpec::BoundingBox`], the unit square
+    /// through a transform or a box of its own (matplotlib's clip box
+    /// `fig.bbox`, a `TransformedBbox`, a `Bbox` in pixels). It clips with
+    /// the clip path, as matplotlib's clip box does.
+    pub clip_region: Option<ClipPathSpec>,
     /// Arbitrary clip region.
     pub clip_path: Option<ClipPathSpec>,
     /// Rasterize this artist even in vector output.
@@ -122,6 +128,7 @@ pltrs_core::archive_struct!(ArtistBase {
     transform,
     clip_on,
     clip_box,
+    clip_region,
     clip_path,
     rasterized,
     animated,
@@ -201,6 +208,7 @@ impl Default for ArtistBase {
             transform: None,
             clip_on: true,
             clip_box: None,
+            clip_region: None,
             clip_path: None,
             rasterized: false,
             animated: false,

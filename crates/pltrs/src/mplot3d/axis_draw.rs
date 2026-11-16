@@ -155,6 +155,10 @@ pub enum AxisTextPart {
         minor: bool,
         /// Its position among the ticks of its level.
         index: usize,
+        /// Whether it is the tick's second label (`Tick.label2`), which
+        /// matplotlib places where the first one is, with its own
+        /// alignment.
+        second: bool,
     },
     /// The offset (or scale) text.
     Offset,
@@ -192,12 +196,6 @@ trait Sink {
     /// Whether the axis labels go to the sink too.
     fn takes_labels(&self) -> bool {
         true
-    }
-    /// Whether the sink counts a tick's second label, which matplotlib
-    /// places where its first one is and never draws, but measures
-    /// (`get_tightbbox` takes both labels' boxes); not by default.
-    fn counts_second_labels(&self) -> bool {
-        false
     }
     /// Whether the parts go to a draw, which issues numpy's warnings
     /// matplotlib's draw issues placing them; not by default.
@@ -253,10 +251,6 @@ struct Extents<'a> {
 }
 
 impl Sink for Extents<'_> {
-    fn counts_second_labels(&self) -> bool {
-        true
-    }
-
     fn dpi(&self) -> f64 {
         self.layout.dpi()
     }

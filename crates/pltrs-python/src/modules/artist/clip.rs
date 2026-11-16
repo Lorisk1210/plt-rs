@@ -10,6 +10,7 @@
 use pltrs::artist::{ArtistHandle, ClipPathSpec, RawHandle};
 use pltrs::axes::Axes;
 use pltrs::transforms::Transform;
+use pltrs_core::Path;
 
 use super::super::path::PyPath;
 use crate::binding::prelude::*;
@@ -56,24 +57,44 @@ fn clips_to_artist(artist: RawHandle) -> PyResult<bool> {
     Ok(matches!(artist.clip_path(), Some(ClipPathSpec::Artist(_))))
 }
 
-/// Clips `artist` to the box a live transform maps the unit square to
-/// (`ax.transAxes` for `ax.bbox`, a figure's `transSubfigure` or the box
-/// of its frame for its `bbox`), or to no box. Other transforms span boxes
-/// the artist cannot follow, which raise `ValueError`.
+/// Clips `artist` to the box a live transform maps the unit square to, or
+/// to no box: the box of an axes or a figure it follows as they are laid
+/// out (`ax.transAxes` for `ax.bbox`, a figure's `transSubfigure` for its
+/// `bbox`), and any other box as the unit square through its transform
+/// (`fig.bbox`, whose transform a print cut to its tight box leaves at the
+/// canvas origin).
 fn set_clip_box(artist: RawHandle, spanning: Option<Transform>) -> PyResult<()> {
-    let owner = match spanning {
-        None => None,
-        Some(Transform::Axes(owner) | Transform::Figure(owner) | Transform::FigureBox(owner)) => {
-            Some(owner)
+    match spanning {
+        None => {
+            artist.set_clip_box(None);
         }
-        Some(other) => {
-            return Err(PyErr::value_error(format!(
-                "a clip box spanned by {other:?} is not the box of an axes or a figure"
-            )));
+        Some(Transform::Axes(owner) | Transform::Figure(owner)) => {
+            artist.set_clip_box(Some(owner));
         }
-    };
-    artist.set_clip_box(owner);
+        Some(transform) => {
+            artist.set_clip_region(Some(ClipPathSpec::BoundingBox {
+                path: Path::unit_rectangle(),
+                transform,
+            }));
+        }
+    }
     Ok(())
+}
+
+/// Clips `artist` to the bounding box Python describes as `("bbox", path,
+/// transform)` in place of its clip box (a `TransformedBbox` or a `Bbox` in
+/// pixels given to `set_clip_box`, a `Rectangle` given to
+/// `set_clip_path`), leaving its clip path.
+fn set_clip_region(artist: RawHandle, region: ClipSpec) -> PyResult<()> {
+    match region.0 {
+        spec @ ClipPathSpec::BoundingBox { .. } => {
+            artist.set_clip_region(Some(spec));
+            Ok(())
+        }
+        _ => Err(PyErr::value_error(
+            "a clip box is the bounding box of a path",
+        )),
+    }
 }
 
 /// Whether the artist is clipped to the box of an axes or a figure, and
@@ -107,6 +128,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_clip_path", set_clip_path)?;
     module.add("clips_to_artist", clips_to_artist)?;
     module.add("set_clip_box", set_clip_box)?;
+    module.add("set_clip_region", set_clip_region)?;
     module.add("get_clip_box", get_clip_box)
 }
 
@@ -136,7 +158,15 @@ mod tests {
             );
             set_clip_box(raw.clone(), None).unwrap();
             assert_eq!(get_clip_box(raw.clone()).unwrap(), None);
-            let err = set_clip_box(raw, Some(Transform::Display)).unwrap_err();
+            // Any other box clips as a region of its own, in place of the
+            // axes' or figure's box.
+            set_clip_box(raw.clone(), Some(Transform::Display)).unwrap();
+            assert_eq!(get_clip_box(raw.clone()).unwrap(), None);
+            assert!(matches!(
+                raw.clip_region(),
+                Some(ClipPathSpec::BoundingBox { .. })
+            ));
+            let err = set_clip_region(raw, ClipSpec(ClipPathSpec::Artist(ax.id()))).unwrap_err();
             assert_eq!(err.class_name(py), "ValueError");
         });
     }

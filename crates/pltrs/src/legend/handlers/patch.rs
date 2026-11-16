@@ -131,8 +131,11 @@ pub(super) fn poly_collection(
     source: &CollectionArtist,
     area: &HandleBox,
 ) -> Result<Vec<HandlerArtist>, LegendError> {
+    // The colours the collection reports now (matplotlib's handler reads
+    // `get_facecolor`): those of the last draw's mapping, the ones set
+    // before its first draw.
     let (faces, edges) = source
-        .resolved_colors()
+        .reported_colors()
         .map_err(LegendError::HandleColors)?;
     let first = |colors: &[Rgba]| colors.first().copied().unwrap_or(Rgba::TRANSPARENT);
     // The collection's own first hatch colour (its edge's unless given).

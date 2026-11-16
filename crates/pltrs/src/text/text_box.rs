@@ -4,7 +4,8 @@ use pltrs_core::{Affine2D, Point};
 
 use super::{Text, TextArtist};
 use crate::artist::{
-    ArtistBase, ArtistHandle, ArtistLookup, DrawContext, LayoutContext, ProgramShaping,
+    ArtistBase, ArtistHandle, ArtistLookup, DrawContext, LayoutContext, ProgramShaping, Sketch,
+    rc_sketch,
 };
 use crate::colors::Color;
 use crate::patches::{
@@ -152,6 +153,9 @@ pub struct TextBoxPatch {
     /// The box's own path effects (not the text's): `path.effects` when it
     /// was made, unless given.
     path_effects: Vec<PathEffect>,
+    /// The box's sketch: `path.sketch` when it was made (the patch
+    /// matplotlib's `set_bbox` makes takes it, as every artist does).
+    sketch: Option<Sketch>,
     /// The aspect the box style shapes the box at (matplotlib's
     /// `mutation_aspect`).
     mutation_aspect: f64,
@@ -163,6 +167,7 @@ pltrs_core::archive_struct!(TextBoxPatch {
     alpha,
     visible,
     path_effects,
+    sketch,
     mutation_aspect
 });
 
@@ -191,6 +196,7 @@ impl TextBoxPatch {
             alpha: base.alpha,
             visible: base.visible.unwrap_or(true),
             path_effects: base.path_effects.unwrap_or_else(|| rc.path_effects.clone()),
+            sketch: rc_sketch(rc),
             mutation_aspect: props.mutation_aspect.unwrap_or(1.0),
         }
     }
@@ -244,7 +250,7 @@ impl TextBoxPatch {
     }
 
     /// A loose fancy box patch with the box's look (box style, face,
-    /// edge, hatch, alpha, visibility and path effects) on the unit square: what a
+    /// edge, hatch, alpha, visibility, path effects and sketch) on the unit square: what a
     /// program reads and changes of the box as the patch matplotlib's
     /// `get_bbox_patch` returns, the text placing it when drawn. Changes
     /// come back with [`TextBoxPatch::restyle_from`].
@@ -259,13 +265,14 @@ impl TextBoxPatch {
             .raw()
             .set_alpha(self.alpha)
             .set_visible(self.visible)
-            .set_path_effects(self.path_effects.clone());
+            .set_path_effects(self.path_effects.clone())
+            .set_sketch_params(self.sketch);
         patch
     }
 
     /// Takes the look of `patch` (made by [`TextBoxPatch::to_patch`]): its
-    /// box style and aspect, face, edge, hatch, alpha, visibility and path
-    /// effects.
+    /// box style and aspect, face, edge, hatch, alpha, visibility, path
+    /// effects and sketch.
     pub fn restyle_from(&mut self, patch: &Patch<FancyBboxPatch>) {
         let shape = patch.shape();
         self.boxstyle = shape.boxstyle;
@@ -274,6 +281,7 @@ impl TextBoxPatch {
         self.alpha = patch.raw().alpha();
         self.visible = patch.raw().visible();
         self.path_effects = patch.raw().path_effects();
+        self.sketch = patch.raw().sketch_params();
     }
 
     /// The box shape and its placement (`update_bbox_position_size`).
@@ -295,6 +303,7 @@ impl TextBoxPatch {
         let mut base = ArtistBase::default();
         base.alpha = self.alpha;
         base.path_effects.clone_from(&self.path_effects);
+        base.sketch = self.sketch;
         base.clip_on = text.clip_on;
         base.clip_box = text.clip_box;
         base.clip_path.clone_from(&text.clip_path);

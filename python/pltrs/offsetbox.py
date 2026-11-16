@@ -383,7 +383,11 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         """
         holder = self._native if holder is None else holder
         if self._leaf:
-            if "_tree_handle" not in self.__dict__:
+            handle = self.__dict__.get("_tree_handle")
+            # Its first tree, or one anew where it stands now: the tree it
+            # had left the figure with the box holding it (legendkit's
+            # colour bars, moved from a box removed into marsilea's stacks).
+            if handle is None or not _offsetbox.holds_tree(handle):
                 offset = (0., 0.) if callable(self._offset) else self._offset
                 described = joinable(self._package_tree)
                 native, parts = _offsetbox.add_owned(
@@ -405,8 +409,12 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         `.axes._program_locators`): its tree as it is now, the boxes among
         the children of a box of the program's, and its offset where a
         callable puts it."""
-        if self.__dict__.get("_decoupled"):
-            # Removed or cleared: matplotlib's draw no longer reaches it.
+        handle = self.__dict__.get("_tree_handle")
+        if self.__dict__.get("_decoupled") or (
+                handle is not None and not _offsetbox.holds_tree(handle)):
+            # Removed or cleared, itself or with the box or Axes holding it
+            # (marsilea's legend stacks, made in an Axes it removes):
+            # matplotlib's draw no longer reaches it.
             return
         self._sync_tree()
         figure = self.get_figure(root=True)

@@ -294,8 +294,34 @@ pub trait ArtistHandle {
     where
         Self: Sized,
     {
-        self.raw().with_base_mut(|b| b.clip_box = owner);
+        self.raw().with_base_mut(|b| {
+            b.clip_box = owner;
+            b.clip_region = None;
+        });
         self
+    }
+
+    /// Clips the artist to the display bounding box of the
+    /// [`ClipPathSpec::BoundingBox`] `region` in place of a clip box of an
+    /// axes or figure, or to no box (matplotlib's `set_clip_box` given
+    /// `fig.bbox`, a `TransformedBbox` or a `Bbox` in pixels, and
+    /// `set_clip_path` given a `Rectangle`); the clip path stays, clipping
+    /// with it.
+    fn set_clip_region(&self, region: Option<ClipPathSpec>) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| {
+            b.clip_box = None;
+            b.clip_region = region;
+        });
+        self
+    }
+
+    /// The clip box set by [`set_clip_region`](Self::set_clip_region), if
+    /// any.
+    fn clip_region(&self) -> Option<ClipPathSpec> {
+        self.raw().with_base(|b| b.clip_region.clone())
     }
 
     /// The axes or figure whose box clips the artist, if any (matplotlib's

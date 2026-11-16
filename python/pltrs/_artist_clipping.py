@@ -218,7 +218,9 @@ class ClippingMixin:
                 self._native,
                 None if spanning is None else _live_transforms.to_native(spanning))
         else:
-            _artist.set_clip_path(self._native, clip_box_spec(clipbox))
+            # Any other box clips in place of the clip box, with the clip
+            # path (matplotlib's ``clipbox`` and ``_clippath`` both clip).
+            _artist.set_clip_region(self._native, clip_box_spec(clipbox))
         self._clipbox = clipbox
         self.pchanged()
 
@@ -345,6 +347,10 @@ class ClippingMixin:
             self._clippath = TransformedPath(path, transform)
         else:
             self._clippath = path
+        if spec is not None and spec[0] == "bbox":
+            # A rectangle clips as the clip box it becomes.
+            _artist.set_clip_region(self._native, spec)
+            spec = None
         _artist.set_clip_path(self._native, spec)
         self.pchanged()
 

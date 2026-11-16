@@ -44,6 +44,72 @@ pub(super) fn container_of(state: &FigureState, id: ArtistId) -> ArtistId {
     }
 }
 
+/// Whether `owner_handle` is an added anchored, annotation or placed box
+/// still in its figure, whose tree [`rebuild_tree`] replaces: not one
+/// removed, alone or with the axes or box holding it.
+///
+/// ```
+/// use pltrs::artist::ArtistHandle;
+/// use pltrs::offsetbox::{AnchorLoc, AnchoredBox, AnchoredOptions, TextArea, holds_tree};
+/// use pltrs::prelude::*;
+/// use pltrs::text::TextProps;
+/// let fig = Figure::new();
+/// let axes = fig.subplot();
+/// let text = TextArea::from_text("held", TextProps::default());
+/// let anchored = axes.add_anchored_box(AnchoredBox::new(text, AnchoredOptions::new(AnchorLoc::Center)));
+/// assert!(holds_tree(anchored.raw()));
+/// axes.remove();
+/// assert!(!holds_tree(anchored.raw()));
+/// ```
+#[must_use]
+pub fn holds_tree(owner_handle: &RawHandle) -> bool {
+    owner(
+        &owner_handle.figure_state().borrow().store,
+        owner_handle.id(),
+    )
+    .is_some()
+}
+
+/// The artists of the tree of `owner_handle`, an added anchored,
+/// annotation or placed box, those of hidden boxes too, in the order of
+/// [`OffsetBox::all_artists`] (that of [`rebuild_tree`]'s handles); `None`
+/// when `owner_handle` is no such box. The handles' own `artists` list
+/// only what the box draws.
+///
+/// ```
+/// use pltrs::offsetbox::{
+///     AnchorLoc, AnchoredBox, AnchoredOptions, OffsetBox, PackAlign, Packer, TextArea,
+///     tree_artists,
+/// };
+/// use pltrs::prelude::*;
+/// use pltrs::text::TextProps;
+/// let fig = Figure::new();
+/// let mut hidden = TextArea::from_text("hidden", TextProps::default());
+/// hidden.visible = false;
+/// let tree = OffsetBox::VPacker(Packer::new(0.0, 2.0, PackAlign::Left, vec![
+///     TextArea::from_text("shown", TextProps::default()).into(),
+///     hidden.into(),
+/// ]));
+/// let anchored = fig.subplot().add_anchored_box(AnchoredBox::new(tree, AnchoredOptions::new(AnchorLoc::Center)));
+/// assert_eq!(anchored.artists().len(), 1, "drawn");
+/// assert_eq!(tree_artists(anchored.raw()).map(|artists| artists.len()), Some(2));
+/// ```
+#[must_use]
+pub fn tree_artists(owner_handle: &RawHandle) -> Option<Vec<RawHandle>> {
+    let figure = owner_handle.figure_state();
+    let ids: Vec<ArtistId> = owner(&figure.borrow().store, owner_handle.id())?
+        .tree()
+        .all_artists()
+        .into_iter()
+        .copied()
+        .collect();
+    Some(
+        ids.into_iter()
+            .map(|id| RawHandle::new(Rc::clone(figure), id))
+            .collect(),
+    )
+}
+
 /// Replaces the tree of `owner`, an added anchored, annotation or placed
 /// box, with `tree`, whose artists are those the box holds or loose ones
 /// (matplotlib's box drawn with the settings and the children it has

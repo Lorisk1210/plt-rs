@@ -81,6 +81,9 @@ trait PatchOps: StyleOps {
     /// Sets the outline a class of the program's makes (see
     /// [`Patch::set_program_path`]).
     fn set_program_path(&self, path: Option<(Path, Affine2D)>);
+    /// The outline drawn in place of the shape's, if one was set (see
+    /// [`Patch::program_path`]).
+    fn program_path(&self) -> Option<Path>;
 }
 
 impl<S: PatchShape> PatchOps for Patch<S> {
@@ -123,6 +126,10 @@ impl<S: PatchShape> PatchOps for Patch<S> {
 
     fn set_program_path(&self, path: Option<(Path, Affine2D)>) {
         Patch::set_program_path(self, path);
+    }
+
+    fn program_path(&self) -> Option<Path> {
+        Patch::program_path(self)
     }
 }
 
@@ -214,6 +221,14 @@ impl FromPy<'_> for PatchKwargs {
 /// (matplotlib's `get_path`).
 fn get_path(patch: AnyPatch) -> PyResult<PathArrays> {
     path_arrays(&patch.0.path(), false)
+}
+
+/// The outline the patch draws in place of its shape's, as `(vertices,
+/// codes)`, if it was given one (`set_program_path`); `None` otherwise.
+fn get_program_path(patch: AnyPatch) -> PyResult<Option<PathArrays>> {
+    (patch.0.program_path())
+        .map(|path| path_arrays(&path, false))
+        .transpose()
 }
 
 /// The outlines in display pixels, as one path, in the figure as it
@@ -666,6 +681,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_rectangle", set_rectangle)?;
     module.add("set_aspect_ratio_correction", set_aspect_ratio_correction)?;
     module.add("set_program_path", set_program_path)?;
+    module.add("get_program_path", get_program_path)?;
     module.add("ellipse", ellipse)?;
     module.add("set_ellipse", set_ellipse)?;
     module.add("set_arc", set_arc)?;

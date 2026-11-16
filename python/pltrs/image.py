@@ -23,8 +23,8 @@ import numpy as np
 import PIL.Image
 import PIL.PngImagePlugin
 
-from . import (_api, _image, _lazy_imports, _live_transforms, _named, _program_classes,
-               _unusable, _values, cbook,
+from . import (_api, _image, _lazy_imports, _live_transforms, _named, _own_state,
+               _program_classes, _unusable, _values, cbook,
                colorizer as mcolorizer, colors as mcolors)
 from . import _docstring, artist as martist
 from ._program_classes import takes_any_from_program, takes_from_program
@@ -69,7 +69,7 @@ interpolations_names = set(_interpd_)
 def _rc(key):
     """The rcParam *key* (imported when first needed)."""
     from . import rcParams
-    return rcParams[key]
+    return rcParams._get(key)
 
 
 def _val_or_rc(val, key):
@@ -188,6 +188,20 @@ def _array_size(array):
     """What matplotlib's image draw computes first with its array: its
     size, which an image without one fails on."""
     return array.size
+
+
+@_program_classes.class_cache
+def _answers_extent_itself(cls):
+    """Whether the image class *cls* answers ``get_extent`` by a method of
+    the program's."""
+    return takes_from_program(cls, "get_extent")
+
+
+#: The extent of an image as the list matplotlib keeps (``_extent``), which
+#: the image keeps as its own once it is handed out (`._own_state`).
+_EXTENT = _own_state.State(
+    "extent", lambda image: image._read_extent(),
+    lambda image, extent: image._take_extent(extent))
 
 
 class _ImageBase(mcolorizer.ColorizingArtist):
@@ -401,6 +415,14 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         self._keep_data(self._normalize_image_array(A))
         _native_image.set_data(self._native, _native_data(self._A))
 
+    def _array_set(self):
+        # docstring inherited: the data handed out (`get_array`) that the
+        # program changed in place, which every draw of matplotlib's maps
+        # anew. Values of several variates (a structured array, which
+        # `ColorizingArtist.set_array` takes) are none pltrs (Rust) draws.
+        if self._A is not None and self._A.dtype.fields is None:
+            _native_image.set_data(self._native, _native_data(self._A))
+
     def set_array(self, A):
         """
         Retained for backwards compatibility - use set_data instead.
@@ -566,7 +588,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         # ``make_image`` then gives them, as matplotlib's ``draw`` takes them.
         if not any(takes_from_program(type(self), name) for name in self._computed):
             return super().draw(renderer)
-        if not self.get_visible() or self.get_array().size == 0:
+        if not self.get_visible() or mcolorizer._array_of(self).size == 0:
             self.stale = False
             return
         gc = renderer.new_gc()
@@ -853,7 +875,7 @@ class AxesImage(_ImageBase):
     def _place_extent(self, extent):
         """Place the image's data over *extent* as matplotlib's
         ``make_image`` does, which draws no image without data."""
-        A = self.get_array()
+        A = mcolorizer._array_of(self)
         if A is not None and A.size:
             x1, x2, y1, y2 = extent
             Bbox(np.array([[x1, y1], [x2, y2]]))
@@ -862,7 +884,9 @@ class AxesImage(_ImageBase):
     def _extent(self):
         # matplotlib's field: the extent given (or `imshow` computed), None
         # while the size of the data gives it.
-        return self.__dict__.get("_given_values", {}).get("extent")
+        if "extent" not in self.__dict__.get("_given_values", {}):
+            return None
+        return self._own_extent()
 
     @_extent.setter
     def _extent(self, extent):
@@ -874,20 +898,54 @@ class AxesImage(_ImageBase):
             _values.remember(self, "extent", extent)
         _native_image.assign_extent(
             self._native, None if extent is None else tuple(map(float, extent)))
+        _own_state.drop(self, "extent")
+        if isinstance(extent, list):
+            # The program's own list, as matplotlib keeps what it is assigned.
+            _own_state.keep(self, _EXTENT, extent)
         self.stale = True
 
     def get_extent(self):
         """Return the image extent as tuple (left, right, bottom, top)."""
+        # matplotlib keeps the extent it was given (or `imshow` computed)
+        # as the list ``[left, right, bottom, top]``: the image's own
+        # (`._own_state`), so that what a program changes in it is drawn.
+        # One it computes from the data's size is a new tuple each time.
+        return self._own_extent()
+
+    def _own_extent(self):
+        """The extent as `get_extent` of this class answers it (a class of
+        the program's may answer with ``_extent``, which reads this)."""
+        extent = self._read_extent()
+        if type(extent) is not list:
+            return extent
+        return _own_state.hand_out(self, _EXTENT)
+
+    def _read_extent(self):
+        """The extent as given, while pltrs (Rust) holds it, else as pltrs
+        (Rust) holds it."""
         if ("_A" in self.__dict__ and self._A is None
                 and "extent" not in self.__dict__.get("_given_values", {})):
             # matplotlib sizes an extent it was not given from the data.
             self.get_size()
-        # matplotlib keeps the extent it was given (or `imshow` computed)
-        # as the list ``[left, right, bottom, top]``.
         return _values.given(self, "extent", _native_image.get_extent(self._native))
 
+    def _extent_now(self):
+        """The extent, for the package's own code where matplotlib's calls
+        ``get_extent()``: not handed out (what `get_extent` hands a program
+        is the image's own from then on, `._own_state`), or what the method
+        of a class of the program's answers."""
+        if _answers_extent_itself(type(self)):
+            return self.get_extent()
+        return self._read_extent()
+
+    def _take_extent(self, extent):
+        """Hand pltrs (Rust) the extent handed out, which the program
+        changed in place: drawn from the next draw, the data limits left as
+        they are."""
+        _native_image.assign_extent(self._native, tuple(map(float, extent)))
+
     def get_window_extent(self, renderer=None):
-        x0, x1, y0, y1 = self._extent
+        x0, x1, y0, y1 = self._extent_now()
         bbox = Bbox.from_extents([x0, y0, x1, y1])
         return bbox.transformed(self.get_transform())
 
@@ -904,7 +962,7 @@ class AxesImage(_ImageBase):
             return None
         element = _native_image.cursor_element(
             self._native, float(event.x), float(event.y))
-        return None if element is None else self.get_array()[element]
+        return None if element is None else mcolorizer._array_of(self)[element]
 
     def set_extent(self, extent, **kwargs):
         """
@@ -934,9 +992,11 @@ class AxesImage(_ImageBase):
         _warn_identical_limits(self.axes, extent)
         _native_image.set_extent(self._native, extent)
         _values.remember(self, "extent", values)
+        if "_own_state" in self.__dict__:
+            _own_state.drop(self, "extent")
 
     def make_image(self, renderer, magnification=1.0, unsampled=False):
-        x1, x2, y1, y2 = self.get_extent()
+        x1, x2, y1, y2 = self._extent_now()
         trans = self.get_transform()
         over = None
         if any(takes_from_program(type(self), name)
@@ -1308,8 +1368,13 @@ class NonUniformImage(AxesImage):
         self._keep_data(A)
         self._Ax = x
         self._Ay = y
-        _native_image.set_grid_data(self._native, x.astype(float).tolist(),
-                                    y.astype(float).tolist(), _native_data(A))
+        self._array_set()
+
+    def _array_set(self):
+        # docstring inherited: the data on its grid.
+        _native_image.set_grid_data(
+            self._native, self._Ax.astype(float).tolist(), self._Ay.astype(float).tolist(),
+            _native_data(self._A))
 
     def set_array(self, *args):
         raise NotImplementedError('Method not supported')
@@ -1466,8 +1531,12 @@ class PcolorImage(AxesImage):
         self._keep_data(A)
         self._Ax = x
         self._Ay = y
-        _native_image.set_grid_data(self._native, x.tolist(), y.tolist(),
-                                    _native_data(A))
+        self._array_set()
+
+    def _array_set(self):
+        # docstring inherited: the data on its grid.
+        _native_image.set_grid_data(self._native, self._Ax.tolist(), self._Ay.tolist(),
+                                    _native_data(self._A))
 
     def set_array(self, *args):
         raise NotImplementedError('Method not supported')

@@ -303,6 +303,7 @@ class RcParams(MutableMapping, dict):
         self._keys = set()
         self._python = {}
         self._given = {}
+        self._lists = {}
         self.update(*args, **kwargs)
 
     @classmethod
@@ -316,6 +317,10 @@ class RcParams(MutableMapping, dict):
         # Immutable values read, by key, with the generation of the
         # parameters they were read from (`_rcsetup.generation`).
         params._read = {}
+        # The lists handed out (see `_kept_list`): pltrs (Rust) looks at
+        # those of the current parameters before every native call, which
+        # may read them, and has them taken once one changed.
+        params._lists = _rcsetup.watch_lists({}, params._take_changed_lists)
         return params
 
     def _has(self, key):
@@ -331,6 +336,9 @@ class RcParams(MutableMapping, dict):
         if _kept_in_python(key):
             self._python[key] = val
             return
+        # A new value: the list handed out before, if any, is the
+        # parameter's no more.
+        self._lists.pop(key, None)
         if key == "path.effects":
             # Path effect objects, which rc text cannot spell.
             _patheffects.set_rc_path_effects(
@@ -379,6 +387,14 @@ class RcParams(MutableMapping, dict):
 
     def _get(self, key):
         """Get *key* without the deprecation checks (matplotlib's ``_get``)."""
+        lists = self._lists
+        if lists:
+            # What a program changed in the lists it holds is the parameters
+            # before any is read; the lists it holds no more are forgotten.
+            self._take_changed_lists()
+            kept = lists.get(key)
+            if kept is not None:
+                return self._kept_list(key, kept)
         if self._store is not None or (key not in _HELD_NATIVELY and _kept_in_python(key)):
             return self._get_uncached(key)
         # The current parameters: a value read before holds until they change.
@@ -406,6 +422,71 @@ class RcParams(MutableMapping, dict):
             return text
         given, held = self._given.get(key, (text, text))
         return validator(given if held == text else text)
+
+    # matplotlib's parameters are the objects of a dict, so a list read
+    # from it is the parameter itself: ``rcParams["font.sans-serif"].insert(0,
+    # name)`` and ``rcParams["figure.figsize"][0] = width`` change it. pltrs
+    # (Rust) holds the parameters, so a list handed out (`__getitem__`) is
+    # kept with a copy of what it held and the rc text pltrs (Rust) then
+    # held: read again, it is the same list while pltrs (Rust) holds that
+    # text, and what the program changed in it is taken first (`_take_list`),
+    # as it is before any native call for the current parameters.
+    #
+    # A list is kept only while a program can change it: once nothing but
+    # the record holds it (its reference count says so), it is forgotten,
+    # at the next read of any parameter or the next look
+    # (`_take_changed_lists`). The package's own code reads list parameters
+    # with `_get`, which keeps nothing, and so does a read by item that
+    # walks all the parameters in their order (``dict(rcParams)``,
+    # ``rcParams.items()``, `__repr__`: copies of them all, whose lists are
+    # the copy's). A program changing no list in place has none looked at.
+
+    #: The keys the last iteration gave and how many of them were read by
+    #: item in that order since (a copy by item in progress), or None.
+    _walk = None
+
+    def _keep_list(self, key, value):
+        """Keep the list *value*, read as *key* and handed to the program,
+        as the parameter itself."""
+        self._lists[key] = [value, list(value), _rcsetup.text(self._store, key)]
+
+    def _kept_list(self, key, kept):
+        """The list handed out as *key*, *kept* with what it held: taken
+        first if the program changed it, and read anew once the parameter
+        was set by another way (a style, the end of an `rc_context`)."""
+        if _rcsetup.text(self._store, key) != kept[2]:
+            self._lists.pop(key, None)
+            return self._get(key)
+        if kept[0] != kept[1]:
+            self._take_list(key, kept)
+        return kept[0]
+
+    def _take_list(self, key, kept):
+        """Hand pltrs (Rust) what the list handed out as *key* holds now. A
+        content matplotlib's validator refuses stays the list's alone, pltrs
+        (Rust) keeping what it had (matplotlib keeps it unchecked, and fails
+        where it uses it)."""
+        kept[1] = list(kept[0])
+        try:
+            self._set(key, self.validate[key](list(kept[0])))
+        except (TypeError, ValueError):
+            pass
+        kept[2] = _rcsetup.text(self._store, key)
+        self._lists[key] = kept
+
+    def _take_changed_lists(self):
+        """`_take_list` every list handed out that the program changed,
+        unless it is the parameter no more (it was set by another way
+        since: the list is nobody's, whatever it holds), and forget the
+        lists no program holds any longer, which nothing can change."""
+        for key, kept in list(self._lists.items()):
+            if kept[0] != kept[1]:
+                if _rcsetup.text(self._store, key) != kept[2]:
+                    self._lists.pop(key, None)
+                    continue
+                self._take_list(key, kept)
+            if sys.getrefcount(kept[0]) <= _UNHELD:
+                self._lists.pop(key, None)
 
     def __setitem__(self, key, val):
         if (key == "backend" and val is rcsetup._auto_backend_sentinel
@@ -436,7 +517,18 @@ class RcParams(MutableMapping, dict):
             if val is rcsetup._auto_backend_sentinel:
                 from . import pyplot as plt
                 plt.switch_backend(rcsetup._auto_backend_sentinel)
-        return self._get(key)
+        walk = self._walk
+        if walk is not None:
+            keys, read = walk
+            if read < len(keys) and keys[read] == key:
+                # A copy by item of all the parameters: its lists are its own.
+                walk[1] = read + 1
+                return self._get(key)
+            self._walk = None
+        value = self._get(key)
+        if type(value) is list and key not in self._lists and not _kept_in_python(key):
+            self._keep_list(key, value)
+        return value
 
     def _get_backend_or_none(self):
         """Get the requested backend, if any, without triggering resolution."""
@@ -484,7 +576,11 @@ class RcParams(MutableMapping, dict):
     def __iter__(self):
         """Yield sorted list of keys."""
         keys = _NATIVE_KEYS if self._keys is None else self._keys
-        yield from sorted(keys | self._python.keys())
+        keys = sorted(keys | self._python.keys())
+        # Reads by item in this order are a copy of all the parameters
+        # (see `__getitem__`).
+        self._walk = [keys, 0]
+        yield from keys
 
     def __len__(self):
         return sum(1 for _ in self)
@@ -512,6 +608,7 @@ class RcParams(MutableMapping, dict):
     def _update_from(self, other, keys):
         """Copy *keys* of the `RcParams` *other* into this one."""
         native = [key for key in keys if not _kept_in_python(key)]
+        other._take_changed_lists()
         _rcsetup.update_from(self._store, other._store, native)
         if self._keys is not None:
             self._keys.update(native)
@@ -576,7 +673,20 @@ class RcParams(MutableMapping, dict):
         params._keys = {key for key in self if not _kept_in_python(key)}
         params._python = dict(self._python)
         params._given = dict(self._given)
+        params._lists = {}
         return params
+
+
+def _count_unheld():
+    """The reference count `sys.getrefcount` gives a list that only a
+    record of `RcParams._lists` holds, counted as `_take_changed_lists`
+    counts it (the interpreter's own references differ by version)."""
+    kept = [[], [], ""]
+    return sys.getrefcount(kept[0])
+
+
+#: See `_count_unheld`.
+_UNHELD = _count_unheld()
 
 
 def _of(store):
@@ -586,6 +696,7 @@ def _of(store):
     params._keys = set(_NATIVE_KEYS)
     params._python = dict(_PYTHON_PARAMS)
     params._given = {}
+    params._lists = {}
     return params
 
 
@@ -758,8 +869,13 @@ def rc_context(rc=None, fname=None):
             plt.plot(x, y)
 
     """
+    rcParams._take_changed_lists()
     saved = _rcsetup.copy(None)
     given = dict(rcParams._given)
+    # The lists handed out are the parameters again once the context ends,
+    # with what the program changed in them meanwhile, as matplotlib puts
+    # back the very objects.
+    lists = {key: (kept[0], list(kept[1]), kept[2]) for key, kept in rcParams._lists.items()}
     # The parameters kept in Python, programs' own among them, which
     # matplotlib restores too (not the backend, which it leaves as chosen).
     added = {key: value for key, value in rcParams._python.items()
@@ -774,6 +890,11 @@ def rc_context(rc=None, fname=None):
         _rcsetup.replace(saved)
         rcParams._given = given
         rcParams._python.update(added)
+        rcParams._lists.clear()
+        for key, (handed, taken, text) in lists.items():
+            kept = rcParams._lists[key] = [handed, taken, text]
+            if handed != taken:
+                rcParams._take_list(key, kept)
 
 
 def _local_path(fname):
@@ -1132,7 +1253,7 @@ def _val_or_rc(val, rc_name):
     """
     If *val* is None, the value of :rc:`rc_name`, else *val*.
     """
-    return val if val is not None else rcParams[rc_name]
+    return val if val is not None else rcParams._get(rc_name)
 
 
 def _init_tests():

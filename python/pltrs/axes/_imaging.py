@@ -23,7 +23,7 @@ _program_adds = _lazy_imports.module(globals(), "._program_adds")
 def _rc(key):
     """The rcParam *key* (imported when first needed)."""
     from .. import rcParams
-    return rcParams[key]
+    return rcParams._get(key)
 
 
 class ImagingMixin:

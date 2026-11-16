@@ -196,6 +196,26 @@ impl Table {
         }
     }
 
+    /// Takes the cell at `(row, column)` out of the table, which lays its
+    /// rows and columns out without it at the next draw (matplotlib's
+    /// programs delete the cell from `get_celld()`); whether there was one.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::table::TableOptions;
+    /// let ax = Figure::new().subplot();
+    /// let table = ax.table(TableOptions::with_text(vec![vec!["a".into(), "b".into()]]))?;
+    /// assert!(table.remove_cell(0, 1));
+    /// assert_eq!(table.cell_keys(), [(0, 0)]);
+    /// assert!(!table.remove_cell(0, 1));
+    /// # Ok::<(), pltrs::table::TableError>(())
+    /// ```
+    pub fn remove_cell(&self, row: i32, column: i32) -> bool {
+        let mut removed = false;
+        self.update(|t| removed = t.remove_cell(row, column));
+        removed
+    }
+
     /// The cell at `(row, column)`, if there is one (matplotlib's
     /// `table[row, col]`).
     ///

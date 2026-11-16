@@ -21,7 +21,7 @@ import numpy as np
 
 from . import _docstring
 from . import (_api, _artist_copying, _lazy_imports, _live_transforms,
-               _program_paths, _unusable, _values, cbook,
+               _own_state, _unusable, _values, cbook,
                colorizer as mcolorizer, colors as mcolors, lines as mlines, path as mpath,
                transforms as mtransforms)
 from ._enums import CapStyle, JoinStyle
@@ -30,14 +30,18 @@ from ._program_classes import takes_from_program
 from ._native import artist as _artist, collections as _collections
 from ._native import tri as _tri
 
-_changing_arrays = _lazy_imports.module(globals(), "._changing_arrays")
 from .artist import Artist, _check_array_alpha, allow_rasterization
 from .path import Path
 
 _collection_arguments = _lazy_imports.module(globals(), "._collection_arguments")
 _collection_draw_checks = _lazy_imports.module(globals(), "._collection_draw_checks")
-_owned_paths = _lazy_imports.module(globals(), "._owned_paths")
 _refused_colors = _lazy_imports.module(globals(), "._refused_colors")
+# The states collections keep as objects of their own (`._own_state`).
+_state = _lazy_imports.module(globals(), "._collection_state", "_state")
+
+#: The attribute of a collection whose state was handed out or kept as an
+#: object (`._own_state`): a setter binding a new object forgets the old.
+_OWN = _own_state.RECORDS
 
 
 def _rcParams():
@@ -49,14 +53,6 @@ def _rcParams():
 def _rgba(colors):
     """*colors* (one colour or a sequence) as an ``(N, 4)`` RGBA array."""
     return mcolors.to_rgba_array(colors)
-
-
-def _same_paths(kept, native):
-    """Whether the native paths *native*, ``(vertices, codes)`` pairs, are
-    those *kept* were read as."""
-    return len(kept) == len(native) and all(
-        np.array_equal(v0, v1) and np.array_equal(c0, c1)
-        for (v0, c0), (v1, c1) in zip(kept, native))
 
 
 def _edge_spec(colors):
@@ -114,7 +110,7 @@ def _same_linestyles(given, native):
     def pattern(style):
         offset, dashes = mlines._get_dash_pattern(style)
         return offset, None if dashes is None else list(dashes)
-    return (len(given) > 0 and len(native) % len(given) == 0
+    return (len(given) > 0 and len(native) > 0 and len(native) % len(given) == 0
             and all(pattern(given[i % len(given)]) == pattern(style)
                     for i, style in enumerate(native)))
 
@@ -521,6 +517,10 @@ class Collection(mcolorizer.ColorizingArtist):
             _collections.set_offset_transform(
                 self._native, _live_transforms.to_native(offset_transform))
             _unusable.drop(self, "offset_transform")
+            if (getattr(offset_transform, "_live", None) is None
+                    or "_offset_watcher" in self.__dict__):
+                # One the program may change afterwards.
+                _live_transforms.watch_set(self, offset_transform, "offset")
         else:
             # matplotlib keeps it, and fails to use it as it draws and
             # measures the collection; pltrs (Rust) keeps the one it had.
@@ -589,33 +589,42 @@ class Collection(mcolorizer.ColorizingArtist):
             return unit_paths
         if _values.is_kept(self, "paths"):
             return self.__dict__["_given_values"]["paths"]
-        native = _collections.get_paths(self._native)
-        kept = self.__dict__.get("_kept_paths")
-        if kept is not None and _same_paths(kept[0], native):
-            return kept[1]
-        paths = [Path(vertices, codes) for vertices, codes in native]
-        if _collections.has_single_path(self._native):
-            paths = paths[0]
-            _owned_paths.hand_out([paths], self._push_kept_paths)
-        else:
-            paths = self._paths_container(paths)
-            if paths is not None:
-                _owned_paths.hand_out(paths, self._push_kept_paths)
-        self._kept_paths = (native, paths)
-        return paths
+        # The collection's own, as matplotlib's ``_paths``: the same
+        # sequence of the same paths while pltrs (Rust) draws them.
+        return _own_state.hand_out(self, _state.PATHS)
 
-    def _push_kept_paths(self):
-        """Hand pltrs (Rust) the paths handed out again, one of which the
-        program changed (see `._owned_paths`); they stay those handed out."""
-        kept = self.__dict__.get("_kept_paths")
-        if kept is None:
-            return
-        paths = kept[1]
-        if isinstance(paths, Path):
-            _collections.set_single_path(self._native, paths)
-        else:
-            _collections.set_paths(self._native, list(paths))
-        self._kept_paths = (_collections.get_paths(self._native), paths)
+    #: Which arrays of the paths pltrs (Rust) made are read-only, as those
+    #: of matplotlib's collection are: None, ``"codes"`` (paths made by
+    #: transforming a shared unit path, whose codes they share) or
+    #: ``"all"`` (the shared unit paths themselves).
+    _paths_read_only = None
+
+    def _read_paths(self):
+        """The paths pltrs (Rust) draws, as new `.Path` objects in the kind
+        of sequence matplotlib's collection keeps them in (the path itself
+        for a collection given one path)."""
+        paths = [Path(vertices, codes)
+                 for vertices, codes in _collections.get_paths(self._native)]
+        read_only = self._paths_read_only
+        if read_only is not None:
+            for path in paths:
+                if path._codes is not None:
+                    path._codes.flags.writeable = False
+                if read_only == "all":
+                    path._vertices.flags.writeable = False
+                    path._readonly = True
+        if _collections.has_single_path(self._native):
+            return paths[0]
+        return self._paths_container(paths)
+
+    def _keep_given_paths(self, paths):
+        """Keep *paths*, the sequence of `.Path` objects the collection was
+        just given, as its own, as matplotlib's collection keeps it: what
+        the program changes of it later (the list, the vertices and codes
+        of a path) is drawn. A tuple of read-only paths cannot change."""
+        if isinstance(paths, list) or (isinstance(paths, tuple) and not all(
+                path._readonly for path in paths)):
+            _own_state.keep(self, _state.PATHS, paths)
 
     # matplotlib's attribute, which subclasses of the program's set
     # themselves (its base `set_paths` refuses).
@@ -642,12 +651,12 @@ class Collection(mcolorizer.ColorizingArtist):
         else:
             self._paths_container = _paths_container(paths)
             _collections.set_paths(self._native, [] if paths is None else list(paths))
-        self.__dict__.pop("_kept_paths", None)
-        if isinstance(paths, list) and all(isinstance(path, Path) for path in paths):
-            # The list itself, as matplotlib's collection keeps it.
-            _owned_paths.hand_out(paths, self._push_kept_paths)
-            self._kept_paths = (_collections.get_paths(self._native), paths)
-        _program_paths.keep(self, None if isinstance(paths, Path) else paths)
+        _own_state.drop(self, "paths")
+        if isinstance(paths, Path):
+            if not paths._readonly:
+                _own_state.keep(self, _state.PATHS, paths)
+        elif paths is not None:
+            self._keep_given_paths(paths)
 
     def _push_computed(self):
         """Hand pltrs (Rust) the paths a class of the program's gives (its
@@ -664,6 +673,11 @@ class Collection(mcolorizer.ColorizingArtist):
             _collections.set_paths(self._native, list(paths))
 
     def get_transforms(self):
+        # The collection's own array, as matplotlib's ``_transforms``.
+        return _own_state.hand_out(self, _state.TRANSFORMS)
+
+    def _read_transforms(self):
+        """The shape transform of each item now, as a new array."""
         assigned = self.__dict__.get("_assigned_transforms")
         if assigned is not None and assigned[0] == _artist.draw_count(self._native):
             # Assigned to a collection with sizes, whose next draw sets them
@@ -689,7 +703,7 @@ class Collection(mcolorizer.ColorizingArtist):
         # ``(n, 3, 3)`` array a program assigns and fills in place
         # (matplot2tikz's collection of transformed ellipses), drawn by
         # a collection without sizes.
-        return _changing_arrays.ChangingArray(self.get_transforms(), self._push_transforms)
+        return self.get_transforms()
 
     @_transforms.setter
     def _transforms(self, matrices):
@@ -698,23 +712,23 @@ class Collection(mcolorizer.ColorizingArtist):
     def _push_transforms(self, matrices):
         """Draw the items with the shape transforms *matrices*, which a
         collection with sizes reads back until its next draw."""
-        matrices = np.array(matrices, dtype=float)
+        _own_state.drop(self, "transforms")
+        self._take_transforms(np.array(matrices, dtype=float))
+        self.stale = True
+
+    def _take_transforms(self, matrices):
+        """Hand pltrs (Rust) the shape transforms *matrices* (an array)."""
         native = matrices.reshape(-1, 3, 3) if matrices.size else matrices.ravel()
         _collections.set_transforms(self._native, native)
         if _collections.get_sizes(self._native) is not None:
             self.__dict__["_assigned_transforms"] = (_artist.draw_count(self._native), matrices)
-        self.stale = True
 
     def get_offsets(self):
         """Return the offsets for the collection."""
         if not self._has_offsets():
             return np.zeros((1, 2))
-        offsets, masked = _collections.get_offsets(self._native)
-        # A collection made with its offsets (barbs) keeps their dtype.
-        dtype = self.__dict__.get("_offsets_dtype")
-        if dtype is not None and not masked:
-            offsets = offsets.astype(dtype, copy=False)
-        return np.ma.masked_invalid(offsets) if masked else offsets
+        # The collection's own array, as matplotlib's ``_offsets``.
+        return _own_state.hand_out(self, _state.OFFSETS)
 
     def _has_offsets(self):
         """Whether the items are placed at offsets (matplotlib's ``_offsets
@@ -725,8 +739,8 @@ class Collection(mcolorizer.ColorizingArtist):
         return self.get_datalim(mtransforms.IdentityTransform())
 
     def _add_to_axes(self, axes, kind, autolim=True):
-        # The data limits come from the paths as they are now.
-        _program_paths.sync(self)
+        # (The data limits come from the paths as they are now: the
+        # collection hands them over before it is added, `._own_state`.)
         super()._add_to_axes(axes, kind, autolim)
         if autolim and any(takes_from_program(type(self), name)
                            for name in ("get_paths", "get_datalim")):
@@ -827,6 +841,8 @@ class Collection(mcolorizer.ColorizingArtist):
         _collections.set_offsets(
             self._native, np.ma.filled(offsets, np.nan).reshape(-1, 2), masked)
         self.__dict__.pop("_offsets_dtype", None)
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "offsets")
 
     def get_pickradius(self):
         return _values.given(self, "pickradius",
@@ -879,13 +895,8 @@ class Collection(mcolorizer.ColorizingArtist):
         The list contains *None* for elements without a URL. See
         :doc:`/gallery/misc/hyperlinks_sgskip` for an example.
         """
-        if _values.is_kept(self, "urls"):
-            return _values.given(self, "urls", None)
-        urls = _collections.get_urls(self._native)
-        # A collection starts with `[None]` (matplotlib's `set_urls(None)`).
-        if not urls and "urls" not in self.__dict__.get("_given_values", {}):
-            return [None]
-        return urls
+        # The collection's own list, as matplotlib's ``_urls``.
+        return _own_state.hand_out(self, _state.URLS)
 
     def set_urls(self, urls):
         """
@@ -898,10 +909,16 @@ class Collection(mcolorizer.ColorizingArtist):
         URLs are currently only implemented by the SVG backend. They are
         ignored by all other backends.
         """
+        given = urls
         urls = urls if urls is not None else [None]
         # Kept as given (matplotlib writes any object as its text).
         _collections.set_urls(self._native, [None if url is None else str(url) for url in urls])
         _values.keep(self, "urls", urls)
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "urls")
+        if isinstance(given, list):
+            # The program's list itself, as matplotlib keeps it.
+            _own_state.keep(self, _state.URLS, given)
 
     def get_path_effects(self):
         """Return the path effects (None until set, as matplotlib's
@@ -963,7 +980,13 @@ class Collection(mcolorizer.ColorizingArtist):
         _unusable.drop(self, "hatch_linewidth")
 
     def get_hatchcolor(self):
-        return self._get("hatchcolor")
+        if self._get("hatchcolor_setting") == "edge":
+            # The edge colours themselves, or a new array of the default
+            # edge colour for a collection without edges, as matplotlib's.
+            edges = self.get_edgecolor()
+            return self._get("hatchcolor") if len(edges) == 0 else edges
+        # The collection's own array, as matplotlib's ``_hatchcolors``.
+        return _own_state.hand_out(self, _state.HATCHCOLORS)
 
     def set_hatchcolor(self, c):
         """
@@ -979,6 +1002,8 @@ class Collection(mcolorizer.ColorizingArtist):
             c = _rcParams()['hatch.color']
         _collections.set_hatchcolors(
             self._native, c if cbook._str_equal(c, 'edge') else _rgba(c))
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "hatchcolors")
 
     @_docstring.interpd
     def get_capstyle(self):
@@ -1025,7 +1050,17 @@ class Collection(mcolorizer.ColorizingArtist):
         _collections.set_joinstyle(self._native, JoinStyle(js).name)
 
     def get_linewidth(self):
+        # The collection's own, as matplotlib's ``_linewidths``.
+        return _own_state.hand_out(self, _state.LINEWIDTHS)
+
+    def _read_linewidth(self):
+        """The line widths, broadcast as matplotlib's ``_bcast_lwls`` does."""
         return self._lwls()[0]
+
+    def _take_linewidth(self, widths):
+        """Hand pltrs (Rust) the line *widths* handed out, which the program
+        changed in place."""
+        _collections.set_linewidths(self._native, [float(width) for width in widths])
 
     def set_linewidth(self, lw):
         """
@@ -1040,6 +1075,11 @@ class Collection(mcolorizer.ColorizingArtist):
         if lw is None:
             lw = self._get_default_linewidth()
         lw = np.atleast_1d(lw)
+        if _OWN in self.__dict__:
+            # matplotlib binds new widths and new dash patterns, scaled by
+            # them (``_bcast_lwls``); so `set_linestyle`.
+            _own_state.drop(self, "linewidths")
+            _own_state.drop(self, "linestyles")
         # matplotlib scales the dash patterns by the widths, failing on
         # widths that are no numbers.
         bcast, _ = self._bcast_lwls(lw, [mlines._get_dash_pattern(style)
@@ -1074,7 +1114,8 @@ class Collection(mcolorizer.ColorizingArtist):
                 _collection_draw_checks.no_linewidths, self), measured=False)
 
     def get_linestyle(self):
-        return self._lwls()[1]
+        # The collection's own list, as matplotlib's ``_linestyles``.
+        return _own_state.hand_out(self, _state.LINESTYLES)
 
     def set_linestyle(self, ls):
         """
@@ -1120,6 +1161,9 @@ class Collection(mcolorizer.ColorizingArtist):
         """
         styles = _checked_linestyles(ls)
         _collections.set_linestyles(self._native, [_native_style(s) for s in styles])
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "linestyles")
+            _own_state.drop(self, "linewidths")
         # matplotlib scales the dash patterns as given (ints stay ints).
         _values.remember(self, "linestyle", styles)
 
@@ -1195,6 +1239,11 @@ class Collection(mcolorizer.ColorizingArtist):
         -------
         array of bools
         """
+        # The collection's own array, as matplotlib's ``_antialiaseds``.
+        return _own_state.hand_out(self, _state.ANTIALIASEDS)
+
+    def _read_antialiased(self):
+        """The antialiasing flag of each item, as a new array."""
         antialiased = self._get("antialiased")
         if antialiased is None:
             antialiased = [_rcParams()['patch.antialiased']]
@@ -1212,6 +1261,8 @@ class Collection(mcolorizer.ColorizingArtist):
             aa = _rcParams()['patch.antialiased']
         _collections.set_antialiaseds(
             self._native, [bool(a) for a in np.atleast_1d(aa)])
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "antialiaseds")
 
     def get_fill(self):
         """Return whether face is colored."""
@@ -1233,14 +1284,25 @@ class Collection(mcolorizer.ColorizingArtist):
         self.stale = True
 
     def get_facecolor(self):
-        # The field assigned (`_facecolors`) as it was, while drawn.
+        # The collection's own array, as matplotlib's ``_facecolors``.
+        return _own_state.hand_out(self, _state.FACECOLORS)
+
+    def _read_facecolor(self):
+        """The face colours as drawn: the field assigned (`_facecolors`) as
+        it was, while drawn, else a new array."""
         return _values.given(self, "_facecolors", self._get("facecolor"))
+
+    def _forget_colors(self):
+        """Forget the colour arrays handed out: matplotlib's setter of a
+        colour, of the alpha or of the values binds new ones."""
+        for name in ("facecolors", "edgecolors", "hatchcolors"):
+            _own_state.drop(self, name)
 
     @property
     def _facecolors(self):
         """The RGBA face colours, as drawn (matplotlib's ``_facecolors``,
-        which `get_facecolor` gives)."""
-        return self.get_facecolor()
+        which `get_facecolor` gives, a mesh's flattened)."""
+        return Collection.get_facecolor(self)
 
     @_facecolors.setter
     def _facecolors(self, colors):
@@ -1248,6 +1310,8 @@ class Collection(mcolorizer.ColorizingArtist):
         # unless the items are colour-mapped, whose draw maps them again.
         _collections.set_facecolors(self._native, _rgba(colors))
         _values.remember(self, "_facecolors", colors)
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "facecolors")
         self.stale = True
 
     def set_facecolor(self, c):
@@ -1268,10 +1332,21 @@ class Collection(mcolorizer.ColorizingArtist):
         _refused_colors.take(self, "facecolor", c, lambda: _collections.set_facecolors(
             self._native, None if c is None else _rgba(c)))
         self._face_fill = not cbook._str_lower_equal(c, "none")
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "facecolors")
 
     def get_edgecolor(self):
-        # The field assigned (`_edgecolors`) as it was, while drawn.
-        return _values.given(self, "_edgecolors", self._get("edgecolor"))
+        if cbook._str_equal(self._get("edgecolor_setting"), "face"):
+            # The face colours themselves, as matplotlib's.
+            return self.get_facecolor()
+        # The collection's own array, as matplotlib's ``_edgecolors``.
+        return _own_state.hand_out(self, _state.EDGECOLORS)
+
+    def _read_edgecolor(self):
+        """The edge colours as drawn: the field assigned (`_edgecolors`) as
+        it was, while drawn, else a new array."""
+        return _state.shown_until_drawn(self, "edgecolors", _values.given(
+            self, "_edgecolors", self._get("edgecolor")))
 
     @property
     def _offsets(self):
@@ -1296,13 +1371,15 @@ class Collection(mcolorizer.ColorizingArtist):
         `get_edgecolor` gives in RGBA)."""
         if cbook._str_equal(self._get("edgecolor_setting"), "face"):
             return "face"
-        return self.get_edgecolor()
+        return Collection.get_edgecolor(self)
 
     @_edgecolors.setter
     def _edgecolors(self, colors):
         # Assigned as matplotlib's field is: RGBA colours, or 'face'.
         _collections.set_edgecolors(self._native, _edge_spec(colors))
         _values.remember(self, "_edgecolors", colors)
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "edgecolors")
         self.stale = True
 
     def set_edgecolor(self, c):
@@ -1319,6 +1396,8 @@ class Collection(mcolorizer.ColorizingArtist):
             c = c.lower()
         _refused_colors.take(self, "edgecolor", c, lambda: _collections.set_edgecolors(
             self._native, _edge_spec(c)))
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "edgecolors")
         if c is None and "_original_facecolor" in self.__dict__:
             # matplotlib decides from the face colour given last, which a
             # colour it refused still is.
@@ -1347,6 +1426,8 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def set_alpha(self, alpha):
         _check_array_alpha(alpha)
+        if _OWN in self.__dict__:
+            self._forget_colors()
         if np.iterable(alpha):
             alpha = np.asarray(alpha, dtype=float)
             # The array itself comes back, as matplotlib keeps it, even
@@ -1411,9 +1492,8 @@ class _CollectionWithSizes(Collection):
         array
             The 'area' of each element.
         """
-        sizes = _collections.get_sizes(self._native)
-        return _unusable.kept(self, "sizes", _values.given(
-            self, "sizes", np.zeros(0) if sizes is None else sizes))
+        # The collection's own array, as matplotlib's ``_sizes``.
+        return _own_state.hand_out(self, _state.SIZES)
 
     def set_sizes(self, sizes, dpi=72.0):
         """
@@ -1427,9 +1507,13 @@ class _CollectionWithSizes(Collection):
         dpi : float, default: 72
             The dpi of the canvas.
         """
+        given = sizes
         if sizes is None:
             sizes = np.array([])
         sizes = np.asarray(sizes)
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "sizes")
+            _own_state.drop(self, "transforms")
         try:
             # matplotlib's scales of the items, which fail and warn on
             # sizes that are no numbers or negative, the sizes kept.
@@ -1451,6 +1535,10 @@ class _CollectionWithSizes(Collection):
                 _collection_draw_checks.no_sizes, self), measured=False)
         # The resolution the items are scaled at until the next draw.
         self._sizes_scaled = (float(dpi), _artist.draw_count(self._native))
+        if isinstance(given, np.ndarray):
+            # The program's own array, which matplotlib keeps (a view of
+            # it, of another kind of array) and scales by at every draw.
+            _own_state.keep(self, _state.SIZES, sizes)
 
     @allow_rasterization
     def draw(self, renderer):
@@ -1487,8 +1575,9 @@ class PathCollection(_CollectionWithSizes):
         if held is None:
             # matplotlib keeps them as given.
             self.set_paths(paths)
+        elif paths is not None:
+            self._keep_given_paths(paths)
         self.set_sizes(sizes)
-        _program_paths.keep(self, paths)
 
     def get_paths(self):
         return super().get_paths()
@@ -1559,7 +1648,7 @@ class PathCollection(_CollectionWithSizes):
         from . import rcParams, ticker as mticker
         handles = []
         labels = []
-        hasarray = self.get_array() is not None
+        hasarray = mcolorizer._array_of(self) is not None
         if fmt is None:
             fmt = mticker.ScalarFormatter(useOffset=False, useMathText=True)
         elif isinstance(fmt, str):
@@ -1572,7 +1661,7 @@ class PathCollection(_CollectionWithSizes):
                               "specify the values to be colormapped via the "
                               "`c` argument.")
                 return handles, labels
-            u = np.unique(self.get_array())
+            u = np.unique(mcolorizer._array_of(self))
             size = kwargs.pop("size", rcParams["lines.markersize"])
         elif prop == "sizes":
             u = np.unique(self.get_sizes())
@@ -1593,7 +1682,7 @@ class PathCollection(_CollectionWithSizes):
             label_values = func(values)
         else:
             if prop == "colors":
-                arr = self.get_array()
+                arr = mcolorizer._array_of(self)
             elif prop == "sizes":
                 arr = self.get_sizes()
             if isinstance(num, mticker.Locator):
@@ -1684,7 +1773,8 @@ class PolyCollection(_CollectionWithSizes):
             connection at the end.
         """
         # New paths, as matplotlib makes them.
-        self.__dict__.pop("_kept_paths", None)
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "paths")
         if not closed:
             _collections.set_segments(self._native, _polygon_vertices(verts, closed))
             return
@@ -1954,6 +2044,8 @@ class RegularPolyCollection(_CollectionWithSizes):
     """A collection of n-sided regular polygons."""
 
     _path_generator = mpath.Path.unit_regular_polygon
+    # (matplotlib's shared unit polygon, which is read-only.)
+    _paths_read_only = "all"
 
     def __init__(self, numsides, *, rotation=0, sizes=(1,), **kwargs):
         """
@@ -2100,7 +2192,8 @@ class LineCollection(Collection):
             return
         _collections.set_segments(self._native, [_path_vertices(seg) for seg in segments])
         # New paths, as matplotlib makes them.
-        self.__dict__.pop("_kept_paths", None)
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "paths")
 
     set_verts = set_segments  # for compatibility with PolyCollection
     set_paths = set_segments
@@ -2139,6 +2232,10 @@ class LineCollection(Collection):
         return 'none'
 
     def get_antialiased(self):
+        return super().get_antialiased()
+
+    def _read_antialiased(self):
+        # docstring inherited
         antialiased = self._get("antialiased")
         if antialiased is None:
             antialiased = [_rcParams()['lines.antialiased']]
@@ -2382,6 +2479,9 @@ class EventCollection(LineCollection):
 class CircleCollection(_CollectionWithSizes):
     """A collection of circles, drawn using splines."""
 
+    # (matplotlib's shared unit circle, which is read-only.)
+    _paths_read_only = "all"
+
     def __init__(self, sizes, **kwargs):
         """
         Parameters
@@ -2571,6 +2671,10 @@ class PatchCollection(Collection):
     collection of patches.
     """
 
+    # (The patches' paths transformed, whose codes are theirs: those of
+    # matplotlib's shared unit paths, for most patches.)
+    _paths_read_only = "codes"
+
     def __init__(self, patches, *, match_original=False, **kwargs):
         """
         Parameters
@@ -2628,7 +2732,8 @@ class PatchCollection(Collection):
         _collections.set_paths(self._native, [
             p.get_transform().transform_path(p.get_path()) for p in patches])
         # New paths, as matplotlib makes them.
-        self.__dict__.pop("_kept_paths", None)
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "paths")
 
 
 class TriMesh(Collection):
@@ -2787,7 +2892,7 @@ class _MeshData:
         ], axis=2).reshape((-1, 3, 2))
 
         c = self.get_facecolor().reshape((*coordinates.shape[:2], 4))
-        z = self.get_array()
+        z = mcolorizer._array_of(self)
         mask = z.mask if np.ma.is_masked(z) else None
         if mask is not None:
             c[mask, 3] = np.nan
@@ -2964,7 +3069,7 @@ class QuadMesh(_MeshData, Collection):
         # Make the paths of the mesh's quadrilaterals from its coordinates
         # anew (pltrs (Rust) makes them from the coordinates whenever they are
         # read): `get_paths` hands out new ones.
-        self.__dict__.pop("_kept_paths", None)
+        _own_state.drop(self, "paths")
         self.stale = True
 
     def get_datalim(self, transData):
@@ -2979,8 +3084,8 @@ class QuadMesh(_MeshData, Collection):
 
     def get_cursor_data(self, event):
         contained, info = self.contains(event)
-        if contained and self.get_array() is not None:
-            return self.get_array().ravel()[info["ind"]]
+        if contained and mcolorizer._array_of(self) is not None:
+            return mcolorizer._array_of(self).ravel()[info["ind"]]
         return None
 
     def get_pickradius(self):
@@ -3005,16 +3110,22 @@ class QuadMesh(_MeshData, Collection):
         # set. matplotlib's mesh draws with the antialiasing it was made
         # with (``pcolormesh(antialiased=...)``, `_antialiased`), which this
         # does not read.
-        return np.array(self.__dict__.get(
-            "_antialiaseds", [_rcParams()['patch.antialiased']]), dtype=bool)
+        return _own_state.hand_out(self, _state.MESH_ANTIALIASEDS)
 
     get_antialiased.__doc__ = Collection.get_antialiased.__doc__
+
+    def _read_antialiased(self):
+        # docstring inherited
+        return np.array(self.__dict__.get(
+            "_antialiaseds", [_rcParams()['patch.antialiased']]), dtype=bool)
 
     def set_antialiased(self, aa):
         # Sets the antialiasing `get_antialiased` reads.
         if aa is None:
             aa = _rcParams()['patch.antialiased']
         self._antialiaseds = [bool(a) for a in np.atleast_1d(aa)]
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "antialiaseds")
 
     set_antialiased.__doc__ = Collection.set_antialiased.__doc__
 

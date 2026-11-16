@@ -56,7 +56,7 @@ def _val_or_rc(val, *rc_names):
     if val is not None:
         return val
     for name in rc_names:
-        if (val := _rcParams()[name]) is not None:
+        if (val := _rcParams()._get(name)) is not None:
             return val
     return val
 

@@ -138,6 +138,25 @@ impl<S: PatchShape> Patch<S> {
         self.update(|p| p.program_path = path)
     }
 
+    /// The outline the patch draws in place of its shape's, if it was given
+    /// one ([`set_program_path`](Self::set_program_path)): the path, in the
+    /// coordinates its placement maps from.
+    ///
+    /// ```
+    /// use pltrs::patches::Rectangle;
+    /// use pltrs::path::Path;
+    /// use pltrs::prelude::*;
+    /// use pltrs::transforms::{Affine2D, Point};
+    /// let patch = Figure::new().subplot().add_patch(Rectangle::new((0.0, 0.0), 1.0, 1.0));
+    /// assert!(patch.program_path().is_none());
+    /// let outline = Path::closed([(0.0, 0.0), (4.0, 0.0), (0.0, 2.0)].map(Point::from).to_vec());
+    /// patch.set_program_path(Some((outline.clone(), Affine2D::identity())));
+    /// assert_eq!(patch.program_path(), Some(outline));
+    /// ```
+    pub fn program_path(&self) -> Option<Path> {
+        self.read(|p| p.program_path.as_ref().map(|(path, _)| path.clone()))
+    }
+
     /// A copy of the edge/face/hatch properties.
     pub fn style(&self) -> PatchStyle {
         self.read(|p| p.style.clone())

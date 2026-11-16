@@ -191,6 +191,15 @@ fn text(store: Option<Native<RcParams>>, key: String) -> PyResult<String> {
     })
 }
 
+/// `watch_lists(records, changed)`: installs the dict in which the current
+/// `RcParams` keeps the lists it handed out (each value a list of the list
+/// handed out and a copy of it as it was last taken), with the function
+/// called before a native call once one of them changed (see
+/// `binding::install_own_lists`); the dict in force.
+fn watch_lists(records: Owned, changed: Owned) -> PyResult<Owned> {
+    crate::binding::install_own_lists(records, changed)
+}
+
 /// The generation of the thread's current parameters (`pltrs::rc::generation`):
 /// values read from the parameters stay valid while it is the same.
 fn generation() -> PyResult<u64> {
@@ -391,6 +400,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get", get)?;
     module.add("text", text)?;
     module.add("generation", generation)?;
+    module.add("watch_lists", watch_lists)?;
     module.add("set", set)?;
     module.add("set_color", set_color)?;
     module.add("copy", copy)?;

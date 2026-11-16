@@ -130,6 +130,12 @@ fn add_cell(table: Table, row: i32, column: i32, width: f64, height: f64) -> PyR
     Ok(())
 }
 
+/// Takes the cell at `(row, column)` out of the table; whether there was
+/// one (a program deleting it from the table's dict of cells).
+fn remove_cell(table: Table, row: i32, column: i32) -> PyResult<bool> {
+    Ok(table.remove_cell(row, column))
+}
+
 /// Puts a copy of `cell` at `(row, column)` (matplotlib's `table[row,
 /// col] = cell`).
 fn put_cell(table: Table, row: i32, column: i32, cell: CellRef) -> PyResult<()> {
@@ -284,6 +290,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("has_cell", has_cell)?;
     module.add("add_cell", add_cell)?;
     module.add("put_cell", put_cell)?;
+    module.add("remove_cell", remove_cell)?;
     module.add("auto_set_font_size", auto_set_font_size)?;
     module.add("set_fontsize", set_fontsize)?;
     module.add("auto_set_column_width", auto_set_column_width)?;

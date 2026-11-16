@@ -70,7 +70,7 @@ from ..transforms import (Affine2DBase, CompositeAffine2D,
                           TransformWrapper, TransformedPath)
 
 _geo = _lazy_imports.module(globals(), ".geo", "_geo")
-_owned_paths = _lazy_imports.module(globals(), ".._owned_paths")
+_own_state = _lazy_imports.module(globals(), ".._own_state")
 
 #: The projections pltrs (Rust) has: its own Axes are made with them.
 _NATIVE_PROJECTIONS = frozenset(
@@ -279,7 +279,7 @@ class _NonAffinePart:
             if self._paths is None:
                 path = Path(vertices, codes, _interpolation_steps=steps)
                 return self._transform.transform_path_non_affine(path)
-            held = _owned_paths.held(vertices, codes, steps)
+            held = _own_state.held_path(vertices, codes, steps)
             if held is not None:
                 return self._transform.transform_path_non_affine(held)
             key = (vertices.tobytes(), None if codes is None else codes.tobytes(), steps)

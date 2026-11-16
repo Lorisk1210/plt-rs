@@ -2582,39 +2582,39 @@ def key_press_handler(event, canvas=None, toolbar=None):
         toolbar = canvas.toolbar
 
     # toggle fullscreen mode (default key 'f', 'ctrl + f')
-    if event.key in rcParams['keymap.fullscreen']:
+    if event.key in rcParams._get('keymap.fullscreen'):
         try:
             canvas.manager.full_screen_toggle()
         except AttributeError:
             pass
 
     # quit the figure (default key 'ctrl+w')
-    if event.key in rcParams['keymap.quit']:
+    if event.key in rcParams._get('keymap.quit'):
         Gcf.destroy_fig(canvas.figure)
-    if event.key in rcParams['keymap.quit_all']:
+    if event.key in rcParams._get('keymap.quit_all'):
         Gcf.destroy_all()
 
     if toolbar is not None:
         # home or reset mnemonic  (default key 'h', 'home' and 'r')
-        if event.key in rcParams['keymap.home']:
+        if event.key in rcParams._get('keymap.home'):
             toolbar.home()
         # forward / backward keys to enable left handed quick navigation
         # (default key for backward: 'left', 'backspace' and 'c')
-        elif event.key in rcParams['keymap.back']:
+        elif event.key in rcParams._get('keymap.back'):
             toolbar.back()
         # (default key for forward: 'right' and 'v')
-        elif event.key in rcParams['keymap.forward']:
+        elif event.key in rcParams._get('keymap.forward'):
             toolbar.forward()
         # pan mnemonic (default key 'p')
-        elif event.key in rcParams['keymap.pan']:
+        elif event.key in rcParams._get('keymap.pan'):
             toolbar.pan()
             toolbar._update_cursor(event)
         # zoom mnemonic (default key 'o')
-        elif event.key in rcParams['keymap.zoom']:
+        elif event.key in rcParams._get('keymap.zoom'):
             toolbar.zoom()
             toolbar._update_cursor(event)
         # saving current figure (default key 's')
-        elif event.key in rcParams['keymap.save']:
+        elif event.key in rcParams._get('keymap.save'):
             toolbar.save_figure()
 
     if event.inaxes is None:
@@ -2633,7 +2633,7 @@ def key_press_handler(event, canvas=None, toolbar=None):
     # Both here and below (for 'G'), we do nothing if *any* grid (major or
     # minor, x or y) is not in a uniform state, to avoid messing up user
     # customization.
-    if (event.key in rcParams['keymap.grid']
+    if (event.key in rcParams._get('keymap.grid')
             # Exclude minor grids not in a uniform state.
             and None not in [_get_uniform_gridstate(ax.xaxis.minorTicks),
                              _get_uniform_gridstate(ax.yaxis.minorTicks)]):
@@ -2652,7 +2652,7 @@ def key_press_handler(event, canvas=None, toolbar=None):
             ax.grid(y_state, which="major" if y_state else "both", axis="y")
             canvas.draw_idle()
     # toggle major and minor grids in current Axes (default key 'G')
-    if (event.key in rcParams['keymap.grid_minor']
+    if (event.key in rcParams._get('keymap.grid_minor')
             # Exclude major grids not in a uniform state.
             and None not in [_get_uniform_gridstate(ax.xaxis.majorTicks),
                              _get_uniform_gridstate(ax.yaxis.majorTicks)]):
@@ -2670,7 +2670,7 @@ def key_press_handler(event, canvas=None, toolbar=None):
             ax.grid(y_state, which="both", axis="y")
             canvas.draw_idle()
     # toggle scaling of y-axes between 'log and 'linear' (default key 'l')
-    elif event.key in rcParams['keymap.yscale']:
+    elif event.key in rcParams._get('keymap.yscale'):
         scale = ax.get_yscale()
         if scale == 'log':
             ax.set_yscale('linear')
@@ -2683,7 +2683,7 @@ def key_press_handler(event, canvas=None, toolbar=None):
                 ax.set_yscale('linear')
             ax.get_figure(root=True).canvas.draw_idle()
     # toggle scaling of x-axes between 'log and 'linear' (default key 'k')
-    elif event.key in rcParams['keymap.xscale']:
+    elif event.key in rcParams._get('keymap.xscale'):
         scalex = ax.get_xscale()
         if scalex == 'log':
             ax.set_xscale('linear')
@@ -2710,9 +2710,9 @@ def button_press_handler(event, canvas=None, toolbar=None):
         toolbar = canvas.toolbar
     if toolbar is not None:
         button_name = str(MouseButton(event.button))
-        if button_name in rcParams['keymap.back']:
+        if button_name in rcParams._get('keymap.back'):
             toolbar.back()
-        elif button_name in rcParams['keymap.forward']:
+        elif button_name in rcParams._get('keymap.forward'):
             toolbar.forward()
 
 

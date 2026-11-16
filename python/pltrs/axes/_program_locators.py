@@ -21,9 +21,11 @@ The child Axes of an Axes are those
 of the list the program assigned it, as the list is then
 (`follow_child_axes`).
 
-The hook first brings up to date the view limits of the Axes whose
-class of the program's autoscales them (`follow_autoscale`: their
-``autoscale_view``, as matplotlib's draw does through
+Before anything else the hook has the artists that keep state as objects
+of their own hand over what the program changed in place
+(`follow_own_state`). It then brings up to date the view limits of the
+Axes whose class of the program's autoscales them (`follow_autoscale`:
+their ``autoscale_view``, as matplotlib's draw does through
 ``_unstale_viewLim``; cartopy's ``GeoAxes`` keeps the view within its
 map), then runs the figure's layout engine of a class of the program's
 (`follow_engine`): its ``execute(figure)``, which matplotlib's draw runs
@@ -32,8 +34,11 @@ before it draws the Axes (plotnine places its panels so).
 
 import weakref
 
+from .. import _lazy_imports
 from .._native import insets as _insets
 from .._python_drawing import drawing_renderer
+
+_own_state = _lazy_imports.module(globals(), ".._own_state")
 
 #: What locators of the program's place, per root figure, in the order
 #: they were followed: the order matplotlib's draw places the Axes in (its
@@ -102,6 +107,14 @@ def follow_axinfo(axis, figure):
     _axinfos.setdefault(figure, weakref.WeakKeyDictionary())[axis] = None
 
 
+def follow_own_state(figure):
+    """Have the root *figure* hand pltrs (Rust) what the program changed
+    in place of the state its artists keep as objects (`.._own_state`)
+    before every layout of a draw: its draw then reads the artists as
+    matplotlib's reads their attributes."""
+    _owners(figure)
+
+
 def follow_engine(figure):
     """Have the root *figure* run its layout engine of the program's before
     every layout of a draw."""
@@ -165,7 +178,10 @@ def _locate(figure):
     (Rust) the ``_axinfo`` of the 3-D axes it follows, autoscale the Axes
     of classes of the program's that autoscale themselves, run the layout
     engine of the program's of *figure*, then place everything it follows,
-    with its renderer."""
+    with its renderer; first of all, the artists keeping state as objects
+    hand over what the program changed in them."""
+    if _own_state.OWNERS in figure.__dict__:
+        _own_state.sync_figure(figure)
     for ax in list(_child_lists.get(figure, ())):
         ax._follow_child_axes()
     for axis in list(_axinfos.get(figure, ())):

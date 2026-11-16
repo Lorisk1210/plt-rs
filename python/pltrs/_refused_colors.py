@@ -16,7 +16,8 @@ them, returns before it maps anything, and counts as no draw.
 
 import functools
 
-from . import _lazy_imports, _python_drawing, _unusable, cbook, colors as mcolors
+from . import (_lazy_imports, _python_drawing, _unusable, cbook, colorizer as mcolorizer,
+               colors as mcolors)
 from ._native import artist as _artist
 
 _collection_draw_checks = _lazy_imports.module(globals(), "._collection_draw_checks")
@@ -63,7 +64,7 @@ def _set_again(collection, side, c):
     # matplotlib's flags are set where its figure's draw reaches the
     # collection, before it fails on the colour.
     _python_drawing.when_reached(collection, "_mappable_flags_set", True)
-    mapping = collection.get_array() is not None
+    mapping = mcolorizer._array_of(collection) is not None
     if side == "facecolor":
         if first and not mapping:
             mcolors.to_rgba_array(c)

@@ -33,7 +33,7 @@ get_unicode_index.__module__ = __name__
 def _rc(name):
     """The rcParam *name*."""
     from . import rcParams
-    return rcParams[name]
+    return rcParams._get(name)
 
 
 class MathTextParser:

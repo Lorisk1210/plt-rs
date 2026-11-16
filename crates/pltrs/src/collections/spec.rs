@@ -365,6 +365,12 @@ impl CollectionArtist {
         {
             return (self.offset_limits(axes), directions);
         }
+        if let Some(geometry) = self.fill_geometry.filter(|_| x_data || y_data) {
+            // A `fill_between` collection measures the points it fills
+            // (matplotlib's `FillBetweenPolyCollection.get_datalim` gives
+            // its `_bbox`), whatever its polygons are now.
+            return (geometry.filled, directions);
+        }
         let offsets_usable = self
             .offset_transform
             .as_ref()

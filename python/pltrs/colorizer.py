@@ -28,8 +28,30 @@ import importlib
 import numpy as np
 from numpy import ma
 
-from . import _api, _docstring, colors, cbook, artist, scale
+from . import _api, _docstring, _lazy_imports, _program_classes, colors, cbook, artist, scale
 from ._native import artist as _artist
+
+_own_state = _lazy_imports.module(globals(), "._own_state")
+
+
+@_program_classes.class_cache
+def _answers_array_itself(cls):
+    """Whether the class *cls* answers ``get_array`` by a method of the
+    program's."""
+    return _program_classes.takes_from_program(cls, "get_array")
+
+
+def _array_of(mappable):
+    """
+    The values *mappable* maps, for the package's own code where
+    matplotlib's calls ``get_array()``: the array the mappable keeps, not
+    handed out (what `_ScalarMappable.get_array` hands a program is the
+    mappable's own from then on, compared at every draw: `._own_state`),
+    or what the method of a class of the program's answers.
+    """
+    if _answers_array_itself(type(mappable)) or not hasattr(mappable, "_A"):
+        return mappable.get_array()
+    return mappable._A
 
 
 def _mpl():
@@ -40,7 +62,7 @@ def _mpl():
 
 def _val_or_rc(val, rc_name):
     """*val*, or the rcParam *rc_name* when *val* is None."""
-    return _mpl().rcParams[rc_name] if val is None else val
+    return _mpl().rcParams._get(rc_name) if val is None else val
 
 
 _docstring.interpd.register(
@@ -648,7 +670,12 @@ class _ScalarMappable(_ColorizerInterface):
         The base class `.ScalarMappable` does not make any assumptions on
         the dimensionality and shape of the array.
         """
-        return self._A
+        A = self._A
+        if A is not None and "_native" in self.__dict__:
+            # The artist's own array, which matplotlib maps at every draw:
+            # handed out, what the program changes in it is drawn.
+            _own_state.hand_out_kept(self, _own_state.ARRAY, A)
+        return A
 
     def changed(self):
         """

@@ -24,7 +24,7 @@ import weakref
 import numpy as np
 
 from . import _docstring
-from . import (_api, _artist_clipping, _handles, _live_transforms, _mirrors, _pybind,
+from . import (_api, _artist_clipping, _handles, _live_transforms, _mirrors, _own_state, _pybind,
                _python_drawing, _unusable, _values, cbook, colors as mcolors)
 from ._drawn_with import DrawnWith
 from ._program_classes import takes_from_program
@@ -117,24 +117,46 @@ class _CellLook(_mirrors.Mirroring):
 
 class _Cells(dict):
     """
-    The cells of a table by position (matplotlib's ``Table._cells``), which
-    programs read and iterate: a `.Cell` stands for each cell pltrs (Rust)
-    holds once it is looked up (``table[row, col]``), and all of them once
-    the mapping is iterated or measured, as matplotlib's holds them all.
+    The cells of a table by position (matplotlib's ``Table._cells``, which
+    `~.Table.get_celld` gives), which programs read, iterate and change: a
+    `.Cell` stands for each cell pltrs (Rust) holds once it is looked up
+    (``table[row, col]``), and all of them, in the table's order, once the
+    mapping is iterated or measured, as matplotlib's holds them all. A
+    cell a program takes out of the mapping leaves the table, and one it
+    puts in joins it as ``table[row, col] = cell`` does.
     """
 
     def __init__(self, table):
         super().__init__()
         self._table = table
 
+    def __reduce__(self):
+        # Made for its table again, which looks its cells up anew.
+        return (type(self), (self._table,))
+
     def __missing__(self, position):
         return self._table[position]
 
+    def _keep(self, position, cell):
+        """Keep *cell* as the object of the cell at *position*, which the
+        table holds."""
+        super().__setitem__(position, cell)
+
     def _complete(self):
-        """Look every cell of the table up."""
-        for key in _table.cell_keys(self._table._native):
-            if not dict.__contains__(self, key):
-                self._table[key]
+        """Look every cell of the table up, in the table's order."""
+        keys = _table.cell_keys(self._table._native)
+        cells = {key: dict.get(self, key) for key in keys}
+        if list(dict.keys(self))[:len(keys)] == keys and None not in cells.values():
+            return
+        for key, cell in cells.items():
+            if cell is None:
+                cells[key] = self._table[key]
+        # The cells pltrs (Rust) does not hold (see `Table.__setitem__`)
+        # come last.
+        others = {key: cell for key, cell in dict.items(self) if key not in cells}
+        dict.clear(self)
+        dict.update(self, cells)
+        dict.update(self, others)
 
     def __iter__(self):
         self._complete()
@@ -159,6 +181,57 @@ class _Cells(dict):
     def items(self):
         self._complete()
         return super().items()
+
+    def __eq__(self, other):
+        self._complete()
+        return super().__eq__(other)
+
+    __hash__ = None
+
+    def __setitem__(self, position, cell):
+        self._table[position] = cell
+
+    def _leave(self, position, cell):
+        """Take *cell*, the cell at *position*, out of the table: a cell of
+        its own from then on, as one a program made, which it may put in a
+        table again."""
+        table = self._table
+        table._kept_cells.pop(position, None)
+        row, col = position
+        if _integer(row) and _integer(col):
+            if cell.__dict__.get("_table") is table:
+                holder = _CellHolder()
+                _table.put_cell(holder._native, 0, 0, cell._ref())
+                cell._table, cell._key = holder, (0, 0)
+            _table.remove_cell(table._native, int(row), int(col))
+        table.stale = True
+
+    def __delitem__(self, position):
+        self._complete()
+        cell = dict.__getitem__(self, position)
+        super().__delitem__(position)
+        self._leave(position, cell)
+
+    def pop(self, position, *default):
+        self._complete()
+        found = dict.__contains__(self, position)
+        cell = super().pop(position, *default)
+        if found:
+            self._leave(position, cell)
+        return cell
+
+    def popitem(self):
+        self._complete()
+        position, cell = super().popitem()
+        self._leave(position, cell)
+        return position, cell
+
+    def clear(self):
+        self._complete()
+        cells = list(dict.items(self))
+        super().clear()
+        for position, cell in cells:
+            self._leave(position, cell)
 
 
 @_mirrors.pushing
@@ -691,7 +764,7 @@ class Table(Artist):
         if renderer is not None and self.__dict__.get("_autoFontsize", True):
             # matplotlib's table fits the fonts of its cells first, their
             # texts measured with *renderer*.
-            for cell in self.get_celld().values():
+            for cell in _read_celld(self).values():
                 cell._measure_text_with(renderer)
         _unusable.check(self, measuring=True)
         self._place_cells()
@@ -749,7 +822,7 @@ class Table(Artist):
         before it places them, with the positions *kept* by the table
         alone, for its errors: their rows and columns sorted, which fails
         for positions that do not compare (pltrs (Rust) places the others)."""
-        cells = self.get_celld()
+        cells = _read_celld(self)
         fitted = self.__dict__.get("_autoFontsize", True)
         if not isinstance(fitted, np.ndarray) and fitted:
             # matplotlib's table fits the fonts of its cells first, comparing
@@ -889,7 +962,8 @@ class Table(Artist):
             # table alone (drawn nowhere), which fails as matplotlib's.
             cell.set_transform(self.get_transform())
             cell.set_clip_on(False)
-            self._cells[row, col] = self._kept_cells[row, col] = cell
+            self._kept_cells[row, col] = cell
+            self._cells._keep((row, col), cell)
             _unusable.keep(self, "cells", self._kept_cells, self._align_cells)
             self.stale = True
             return
@@ -901,7 +975,7 @@ class Table(Artist):
         cell.__dict__.pop("_cell_transform", None)
         if "_given_transform" in self.__dict__:
             cell._cell_transform = self._given_transform
-        self._cells[row, col] = cell
+        self._cells._keep((row, col), cell)
         if takes_from_program(type(cell), "draw") or "draw" in vars(cell):
             # matplotlib's table draws each cell by its own draw.
             _python_drawing.paint(self)
@@ -932,7 +1006,8 @@ class Table(Artist):
                 found = False
             if not found:
                 raise KeyError(position)
-            cell = self._cells[position] = Cell._of(self, (row, col))
+            cell = Cell._of(self, (row, col))
+            self._cells._keep(position, cell)
         return cell
 
     @property
@@ -960,14 +1035,14 @@ class Table(Artist):
 
     def get_children(self):
         """Return the Artists contained by the table."""
-        return list(self.get_celld().values())
+        return list(_read_celld(self).values())
 
     def contains(self, mouseevent):
         # docstring inherited
         if self._kept_cells and not self._different_canvas(mouseevent):
             # matplotlib measures the cells at rows and columns from 0 on,
             # comparing every position with 0.
-            [key for key in self.get_celld() if key[0] >= 0 and key[1] >= 0]
+            [key for key in _read_celld(self) if key[0] >= 0 and key[1] >= 0]
         return super().contains(mouseevent)
 
     def auto_set_column_width(self, col):
@@ -999,7 +1074,7 @@ class Table(Artist):
 
     def scale(self, xscale, yscale):
         """Scale column widths by *xscale* and row heights by *yscale*."""
-        for c in self.get_celld().values():
+        for c in _read_celld(self).values():
             c.set_width(c.get_width() * xscale)
             c.set_height(c.get_height() * yscale)
 
@@ -1032,7 +1107,7 @@ class Table(Artist):
     def _offset(self, ox, oy):
         """Move all the artists by ox, oy (axes coords)."""
         # matplotlib 3.11.2's, under the Matplotlib License.
-        for c in self.get_celld().values():
+        for c in _read_celld(self).values():
             x, y = c.get_x(), c.get_y()
             c.set_x(x + ox)
             c.set_y(y + oy)
@@ -1050,8 +1125,20 @@ class Table(Artist):
             cell = table[row, col]
 
         """
-        cells = {key: self[key] for key in _table.cell_keys(self._native)}
-        return {**cells, **self._kept_cells}
+        # A dict of the table's own, as matplotlib's is (`._own_state`): the
+        # same one at every call, holding the cells the table has now, and
+        # a cell a program takes out of it or puts in it leaves or joins
+        # the table.
+        celld = _own_state.kept(self, "celld")
+        if celld is None:
+            return _own_state.hand_out(self, _CELLD)
+        _artist.touch(self._native)
+        now = _read_celld(self)
+        if _celld_key(now) != _celld_key(celld):
+            celld.clear()
+            celld.update(now)
+            _own_state.keep(self, _CELLD, celld)
+        return celld
 
 
 def _labels(labels, colours, align, count):
@@ -1062,6 +1149,38 @@ def _labels(labels, colours, align, count):
         return None
     return ([''] * count if labels is None else labels,
             'w' * count if colours is None else colours, align)
+
+
+def _read_celld(table):
+    """The cells of *table* by position, in a new dict, in the table's
+    order."""
+    cells = table._cells
+    cells._complete()
+    return dict(cells)
+
+
+def _celld_key(celld):
+    """Which cells *celld* holds, and where."""
+    return tuple((position, id(cell)) for position, cell in celld.items())
+
+
+def _take_celld(table, celld):
+    """Make the cells of *table* those of *celld*, the dict it handed out,
+    which the program changed in place: the cells taken out of it leave
+    the table, those put in it join it."""
+    cells = table._cells
+    cells._complete()
+    for position in [position for position, cell in dict.items(cells)
+                     if celld.get(position) is not cell]:
+        del cells[position]
+    for position, cell in celld.items():
+        if dict.get(cells, position) is not cell:
+            table[position] = cell
+
+
+#: The dict of a table's cells (matplotlib's ``_cells``, which
+#: `Table.get_celld` gives).
+_CELLD = _own_state.State("celld", _read_celld, _take_celld, _celld_key)
 
 
 def _check_table_cells(ax, loc, widths, cols, edges, body, col_labels, row_labels):

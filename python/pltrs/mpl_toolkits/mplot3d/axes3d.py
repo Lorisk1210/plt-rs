@@ -2428,8 +2428,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         _values.remember(collection, "_offsets3d", given_offsets)
         _draw_problems.record(
             collection, _draw_problems.offsets_problem(collection, given_offsets))
-        # matplotlib's scatter gives its marker path as a tuple.
+        # matplotlib's scatter gives its marker path as a tuple (the
+        # marker's path transformed, whose codes are the marker's).
         collection._paths_container = tuple
+        collection._paths_read_only = "codes"
         if made is not None:
             collection._attach_native_mapping(colorizer=made)
         if "rasterized" in kwargs:

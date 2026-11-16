@@ -17,7 +17,7 @@ from ... import _api, _tick_helpers, _values, cbook, collections as mcoll, color
 from ... import lines as mlines, patches as mpatches, ticker as mticker
 from ... import _transform_trees
 from ..._program_classes import takes_any_from_program
-from ..._native import axes_base as _axes_base, plotting as _plotting
+from ..._native import axes_base as _axes_base, lines as _lines, plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import PieContainer
 from ... import _lazy_imports
@@ -104,11 +104,13 @@ def _keep_at_positions(lines, positions, orientation):
     (as given), keep its data as matplotlib plots them: the positions
     along the axis of the boxes' positions, the values as made."""
     for line, position in zip(lines, positions):
+        # (Read as pltrs (Rust) holds them, the getters' hand-out left out:
+        # the lines were just made.)
         if orientation == "vertical":
-            ys = line.get_ydata()
+            ys = _lines.get_ydata(line._native)
             keep_data(line, np.asarray([position] * len(ys)), ys)
         else:
-            xs = line.get_xdata()
+            xs = _lines.get_xdata(line._native)
             keep_data(line, xs, np.asarray([position] * len(xs)))
 
 

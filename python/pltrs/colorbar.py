@@ -751,7 +751,7 @@ class Colorbar:
         """
         if self.values is not None or _colorbar.maps_through_python(self.norm):
             return
-        if self.mappable.get_array() is not None:
+        if mcolorizer._array_of(self.mappable) is not None:
             self.mappable.autoscale_None()
         if not self.norm.scaled():
             if drawn_in is not None and getattr(self.norm, "_scale", None) is None:

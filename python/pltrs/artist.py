@@ -38,6 +38,10 @@ from ._artist_units import UnitsMixin
 from ._native import artist as _artist
 from ._native import transforms as _transforms
 
+#: Loaded when an artist first hands out or takes in state as an object.
+#: (Its attribute names are spelt out where an artist is pickled, so that
+#: an artist without such state does not import it.)
+_own_state = _lazy_imports.module(globals(), "._own_state")
 #: Loaded when a program first gives an artist a position setter.
 _axis_artists = _lazy_imports.module(globals(), "._axis_artists")
 #: Loaded when a program first gives an axis an ``_update_ticks``.
@@ -190,6 +194,13 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         # the artist keeps made from its native state is made again.
         state = self.__dict__.copy()
         state.pop(_live_transforms.KEPT, None)
+        # What the program changed in place of the state kept as objects
+        # (`._own_state`) is pltrs (Rust)'s before its figure is archived;
+        # the pickle holds no such object.
+        figure = getattr(state.get("_figure"), "_figure", None)
+        if "_own_state" in state or (
+                figure is not None and "_own_state_artists" in figure.__dict__):
+            _own_state.pickling(self, state, figure)
         return _pickling.referring_to_trees(self, state)
 
     def __setstate__(self, state):
@@ -380,9 +391,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         self._given_transform = t
         if _live_transforms.holds_natively(t):
             _transforms.set_transform(self._native, _live_transforms.to_native(t, held_by=self._figure or self))
-        if getattr(t, "_live", None) is None or "_asked_transform" in self.__dict__:
-            # One the program's code may compute anew at each draw.
-            _live_transforms.ask_when_drawn(self)
+        if (getattr(t, "_live", None) is None or "_asked_transform" in self.__dict__
+                or "_given_watcher" in self.__dict__):
+            # One the program may change afterwards (``t.rotate_deg(angle)``
+            # on a part of it), or whose code computes it anew at each draw.
+            _live_transforms.watch_set(self, t)
         self.pchanged()
 
     def is_transform_set(self):

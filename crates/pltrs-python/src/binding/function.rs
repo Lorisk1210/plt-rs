@@ -33,7 +33,7 @@ use super::convert::{FromPy, IntoPy};
 use super::error::{PyErr, PyResult};
 use super::gil::{Python, entry, gil_held};
 use super::object::Bound;
-use super::{deferred, home, reentrant, stack, threads};
+use super::{deferred, home, own_state, reentrant, stack, threads};
 use crate::ffi;
 
 /// The body of a native function: arguments in, a result out.
@@ -175,7 +175,9 @@ unsafe extern "C" fn drop_native(capsule: *mut ffi::PyObject) {
 
 /// The C function behind every native function: runs the body in the
 /// capsule bound as `self`, once the work Python deferred to the next
-/// native call is done ([`deferred`]) and the figures of its artist
+/// native call is done ([`deferred`]), the artists among its arguments
+/// whose objects keep state of theirs handed it over ([`own_state`]) and
+/// the figures of its artist
 /// arguments are no longer in use by another thread ([`threads`]), and on
 /// the main thread when an argument is tied to it, this is another thread
 /// and the main thread serves others ([`home`]).
@@ -195,7 +197,7 @@ unsafe extern "C" fn dispatch(
         } else {
             std::slice::from_raw_parts(args, count)
         };
-        if !deferred::run() {
+        if !deferred::run() || !own_state::run(args) {
             return std::ptr::null_mut();
         }
         if !gil_held() {

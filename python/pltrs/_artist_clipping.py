@@ -352,6 +352,9 @@ class ClippingMixin:
             _artist.set_clip_region(self._native, spec)
             spec = None
         _artist.set_clip_path(self._native, spec)
+        if transform is not None or "_clip_watcher" in self.__dict__:
+            # A transform the program may change afterwards.
+            _live_transforms.watch_clip_path(self, self._clippath)
         self.pchanged()
 
     def _patch_spec(self, patch, outline):

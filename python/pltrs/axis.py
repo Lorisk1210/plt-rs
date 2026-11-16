@@ -1765,7 +1765,7 @@ class Axis(DrawnWith, Artist):
     @staticmethod
     def _rc(key):
         from . import rcParams
-        return rcParams[key]
+        return rcParams._get(key)
 
     def set_ticks(self, ticks, labels=None, *, minor=False, **kwargs):
         """

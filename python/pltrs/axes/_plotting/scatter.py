@@ -467,6 +467,8 @@ class ScatterMixin:
         # matplotlib's scatter gives its marker path as a tuple, its sizes as
         # given, and its face colours as an array (a face, even if clear).
         collection._paths_container = tuple
+        # (The marker's path transformed, whose codes are the marker's.)
+        collection._paths_read_only = "codes"
         _values.remember(collection, "sizes", np.asarray(s))
         collection._face_fill = True
         if alphas is not None:
@@ -481,5 +483,12 @@ class ScatterMixin:
                                      else given_linewidths)
         elif widths_as_given is not None:
             _values.remember(collection, "linewidth", widths_as_given)
+        if (isinstance(offset_transform, _live_transforms.Transform)
+                and getattr(offset_transform, "_live", None) is None):
+            # The collection keeps the transform given, as matplotlib's
+            # constructor sets it, and follows it where pltrs (Rust) took
+            # parts of it by their matrix.
+            collection._offset_transform = offset_transform
+            _live_transforms.watch_given(collection, offset_transform, "offset")
         collection._made_with(kwargs)
         return collection

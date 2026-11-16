@@ -11,23 +11,23 @@ outside this package, and an annotation with such coordinate systems
 (``_evaluates_coords``), are kept for their figure (`track`), whose draw
 hook sets their native transforms from the program's once the figure is
 laid out and before its artists are drawn
-(``_native.transforms.set_draw_hook``). The hook also hands pltrs (Rust)
-again the paths of the program's a collection keeps that changed in
-place (`._program_paths`), and fails as matplotlib's draw fails on the
-objects added to an Axes that are no artists (`.axes._foreign_children`).
+(``_native.transforms.set_draw_hook``). The hook also fails as
+matplotlib's draw fails on the objects added to an Axes that are no
+artists (`.axes._foreign_children`).
 """
 
 import weakref
 
 import numpy as np
 
-from . import _lazy_imports, _live_transforms, _program_paths
+from . import _lazy_imports, _live_transforms
 from ._program_classes import takes_from_program
 from ._native import patches as _native_patches, transforms as _transforms
 
 _axes_base = _lazy_imports.module(globals(), ".axes._base", "_axes_base")
 _artist = _lazy_imports.module(globals(), ".artist", "_artist")
 _patches = _lazy_imports.module(globals(), ".patches", "_patches")
+_own_state = _lazy_imports.module(globals(), "._own_state")
 
 #: The tracked artists of each root figure.
 _tracked = weakref.WeakKeyDictionary()
@@ -36,11 +36,13 @@ _tracked = weakref.WeakKeyDictionary()
 def track(artist, figure):
     """Have the root *figure* evaluate the transforms of *artist* at every
     draw when its class overrides ``get_transform`` or it evaluates
-    coordinate systems of the program's, which it then evaluates now, and
-    hand over again the paths of the program's it keeps if they changed."""
+    coordinate systems of the program's, which it then evaluates now. An
+    artist keeping state as objects of its own (`._own_state`) has its
+    new native object and its figure tell it from now on."""
+    if "_own_state" in artist.__dict__:
+        _own_state.tell(artist)
     evaluates_coords = getattr(artist, "_evaluates_coords", False)
-    if not (evaluates_coords or _computes_transform(artist)
-            or _program_paths.kept(artist)):
+    if not (evaluates_coords or _computes_transform(artist)):
         return
     if evaluates_coords:
         artist._evaluate_coords()
@@ -100,5 +102,4 @@ def _evaluate(figure):
                 artist._native, _live_transforms.to_native(artist.get_transform()))
         if getattr(artist, "_evaluates_coords", False):
             artist._evaluate_coords()
-        _program_paths.sync(artist)
     check_drawable(figure)

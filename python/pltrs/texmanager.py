@@ -31,7 +31,7 @@ from ._native import texmanager as _texmanager
 def _rc(name):
     """The rcParam *name*."""
     from . import rcParams
-    return rcParams[name]
+    return rcParams._get(name)
 
 
 def _val_or_rc(val, name):

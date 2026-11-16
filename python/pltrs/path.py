@@ -27,7 +27,11 @@ from ._native import path as _native_path
 from .cbook import _to_unmasked_float_array, simple_linear_interpolation
 from .bezier import BezierSegment
 
-_owned_paths = _lazy_imports.module(globals(), "._owned_paths")
+_own_state = _lazy_imports.module(globals(), "._own_state")
+
+#: The attribute of a path holding the artists that keep it as their own
+#: (`._own_state.PATH_OWNERS`).
+_OWNERS = "_owned_by"
 
 
 @cache
@@ -222,14 +226,15 @@ class Path:
     def _interpolation_steps(self, steps):
         if self._steps_of is None:
             self._steps = steps
-            _owned_paths.changed(self)
+            if _OWNERS in self.__dict__:
+                _own_state.path_assigned(self)
         else:
             self._steps_of[1](int(steps))
 
     def __getstate__(self):
         # A copy or a pickle is a path of its own, not an artist's.
         state = self.__dict__.copy()
-        state.pop(_owned_paths.OWNER, None)
+        state.pop(_OWNERS, None)
         if state.pop("_steps_of", None) is not None:
             state["_steps"] = self._interpolation_steps
         return state
@@ -268,7 +273,8 @@ class Path:
             raise AttributeError("Can't set vertices on a readonly Path")
         self._vertices = vertices
         self._update_values()
-        _owned_paths.changed(self)
+        if _OWNERS in self.__dict__:
+            _own_state.path_assigned(self)
 
     @property
     def codes(self):
@@ -288,7 +294,8 @@ class Path:
             raise AttributeError("Can't set codes on a readonly Path")
         self._codes = codes
         self._update_values()
-        _owned_paths.changed(self)
+        if _OWNERS in self.__dict__:
+            _own_state.path_assigned(self)
 
     @property
     def simplify_threshold(self):

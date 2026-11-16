@@ -35,7 +35,7 @@ _empty_path = Path(np.empty((0, 2)))
 def _rc(key):
     """The rcParam *key* (imported when first needed)."""
     from . import rcParams
-    return rcParams[key]
+    return rcParams._get(key)
 
 
 #: The kinds of marker spec whose paths are matplotlib's built-in ones.

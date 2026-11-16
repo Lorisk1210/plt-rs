@@ -28,7 +28,9 @@ from ._native import artist as _artist, patches as _patches
 from ._patch_styles import (  # noqa: F401  (matplotlib.patches exports them)
     ArrowStyle, BoxStyle, ConnectionStyle, _native_spec, _Style, calls_program)
 
-_owned_paths = _lazy_imports.module(globals(), "._owned_paths")
+_own_state = _lazy_imports.module(globals(), "._own_state")
+# The state patches keep as an object of their own (`._own_state`).
+_state = _lazy_imports.module(globals(), "._patch_state", "_state")
 _patch_arguments = _lazy_imports.module(globals(), "._patch_arguments")
 
 cbook._set_module(__name__, ArrowStyle, BoxStyle, ConnectionStyle, _Style)
@@ -310,12 +312,33 @@ class Patch(Artist):
         """Return the path of this patch."""
         raise NotImplementedError('Derived must override')
 
+    #: Whether the path of the class is matplotlib's shared unit path
+    #: (a circle's, a regular polygon's), which is read-only.
+    _path_read_only = False
+
     def _native_path(self):
         """The path pltrs (Rust) holds for the patch, which the classes
-        deriving from `Patch` return (as matplotlib's keep their own)."""
-        return _drawn_path_of(self, *_patches.get_path(self._native), (
-            lambda: _patches.get_interpolation_steps(self._native),
-            lambda steps: _patches.set_interpolation_steps(self._native, steps)))
+        deriving from `Patch` return: the patch's own, as matplotlib's keep
+        theirs (`._own_state`), so that what a program changes in it is
+        drawn and measured."""
+        return _own_state.hand_out(self, _state.PATH)
+
+    def _take_path(self, path):
+        """Hand pltrs (Rust) the path handed out, *path*, which the program
+        changed in place: the outline drawn, measured and hit in place of
+        the shape's (as the outline a class of the program's makes,
+        `_push_computed`), until a setter of the geometry makes the path
+        anew (`_forget_path`)."""
+        placement = self.get_patch_transform().get_matrix()
+        _patches.set_program_path(self._native, (path, np.asarray(placement, dtype=float)))
+
+    def _forget_path(self):
+        """Forget the path handed out and what the program changed in it:
+        a setter of the geometry makes the path anew, as matplotlib's
+        setters clear ``_path``."""
+        _own_state.drop(self, "path")
+        if not self._makes_own_path:
+            _patches.set_program_path(self._native, None)
 
     def get_patch_transform(self):
         """
@@ -1175,6 +1198,10 @@ class Rectangle(Patch):
 class RegularPolygon(Patch):
     """A regular polygon patch."""
 
+    # (matplotlib's shared unit polygon, which is read-only.)
+    _path_read_only = True
+    _path = property(lambda self: self.get_path(), doc="The path of the polygon.")
+
     _instance_attributes = ("xy", "numvertices", "orientation", "radius")
 
     def get_patch_transform(self):
@@ -1355,6 +1382,11 @@ class PathPatch(Patch):
             return self.__dict__["_given_path"]
         return self._native_path()
 
+    def _take_path(self, path):
+        # docstring inherited
+        if _drawable_path(path):
+            _patches.set_path_shape(self._native, path)
+
     def _add_to_axes(self, axes, kind, autolim=True):
         if kind == "patch":
             # matplotlib's add_patch measures the path first, by its Bézier
@@ -1375,14 +1407,10 @@ class PathPatch(Patch):
     def _keep_path(self, path):
         """Keep *path*, which `get_path` gives, as matplotlib's patch keeps
         and draws the very path it is given: what the program changes in
-        it reaches pltrs (Rust) (`._owned_paths`)."""
+        it reaches pltrs (Rust) (`._own_state`)."""
         self.__dict__["_given_path"] = path
-        _owned_paths.hand_out([path], self._push_given_path)
-
-    def _push_given_path(self):
-        """Hand pltrs (Rust) the path given again, which the program
-        changed."""
-        self.set_path(self.__dict__["_given_path"])
+        _own_state.keep(self, _state.PATH, path)
+        _own_state.note_paths(self, path)
 
     # matplotlib keeps the path as ``_path``, which subclasses read.
     _path = property(lambda self: self.get_path(), set_path)
@@ -1529,6 +1557,12 @@ class StepPatch(PathPatch):
         self.__dict__.pop("_given_path", None)
         _unusable.drop(self, "path")
         _patches.set_step_path(self._native, path)
+        _own_state.drop(self, "path")
+
+    def _take_path(self, path):
+        # docstring inherited
+        if isinstance(path, Path):
+            _patches.set_step_path(self._native, path)
 
 
 @_mirrors.mirrorable
@@ -1563,6 +1597,7 @@ class Polygon(Patch):
         _, _ = xy.shape  # (N, 2): matplotlib's set_xy unpacks it, failing otherwise.
         self._native = _patches.new_polygon(xy.astype(float), bool(closed))
         super().__init__(**kwargs)
+        self._keep_given_xy(xy, bool(closed))
         if self._program_setters:
             _program_classes.replay_setters(self, [("set_xy", (xy,))])
 
@@ -1575,7 +1610,35 @@ class Polygon(Patch):
         return _patches.polygon(self._native)
 
     def _set_outline(self, xy, closed):
+        self._take_outline(xy, closed)
+        if "_own_state" in self.__dict__:
+            # A new path, as matplotlib's ``set_xy`` makes.
+            self._forget_path()
+
+    def _take_outline(self, xy, closed):
+        """Hand pltrs (Rust) the vertices *xy* of the polygon, *closed* or
+        not."""
         _patches.set_polygon(self._native, xy, closed)
+
+    def _take_path(self, path):
+        # docstring inherited: the vertices are the polygon's, and codes
+        # that are no longer its own make the path an outline of its own.
+        self._take_outline(np.array(path.vertices, dtype=float), self.get_closed())
+        if np.array_equal(path.codes, _patches.get_path(self._native)[1]):
+            _patches.set_program_path(self._native, None)
+        else:
+            super()._take_path(path)
+
+    def _keep_given_xy(self, xy, closed):
+        """Keep *xy*, the vertices the polygon was just given, as those of
+        its path where matplotlib's ``set_xy`` makes the path of the array
+        itself (an array of floats it neither closes nor cuts), so that
+        what the program changes in it later is drawn."""
+        if type(xy) is not np.ndarray or xy.dtype.char != "d" or xy.ndim != 2:
+            return
+        ends_meet = len(xy) > 1 and not (xy[0] != xy[-1]).any()
+        if (closed and ends_meet) or (not closed and not (len(xy) > 2 and ends_meet)):
+            _own_state.keep(self, _state.PATH, Path(xy, closed=closed))
 
     def get_closed(self):
         """Return whether the polygon is closed."""
@@ -1593,6 +1656,7 @@ class Polygon(Patch):
         if self.get_closed() == bool(closed):
             return
         self._set_outline(self.get_xy(), bool(closed))
+        self._outline_set()
         self.stale = True
 
     def get_xy(self):
@@ -1604,7 +1668,8 @@ class Polygon(Patch):
         (N, 2) array
             The coordinates of the vertices.
         """
-        return self._outline()[0]
+        # The vertices of the polygon's own path, as matplotlib's.
+        return self.get_path().vertices
 
     def set_xy(self, xy):
         """
@@ -1624,8 +1689,16 @@ class Polygon(Patch):
         """
         xy = np.asarray(xy)
         _, _ = xy.shape  # (N, 2): matplotlib unpacks it, failing otherwise.
-        self._set_outline(xy.astype(float), self.get_closed())
+        closed = self.get_closed()
+        self._set_outline(xy.astype(float), closed)
+        self._keep_given_xy(xy, closed)
+        self._outline_set()
         self.stale = True
+
+    def _outline_set(self):
+        """Note that the polygon's vertices were set or that it was closed
+        or opened (`set_xy`, `set_closed`): nothing for a polygon; a
+        `FancyArrow` keeps the vertices it made apart from then on."""
 
     xy = property(get_xy, set_xy,
                   doc='The vertices of the path as a (N, 2) array.')
@@ -1718,6 +1791,8 @@ class Wedge(Patch):
         self._watch_geometry()
         # matplotlib's setters clear the path, which its next read makes.
         self.__dict__.pop("_assigned_path", None)
+        if "_own_state" in self.__dict__:
+            self._forget_path()
         self.stale = True
 
     def _hold_fields(self, **given):
@@ -1931,6 +2006,8 @@ class Arrow(Patch):
             _patch_arguments.arrow_transform(self)
         _patches.set_arrow(self._native, (float(self._x), float(self._y)),
                            (float(self._dx), float(self._dy)), float(self._width))
+        if "_own_state" in self.__dict__:
+            self._forget_path()
         self.stale = True
 
 
@@ -2011,6 +2088,8 @@ class FancyArrow(Polygon):
         of finite numbers, matplotlib's ``_make_verts`` of anything else,
         failing and warning as it does, which pltrs (Rust) then holds."""
         _values.take(self, "verts")
+        if "_native" not in self.__dict__ or self.get_closed():
+            self.__dict__.pop("_xy_set", None)
         given = (self._x, self._y, self._dx, self._dy, self._width,
                  self._head_width, self._head_length, self._shape, self._overhang)
         verts = (None if _patch_arguments.plain_fancy_arrow(*given)
@@ -2037,8 +2116,21 @@ class FancyArrow(Polygon):
         """The vertices of the arrow's polygon."""
         def held():
             given = self.__dict__.get("_given_verts")
-            return _patches.fancy_arrow_verts(self._native) if given is None else given
+            if given is not None:
+                return given
+            if "_xy_set" in self.__dict__:
+                # The polygon was set since (`set_xy`) or is open
+                # (`set_closed`): matplotlib's ``verts`` stays the arrow
+                # made last, which its path no longer shares.
+                return _patches.fancy_arrow_verts(self._native)
+            # The vertices of the arrow's path themselves, as matplotlib
+            # makes the path of the array it keeps.
+            return self.get_xy()
         return _values.assigned(self, "verts", held)
+
+    def _outline_set(self):
+        # docstring inherited
+        self.__dict__["_xy_set"] = True
 
     @verts.setter
     def verts(self, verts):
@@ -2049,7 +2141,7 @@ class FancyArrow(Polygon):
     def _outline(self):
         return _patches.fancy_arrow_outline(self._native)
 
-    def _set_outline(self, xy, closed):
+    def _take_outline(self, xy, closed):
         _patches.set_fancy_arrow_outline(self._native, xy, closed)
 
     def set_data(self, *, x=None, y=None, dx=None, dy=None, width=None,
@@ -2142,6 +2234,10 @@ _ELLIPSE_FIELDS = {"center": _kept_geometry.point, "width": _kept_geometry.real,
 
 class Ellipse(Patch):
     """A scale-free ellipse."""
+
+    # (matplotlib's shared unit circle, which is read-only.)
+    _path_read_only = True
+    _path = property(lambda self: self.get_path(), doc="The path of the ellipse.")
 
     #: As `Rectangle`'s.
     _aspect_ratio_correction = _AspectRatioCorrection()
@@ -2427,6 +2523,8 @@ class Annulus(Patch):
     An elliptical annulus.
     """
 
+    _path = property(lambda self: self.get_path(), doc="The path of the annulus.")
+
     _instance_attributes = ("a", "b")
 
     @_docstring.interpd
@@ -2499,6 +2597,8 @@ class Annulus(Patch):
         _kept_geometry.watch(self, self._FIELDS, (*held["center"], held["a"], held["b"],
                                                   held["width"], held["angle"]),
                              self._recompute_path, cached=True)
+        if "_own_state" in self.__dict__:
+            self._forget_path()
         self.stale = True
 
     def _transform_verts(self, verts, a, b):

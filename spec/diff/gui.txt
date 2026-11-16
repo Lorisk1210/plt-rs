@@ -1,0 +1,46 @@
+# The programs that open a toolkit's window (see gui.py): their names in
+# the report, then the variables of their runs. NAME@VARIANT runs the
+# program again with other variables.
+
+# GTK 3
+gallery/examples/user_interfaces/embedding_in_gtk3_sgskip
+gallery/examples/user_interfaces/embedding_in_gtk3_panzoom_sgskip
+gallery/examples/user_interfaces/gtk3_spreadsheet_sgskip
+gallery/examples/user_interfaces/mpl_with_glade3_sgskip
+gallery/examples/user_interfaces/pylab_with_gtk3_sgskip
+
+# GTK 4
+gallery/examples/user_interfaces/embedding_in_gtk4_sgskip
+gallery/examples/user_interfaces/embedding_in_gtk4_panzoom_sgskip
+gallery/examples/user_interfaces/gtk4_spreadsheet_sgskip
+gallery/examples/user_interfaces/pylab_with_gtk4_sgskip
+
+# Qt (the first binding qt_compat finds: PyQt6)
+gallery/examples/user_interfaces/embedding_in_qt_sgskip
+
+# Tk
+gallery/examples/user_interfaces/embedding_in_tk_sgskip
+
+# wx
+gallery/examples/user_interfaces/embedding_in_wx2_sgskip
+gallery/examples/user_interfaces/embedding_in_wx3_sgskip
+gallery/examples/user_interfaces/embedding_in_wx4_sgskip
+gallery/examples/user_interfaces/embedding_in_wx5_sgskip
+gallery/examples/user_interfaces/fourier_demo_wx_sgskip
+gallery/examples/user_interfaces/mathtext_wx_sgskip
+gallery/examples/user_interfaces/wxcursor_demo_sgskip
+
+# mplcvd's toolbar, under each toolkit it supports (it needs colorspacious,
+# which the venvs lack: skipped until they have it)
+gallery/examples/user_interfaces/mplcvd@gtk3 MPLBACKEND=gtk3agg
+gallery/examples/user_interfaces/mplcvd@gtk4 MPLBACKEND=gtk4agg
+gallery/examples/user_interfaces/mplcvd@qt MPLBACKEND=qtagg
+gallery/examples/user_interfaces/mplcvd@tk MPLBACKEND=tkagg
+gallery/examples/user_interfaces/mplcvd@wx MPLBACKEND=wxagg
+
+# Corpora: programs skipped for wanting a toolkit at top level that run
+# with the toolkits as they are (the corpora's venvs lack the Qt bindings).
+corpus/matplotlib-3-cookbook/Chapter10/Chapter 10 - Embedding Plots in GUI
+corpus/matplotlib-for-python-developers/Chapter05/Chapter05
+corpus/matplotlib-for-python-developers/Chapter07/Chapter07
+corpus/scipy-cookbook/ipython/wxPython_dialogs

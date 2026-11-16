@@ -154,9 +154,18 @@ class Setup:
         env.update(OFFLINE)
         if program is not None and program.corpus is not None:
             env.update(_home_variables(self.home(program)))
+            # numba's cache of compiled functions in the run's home, not in
+            # the venv's packages: parallel runs writing the same entries
+            # there left caches that crash the next run (librosa's onset
+            # tutorials, a segmentation fault in localmax under one venv).
+            env["NUMBA_CACHE_DIR"] = str(self.home(program) / ".cache" / "numba")
             # One thread for the linear algebra, whose sums several threads
             # add in an order of their own from run to run.
             env.update(dict.fromkeys(("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"), "1"))
+            # joblib's `n_jobs=-1` as two processes, not one per core of
+            # the machine: iminuit's notebooks fit in `Parallel(-1)`, and 32
+            # workers of each of several runs exhausted the run's memory.
+            env["LOKY_MAX_CPU_COUNT"] = "2"
         env["MPLBACKEND"] = "agg"
         # (Named apart from the package names `trace.py` replaces in messages.)
         env["MPLCONFIGDIR"] = str(self.config(impl, program))

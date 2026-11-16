@@ -2508,6 +2508,14 @@ None}, default: None
     def __setstate__(self, state):
         from . import __version__
         from . import _pickling
+        if '_unpickling_state' not in self.__dict__:
+            # Built already: the pure-Python picklers (`pickle._Pickler`,
+            # dill's, which multiprocess sends tasks with) build a figure
+            # its own native state reaches (a program's artist computing
+            # its rotation, labellines' labels) a second time, where the C
+            # pickler skips the state of an object made while its
+            # arguments were saved.
+            return
         version = state.pop('__mpl_version__')
         restore_to_pylab = state.pop('_restore_to_pylab', False)
 

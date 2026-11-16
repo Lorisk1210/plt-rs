@@ -15,6 +15,7 @@ use crate::lines::{
 use crate::markers::{Marker, MarkerSymbol};
 use crate::orientation::Orientation;
 use crate::ticker::AxisName;
+use crate::transforms::Transform;
 use crate::units::{AxisValue, AxisValues, CustomValues, UnitHandle, UnitSources};
 
 /// How [`Axes::errorbar`] draws the data line (matplotlib's `fmt`);
@@ -208,8 +209,15 @@ impl BarStyle {
         let mut line = LineArtist::new(points.x, points.y, crate::rc::params());
         line.unit_sources = points.sources;
         props.apply(&mut line);
-        line.base_mut().transform = Some(axes.trans_data());
+        line.base_mut().transform = Some(self.transform(axes));
         line
+    }
+
+    /// The coordinates of the bars and the caps: those the keywords give
+    /// the data line, as matplotlib's `eb_lines_style` and `eb_cap_style`
+    /// take them, or the data's.
+    fn transform(&self, axes: &Axes) -> Transform {
+        (self.base.base.transform.clone()).unwrap_or_else(|| axes.trans_data())
     }
 
     /// The cap or limit-marker lines with `marker` at `(x, y)` for error
@@ -459,11 +467,12 @@ impl Axes {
         } else {
             Orientation::Vertical
         };
-        let bars = self.segments(
+        let bars = self.segments_in(
             orientation,
             &masked(indep.numbers, every),
             &masked(low.numbers, every),
             &masked(high.numbers, every),
+            style.transform(self),
         )?;
         style.style_bars(&bars);
         if along_x

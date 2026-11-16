@@ -2342,6 +2342,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         marker = kwargs.pop('marker', None) or rcParams['scatter.marker']
         cmap, norm = kwargs.pop('cmap', None), kwargs.pop('norm', None)
         vmin, vmax = kwargs.pop('vmin', None), kwargs.pop('vmax', None)
+        # 2-D `scatter`'s own parameters, which `pyplot.scatter` always
+        # passes on (pymoo plots through pyplot into a 3-D axes).
+        colorizer = kwargs.pop('colorizer', None)
+        kwargs.pop('plotnonfinite', None)
         alpha = kwargs.pop('alpha', None)
         c, colors, edgecolors = self._parse_scatter_color_args(
             c, edgecolors, kwargs, xs.size,
@@ -2349,7 +2353,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         marker_obj = marker if isinstance(marker, MarkerStyle) else MarkerStyle(marker)
         made = None
         if colors is None:
-            made, mapping = _mapping(cmap, norm, vmin, vmax)
+            made, mapping = _mapping(cmap, norm, vmin, vmax, colorizer)
             faces = (None, (np.ma.filled(np.ma.asarray(c, dtype=float),
                                          np.nan).ravel(), mapping))
         else:

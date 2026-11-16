@@ -437,13 +437,15 @@ def _line_callee(source: Source, line: int | None) -> str:
     return "?"
 
 
-#: The id of the process a warning names (Python's ``os.fork`` warns "This
-#: process (pid=...) is multi-threaded"), which differs from run to run.
-_PROCESS_ID = re.compile(r"\(pid=\d+\)")
+#: The id of the process a warning names, which differs from run to run:
+#: Python's ``os.fork`` warns "This process (pid=...) is multi-threaded",
+#: and a ``subprocess.Popen`` collected while its child runs "subprocess
+#: ... is still running" (salib's examples).
+_PROCESS_ID = re.compile(r"\(pid=\d+\)|(?<=^subprocess )\d+(?= is still running)")
 
 
 def _warning_key(warning: dict) -> tuple[str, str, Any]:
-    message = _PROCESS_ID.sub("(pid=N)", warning["message"])
+    message = _PROCESS_ID.sub(lambda m: "(pid=N)" if m[0].startswith("(") else "N", warning["message"])
     return warning["category"], message, warning["line"]
 
 

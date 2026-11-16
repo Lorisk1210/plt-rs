@@ -42,8 +42,9 @@ impl Painter<'_> {
     /// starting at `origin`.
     pub(super) fn mark_span(&self, dir: Axis3, position: AxisPosition, origin: Vec3) -> MarkSpan {
         let tickdir = tick_direction(dir, &self.axes.camera, position);
-        let delta = self.geometry.deltas[tickdir];
-        let tickdelta = if self.geometry.highs[tickdir] {
+        let geometry = self.geometry(dir);
+        let delta = geometry.deltas[tickdir];
+        let tickdelta = if geometry.highs[tickdir] {
             delta
         } else {
             -delta
@@ -81,7 +82,7 @@ impl Painter<'_> {
     ) {
         let dir = axis.dir;
         let span = self.mark_span(dir, position, origin);
-        let points = scaled(self.geometry.deltas, deltas_per_point);
+        let points = scaled(self.geometry(dir).deltas, deltas_per_point);
         for drawn in axis.drawn_ticks() {
             let mark = self.mark(&span, axis, drawn.tick.loc);
             let p = span.point(
@@ -90,7 +91,7 @@ impl Painter<'_> {
                 origin[span.tickdir],
             );
             let label_deltas = scaled(points, drawn.pad + TICK_LABEL_OFFSET);
-            let label_at = self.geometry.move_from_center(p, label_deltas, dir);
+            let label_at = self.geometry(dir).move_from_center(p, label_deltas, dir);
             let group = AxisGroup::Tick {
                 minor: drawn.minor,
                 index: drawn.slot,
@@ -216,15 +217,14 @@ impl Painter<'_> {
         let index = dir.index();
         let tickdir = static_tick_direction(dir);
         let outer = outer_end(axis);
-        let at = self
-            .geometry
-            .move_from_center(edge.points[outer], label_deltas, dir);
-        let center = self.projection.project_transformed(self.geometry.centers);
+        let geometry = self.geometry(dir);
+        let at = geometry.move_from_center(edge.points[outer], label_deltas, dir);
+        let center = self.projection.project_transformed(geometry.centers);
         let end = edge.ends[outer];
-        let even_highs = self.geometry.highs.iter().filter(|&&h| h).count() % 2 == 0;
+        let even_highs = geometry.highs.iter().filter(|&&h| h).count() % 2 == 0;
         let halign = if center[tickdir] > end[tickdir] {
             if center[index] <= end[index] && even_highs {
-                if self.geometry.highs == [false, true, true] && index != 0 {
+                if geometry.highs == [false, true, true] && index != 0 {
                     HAlign::Left
                 } else {
                     HAlign::Right

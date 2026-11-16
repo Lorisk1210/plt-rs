@@ -19,7 +19,7 @@ import numpy as np
 
 from . import (
     _api, _artist_clipping, _artist_effects, _axis_artists, _docstring, _lazy_imports,
-    _program_classes, _tick_helpers, _unusable, _values, cbook, scale as mscale,
+    _program_classes, _python_drawing, _tick_helpers, _unusable, _values, cbook, scale as mscale,
     units as munits)
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._drawn_with import DrawnWith
@@ -2473,7 +2473,8 @@ class Axis(DrawnWith, Artist):
         too-long labels when doing their layout.
         """
         from .transforms import Bbox
-        if _program_classes.takes_from_program(type(self), "_get_ticklabel_bboxes"):
+        if ("_get_ticklabel_bboxes" in vars(self)
+                or _program_classes.takes_from_program(type(self), "_get_ticklabel_bboxes")):
             return self._tightbbox_of_program_labels(renderer, for_layout_only)
         with _measured_by_given(renderer, self):
             extent = _axis.get_tightbbox(*self._args(), bool(for_layout_only))
@@ -2483,10 +2484,20 @@ class Axis(DrawnWith, Artist):
         x0, y0, x1, y1 = extent
         return Bbox([[x0, y0], [x1, y1]])
 
+    def _measured_by_program(self):
+        """Have pltrs (Rust) measure the axis' Axes through its
+        `get_tightbbox`, which asks the axis as matplotlib's does: the
+        program assigned the axis a method it measures itself with
+        (`.artist._AXIS_MEASURING`)."""
+        axes = self.axes
+        if axes is not None and not vars(self).get("_held"):
+            _python_drawing.draw_through_python(axes, measures=True)
+
     def _tightbbox_of_program_labels(self, renderer, for_layout_only):
         """matplotlib's `get_tightbbox` of an axis whose class gives the
-        boxes of its tick labels (``_get_ticklabel_bboxes``: MetPy's
-        `SkewXAxis` leaves out the labels beyond its skewed limits): the
+        boxes of its tick labels (``_get_ticklabel_bboxes``, in its class
+        or assigned on the axis: MetPy's `SkewXAxis` leaves out the labels
+        beyond its skewed limits): the
         offset text, those boxes and the label, measured where they stand
         once the axis placed them, as matplotlib's places its ticks
         (``_update_ticks``), its label (``_update_label_position``) and its

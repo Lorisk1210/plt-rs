@@ -1743,6 +1743,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                       bbox_extra_artists=None, for_layout_only=False):
         # docstring inherited
         self._check_figure_renderer(renderer)
+        # The boxes a program gives its axes (imported where used: the
+        # import of pyplot leaves the module out).
+        from pltrs.axes import _program_locators
+        _program_locators.measure_boxes(self)
         with _measured_by_given(renderer, self):
             extent = _mplot3d.tightbbox(self._native, bool(for_layout_only))
         if self._axis3don:

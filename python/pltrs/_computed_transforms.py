@@ -28,6 +28,7 @@ _axes_base = _lazy_imports.module(globals(), ".axes._base", "_axes_base")
 _artist = _lazy_imports.module(globals(), ".artist", "_artist")
 _patches = _lazy_imports.module(globals(), ".patches", "_patches")
 _own_state = _lazy_imports.module(globals(), "._own_state")
+_spines = _lazy_imports.module(globals(), ".spines", "_spines")
 
 #: The tracked artists of each root figure.
 _tracked = weakref.WeakKeyDictionary()
@@ -79,13 +80,23 @@ def _computes_transform(artist):
             and not isinstance(artist, _axes_base._AxesBase))
 
 
+def _places_by_patch_transform(artist):
+    """Whether *artist* is a patch pltrs (Rust) places by its patch
+    transform (a spine and an arrow are drawn through their own paths,
+    the patch transform the identity)."""
+    return (isinstance(artist, _patches.Patch)
+            and not isinstance(artist, (_spines.Spine, _patches.FancyArrowPatch)))
+
+
 def _evaluate(figure):
     """Set the native transforms of every tracked artist still in the root
     *figure* from the program's; fail on the objects its Axes hold that
     are no artists."""
     from .axes._foreign_children import check_drawable
     for artist in list(_tracked.get(figure, ())):
-        if artist._figure is not figure or artist.__dict__.get("_decoupled"):
+        # (An axis knows its figure through its Axes.)
+        in_figure = artist._figure is figure or artist.get_figure(root=True) is figure
+        if not in_figure or artist.__dict__.get("_decoupled"):
             continue
         if _computes_transform(artist):
             if not {"_given_transform", "_transform_set"} & artist.__dict__.keys():
@@ -93,7 +104,7 @@ def _evaluate(figure):
                 # still, as matplotlib's ``_transform``: the native one
                 # becomes what the class computes from it.
                 artist.__dict__["_transform_set"] = _artist.Artist.get_transform(artist)
-            if isinstance(artist, _patches.Patch):
+            if _places_by_patch_transform(artist):
                 # matplotlib's draw maps the patch's path through the whole
                 # transform, the patch transform in it.
                 _native_patches.set_program_path(
@@ -102,4 +113,8 @@ def _evaluate(figure):
                 artist._native, _live_transforms.to_native(artist.get_transform()))
         if getattr(artist, "_evaluates_coords", False):
             artist._evaluate_coords()
+        push_box = getattr(artist, "_push_given_box", None)
+        if push_box is not None:
+            # A 3-D axis drawn on the box the program's methods give.
+            push_box()
     check_drawable(figure)

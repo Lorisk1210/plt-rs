@@ -409,15 +409,51 @@ class Spine(Patch):
         its path through its transform (`get_patch_transform` and the
         transform its position gave it, `get_spine_transform`)."""
         self._ensure_position_is_set()
+        self._kept_linear_path()
+        # Spanned by the class now, not again as its path is read.
+        self._path_draws = self._draws()
         self._adjust_location()
         path = self.get_transform().transform_path(self.get_path())
         _spines.set_program_path(self._native, path)
+
+    def _asked_by_label(self):
+        """Whether matplotlib's axis whose label stands on the spine's side
+        measures the spine as it places the label (``_update_label_position``,
+        in each draw and tight box of the visible axis: its
+        ``get_window_extent``), which pltrs (Rust) does with what the
+        spine's class last pushed (`_push_layout`)."""
+        axes = self.axes
+        if (axes is None or not getattr(axes, "axison", False)
+                or getattr(axes, "spines", {}).get(self.spine_type) is not self):
+            return False
+        axis = getattr(axes, "yaxis" if self.spine_type in ("left", "right") else "xaxis",
+                       None)
+        return (isinstance(axis, Artist) and axis.get_visible() and axis._autolabelpos
+                and axis.get_label_position() == self.spine_type)
+
+    def _readies_before_measured(self):
+        # A linear spine laid out by its class (see `_before_measured`).
+        return bool(self.__dict__.get("_adjusts_itself")) and self._is_linear
+
+    def _before_measured(self):
+        """Lay the spine out where matplotlib's tight box first measures it,
+        placing the label beside it (`_asked_by_label`); it is measured
+        through its class then, unless its Axes shows no frame, whose tight
+        box leaves its spines out (pltrs (Rust) measures it, as it asks
+        nothing of the class)."""
+        if self._asked_by_label():
+            self.get_window_extent()
+        axes = self.axes
+        return not (axes.axison and axes.get_frame_on())
 
     @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
         if self.__dict__.get("_adjusts_itself"):
             if self._is_linear:
+                if self._asked_by_label():
+                    # The axis drawn before the spine measured it.
+                    self.get_window_extent()
                 self._push_layout()
             else:
                 self._adjust_location()
@@ -584,13 +620,17 @@ class Spine(Patch):
         return (_artist.draw_count(self._native),
                 0 if self.axes is None else _artist.draw_count(self.axes._native))
 
+    def _kept_linear_path(self):
+        """Keep the path of the linear spine's side until one is given."""
+        if "_kept_path" not in self.__dict__:
+            self._kept_path = Path(np.array(_LINEAR_PATHS[self.spine_type]))
+
     def _linear_path(self):
         """The spine's ``_path``, matplotlib's linear one first, which is
         spanned over the view again when the spine or its Axes was drawn
         since (drawing an axis measures the spines its label is placed
         beside, animated ones too)."""
-        if "_kept_path" not in self.__dict__:
-            self._kept_path = Path(np.array(_LINEAR_PATHS[self.spine_type]))
+        self._kept_linear_path()
         draws = self._draws()
         if self.__dict__.get("_path_draws", (0, 0)) is None:
             # Given while the figure was laid out: as it stands now.

@@ -251,11 +251,12 @@ impl Artist for AxesImageArtist {
     /// A norm or a colormap of the program's mapping the image as the draw
     /// a print makes before it renders makes it (`make_image`, at the
     /// layout of that draw); where the figure's draws are walked for the
-    /// program's tickers, the image is made ahead there instead (see
-    /// `super::ahead`).
+    /// program's tickers, an image whose norm is the program's is made
+    /// ahead there instead (see `super::ahead`).
     fn program_shaping(&self, layout: &LayoutContext<'_>) -> Option<ProgramShaping> {
         let state = layout.figure_state();
-        if !self.maps_through_program() || state.ticks_by_program() || !self.base.visible {
+        let made_ahead = state.ticks_by_program() && self.norm_calls_program();
+        if !self.maps_through_program() || made_ahead || !self.base.visible {
             return None;
         }
         // That draw renders the whole figure, before it is cut, at the

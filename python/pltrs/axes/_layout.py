@@ -6,6 +6,7 @@ What layout engines measure of an Axes (matplotlib's
 import numpy as np
 
 from .. import _unusable
+from ..artist import _AXIS_MEASURING
 from .._native import figure_layout as _figure_layout, insets as _insets
 from .._program_classes import class_cache, takes_from_program
 from ..text import _measured_by_given
@@ -14,11 +15,17 @@ from ..transforms import Bbox
 
 @class_cache
 def _measures_axis(cls):
-    """Whether the axis class *cls* measures its axes itself (its
-    ``get_tightbbox`` or the boxes of its tick labels,
-    ``_get_ticklabel_bboxes``, are the program's)."""
-    return any(takes_from_program(cls, name)
-               for name in ("get_tightbbox", "_get_ticklabel_bboxes"))
+    """Whether the axis class *cls* measures its axes itself (one of
+    `.artist._AXIS_MEASURING` is the program's)."""
+    return any(takes_from_program(cls, name) for name in _AXIS_MEASURING)
+
+
+def _measures_itself(axis):
+    """Whether *axis* measures itself: its class does, or the program
+    assigned it one of `.artist._AXIS_MEASURING`."""
+    own = vars(axis)
+    return ((_measures_axis(type(axis)) or any(name in own for name in _AXIS_MEASURING))
+            and not own.get("_held"))
 
 
 class LayoutMixin:
@@ -28,8 +35,7 @@ class LayoutMixin:
         """Whether an axis of the Axes is of a class measuring it, which
         matplotlib's `get_tightbbox` asks: the Axes is then measured in
         Python, here, wherever pltrs (Rust) takes its tight box."""
-        return any(_measures_axis(type(axis)) and not axis.__dict__.get("_held")
-                   for axis in self._axis_map.values())
+        return any(_measures_itself(axis) for axis in self._axis_map.values())
 
     def get_default_bbox_extra_artists(self):
         """

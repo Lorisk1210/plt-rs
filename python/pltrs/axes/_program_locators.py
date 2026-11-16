@@ -115,6 +115,50 @@ def follow_own_state(figure):
     _owners(figure)
 
 
+#: The 3-D axes the program gave a box of its own, per root figure.
+_boxes = weakref.WeakKeyDictionary()
+
+
+def follow_box(axis, figure):
+    """Have the root *figure* hand pltrs (Rust) the box the program gives
+    the 3-D axis *axis* (`.axis3d.Axis._push_given_box`) before a layout
+    measures the axis, as matplotlib's measures ask the box, while the
+    axis lives (its draws hand it over from the draw hook)."""
+    _owners(figure)
+    _boxes.setdefault(figure, weakref.WeakKeyDictionary())[axis] = None
+
+
+def measure_boxes(ax):
+    """Hand pltrs (Rust) the boxes the program gives the 3-D axes of *ax*
+    before *ax* is measured alone, asking them as matplotlib's
+    ``get_tightbbox`` does."""
+    boxes = _boxes.get(ax.get_figure(root=True))
+    for axis in list(boxes or ()):
+        if axis.axes is ax:
+            axis._push_given_box(0, 1)
+
+
+def _measures_of_layout(figure):
+    """What matplotlib does in this layout of *figure* that pltrs (Rust)
+    does once natively, as ``(draws, measures)``: the draw before a
+    print (``predrawn``) at the first layout of a print, a tight box
+    measured at the first layout of a print cut to it, and the two
+    measures of a layout engine of matplotlib's where it runs (outside
+    prints, and in the draw before one)."""
+    options = getattr(figure.canvas, "_print_options", None)
+    first = not options or not options.get("boxes_pushed")
+    if options:
+        options["boxes_pushed"] = True
+    predrawn = bool(options) and bool(options.get("predrawn")) and first
+    from ..layout_engine import ConstrainedLayoutEngine, TightLayoutEngine
+    engine = figure.get_layout_engine()
+    engine_measures = (isinstance(engine, (ConstrainedLayoutEngine, TightLayoutEngine))
+                       and not engine._executes_in_python()
+                       and (not options or predrawn))
+    tight = bool(options) and first and options.get("bbox_inches_restore") is not None
+    return int(predrawn), 2 * engine_measures + tight
+
+
 def follow_engine(figure):
     """Have the root *figure* run its layout engine of the program's before
     every layout of a draw."""
@@ -147,10 +191,12 @@ def place_to_measure(ax, renderer):
     """Place *ax* where its locator of the program's says now, as
     matplotlib's ``Axes.get_tightbbox`` calls the locator before it
     measures the Axes (with the figure's renderer when *renderer* is
-    None); nothing for an Axes placed otherwise."""
+    None), and hand over the boxes the program gives its 3-D axes
+    (`measure_boxes`); nothing for an Axes placed otherwise."""
     figure = ax.get_figure(root=True)
     if figure is not None and ax in _followed.get(figure, ()):
         ax._locate_by_program(figure._get_renderer() if renderer is None else renderer)
+    measure_boxes(ax)
 
 
 def forget(owner, figure):
@@ -186,6 +232,12 @@ def _locate(figure):
         ax._follow_child_axes()
     for axis in list(_axinfos.get(figure, ())):
         axis._push_axinfo()
+    boxes = list(_boxes.get(figure, ()))
+    if boxes:
+        draws, measures = _measures_of_layout(figure)
+        if draws or measures:
+            for axis in boxes:
+                axis._push_given_box(draws, measures)
     for ax in list(_autoscaled.get(figure, ())):
         ax._unstale_viewLim()
     engine = figure.get_layout_engine()

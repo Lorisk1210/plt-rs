@@ -57,8 +57,15 @@ pub(super) fn sync_tick(
     (label1, label2, tick1, tick2, grid): TickMirrors,
 ) -> PyResult<TickState> {
     let (loc, label) = located(axis, minor, index);
-    let position = drawn(axis, AxisTextPart::TickLabel { minor, index })
-        .map_or(Point::new(loc, 0.0), |text| text.position);
+    let position = drawn(
+        axis,
+        AxisTextPart::TickLabel {
+            minor,
+            index,
+            second: false,
+        },
+    )
+    .map_or(Point::new(loc, 0.0), |text| text.position);
     let rc = pltrs::rc::params();
     for (text, first_side) in [(&label1, true), (&label2, false)] {
         let style = axis.tick_style_at(minor, index, first_side);
@@ -190,7 +197,15 @@ pub(super) fn tick_label_extent(
     if second {
         return Ok(None);
     }
-    Ok(drawn(axis, AxisTextPart::TickLabel { minor, index }).map(|text| text.extent))
+    Ok(drawn(
+        axis,
+        AxisTextPart::TickLabel {
+            minor,
+            index,
+            second: false,
+        },
+    )
+    .map(|text| text.extent))
 }
 
 /// Fills the mirror `text` of the label of `axis`.

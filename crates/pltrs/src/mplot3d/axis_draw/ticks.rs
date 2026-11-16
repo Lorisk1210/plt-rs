@@ -113,11 +113,7 @@ impl Painter<'_> {
         label_at: Point,
     ) {
         let DrawnTick {
-            tick,
-            minor,
-            slot,
-            width,
-            ..
+            minor, slot, width, ..
         } = *drawn;
         let style = axis.tick_style_at(minor, slot, true);
         let gid = |part| {
@@ -137,22 +133,60 @@ impl Painter<'_> {
         grouped(sink, "line2d", gid(TickPart::Tick1Line), |sink| {
             sink.tick_mark(self, &Path::polyline(mark.to_vec()), width, &style.color);
         });
-        if !(style.labels.first || (sink.counts_second_labels() && style.labels.second)) {
-            return;
+        // matplotlib's `_tick_update_position` puts both labels where the
+        // first one goes; each is drawn (and measured) when shown, with its
+        // own style and alignment (the second one's text over the point).
+        if style.labels.first {
+            self.draw_tick_label(sink, axis, drawn, label_at, false);
         }
+        if style.labels.second {
+            self.draw_tick_label(sink, axis, drawn, label_at, true);
+        }
+    }
+
+    /// Draws the first (or `second`) label of a tick at `label_at`, in
+    /// projected coordinates, in its SVG group (matplotlib's
+    /// `Tick.label1` and `Tick.label2`, both `XTick` labels in 3-D: the
+    /// first hangs below the point, the second stands on it).
+    fn draw_tick_label(
+        &self,
+        sink: &mut impl Sink,
+        axis: &Axis3DState,
+        drawn: &DrawnTick<'_>,
+        label_at: Point,
+        second: bool,
+    ) {
+        let DrawnTick {
+            tick, minor, slot, ..
+        } = *drawn;
+        let style = axis.tick_style_at(minor, slot, !second);
         let font = style.label_font(self.axes.rc());
         let halign = style.label_halign.unwrap_or(HAlign::Center);
+        let default_valign = if second { VAlign::Bottom } else { VAlign::Top };
+        let part = if second {
+            TickPart::Label2
+        } else {
+            TickPart::Label1
+        };
         self.text_in_group(
             sink,
             &PlacedText {
-                part: AxisTextPart::TickLabel { minor, index: slot },
-                gid: gid(TickPart::Label1),
+                part: AxisTextPart::TickLabel {
+                    minor,
+                    index: slot,
+                    second,
+                },
+                gid: (axis.gids).get(AxisGroup::TickPart {
+                    minor,
+                    index: slot,
+                    part,
+                }),
                 text: &tick.label,
                 font: &font,
                 color: &style.label_color,
                 block: BlockStyle {
                     halign,
-                    valign: style.label_valign.unwrap_or(VAlign::Top),
+                    valign: style.label_valign.unwrap_or(default_valign),
                     multialign: halign,
                     rotation: style.label_rotation.rem_euclid(360.0),
                     rotation_mode: style.label_rotation_mode,

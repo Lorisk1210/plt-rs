@@ -221,7 +221,13 @@ _called_from_pytest = False
 #: rcParams pltrs keeps in Python: the backend is chosen by Python code,
 #: by pyplot the first time it needs one unless one is set (matplotlib's
 #: ``rcsetup._auto_backend_sentinel``).
-_PYTHON_PARAMS = {"backend": rcsetup._auto_backend_sentinel}
+_PYTHON_PARAMS = {
+    "backend": rcsetup._auto_backend_sentinel,
+    # A list programs change in place (``rcParams['figure.hooks'].append``,
+    # the gallery's mplcvd), which pltrs (Rust) never reads.
+    "figure.hooks": [],
+}
+
 
 #: The rcParams pltrs (Rust) keeps (matplotlib's, without pltrs (Rust)'s own).
 _NATIVE_KEYS = frozenset(_rcsetup.keys())
@@ -754,10 +760,10 @@ def rc_context(rc=None, fname=None):
     """
     saved = _rcsetup.copy(None)
     given = dict(rcParams._given)
-    # The parameters programs added, which matplotlib restores too (not the
-    # backend, which it leaves as chosen).
+    # The parameters kept in Python, programs' own among them, which
+    # matplotlib restores too (not the backend, which it leaves as chosen).
     added = {key: value for key, value in rcParams._python.items()
-             if key not in _PYTHON_PARAMS}
+             if key != "backend"}
     try:
         if fname:
             rc_file(fname)

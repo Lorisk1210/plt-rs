@@ -222,10 +222,17 @@ impl Grid<'_> {
         let layout = LayoutContext::new(fig);
         let extent = |text: Option<SuperText>| {
             let text = layout.store().get_as::<TextArtist>(text?.id)?;
-            let bbox = text
-                .base()
-                .in_layout
-                .then(|| text.window_extent(&layout))??;
+            let base = text.base();
+            if !base.in_layout {
+                return None;
+            }
+            // matplotlib measures a hidden text as the unit box at the
+            // origin (`Text.get_window_extent`): a pixel of room.
+            let bbox = if base.visible {
+                text.window_extent(&layout)?
+            } else {
+                Bbox::UNIT
+            };
             Some(figure_fraction(bbox, fig.size_pixels()))
         };
         let texts = fig
@@ -267,6 +274,22 @@ mod tests {
         assert_eq!(bbox.y0(), 100.0 * (1.0 / 1200.0));
         assert_ne!(bbox.y0(), 100.0 / 1200.0);
         assert_eq!((bbox.x1(), bbox.y1()), (1.0, 1.0));
+    }
+
+    #[test]
+    fn a_hidden_suptitle_takes_a_pixel_of_room() {
+        use crate::artist::ArtistHandle;
+        use crate::figure::Figure;
+        use crate::layout::TightLayout;
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        fig.suptitle("hidden").set_visible(false);
+        fig.tight_layout(TightLayout::default()).unwrap();
+        // matplotlib: (0.073, 0.0804, 0.8864, 0.844), the hidden title
+        // measured as the unit box.
+        let (x, y, w, h) = ax.position().bounds();
+        let rounded = |v: f64| (v * 1e4).round() / 1e4;
+        assert_eq!([x, y, w, h].map(rounded), [0.073, 0.0804, 0.8864, 0.844]);
     }
 
     #[test]

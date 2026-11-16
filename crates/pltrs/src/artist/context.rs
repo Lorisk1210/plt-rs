@@ -194,10 +194,13 @@ impl<'a> LayoutContext<'a> {
     /// box): the bounding box of a [`ClipPathSpec::BoundingBox`], the box
     /// of an axes whose rectangular background is the clip path (which
     /// matplotlib's `set_clip_path` makes the clip box, whatever the
-    /// artist's axes), else the extent of the frame in `base.clip_box`.
-    /// Clipping being on is not checked.
+    /// artist's axes), else the box of `base.clip_region` or the extent of
+    /// the frame in `base.clip_box`. Clipping being on is not checked.
     pub fn clip_rect(&self, base: &ArtistBase) -> Option<Bbox> {
-        let own_box = || base.clip_box.and_then(|owner| self.clip_extent(owner));
+        let own_box = || match &base.clip_region {
+            Some(region) => self.bounding_rect(region),
+            None => base.clip_box.and_then(|owner| self.clip_extent(owner)),
+        };
         match &base.clip_path {
             Some(spec @ ClipPathSpec::BoundingBox { .. }) => self.bounding_rect(spec),
             Some(ClipPathSpec::Artist(id))
@@ -1050,5 +1053,42 @@ mod tests {
         // the empty one restarted after the last).
         assert_eq!(canvases(None), (2, 1));
         assert_eq!(canvases(Some(true)), (2, 3));
+    }
+
+    #[test]
+    fn a_clip_region_clips_in_place_of_the_clip_box() {
+        use super::LayoutContext;
+        use crate::artist::ClipPathSpec;
+        use crate::transforms::Transform;
+        use pltrs_core::Bbox;
+
+        let fig = Figure::with_size(2.0, 1.0, 100.0);
+        let ax = fig.subplot();
+        let line = ax.plot(vec![0.0, 1.0], vec![0.0, 1.0]).unwrap();
+        let clip_rects = || {
+            let state = line.raw().figure_state().borrow();
+            let layout = LayoutContext::new(&state);
+            let rect = line.raw().with_base(|base| layout.clip_rect(base));
+            (rect, layout.axes_extent(ax.id()))
+        };
+        // A box of pixels of its own, as `set_clip_box(Bbox(...))` gives it.
+        let region = ClipPathSpec::BoundingBox {
+            path: Path::unit_rectangle(),
+            transform: Transform::Affine(
+                Affine2D::identity().scale(30.0, 20.0).translate(10.0, 5.0),
+            ),
+        };
+        line.set_clip_region(Some(region.clone()));
+        assert_eq!(line.clip_box(), None, "the region replaces the axes' box");
+        assert_eq!(line.clip_region(), Some(region));
+        assert_eq!(
+            clip_rects().0,
+            Some(Bbox::from_extents(10.0, 5.0, 40.0, 25.0))
+        );
+        // The axes' box replaces the region in turn.
+        line.set_clip_box(Some(ax.id()));
+        assert_eq!(line.clip_region(), None);
+        let (rect, axes_box) = clip_rects();
+        assert_eq!(rect, axes_box);
     }
 }

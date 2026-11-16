@@ -513,8 +513,9 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             # that is no sequence.
             SubplotSpec._from_subplot_args(self, (rect,))
             return self.add_subplot(rect, **kwargs)
-        Bbox.from_bounds(*rect)  # As matplotlib's Axes takes the bounds.
-        rect = tuple(map(float, rect))
+        # As matplotlib's Axes takes the bounds: through a Bbox, whose
+        # right and top a program's float32 values give in float32.
+        rect = tuple(map(float, Bbox.from_bounds(*rect).bounds))
         make = _native_maker(projection_class)
         if make is not None:
             native, pkw = make(self, pkw, rect=rect)

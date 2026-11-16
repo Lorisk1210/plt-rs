@@ -568,9 +568,9 @@ class Legend(Artist):
         self._axes = parent if self.isaxes else None
         handler_map = self.get_legend_handler_map()
         _legend_checks.check_entries(self, handles, handler_map, ncols)
-        entries, kept, kept_handles = [], [], []
+        entries, kept, kept_handles, unhandled = [], [], [], []
         made = _legend_handlers.MadeEntries()
-        for handle, label in zip(handles, labels):
+        for position, (handle, label) in enumerate(zip(handles, labels)):
             handler = self.get_legend_handler(handler_map, handle)
             if handler is None:
                 _api.warn_external(
@@ -580,6 +580,8 @@ class Legend(Artist):
                     "instead.\nSee: https://matplotlib.org/"
                     "stable/users/explain/axes/legend_guide.html"
                     "#controlling-the-legend-entries")
+                # No entry, and None among the handles drawn.
+                unhandled.append(position)
                 continue
             if _legend_handlers.runs_in_python(self, handler_map, handler,
                                                handle):
@@ -588,6 +590,8 @@ class Legend(Artist):
                 entries.append(self._entry(handle, handler_map))
             kept.append(str(label))
             kept_handles.append(handle)
+        if unhandled:
+            self._unhandled = unhandled
         given_loc = loc
         loc = self._validated_loc(loc)
         _legend_checks.check_title(title_fontsize, title_fontproperties)
@@ -800,11 +804,11 @@ class Legend(Artist):
     @_values.assignable
     def texts(self):
         """The `~.text.Text` labels of the legend."""
-        return _handles.wrap_all(_legend.get_texts(self._native), Text, self.figure)
+        return _handles.wrap_all(_legend.get_texts(self._native), Text, self._figure)
 
     def get_title(self):
         """Return the `.Text` instance for the legend title."""
-        return _handles.wrap(_legend.get_title(self._native), Text, self.figure)
+        return _handles.wrap(_legend.get_title(self._native), Text, self._figure)
 
     def set_title(self, title, prop=None):
         """
@@ -835,16 +839,20 @@ class Legend(Artist):
         handler draws.
         """
         made = self.__dict__.get("_made_handles", {})
-        return [made[index] if index in made else
-                None if handle is None else
-                self._drawn_handle(index, handle)
-                for index, handle in enumerate(_legend.legend_handles(self._native))]
+        drawn = [made[index] if index in made else
+                 None if handle is None else
+                 self._drawn_handle(index, handle)
+                 for index, handle in enumerate(_legend.legend_handles(self._native))]
+        # The handles no handler draws stand where they were given.
+        for position in self.__dict__.get("_unhandled", ()):
+            drawn.insert(position, None)
+        return drawn
 
     def _drawn_handle(self, index, handle):
         """The artist of the native *handle* drawn for the entry *index*,
         reading back what the entry's handle was given, as matplotlib's
         handlers copy it (``update_from``)."""
-        drawn = _handles.wrap(handle[0], _DRAWN_CLASSES[handle[1]], self.figure)
+        drawn = _handles.wrap(handle[0], _DRAWN_CLASSES[handle[1]], self._figure)
         entry_handles = self.__dict__.get("_entry_handles", [])
         if index < len(entry_handles):
             _values.inherit(drawn, entry_handles[index])
@@ -888,7 +896,7 @@ class Legend(Artist):
         box = self.__dict__.get("_legend_box_object")
         if box is None:
             from .offsetbox import _laid_out_box
-            box = _laid_out_box(_legend.legend_box(self._native), self.figure,
+            box = _laid_out_box(_legend.legend_box(self._native), self._figure,
                                 _DRAWN_CLASSES)
             # The box is on the legend's figure and Axes, placed by the
             # legend's location (``_findoffset``) unless pinned somewhere.
@@ -980,7 +988,7 @@ class Legend(Artist):
     def get_frame(self):
         """Return the `~.patches.Rectangle` used to frame the legend."""
         return _handles.wrap(_legend.get_frame(self._native), FancyBboxPatch,
-                             self.figure)
+                             self._figure)
 
     def _set_frame(self, patch):
         # matplotlib's draw sizes the patch assigned to the legend's box and
@@ -994,7 +1002,7 @@ class Legend(Artist):
                      # (matplotlib's own frame snaps; a patch made alone does not.)
                      "snap", "antialiased"):
             getattr(frame, f"set_{prop}")(getattr(patch, f"get_{prop}")())
-        _handles.adopt(patch, frame._native, self.figure)
+        _handles.adopt(patch, frame._native, self._figure)
 
     legendPatch = property(get_frame, _set_frame, doc="The `.FancyBboxPatch` framing the legend.")
 
@@ -1176,7 +1184,7 @@ class Legend(Artist):
         if given is not None and given[1] == bounds:
             return given[0]
         bbox = TransformedBbox(Bbox.from_bounds(*bounds),
-                               _live_transforms.from_native(self.figure, native))
+                               _live_transforms.from_native(self._figure, native))
         self._anchored = (bbox, bounds)
         return bbox
 
@@ -1284,11 +1292,13 @@ def _get_legend_handles(axs, legend_handler_map=None):
     handler_map = {**Legend.get_default_handler_map(),
                    **(legend_handler_map or {})}
     for ax in axs:
+        listed = set()
         for native, artist, label in _legend.candidates(ax._native):
             if artist is None:
                 yield _container(ax, native, label)
                 continue
             raw, kind = artist
+            listed.add(_artist.id(raw))
             yield from _handled(
                 _handles.wrap(raw, _ARTIST_CLASSES[kind], ax.figure), label,
                 handler_map)
@@ -1296,6 +1306,12 @@ def _get_legend_handles(axs, legend_handler_map=None):
         for raw in _text.axes_texts(ax._native):
             text = _handles.wrap(raw, Text, ax.figure)
             yield from _handled(text, text.get_label(), handler_map)
+        # The collections no default handler draws, which the candidates
+        # leave out, are warned of as the shown labels they cannot list.
+        for collection in ax.collections:
+            if (_artist.id(collection._native) not in listed
+                    and Legend.get_legend_handler(handler_map, collection) is None):
+                yield from _handled(collection, collection.get_label(), handler_map)
 
 
 def _container(ax, native, label):

@@ -7,7 +7,7 @@
 
 use pltrs::artist::RawHandle;
 use pltrs::offsetbox::{
-    OffsetBoxError, node_extent, node_origin, rebuild_tree, text_area_baseline_shift,
+    OffsetBoxError, holds_tree, node_extent, node_origin, rebuild_tree, text_area_baseline_shift,
     text_area_bbox,
 };
 use pltrs::transforms::Bbox;
@@ -30,6 +30,13 @@ fn bounds(bbox: Bbox) -> (f64, f64, f64, f64) {
 /// documentation): the handles of the tree's artists in tree order.
 fn rebuild(owner: RawHandle, tree: PyOffsetBox) -> PyResult<Vec<RawHandle>> {
     Ok(rebuild_tree(&owner, tree.0).ok_or_else(not_an_owner)??)
+}
+
+/// Whether `owner` is a box added with a tree and still in its figure
+/// (see `pltrs::offsetbox::holds_tree`): one whose tree `rebuild_tree`
+/// replaces.
+fn holds(owner: RawHandle) -> PyResult<bool> {
+    Ok(holds_tree(&owner))
 }
 
 /// The exception matplotlib raises measuring a box that fails with `err`:
@@ -82,6 +89,7 @@ fn text_area_baseline(text: RawHandle, multilinebaseline: bool, dpi: Option<f64>
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("rebuild_tree", rebuild)?;
+    module.add("holds_tree", holds)?;
     module.add("node_extent", extent)?;
     module.add("node_origin", origin)?;
     module.add("text_area_extent", text_area_extent)?;

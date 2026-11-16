@@ -2189,10 +2189,13 @@ class FigureCanvasBase:
             # (see `_send_draw_event`)...
             predrawn = (self.figure.get_layout_engine() is not None
                         or cbook._str_equal(bbox_inches, "tight"))
-            if predrawn and "_callbacks" in self.figure.__dict__:
+            if predrawn and ("_callbacks" in self.figure.__dict__
+                             or self.callbacks.callbacks.get("draw_event")):
                 # ... but for a figure with observers, which matplotlib's
-                # draw lays out before they hear of the layout turned off:
-                # a draw failing fails first.
+                # draw lays out before they hear of the layout turned off
+                # (a draw failing fails first), and for callbacks of the
+                # draw event, whose changes (python-ternary's labels, made
+                # anew at each draw) the tight box and the print take in.
                 self.figure.draw_without_rendering()
                 predrawn = False
             with self._laid_out_for_print(bbox_inches):

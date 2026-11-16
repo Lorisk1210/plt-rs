@@ -12,6 +12,7 @@ functions of its shape.
 import functools
 import inspect
 import math
+import warnings
 import weakref
 from numbers import Number, Real
 
@@ -3192,6 +3193,23 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
         return Bbox.from_bounds(self._x, self._y, self._width, self._height)
 
 
+def _float_ends(positions):
+    """The ends *positions* of an arrow as pairs of floats, complex ones
+    cast without the warning matplotlib gives where it maps them
+    (`_cast_as_drawn`); `TypeError` or `ValueError` for values that are
+    no numbers."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", np.exceptions.ComplexWarning)
+        return [tuple(map(float, pos)) for pos in positions]
+
+
+def _cast_as_drawn(positions):
+    """Warn as matplotlib's arrow warns mapping its complex ends
+    *positions* to the display, which casts them to floats (python-control
+    places its arrows at points of complex trajectories)."""
+    np.asarray(positions).astype(float)
+
+
 @_mirrors.mirrorable
 class FancyArrowPatch(FancyStylesMixin, Patch):
     """
@@ -3366,7 +3384,7 @@ default: 'arc3'
         """
         if posA is not None and posB is not None and path is None:
             if all(units._is_natively_supported(v) for v in (*posA, *posB)):
-                ends = (tuple(map(float, posA)), tuple(map(float, posB)))
+                ends = tuple(_float_ends((posA, posB)))
             else:
                 # Positions in units convert once the arrow joins an axes.
                 self._unit_positions = (posA, posB)
@@ -3399,6 +3417,8 @@ default: 'arc3'
         super().__init__(**kwargs)
         if path is not given_path:
             _unusable.keep(self, "path", given_path, self._map_path)
+        if ends is not None and "_unit_positions" not in self.__dict__:
+            self._keep_cast((posA, posB))
         self.patchA = patchA
         self.patchB = patchB
         self._link_patches()
@@ -3658,9 +3678,10 @@ default: 'arc3'
             if pos is not None:
                 positions[index] = pos
         try:
-            ends = [tuple(map(float, pos)) for pos in positions]
+            ends = _float_ends(positions)
         except (TypeError, ValueError):
             ends = None
+        self._keep_cast(positions if ends is not None else ())
         if ends is None or any(len(end) != 2 for end in ends):
             # matplotlib keeps them, and fails where it converts them and
             # maps them to the display.
@@ -3682,9 +3703,18 @@ default: 'arc3'
         (clipped by the patches), the arrow style asked for, the mutation
         scale, then the arrow style called (squeezing the path by the
         mutation aspect)."""
-        return ["path", "positions", "shrinkA", "shrinkB", "_connector", "patchA",
-                "patchB", "_no_arrowstyle", "mutation_scale", "_arrow_transmuter",
-                "mutation_aspect"]
+        return ["path", "positions", "cast_positions", "shrinkA", "shrinkB",
+                "_connector", "patchA", "patchB", "_no_arrowstyle", "mutation_scale",
+                "_arrow_transmuter", "mutation_aspect"]
+
+    def _keep_cast(self, positions):
+        """Have the arrow warn where matplotlib's casts its complex ends
+        *positions* to floats, mapping them to the display as it measures
+        or draws the arrow (`_cast_as_drawn`); nothing for real ones."""
+        if any(np.iscomplexobj(value) for pos in positions for value in pos):
+            _unusable.keep(self, "cast_positions", positions, _cast_as_drawn)
+        else:
+            _unusable.drop(self, "cast_positions")
 
     def _map_path(self, path):
         """Fail as matplotlib's arrow fails to map *path*, which it keeps,

@@ -15,6 +15,7 @@ use pltrs::fonts::FontSize;
 use pltrs::offsetbox::{
     AnchorLoc, AnchoredBox, AnchoredOffsetbox, AnchoredOptions, AnnotationBbox,
     AnnotationBboxOptions, BboxToAnchor, BoxItem, PaddedBox, PlacedOffsetBox, ProgramOffsetBox,
+    tree_artists,
 };
 use pltrs::patches::{FancyBboxPatch, Patch};
 use pltrs::text::ArrowProps;
@@ -30,6 +31,13 @@ use crate::binding::prelude::*;
 
 /// A box added: its handle, the artists of its tree and its frame.
 type Added = (RawHandle, Vec<RawHandle>, Patch<FancyBboxPatch>);
+
+/// The artists of the tree of `added`, a box just added, those of its
+/// hidden boxes too, in tree order: the artists Python's boxes take in
+/// turn, whether drawn or not.
+fn tree_of(added: &RawHandle) -> Vec<RawHandle> {
+    tree_artists(added).expect("a box just added holds its tree")
+}
 
 /// Gives `to` the properties every artist has that were set on `from`,
 /// the plain artist an offset box was before it was added.
@@ -130,7 +138,11 @@ fn add_anchored(
             .add_anchored_box(spec),
     };
     carry_over(&plain, anchored.raw());
-    Ok((anchored.raw().clone(), anchored.artists(), anchored.patch()))
+    Ok((
+        anchored.raw().clone(),
+        tree_of(anchored.raw()),
+        anchored.patch(),
+    ))
 }
 
 /// Anchors the added anchored box `anchored` as `options` say from now on
@@ -206,7 +218,7 @@ fn add_annotation_bbox(
     }
     .map_err(|err| PyErr::value_error(err.to_string()))?;
     carry_over(&plain, added.raw());
-    Ok((added.raw().clone(), added.artists(), added.patch()))
+    Ok((added.raw().clone(), tree_of(added.raw()), added.patch()))
 }
 
 /// Adds the box `child` with its origin at the display point `offset` to
@@ -227,7 +239,7 @@ fn add_placed(
             .add_offset_box(child, offset),
     };
     carry_over(&plain, placed.raw());
-    Ok((placed.raw().clone(), placed.artists()))
+    Ok((placed.raw().clone(), tree_of(placed.raw())))
 }
 
 /// Adds the box `child` with its origin at the display point `offset` as
@@ -245,7 +257,7 @@ fn add_owned(
     if let Some(plain) = plain {
         carry_over(&plain, placed.raw());
     }
-    Ok((placed.raw().clone(), placed.artists()))
+    Ok((placed.raw().clone(), tree_of(placed.raw())))
 }
 
 /// A loose frame as a `PaddedBox` makes its own (its `patch`), shown when

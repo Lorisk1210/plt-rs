@@ -32,10 +32,6 @@ mod ticks;
 pub use lines::{GridLine3D, TickLine3D};
 pub(crate) use lines::{grid_lines, tick_lines};
 
-/// Fraction of the tick offset the tick marks extend outwards and inwards.
-const TICK_OUTWARD: f64 = 0.1;
-const TICK_INWARD: f64 = 0.2;
-
 /// Rough distance between tick marks and their labels, in points.
 const TICK_LABEL_OFFSET: f64 = 8.0;
 
@@ -512,7 +508,13 @@ impl<'a> Painter<'a> {
                     text: &axis.label.text,
                     font: &axis.label.font,
                     color: &axis.label.color,
-                    block: anchored(rotation, HAlign::Center),
+                    block: BlockStyle {
+                        halign: axis.style.label_halign,
+                        valign: axis.style.label_valign,
+                        multialign: axis.style.label_halign,
+                        rotation_mode: axis.style.label_rotation_mode,
+                        ..anchored(rotation, HAlign::Center)
+                    },
                     position: self.project(at),
                 },
             );

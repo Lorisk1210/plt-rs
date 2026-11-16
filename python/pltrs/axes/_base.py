@@ -367,9 +367,12 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
             # out of its layout.
             self.set_in_layout(False)
             return
-        if which != 'active':
-            self.__dict__.pop("_original_in_figure", None)
-        _axes_base.set_position(self._native, tuple(map(float, pos.bounds)),
+        if which != 'active' and "_original_in_figure" in self.__dict__:
+            # A child Axes' original position, in figure fractions (pltrs
+            # (Rust) keeps it in its host's).
+            self._original_in_figure = pos.frozen()
+        # Its corners as given (matplotlib's stores the box's points).
+        _axes_base.set_position(self._native, tuple(map(float, pos.extents)),
                                 which)
 
     def sharex(self, other):

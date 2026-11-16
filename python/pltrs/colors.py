@@ -54,6 +54,8 @@ import io
 import itertools
 from numbers import Real
 import re
+import sys
+import types
 import weakref
 
 
@@ -155,6 +157,26 @@ def _program_color(name):
 
 
 _register("program_color", _program_color)
+
+
+class _ColorsModule(types.ModuleType):
+    """This module, which hands pltrs (Rust) the mapping of colour names a
+    program puts in place of `_colors_full_map` (ultraplot's
+    ``ColorDatabase``, which renames ``"plum"`` and others): matplotlib
+    reads every name from that mapping, so pltrs (Rust) looks names up
+    there first while it stands (`_program_color`)."""
+
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        if name == "_colors_full_map":
+            _colors.set_program_mapping(not isinstance(value, _ColorMapping))
+
+
+# Named as the type it extends, which matplotlib's module has
+# (``type(matplotlib.colors)`` reads ``<class 'module'>``).
+_ColorsModule.__name__ = _ColorsModule.__qualname__ = "module"
+_ColorsModule.__module__ = "builtins"
+sys.modules[__name__].__class__ = _ColorsModule
 
 
 def get_named_colors_mapping():

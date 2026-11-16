@@ -4,7 +4,7 @@
 
 use std::rc::Rc;
 
-use pltrs_core::Bbox;
+use pltrs_core::{Affine2D, Bbox};
 
 use super::{AspectError, Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
@@ -119,15 +119,22 @@ impl Axes {
         let active = self
             .raw
             .with::<AxesState, _>(|a| a.aspect.active_position(&a.position));
-        let Some(host) = host else {
-            return active;
-        };
+        match host {
+            Some(host) => active.transformed(&self.host_to_figure(host)),
+            None => active,
+        }
+    }
+
+    /// The map from the fractions of the box `host` (placed in the figure)
+    /// of an axes placed in another to the figure's fractions, with the
+    /// arithmetic of matplotlib's locator there.
+    fn host_to_figure(&self, host: Bbox) -> Affine2D {
         let figure = self.raw.figure_state().borrow().figure_bbox_of(self.id());
         let to_figure = figure.and_then(|figure| {
             let host = host.transformed(&unit_to_bbox(&figure));
             crate::figure::host_to_figure(&host, &figure)
         });
-        active.transformed(&to_figure.unwrap_or_else(|| unit_to_bbox(&host)))
+        to_figure.unwrap_or_else(|| unit_to_bbox(&host))
     }
 
     /// The axes this one is placed in (insets, secondary axes).
@@ -151,9 +158,25 @@ impl Axes {
     /// `set_position(pos, which=...)`). The layout engine leaves this axes
     /// alone from now on.
     pub fn set_position_which(&self, rect: [f64; 4], which: WhichPosition) -> &Self {
-        self.set_in_layout(false);
         let [left, bottom, width, height] = rect;
-        let position = Bbox::from_bounds(left, bottom, width, height);
+        self.set_position_box(Bbox::from_bounds(left, bottom, width, height), which)
+    }
+
+    /// [`set_position_which`](Self::set_position_which) with the box
+    /// `position` as given, its corners kept (matplotlib's `set_position`
+    /// of a `Bbox`, whose points it stores: a right edge rebuilt from a
+    /// width may differ in its last bit).
+    pub fn set_position_box(&self, position: Bbox, which: WhichPosition) -> &Self {
+        self.set_in_layout(false);
+        let mut position = position;
+        // An axes placed in another keeps its positions in the fractions
+        // of that one's box as last placed (see `active_position_in`).
+        if let Some(host) = self.host() {
+            let to_host = self.host_to_figure(host.located_position()).inverted();
+            if let Some(to_host) = to_host {
+                position = position.transformed(&to_host);
+            }
+        }
         for twin in self.twins() {
             twin.raw.with_mut::<AxesState, _>(|a| {
                 if which != WhichPosition::Active {
@@ -165,5 +188,21 @@ impl Axes {
             });
         }
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+
+    #[test]
+    fn an_inset_set_in_figure_fractions_stays_there() {
+        let ax = Figure::new().add_axes([0.2, 0.1, 0.6, 0.8]).unwrap();
+        let inset = ax.inset_axes([0.5, 0.5, 0.25, 0.25]);
+        inset.set_position([0.7, 0.6, 0.05, 0.2]);
+        let (x0, y0, width, height) = inset.located_position().bounds();
+        for (got, want) in [(x0, 0.7), (y0, 0.6), (width, 0.05), (height, 0.2)] {
+            assert!((got - want).abs() < 1e-12, "{got} != {want}");
+        }
     }
 }

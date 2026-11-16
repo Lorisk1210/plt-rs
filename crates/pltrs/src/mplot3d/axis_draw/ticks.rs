@@ -6,8 +6,7 @@ use pltrs_core::{Path, Point};
 use pltrs_text::{BlockStyle, HAlign, VAlign};
 
 use super::{
-    AxisEdge, AxisTextPart, Painter, PlacedText, Sink, TICK_INWARD, TICK_LABEL_OFFSET,
-    TICK_OUTWARD, anchored, grouped,
+    AxisEdge, AxisTextPart, Painter, PlacedText, Sink, TICK_LABEL_OFFSET, anchored, grouped,
 };
 use crate::axes::{AxisGroup, TickPart};
 use crate::fonts::FontProperties;
@@ -50,12 +49,13 @@ impl Painter<'_> {
             -delta
         };
         let base = origin[tickdir];
+        let style = &self.axes.axis(dir).style;
         MarkSpan {
             origin,
             tickdir,
             ends: [
-                base + TICK_OUTWARD * tickdelta,
-                base - TICK_INWARD * tickdelta,
+                base + style.tick_outward * tickdelta,
+                base - style.tick_inward * tickdelta,
             ],
         }
     }

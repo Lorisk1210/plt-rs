@@ -140,6 +140,17 @@ def floats(values):
     return np.atleast_1d(np.asarray(values, dtype=float)).ravel()
 
 
+def without_defaulted(kwargs, cls, kept=()):
+    """*kwargs* without the properties of the artist class *cls* given as
+    None, which take their default as matplotlib's constructor gives it,
+    but those named in *kept*, whose None the class reads as a value; a
+    name that is no property of *cls* stays, None or not, to be refused as
+    matplotlib's ``set`` refuses it."""
+    return {key: value for key, value in kwargs.items()
+            if value is not None or key in kept
+            or not hasattr(cls, f"set_{key}")}
+
+
 def line_kwargs(kwargs, holder=None):
     """`.Line2D` keyword arguments, aliases resolved, in native form (a
     transform of the program's held for *holder*: `.lines._native_kwargs`)."""

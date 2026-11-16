@@ -1048,6 +1048,21 @@ class Path3DCollection(_Lifted3DOffsets, mcoll.PathCollection):
     # `allow_rasterization`: asking to rasterize it warns.
     _ignores_rasterization = True
 
+    #: matplotlib's fields of the projected order, as its ``__init__`` sets
+    #: them (its draws set them anew; pltrs (Rust) projects the collection
+    #: itself): what programs read and assign back (ultraplot's previews).
+    _offset_zordered = None
+    _z_markers_idx = slice(-1)
+
+    def __getattr__(self, name):
+        # matplotlib's sizes and widths of the items in their given order,
+        # which its projections sort.
+        if name == "_sizes3d":
+            return self.get_sizes()
+        if name == "_linewidths3d":
+            return np.array(self.get_linewidth())
+        return super().__getattr__(name)
+
     def __init__(
         self,
         *args,

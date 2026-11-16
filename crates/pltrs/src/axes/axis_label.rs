@@ -464,19 +464,23 @@ impl Axis {
         self.read(|axis| axis.label.bbox.clone())
     }
 
-    /// The display box of the axis label in the figure's current layout
-    /// (laid out first), if it is shown (matplotlib's
+    /// The display box of the axis label in the figure as it stands (not
+    /// laid out first, the axes where it was last placed) and where the
+    /// label stands (where it was last placed, see
+    /// [`label_placed`](Self::label_placed)), if it is shown (matplotlib's
     /// `axis.label.get_window_extent()`).
     pub fn label_extent(&self) -> Option<Bbox> {
-        self.with_texts(|texts, _| texts.label.as_ref().map(PlacedText::bbox))
+        self.with_painter_as_is(|painter, cx, rc| painter.axis_label_as_placed(cx, rc))
             .flatten()
+            .and_then(Result::ok)
+            .map(|label| label.bbox())
     }
 
-    /// The display box of the offset (or scale) text in the figure's
-    /// current layout (laid out first), if it is shown (matplotlib's
+    /// The display box of the offset (or scale) text in the figure as it
+    /// stands (not laid out first), if it is shown (matplotlib's
     /// `axis.offsetText.get_window_extent()`).
     pub fn offset_text_extent(&self) -> Option<Bbox> {
-        self.with_texts(|texts, _| texts.offset.as_ref().map(PlacedText::bbox))
+        self.with_texts_as_is(|texts, _| texts.offset.as_ref().map(PlacedText::bbox))
             .flatten()
     }
 

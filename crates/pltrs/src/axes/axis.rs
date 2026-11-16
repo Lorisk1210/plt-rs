@@ -272,11 +272,12 @@ pub(crate) struct AxisState {
     /// matplotlib does.
     pub(crate) autolimit_mode: Option<AutolimitMode>,
     pub(crate) autoscale: AutoscaleState,
-    /// Size of the major tick labels in points as set by the tick
-    /// parameters (matplotlib's `_major_tick_kw['labelsize']`), which
-    /// drives the tick-space heuristic; `None` follows the current
-    /// `xtick.labelsize` or `ytick.labelsize`.
-    pub(crate) label_size: Option<f64>,
+    /// Size of the major tick labels as the tick parameters gave it
+    /// (matplotlib's `_major_tick_kw['labelsize']`), which drives the
+    /// tick-space heuristic, a relative size against `font.size` when the
+    /// ticks are located; `None` follows the current `xtick.labelsize` or
+    /// `ytick.labelsize`.
+    pub(crate) label_size: Option<crate::fonts::FontSize>,
     /// Ticks computed by the last prepare pass, or why they could not be.
     pub(crate) ticks: Result<TickSet, TickerError>,
     /// Appearance of the major ticks.

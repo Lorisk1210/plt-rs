@@ -17,7 +17,8 @@ from ..._artist_kwargs import check_known, keep_python_kwargs
 from ..._native import axes as _axes, patches as _patches, plotting as _plotting
 from ..._preprocess import _label_from_arg, _preprocess_data, _replacer
 from ...patches import Rectangle
-from ._helpers import converted_line_data, floats, keep_data, made_line_kwargs, wrap
+from ._helpers import (converted_line_data, floats, keep_data, made_line_kwargs,
+                       without_defaulted, wrap)
 
 
 def _span_geometry(patch, x, y, width, height):
@@ -478,7 +479,7 @@ class LinesMixin:
             return []
         lines = []
         for x, y, fmt, label in list(_plot_datasets(list(args), data, kwargs, self)):
-            props = {k: v for k, v in kwargs.items() if v is not None}
+            props = without_defaulted(kwargs, mlines.Line2D) if kwargs else {}
             if "transform" in props:
                 props["transform"] = _live_transforms.for_axes(
                     props["transform"], self)

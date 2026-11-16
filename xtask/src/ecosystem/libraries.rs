@@ -17,6 +17,7 @@
 mod addons;
 mod analysis;
 mod charts;
+mod depth;
 mod fields;
 mod plotting;
 mod science;
@@ -81,6 +82,10 @@ pub(super) struct Environment {
     /// Whether pytest's cache runs (scanpy's image comparisons save into
     /// its `cache` fixture).
     pub(super) cache: bool,
+    /// The pytest workers its runs take, if not the runner's (healpy's
+    /// tests write and remove the same files in the working directory:
+    /// one).
+    pub(super) workers: Option<&'static str>,
 }
 
 /// Nothing besides the venv.
@@ -88,6 +93,7 @@ const PLAIN: Environment = Environment {
     variables: &[],
     display: false,
     cache: false,
+    workers: None,
 };
 
 /// Which venvs a library's suite runs in (see `venvs`).
@@ -241,6 +247,7 @@ pub(super) fn all() -> impl Iterator<Item = Library> {
         addons::LIBRARIES.as_slice(),
         charts::LIBRARIES.as_slice(),
         fields::LIBRARIES.as_slice(),
+        depth::LIBRARIES.as_slice(),
     ]
     .into_iter()
     .flatten()

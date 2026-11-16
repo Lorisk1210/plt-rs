@@ -77,8 +77,14 @@ def _contour_look(axes, kwargs):
             None if alpha is None else float(alpha),
             _contour_arguments.held_linewidths(linewidths),
             _contour_arguments.held_linestyles(_linestyles, linestyles),
-            _contour_arguments.held_linestyles(lambda styles: _linestyles(styles)[0],
-                                               negative_linestyles))
+            _contour_arguments.held_linestyles(
+                lambda styles: _linestyles(styles)[0],
+                # matplotlib dashes negative levels when the colormap says
+                # it is monochrome; pltrs (Rust) judges by the colours,
+                # which a colormap of the program's may not follow
+                # (ultraplot's of one colour is not).
+                negative_linestyles if colors is not None or made.cmap.monochrome
+                else "solid"))
     given_transform = kwargs.pop("transform", None)
     transform = _live_transforms.for_axes(
         _contour_arguments.held_transform(given_transform), axes)
@@ -185,6 +191,9 @@ class ContoursMixin:
         """The `.QuadContourSet` of ``contour`` (or, *filled*, ``contourf``):
         a new one, or *made*, the set whose constructor contours."""
         fn = 'contourf' if filled else 'contour'
+        # matplotlib's methods give the set ``filled`` themselves, whatever
+        # the program gave (getdist passes it on).
+        kwargs.pop('filled', None)
         # matplotlib's contour set takes the alpha first, checking it.
         martist._check_array_alpha(kwargs.get("alpha"))
         _contour_arguments.check_made(kwargs)

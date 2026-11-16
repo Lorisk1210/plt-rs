@@ -1279,6 +1279,16 @@ class Collection(mcolorizer.ColorizingArtist):
         which `get_offsets` gives as a ``(1, 2)`` array of zeros then)."""
         return self.get_offsets() if self._has_offsets() else None
 
+    @_offsets.setter
+    def _offsets(self, offsets):
+        # Assigned as matplotlib's field is (ultraplot's previews): drawn
+        # as they are, without the unit conversion of `set_offsets`.
+        offsets = np.ma.asarray(offsets, float).reshape(-1, 2)
+        masked = np.ma.is_masked(offsets)
+        _collections.set_offsets(self._native, np.ma.filled(offsets, np.nan), masked)
+        self.__dict__.pop("_offsets_dtype", None)
+        self.stale = True
+
     @property
     def _edgecolors(self):
         """The RGBA edge colours, as drawn, or ``'face'`` while the edges

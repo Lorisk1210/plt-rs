@@ -82,6 +82,12 @@ pub(super) const LIBRARIES: [Library; 13] = [
         name: "matplot2tikz",
         package: "matplot2tikz",
         copies: &[("tests", "matplot2tikz/tests")],
+        // Some of its tests read the figure left open before them (pyplot's
+        // current figure): `test_horizontal_alignment.py` after
+        // `test_hatch.py` in one worker fails under matplotlib and pltrs
+        // alike (an UnboundLocalError of the hatched rectangle), so which
+        // tests xdist puts together decides it, a dependency of the suite's
+        // own (task ECO9).
         tests: &["matplot2tikz/tests"],
         // Its own options but the coverage.
         options: &["--override-ini=addopts=--import-mode=append"],
@@ -141,6 +147,13 @@ pub(super) const LIBRARIES: [Library; 13] = [
             ("environment.yml", "environment.yml"),
             ("README.rst", "README.rst"),
         ],
+        // `test_axes.py::test_panels_suplabels_three_hor_panels` draws one
+        // of two layouts (RMS 3.68 apart, one column of panels moved) by
+        // where the process' objects land: under matplotlib 8 runs of 30
+        // drew the other, under pltrs 3 of 28, the same pixels in both;
+        // without address randomisation (`setarch -R`) each drew one 24
+        // times of 24. It fails whenever a run draws the layout its
+        // baseline does not have, in either mode (task ECO9).
         tests: &["ultraplot/tests"],
         options: &[MPL_RESULTS, "-p", RELEASE_FIGURES],
         // Its sdist has none (its CI makes them from the release before).

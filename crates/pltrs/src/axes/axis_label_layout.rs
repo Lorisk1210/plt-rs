@@ -76,6 +76,29 @@ impl AxisPainter<'_> {
         }))
     }
 
+    /// The axis label where it stands between draws: at the anchor its
+    /// last placement gave it, else where matplotlib's axis makes its
+    /// label (along the axis at its `loc`, at the display origin across
+    /// it), which only a draw or the axis' tight box moves
+    /// (`_update_label_position`).
+    pub(super) fn axis_label_as_placed(
+        &self,
+        cx: &mut impl FigureReader,
+        rc: &RcParams,
+    ) -> Option<Result<PlacedText, TextProblem>> {
+        let anchor = if let Some(anchor) = self.axis.label_placed.get() {
+            anchor
+        } else {
+            let extent = cx.read().axes_extent(self.axes_id)?;
+            let along = self.axis.label.along();
+            match self.name {
+                AxisName::X => Point::new(extent.x0() + along * extent.width(), 0.0),
+                AxisName::Y => Point::new(0.0, extent.y0() + along * extent.height()),
+            }
+        };
+        self.axis_label(cx, rc, Some(anchor))
+    }
+
     /// Where the axis label goes unless placed by coordinates, with or
     /// without text: in display coordinates, along the axis at the label's
     /// `loc` and beyond the spine, its ticks and the tick labels

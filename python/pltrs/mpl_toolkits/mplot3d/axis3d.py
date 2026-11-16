@@ -12,9 +12,11 @@ panes, the axis line) is ``_native.mplot3d``'s.
 
 import inspect
 from numbers import Real
+import weakref
 
 import numpy as np
 
+import pltrs as mpl
 from pltrs import (
     _api, _mirrors, _unusable, _values, artist, axis as maxis, cbook,
     colors as mcolors)
@@ -24,6 +26,92 @@ from pltrs._native import artist as _artist, mplot3d as _mplot3d
 from . import art3d
 from .art3d import _no_projection_error
 
+
+
+class _AxisInfo(dict):
+    """
+    matplotlib's ``_axinfo`` dict of a 3-D axis, whose ``juggled`` entry
+    (the order in which the axis' line is taken from the box's near
+    corner) pltrs (Rust) keeps for the axis: read from it and written to
+    it, never held here.
+    """
+
+    def __init__(self, axis, entries):
+        super().__init__(entries)
+        dict.__setitem__(self, "juggled", None)
+        self._axis = weakref.ref(axis)
+
+    def _juggled(self):
+        axis = self._axis()
+        return None if axis is None else _mplot3d.get_juggled(*axis._native_args())
+
+    def __getitem__(self, key):
+        return self._juggled() if key == "juggled" else super().__getitem__(key)
+
+    def __setitem__(self, key, value):
+        if key == "juggled":
+            axis = self._axis()
+            if axis is not None:
+                first, second, last = value
+                _mplot3d.set_juggled(*axis._native_args(),
+                                     (int(first), int(second), int(last)))
+            return
+        super().__setitem__(key, value)
+
+    def get(self, key, default=None):
+        return self[key] if key in self else default
+
+    def update(self, *args, **kwargs):
+        for key, value in dict(*args, **kwargs).items():
+            self[key] = value
+
+    def items(self):
+        return [(key, self[key]) for key in self]
+
+    def values(self):
+        return [self[key] for key in self]
+
+    def copy(self):
+        return dict(self.items())
+
+    def __eq__(self, other):
+        return dict(self.items()) == other
+
+    __hash__ = None
+
+    def __repr__(self):
+        return repr(dict(self.items()))
+
+
+def _matplotlib_axinfo(name):
+    """matplotlib 3.11.2's ``_axinfo`` of a new 3-D axis *name* under the
+    rcParams of now (under the Matplotlib License), but ``juggled``, which
+    the axis keeps natively (`_AxisInfo`)."""
+    rc = mpl.rcParams
+    info = {key: value for key, value in Axis._AXINFO[name].items() if key != 'juggled'}
+    info.update({
+        'label': {'va': 'center', 'ha': 'center', 'rotation_mode': 'anchor'},
+        'color': rc[f'axes3d.{name}axis.panecolor'],
+        'tick': {'inward_factor': 0.2, 'outward_factor': 0.1},
+    })
+    if rc['_internal.classic_mode']:
+        info.update({
+            'axisline': {'linewidth': 0.75, 'color': (0, 0, 0, 1)},
+            'grid': {'color': (0.9, 0.9, 0.9, 1), 'linewidth': 1.0, 'linestyle': '-'},
+        })
+        info['tick'].update({'linewidth': {True: rc['lines.linewidth'],
+                                           False: rc['lines.linewidth']}})
+    else:
+        info.update({
+            'axisline': {'linewidth': rc['axes.linewidth'], 'color': rc['axes.edgecolor']},
+            'grid': {'color': rc['grid.color'], 'linewidth': rc['grid.linewidth'],
+                     'linestyle': rc['grid.linestyle']},
+        })
+        info['tick'].update({'linewidth': {
+            True: rc['xtick.major.width'] if name in 'xz' else rc['ytick.major.width'],
+            False: rc['xtick.minor.width'] if name in 'xz' else rc['ytick.minor.width'],
+        }})
+    return info
 
 
 def _same_truth(value, native):
@@ -182,6 +270,102 @@ class Axis(maxis.XAxis):
     def _native_args(self):
         """The native 3-D axes and the axis name."""
         return self.axes._native, self.axis_name
+
+    #: The vertices of the six planes of the axes' box, in the order of
+    #: `.Axes3D._transformed_cube`'s corners: the yz, xz and xy planes.
+    _PLANES = (
+        (0, 3, 7, 4), (1, 2, 6, 5),  # yz planes
+        (0, 1, 5, 4), (3, 2, 6, 7),  # xz planes
+        (0, 1, 2, 3), (4, 5, 6, 7),  # xy planes
+    )
+
+    def _get_coord_info(self):
+        """The minima and maxima of the scaled limits, the box projected and
+        which of each pair of parallel planes is higher up (matplotlib
+        3.11.2's, under the Matplotlib License): what programs read of the
+        box the axis is drawn on (qutip's histograms)."""
+        xmin, xmax, ymin, ymax, zmin, zmax = self.axes._get_scaled_limits()
+        mins = np.array([min(xmin, xmax), min(ymin, ymax), min(zmin, zmax)])
+        maxs = np.array([max(xmin, xmax), max(ymin, ymax), max(zmin, zmax)])
+        bounds = (*self.axes.get_xbound(),
+                  *self.axes.get_ybound(),
+                  *self.axes.get_zbound())
+        bounds_proj = self.axes._transformed_cube(bounds)
+        means_z0 = np.zeros(3)
+        means_z1 = np.zeros(3)
+        for i in range(3):
+            means_z0[i] = np.mean(bounds_proj[self._PLANES[2 * i], 2])
+            means_z1[i] = np.mean(bounds_proj[self._PLANES[2 * i + 1], 2])
+        highs = means_z0 < means_z1
+        # Special handling for edge-on views
+        equals = np.abs(means_z0 - means_z1) <= np.finfo(float).eps
+        if np.sum(equals) == 2:
+            vertical = np.where(~equals)[0][0]
+            if vertical == 2:  # looking at XY plane
+                highs = np.array([True, True, highs[2]])
+            elif vertical == 1:  # looking at XZ plane
+                highs = np.array([True, highs[1], False])
+            elif vertical == 0:  # looking at YZ plane
+                highs = np.array([highs[0], False, False])
+        return mins, maxs, bounds_proj, highs
+
+    def _calc_centers_deltas(self, maxs, mins):
+        """The centres of the box and the offsets of its decorations
+        (matplotlib 3.11.2's, under the Matplotlib License)."""
+        centers = 0.5 * (maxs + mins)
+        scale = 0.08
+        deltas = (maxs - mins) * scale
+        return centers, deltas
+
+    #: matplotlib's fixed entries of ``_axinfo``, by axis name (``juggled``
+    #: as matplotlib makes it; pltrs (Rust) keeps the axis' own).
+    _AXINFO = {
+        'x': {'i': 0, 'tickdir': 1, 'juggled': (1, 0, 2)},
+        'y': {'i': 1, 'tickdir': 0, 'juggled': (0, 1, 2)},
+        'z': {'i': 2, 'tickdir': 0, 'juggled': (0, 2, 1)},
+    }
+
+    @property
+    def _axinfo(self):
+        """
+        matplotlib's dict of how the axis is drawn, made when first read
+        with the values matplotlib's axis is made with. The entries its
+        draws read every time (the ``grid``'s colour, width and style, the
+        ``tick``'s widths and inward and outward factors, the ``label``'s
+        alignment and rotation mode) reach pltrs (Rust) before every draw
+        of the figure from then on; ``juggled`` is read from and written
+        to pltrs (Rust), which keeps it for the axis (`_AxisInfo`);
+        ``axisline`` and ``color``, which matplotlib reads when it makes
+        the axis, and ``i`` and ``tickdir`` are kept as they are.
+        """
+        if "_axinfo_made" not in self.__dict__:
+            self._axinfo = _matplotlib_axinfo(self.axis_name)
+        return self.__dict__["_axinfo_made"]
+
+    @_axinfo.setter
+    def _axinfo(self, info):
+        if "_axinfo_made" not in self.__dict__:
+            figure = self.axes.get_figure(root=True)
+            if figure is not None:
+                from pltrs.axes import _program_locators
+                _program_locators.follow_axinfo(self, figure)
+        made = _AxisInfo(self, {key: value for key, value in info.items()
+                                if key != "juggled"})
+        if "juggled" in info:
+            made["juggled"] = info["juggled"]
+        self.__dict__["_axinfo_made"] = made
+
+    def _push_axinfo(self):
+        """Hand pltrs (Rust) what the program left in ``_axinfo``, as
+        matplotlib's draw reads it."""
+        info = self._axinfo
+        grid, tick, label = info['grid'], info['tick'], info['label']
+        _mplot3d.set_axis_info(
+            *self._native_args(),
+            (mcolors.to_rgba(grid['color']), float(grid['linewidth']), grid['linestyle']),
+            (float(tick['linewidth'][True]), float(tick['linewidth'][False]),
+             float(tick['inward_factor']), float(tick['outward_factor'])),
+            (label['ha'], label['va'], label['rotation_mode']))
 
     # The values matplotlib's draw of the axes computes with, kept
     # unchecked: the axes' draw fails on them as matplotlib's does

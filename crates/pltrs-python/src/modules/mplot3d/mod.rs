@@ -25,6 +25,7 @@
 
 mod art3d;
 mod axis3d;
+mod axis_info;
 mod charts;
 mod contours;
 mod create;
@@ -107,7 +108,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     edits::register(module)?;
     drawn::register(module)?;
     failures::register(module)?;
-    axis3d::register(module)
+    axis3d::register(module)?;
+    axis_info::register(module)
 }
 
 #[cfg(test)]

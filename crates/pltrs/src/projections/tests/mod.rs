@@ -456,6 +456,8 @@ fn a_label_goes_beyond_the_axes_on_a_side_without_a_spine() {
     ax.set_xlabel("below");
     let bottom = display(&fig, &ax.trans_axes(), Point::new(0.0, 0.0)).y;
     let pad = ax.xaxis().label_pad() * fig.dpi() / 72.0;
+    // Measured where a draw places it.
+    fig.draw_without_rendering().unwrap();
     let label = ax.xaxis().label_extent().unwrap();
     // matplotlib's `spines.get("bottom", self.axes)`: no spine of the class
     // frames the bottom, so the label hangs below the axes, not below

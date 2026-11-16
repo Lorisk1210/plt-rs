@@ -63,7 +63,7 @@ pub use light::{
 pub use mappable::ScalarMappable;
 pub use named::{
     ColorTable, NamedColor, named_color_table, named_colors, reset_color_names, set_color_name,
-    set_color_name_lookup,
+    set_color_name_lookup, set_program_mapping,
 };
 pub(crate) use norm::LinearTransform;
 pub use norm::{

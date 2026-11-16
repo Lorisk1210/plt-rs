@@ -325,6 +325,18 @@ pub(super) fn own<T: PartialEq>(value: T, current: &T) -> Option<T> {
     (value != *current).then_some(value)
 }
 
+/// What a label has of its own of a font property: all of it while its
+/// level takes the property from the rcParams (`level` None), as
+/// matplotlib's label keeps the font it holds when the rcParams change
+/// (ultraplot sets the family of tick labels inside an rc context giving
+/// that family); else what differs from the level's.
+fn own_font<T: PartialEq>(value: T, level: Option<&T>) -> Option<T> {
+    match level {
+        Some(level) => own(value, level),
+        None => Some(value),
+    }
+}
+
 /// Reads the label mirror `text` on the first or `second` side of the
 /// major (or `minor`) tick at `index` back into the axis.
 fn push_tick_label(
@@ -418,15 +430,16 @@ fn push_axis_label_effects(owner: AxisOwner, name: String, text: Text) -> PyResu
 /// The text properties the label mirror `text` on the first or `second`
 /// side of a tick has of its own: those that differ from `level`, the
 /// style of its level, whose labels are aligned as `alignment` says
-/// unless it sets an alignment.
+/// unless it sets an alignment, and the font properties `level` takes
+/// from the rcParams ([`own_font`]).
 pub(super) fn label_props(
     text: &Text,
     level: &TickStyle,
     (halign, valign): (HAlign, VAlign),
     second: bool,
 ) -> TickLabelProps {
-    let level_font = level.label_font(&pltrs::rc::params());
     let font = text.font();
+    let level_families = level.label_family.clone().map(|family| vec![family]);
     let visible = text.visible();
     let (label1_visible, label2_visible) = if second {
         (None, own(visible, &level.labels.second))
@@ -440,12 +453,12 @@ pub(super) fn label_props(
         valign: own(text.valign(), &level.label_valign.unwrap_or(valign)),
         multialign: own(text.multialign(), &level.label_multialign).flatten(),
         color: own(text.color(), &level.label_color),
-        fontsize: own(font.size, &level_font.size).map(pltrs::fonts::FontSize::Points),
-        fontweight: own(font.weight, &level_font.weight),
-        fontstyle: own(font.style, &level_font.style),
+        fontsize: own(font.size, &level.label_size).map(pltrs::fonts::FontSize::Points),
+        fontweight: own_font(font.weight, level.label_weight.as_ref()),
+        fontstyle: own_font(font.style, level.label_style.as_ref()),
         in_layout: own(text.in_layout(), &level.label_in_layout),
         url: own(text.url(), &level.label_url).flatten(),
-        family: own(font.families.clone(), &level_font.families)
+        family: own_font(font.families, level_families.as_ref())
             .and_then(|families| families.into_iter().next()),
         label1_visible,
         label2_visible,
@@ -709,8 +722,11 @@ fn sync_offset_text(owner: AxisOwner, name: String, text: Text) -> PyResult<()> 
     // At an end of the axis in axes fractions, beyond the tick labels in
     // display pixels, as matplotlib places the offset text; placed, and
     // given its text, where the axis was last laid out, as matplotlib
-    // sets both when it draws or measures the axis.
-    let across = axis.offset_text_placed().map_or(0.0, |anchor| anchor.y);
+    // sets both when it draws or measures the axis. Before, where
+    // matplotlib's axis makes it: at 0 display pixels, 0.5 on a y axis
+    // (`YAxis._init`).
+    let made_at = if axis.name() == AxisName::Y { 0.5 } else { 0.0 };
+    let across = axis.offset_text_placed().map_or(made_at, |anchor| anchor.y);
     let (position, halign) = match (axis.name(), high) {
         (AxisName::Y, false) => (Point::new(0.0, across), HAlign::Left),
         (AxisName::X, _) | (AxisName::Y, true) => (Point::new(1.0, across), HAlign::Right),

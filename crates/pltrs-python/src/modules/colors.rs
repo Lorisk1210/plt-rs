@@ -267,6 +267,14 @@ fn sequence_names() -> PyResult<Vec<String>> {
     Ok(color_sequence_names())
 }
 
+/// Has pltrs look every colour name up in the program's mapping of names
+/// first while `program` is true (it put one in place of matplotlib's
+/// `_colors_full_map`).
+fn set_program_mapping(program: bool) -> PyResult<()> {
+    pltrs::colors::set_program_mapping(program);
+    Ok(())
+}
+
 /// The colour the program's own mapping of names gives `name`, one it
 /// put in place of matplotlib's `_colors_full_map` (the package registers
 /// that lookup as `program_color`).
@@ -285,6 +293,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("to_rgba", to_rgba)?;
     module.add("to_rgba_array", to_rgba_array)?;
     module.add("set_color_name", set_color_name)?;
+    module.add("set_program_mapping", set_program_mapping)?;
     module.add("rgb_to_hsv", rgb_to_hsv_array)?;
     module.add("hsv_to_rgb", hsv_to_rgb_array)?;
     module.add("lookup_table", lookup_table)?;

@@ -507,3 +507,31 @@ written/combo_export_pipeline/pickle_then_modify_and_export$ | ^value\[dumps\]: 
 # matplotlib's get_font caches it under its real path, the one its findfont
 # gives the later calls; pltrs' findfont gives its own copy of the font.
 hostile/module_matplotlib_font_manager_1$ | ^identity\[get_font\]: (a new object where matplotlib returns the same|another object than matplotlib's)$ | get_font of matplotlib's font file by a case-swapped name, which a case-insensitive file system resolves; matplotlib's later findfont names the same file, pltrs' its own copy
+
+# ultraplot replaces matplotlib's mathtext fonts with a UnicodeFonts subclass
+# of its own (MathTextParser._font_type_mapping["custom"]), which puts the
+# real font's name in place of the "regular" placeholder its rcParams give
+# mathtext.rm, mathtext.it and the others before any font is looked up, and
+# routes some glyphs to Computer Modern (_get_glyph, per glyph). pltrs
+# typesets mathtext natively and asks the font manager for the family
+# "regular", which logs matplotlib's own warning (font_manager's
+# _findfont_cached: "findfont: Font family ['regular'] not found. Falling
+# back to DejaVu Sans."). The per-glyph path is not built (one library of the
+# 261 of the private census uses it; task ECO9); the mathtext glyphs these
+# programs draw differ for the same reason, which the image differences of
+# their figures still show.
+corpus/ultraplot/docs/(fonts|networks|stats)$ | ^warning extra: WARNING: findfont: Font family \['…'\] not found\. Falling back to DejaVu Sans\.$ | ultraplot's mathtext font class replaces the "regular" placeholder before matplotlib looks a font up; pltrs' native mathtext looks "regular" up and logs matplotlib's fallback warning (per-glyph font path not built, task ECO9)
+
+# ultraplot places subplots with kiwisolver (UltraLayout), whose solution
+# for the same constraints differs in its last bits from run to run: it
+# depends on the addresses of the solver's objects. Under matplotlib, nine
+# runs with the addresses shifted (environment padding under `setarch -R`)
+# gave the same constraints and solutions differing in their last bits
+# (0.7288787262872628 and 0.7288787262872629 for a subplot's top), with
+# `setarch -R` and the same environment every run alike. matplotlib's
+# figure 2 happens to be the same in all of them; under pltrs one variant
+# moves the bottom of figure 2's legends from 62.500000000000114 to
+# 62.500000000000284 pixels at the 1000 dpi save, the half pixel at which
+# matplotlib's rasterizer, and pltrs', draw the frame's edge one row lower
+# (RMS 4.04 in 2 to 4 of 8 runs; clean otherwise; task ECO9).
+corpus/ultraplot/docs/colors$ | ^image: RMS > 1$ @ ^figure 2$ | kiwisolver's subplot positions differ in their last bits from run to run with the addresses of its objects (under matplotlib too); a variant puts figure 2's legend frames on the other side of a half pixel at 1000 dpi

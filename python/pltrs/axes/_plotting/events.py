@@ -3,6 +3,7 @@ Events and stems: `~.Axes.eventplot` and `~.Axes.stem`.
 """
 
 from numbers import Real
+import re
 
 import numpy as np
 
@@ -18,6 +19,9 @@ from ._helpers import check_format, floats, keep_data, record_container, wrap, w
 from .lines import _given_format_color
 
 _events_reference = _lazy_imports.module(globals(), "._events_reference")
+
+#: A colour of the property cycle in a format string (``'C0-'``).
+_CYCLE_COLOR = re.compile(r"C\d")
 
 
 def _rcParams():
@@ -418,11 +422,21 @@ class EventsMixin:
             keep_data(baseline, base, ends)
         linecolor = _given_format_color(linefmt)
         markercolor = _given_format_color(markerfmt)
+        basecolor = _given_format_color(basefmt)
         for line, color in [(markerline, linecolor if markercolor is None else markercolor),
-                            (baseline, _given_format_color(basefmt))]:
+                            (baseline, basecolor)]:
             if color is not None:
                 mlines._remember_given(line, {"color": color})
-        container = StemContainer(
-            (markerline, wrap(self, stemlines, mcoll.LineCollection), baseline),
-            label=label)
+        stemlines = wrap(self, stemlines, mcoll.LineCollection)
+        # A colour of the property cycle a format names ('C0') is the one it
+        # names now, as matplotlib's `_process_plot_format` takes it
+        # (ultraplot plots stems inside an rc context of a cycle of its own).
+        for parts, fmt, color in [((stemlines, markerline) if markercolor is None
+                                   else (stemlines,), linefmt, linecolor),
+                                  ((markerline,), markerfmt, markercolor),
+                                  ((baseline,), basefmt, basecolor)]:
+            if color is not None and _CYCLE_COLOR.search(fmt):
+                for part in parts:
+                    part.set_color(color)
+        container = StemContainer((markerline, stemlines, baseline), label=label)
         return record_container(self, container, native)

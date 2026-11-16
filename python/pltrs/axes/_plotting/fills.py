@@ -12,7 +12,8 @@ from ... import (_api, _live_transforms, _style_helpers, _values, cbook,
 from ... import lines as mlines, patches as mpatches, stackplot as mstack
 from ..._native import axes_base as _axes_base, plotting as _plotting
 from ..._preprocess import _preprocess_data
-from ._helpers import _make_axes_method, converted_line_data, floats, wrap, wrap_all
+from ._helpers import (_make_axes_method, converted_line_data, floats, without_defaulted,
+                       wrap, wrap_all)
 from .lines import _plot_datasets
 
 
@@ -147,8 +148,8 @@ class FillsMixin:
             # (matplotlib's polygon takes ``fill=None`` as no fill, as
             # `hist`'s steps give it.)
             props = cbook.normalize_kwargs(
-                {k: v for k, v in kwargs.items()
-                 if k != 'label' and (v is not None or k == 'fill')},
+                without_defaulted({k: v for k, v in kwargs.items() if k != 'label'},
+                                  mpatches.Polygon, kept=('fill',)),
                 mpatches.Patch)
             native = _plotting.fill(
                 self._native, *converted_line_data(self, x, y), (fmt_color, bool(closed)),

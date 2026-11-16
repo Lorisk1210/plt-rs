@@ -595,9 +595,10 @@ mod tests {
             patch: PatchProps::default().facecolor("yellow"),
             ..TextBoxProps::default()
         }));
-        let label = ax.yaxis().label_extent().expect("a label");
         let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
         fig.draw(&mut renderer).expect("drawable");
+        // Measured where the draw placed it.
+        let label = ax.yaxis().label_extent().expect("a label");
         let yellow = Some(Rgba::new(1.0, 1.0, 0.0, 1.0));
         let boxes: Vec<Bbox> = (renderer.calls.into_iter())
             .filter_map(|call| match call {

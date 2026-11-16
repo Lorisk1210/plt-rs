@@ -226,7 +226,7 @@ impl Axis {
                     axis.label_size = None;
                 }
                 if params.labelsize.is_some() {
-                    axis.label_size = Some(axis.major_style.label_size);
+                    axis.label_size = params.labelsize;
                 }
             }
             if params.which.minor() {

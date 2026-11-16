@@ -189,7 +189,8 @@ pub(super) fn align_labels(args: Args<'_>) -> Outcome {
         }
         fig.align_ylabels(None);
         fig.align_xlabels(None);
-        fig.layout();
+        // Measured after a draw, which places the labels.
+        fig.draw_without_rendering().map_err(ProbeError::rejected)?;
         let edge = |extent: Option<pltrs_core::Bbox>, x: bool| {
             extent.map_or(f64::NAN, |b| if x { b.x0() } else { b.y0() })
         };

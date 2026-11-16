@@ -177,3 +177,11 @@ def proj_transform_clip(xs, ys, zs, M):
             tis = tis & ~row.mask
     return (np.ma.masked_array(txs, ~tis), np.ma.masked_array(tys, ~tis),
             np.ma.masked_array(tzs, ~tis), tis)
+
+
+def _proj_trans_points(points, M):
+    """The *points* (rows of x, y, z) projected by *M* (matplotlib 3.11.2's,
+    under the Matplotlib License)."""
+    points = np.asanyarray(points)
+    xs, ys, zs = points[:, 0], points[:, 1], points[:, 2]
+    return proj_transform(xs, ys, zs, M)

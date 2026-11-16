@@ -317,6 +317,60 @@ class Axis(maxis.XAxis):
         deltas = (maxs - mins) * scale
         return centers, deltas
 
+    #: The methods matplotlib's draw asks for the box the axis is drawn on,
+    #: which a program may replace on the axis (qutip's ``_get_coord_info``
+    #: shrinks the box of its histograms).
+    _BOX_METHODS = ("_get_coord_info", "_calc_centers_deltas")
+
+    def _follow_given_box(self):
+        """Hand pltrs (Rust) the box the program's methods give the axis
+        at every draw and before the layouts measuring it
+        (`_push_given_box`), from now on."""
+        figure = self.axes.get_figure(root=True)
+        if figure is not None:
+            # Imported where used: the import of pyplot leaves them out.
+            from pltrs import _computed_transforms
+            from pltrs.axes import _program_locators
+            _computed_transforms.follow(figure).add(self)
+            _program_locators.follow_box(self, figure)
+
+    def _push_given_box(self, draws=1, measures=0):
+        """Hand pltrs (Rust) the box the axis' ``_get_coord_info`` and
+        ``_calc_centers_deltas`` give, asking them as often as *draws*
+        draws and *measures* tight boxes of matplotlib's do; none once the
+        program's methods are gone."""
+        if not any(name in self.__dict__ for name in self._BOX_METHODS):
+            _mplot3d.set_axis_box(*self._native_args(), None)
+            return
+        # A draw of the axis asks the box for its pane, ticks and line (and
+        # its grid, when drawn), and the centres for its ticks and line; a
+        # tight box asks each once for its ticks and once for the Axes'.
+        axes = self.axes
+        if not (axes.get_visible() and axes._axis3don):
+            # Neither drawn nor measured.
+            return
+        if not self.get_visible():
+            # Drawn (asking the box), not measured.
+            measures = 0
+        if not draws + measures:
+            return
+        if axes.M is None:
+            # As matplotlib's tight box of the axis before the first draw.
+            axes.M = axes.get_proj()
+            axes.invM = np.linalg.inv(axes.M)
+        grid = bool(_mplot3d.get_grid(axes._native))
+        for _ in range(draws * (3 + grid) + 2 * measures):
+            mins, maxs, bounds_proj, highs = self._get_coord_info()
+        for _ in range(2 * (draws + measures)):
+            centers, deltas = self._calc_centers_deltas(maxs, mins)
+
+        def floats(values):
+            return [float(value) for value in values]
+
+        _mplot3d.set_axis_box(*self._native_args(), (
+            floats(mins), floats(maxs), [floats(corner[:3]) for corner in bounds_proj],
+            [bool(high) for high in highs], floats(centers), floats(deltas)))
+
     #: matplotlib's fixed entries of ``_axinfo``, by axis name (``juggled``
     #: as matplotlib makes it; pltrs (Rust) keeps the axis' own).
     _AXINFO = {

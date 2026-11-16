@@ -2367,8 +2367,10 @@ class EventCollection(LineCollection):
             _program_classes.replay_setters(self, [
                 ("set_colors", (color,)), ("set_segments", ([],)),
                 ("set_orientation", (orientation,)), ("set_positions", (given,))])
-        if color is not None:
-            self.set_color(color)
+        if color is not None and "set_colors" not in self._program_setters:
+            # matplotlib's constructor sets the colours through
+            # ``set_colors`` alone (replayed above for a class giving one).
+            LineCollection.set_color(self, color)
 
     def get_positions(self):
         """

@@ -54,6 +54,11 @@ _POSITION_SETTERS = frozenset({"set_x", "set_y", "set_position"})
 #: An axis' tickers, which a program may replace (see `.Axis._adopt_ticker`).
 _TICKERS = frozenset({"major", "minor"})
 
+#: The methods with which an axis measures itself in matplotlib's
+#: `Axes.get_tightbbox` (its tight box, the boxes of its tick labels),
+#: which a program may give its class or assign on an axis.
+_AXIS_MEASURING = ("get_tightbbox", "_get_ticklabel_bboxes")
+
 
 def allow_rasterization(draw):
     """
@@ -169,6 +174,13 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         elif name == "_update_ticks":
             # An axis' (ultraplot's tick cache).
             _tick_updates.follow_program_update(self)
+        elif name in ("_get_coord_info", "_calc_centers_deltas") and hasattr(
+                self, "_follow_given_box"):
+            # A 3-D axis' box (qutip's).
+            self._follow_given_box()
+        elif name in _AXIS_MEASURING and hasattr(self, "_measured_by_program"):
+            # An axis' own measuring.
+            self._measured_by_program()
         elif (name in _TICKERS and getattr(value, "_axis", self) is not self
               and hasattr(self, "_adopt_ticker")):
             # A ticker other than the axis' own (`.axis.Ticker._of_axis`).

@@ -25,7 +25,7 @@ use crate::transforms::interval_contains_close;
 use crate::units::{AxisUnits, Categories};
 
 use super::coords::Axis3;
-use super::geometry::{AxisPosition, default_juggled};
+use super::geometry::{AxisPosition, BoxGeometry, default_juggled};
 use super::scaling::AxisScale;
 
 /// The view inset matplotlib checks tick visibility against with
@@ -368,6 +368,9 @@ pub(crate) struct Axis3DState {
     /// the box's near corner (matplotlib's `_axinfo["juggled"]`, which a
     /// program may replace).
     pub(crate) juggled: [usize; 3],
+    /// The box the program's `_get_coord_info` gave for the draw running
+    /// (see [`super::AxisBox`]), drawn on instead of the axes' own.
+    pub(crate) program_box: Option<BoxGeometry>,
 }
 
 pltrs_core::archive_struct!(Axis3DState {
@@ -397,7 +400,7 @@ pltrs_core::archive_struct!(Axis3DState {
     visible,
     gids,
     juggled
-});
+} skip { program_box });
 
 /// The look of a pane restyled through its polygon: the patch style and
 /// alpha matplotlib draws `axis.pane` with.
@@ -454,6 +457,7 @@ impl Axis3DState {
             visible: true,
             gids: AxisGids::default(),
             juggled: default_juggled(dir),
+            program_box: None,
         }
     }
 

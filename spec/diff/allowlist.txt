@@ -146,6 +146,7 @@ corpus/cheatsheets/scripts/styles$ | ^(value\[available\]: list length|calls\[[^
 # that any of the fonts scoring alike may be named. The fallback font drawn
 # is the same.
 ^corpus/ | ^warning (missing|extra): WARNING: findfont: Failed to find font weight \S+ for [\w -]+, now using( N\.)?$ | the font named for a family not found is the first in the font list of those scoring best, in an order of set iteration over the font paths
+rcparams/text_1_v[12]$ | ^warning (missing|extra): WARNING: findfont: Failed to find font weight \S+ for [\w -]+, now using( N\.)?$ | the same order of set iteration: matplotlib 3.11.2 itself names other fonts for four of these lookups from run to run (text_1_v1: DejaVu Sans Mono 3 or 7 times and DejaVu Sans 10 or 6, pltrs' counts equal to matplotlib's whole output in 5 of 10 runs; text_1_v2: the four land on DejaVu Serif, Sans, Sans Display, cmmi10, cmsy10, STIXSizeTwoSym or STIXSizeFourSym, pltrs' DejaVu Sans 12 in one run of 18), GEN10 2026-11-16
 
 # An artist inspector's reST table of setters names each setter by module
 # (pltrs.artist.Artist.set_alpha), and its first column is as wide as the
@@ -483,6 +484,7 @@ api/module_matplotlib_pyplot_0$ | ^warning missing: RuntimeWarning: overflow enc
 # equal under both. The overrides programs build such a PathCollection:
 # `contains` at the data point and the unpickled copy's image (figure 2)
 # follow from the limits.
+^generated/overrides/PathCollection-(get_edgecolor|get_facecolor|get_hatchcolor|get_figure|get_paths|get_transforms|pchanged|set_sizes)$ | ^value\[(take|distinct)\]: list length$ | no library of spec/diff/overrides_census.json overrides these members on PathCollection (cartopy's Collection.get_paths is proven above): matplotlib's PathCollection.draw sets the sizes again at the figure's dpi and reads the class' getters at every draw and tight save, pltrs (Rust) draws the collection it holds without asking them; the values and figures match
 ^generated/overrides/PathCollection- | ^value\[contains\]: bool$ @ ^112:0$ | matplotlib's limits of a directly made PathCollection with transData offsets are in display pixels (x 99..1341 for data in 1..9, an empty Axes); pltrs keeps the data's, so the point the program asks about is inside the collection under pltrs only
 ^generated/overrides/PathCollection- | ^image: RMS > 1$ @ ^figure 2$ | the unpickled copy autoscales to matplotlib's limits in display pixels (an empty Axes) and to the data's under pltrs
 # Corpus round 11 (CORP11): pltrs' looks and backend, listed with matplotlib's.

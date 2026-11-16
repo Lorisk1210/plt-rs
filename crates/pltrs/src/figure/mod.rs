@@ -551,10 +551,15 @@ impl Figure {
         };
         // The program's measures, which only an engine laying the figure
         // out asks for while it is drawn (matplotlib's draws ask no artist
-        // for its tight box otherwise), once per measuring pass.
-        let passes = self
-            .layout_engine()
-            .map_or(0, |engine| engine.measure_passes());
+        // for its tight box otherwise), once per measuring pass; none in
+        // the draw of a printed window, which keeps the layout measured
+        // before (matplotlib prints with the engine turned off).
+        let passes = if self.print_window().is_some() {
+            0
+        } else {
+            self.layout_engine()
+                .map_or(0, |engine| engine.measure_passes())
+        };
         for _ in 0..passes {
             self.root_handle().measure_painters_for_layout();
         }

@@ -299,7 +299,9 @@ impl Sink for Texts<'_> {
 /// transformed coordinates.
 struct Painter<'a> {
     axes: &'a Axes3DState,
-    geometry: BoxGeometry,
+    /// The box each axis is drawn on: the axes' own, unless the program
+    /// gave the axis another (`Axis3DState::program_box`).
+    geometries: [BoxGeometry; 3],
     projection: Projection,
     /// Projected coordinates to display pixels.
     plane: ResolvedTransform,
@@ -343,13 +345,21 @@ impl<'a> Painter<'a> {
     fn new(axes: &'a Axes3DState, layout: LayoutContext<'_>, extent: &Bbox) -> Option<Self> {
         let plane = layout.resolve(&Transform::Data(axes.plane))?;
         let projection = axes.projection();
+        let own = BoxGeometry::new(axes.scaled_limits(), &projection);
+        let geometries = Axis3::ALL
+            .map(|dir| (axes.axis(dir).program_box.clone()).unwrap_or_else(|| own.clone()));
         Some(Self {
             axes,
-            geometry: BoxGeometry::new(axes.scaled_limits(), &projection),
+            geometries,
             projection,
             plane,
             extent: *extent,
         })
+    }
+
+    /// The box the axis `dir` is drawn on.
+    fn geometry(&self, dir: Axis3) -> &BoxGeometry {
+        &self.geometries[dir.index()]
     }
 
     /// The display extent of `text`, a box of no size at its anchor when
@@ -389,7 +399,7 @@ impl<'a> Painter<'a> {
         let i = dir.index();
         projection_warnings::warn_moving(
             &self.projection.matrix,
-            self.geometry.move_from_center(p, deltas, dir),
+            self.geometry(dir).move_from_center(p, deltas, dir),
             i,
             deltas[i],
         );
@@ -414,7 +424,7 @@ impl<'a> Painter<'a> {
             },
         };
         let outline = Path::polyline(open_polygon(
-            self.geometry
+            self.geometry(dir)
                 .pane(dir)
                 .iter()
                 .map(|q| Point::new(q[0], q[1]))
@@ -467,7 +477,7 @@ impl<'a> Painter<'a> {
         let points_estimate = 72.0 * (width * to_inches) + 72.0 * (height * to_inches);
         let deltas_per_point = 48.0 / points_estimate;
         let label_deltas = scaled(
-            self.geometry.deltas,
+            self.geometry(dir).deltas,
             (axis.label.pad + AXIS_LABEL_OFFSET) * deltas_per_point,
         );
         for &position in axis.tick_position.edges() {
@@ -491,7 +501,9 @@ impl<'a> Painter<'a> {
         for &position in axis.label_position.edges() {
             let edge = self.edge(dir, position);
             let middle = scaled(add(edge.points[0], edge.points[1]), 0.5);
-            let at = self.geometry.move_from_center(middle, label_deltas, dir);
+            let at = self
+                .geometry(dir)
+                .move_from_center(middle, label_deltas, dir);
             if sink.warns() {
                 self.warn_moving(middle, label_deltas, dir);
             }
@@ -530,7 +542,7 @@ impl<'a> Painter<'a> {
         let i = axis.dir.index();
         let (a, b) = ((i + 1) % 3, (i + 2) % 3);
         let bounds = Axis3::ALL.map(|dir| self.axes.limits.bound(dir));
-        let highs = self.geometry.highs;
+        let highs = self.geometry(axis.dir).highs;
         let far: Vec3 = [0, 1, 2].map(|k| if highs[k] { bounds[k].1 } else { bounds[k].0 });
         let near: Vec3 = [0, 1, 2].map(|k| if highs[k] { bounds[k].0 } else { bounds[k].1 });
         let scaled = |point: Vec3| -> Vec3 {
@@ -557,7 +569,7 @@ impl<'a> Painter<'a> {
     fn edge(&self, dir: Axis3, position: AxisPosition) -> AxisEdge {
         let line = (dir, self.axes.axis(dir).juggled);
         let points = self
-            .geometry
+            .geometry(dir)
             .axis_line(line, self.axes.camera.vertical, position);
         let projected = self.projection.project_transformed_all(&points);
         let ends = [projected[0], projected[1]];

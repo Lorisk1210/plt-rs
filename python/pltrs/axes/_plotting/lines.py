@@ -482,7 +482,8 @@ class LinesMixin:
                 mlines._check_rc_marker("lines.marker")
             try:
                 native = _plotting.plot(self._native, *data, fmt,
-                                        mlines._native_kwargs(props, _live_transforms.root_figure(self)),
+                                        mlines._native_kwargs(props, _live_transforms.root_figure(self)
+                                                              if "transform" in props else None),
                                         (bool(scalex), bool(scaley)))
             except AttributeError:
                 if props.get("color") is None and (not fmt or _format_parts(fmt)[2] is None):

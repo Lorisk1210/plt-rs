@@ -10,6 +10,7 @@ located at import but its files are neither written nor read then.
 import importlib.util
 import json
 import os
+import pathlib
 import subprocess
 import sys
 
@@ -164,52 +165,62 @@ def test_importing_locates_the_data_directory_without_its_files(tmp_path):
         assert font and sample_data
 
 
-#: The most Python-level calls (``sys.setprofile`` "call" events) a fresh
-#: ``import pltrs.pyplot`` may make, and one ``canvas.draw()`` of a plain
-#: figure: a few per cent over what they make, so that work going through
-#: Python for every colour, artist or name fails here rather than in a
-#: benchmark. At af3ed0db the import made 129,580 calls, 31,606 of them of
-#: the program colour hook, as every colour resolved the whole property
-#: cycle; PERF8 took it to 102,765 and PERF9 (2026-11-14) to 100,487 on
-#: Python 3.12, 101,994 on 3.13 and 101,132 on 3.14; a draw makes 68 on
-#: each.
-PYTHON_CALLS_CEILING = {"import": 104_000, "draw": 72}
+#: Counts Python-level calls (``sys.setprofile`` "call" events) by
+#: function, named by its file (within the package, else its name) and
+#: qualified name, under the scene `scene` names; the programs below share
+#: it.
+_COUNTER = """
+import collections, json, sys
+profiles = collections.defaultdict(collections.Counter)
+scene = [None]
+
+
+def count(frame, event, arg):
+    if event == "call":
+        code = frame.f_code
+        path = code.co_filename
+        where = path.rsplit("/pltrs/", 1)[1] if "/pltrs/" in path else path.rsplit("/", 1)[-1]
+        profiles[scene[0]][where + ":" + code.co_qualname] += 1
+
+
+def counted(name, action):
+    scene[0] = name
+    sys.setprofile(count)
+    try:
+        return action()
+    finally:
+        sys.setprofile(None)
+
+
+def report():
+    print(json.dumps({name: dict(calls) for name, calls in profiles.items()}))
+"""
+
+#: The most Python-level calls a fresh ``import pltrs.pyplot`` may make,
+#: and one ``canvas.draw()`` of a plain figure: a few per cent over what
+#: they make, so that work going through Python for every colour, artist
+#: or name fails here rather than in a benchmark. At af3ed0db the import
+#: made 129,580 calls, 31,606 of them of the program colour hook, as every
+#: colour resolved the whole property cycle; PERF8 took it to 102,765 and
+#: PERF9 (2026-11-14) to 100,487 on Python 3.12, 101,994 on 3.13 and
+#: 101,132 on 3.14. On 2026-11-16 (task PERF11) it makes 101,244 on 3.12,
+#: 102,703 on 3.13 and 101,842 on 3.14 (90,531 with numpy 1.26), and a
+#: draw makes 68.
+PYTHON_CALLS_CEILING = {"import": 104_900, "draw": 72}
 
 #: Counts the Python calls of ``import pltrs.pyplot`` (the third-party
 #: modules it uses imported first) and of a second draw of a plain figure.
-_CALLS_PROGRAM = """
-import json, sys
+_CALLS_PROGRAM = _COUNTER + """
 import numpy, PIL.Image, dateutil.parser
-calls = [0]
-def count(frame, event, arg):
-    if event == "call":
-        calls[0] += 1
-sys.setprofile(count)
-import pltrs.pyplot as plt
-sys.setprofile(None)
-at_import, calls[0] = calls[0], 0
+plt = counted("import", lambda: __import__("pltrs.pyplot").pyplot)
 fig, ax = plt.subplots()
 ax.plot([1, 2, 3], [1, 4, 9], label="line")
 ax.set_title("title")
 ax.legend()
 fig.canvas.draw()
-sys.setprofile(count)
-fig.canvas.draw()
-sys.setprofile(None)
-print(json.dumps({"import": at_import, "draw": calls[0]}))
+counted("draw", fig.canvas.draw)
+report()
 """
-
-
-def test_python_calls_at_import_and_per_draw_stay_under_their_ceiling(tmp_path):
-    env = {"PLTRSCONFIGDIR": str(tmp_path), "PLTRS_LOOK": "matplotlib"}
-    _fresh(_CALLS_PROGRAM, **env)  # the caches of a first import written
-    calls, _ = _fresh(_CALLS_PROGRAM, **env)
-    for what, ceiling in PYTHON_CALLS_CEILING.items():
-        assert calls[what] <= ceiling, (
-            f"{calls[what]} Python calls {'at import' if what == 'import' else 'per draw'}"
-            f" (ceiling {ceiling}): something now goes through Python for each "
-            "colour, artist or name")
-
 
 #: The most Python calls building each of these figures may make (the
 #: second time, after a first build): a few per cent over what they make.
@@ -221,19 +232,20 @@ def test_python_calls_at_import_and_per_draw_stay_under_their_ceiling(tmp_path):
 #: constrained grid makes 4 fewer on 3.14), and with numpy 1.26, the
 #: lowest the package allows, as with 2.5 (task PERF10a: a bar no longer
 #: goes through numpy's broadcasting, whose Python calls differ between
-#: the two, `.axes._plotting.bars._broadcast`).
+#: the two, `.axes._plotting.bars._broadcast`). Sixteen patches since,
+#: each a call or two per Axes or line under the ceilings of its own base,
+#: had used up the margins again (task PERF11, 2026-11-16).
 BUILD_CALLS_CEILING = {
-    "grid_16x16": 105_000,          # 102,262 (b414751d: 94,214; edf9a0a2: 149,380)
-    "constrained_8x8": 37_700,      # 36,587 (31,527; 48,563)
-    "bars_300": 68_000,             # 66,014 (62,933; 76,409; 69,614 before PERF10a)
-    "texts_2000": 118_000,          # 114,609 (156,533; 182,809)
-    "annotations_1000": 98_500,     # 95,739 (82,649; 122,934)
+    "grid_16x16": 105_600,          # 102,523 (b414751d: 94,214; edf9a0a2: 149,380)
+    "constrained_8x8": 38_400,      # 37,287 (31,527; 48,563)
+    "bars_300": 68_000,             # 66,018 (62,933; 76,409; 69,614 before PERF10a)
+    "texts_2000": 118_000,          # 114,615 (156,533; 182,809)
+    "annotations_1000": 98_600,     # 95,755 (82,649; 122,934)
 }
 
 #: Builds the figures of `BUILD_CALLS_CEILING` twice each and prints the
 #: Python calls of the second build.
-_BUILD_PROGRAM = """
-import json, sys
+_BUILD_PROGRAM = _COUNTER + """
 import numpy as np
 import pltrs.pyplot as plt
 
@@ -276,32 +288,79 @@ def annotations_1000():
         ax.annotate(f"p{i}", (xs[i], xs[999 - i]), fontsize=6)
 
 
-calls = [0]
-
-
-def count(frame, event, arg):
-    if event == "call":
-        calls[0] += 1
-
-
-counts = {}
 for build in (grid_16x16, constrained_8x8, bars_300, texts_2000, annotations_1000):
     build()
     plt.close("all")
-    calls[0] = 0
-    sys.setprofile(count)
-    build()
-    sys.setprofile(None)
+    counted(build.__name__, build)
     plt.close("all")
-    counts[build.__name__] = calls[0]
-print(json.dumps(counts))
+report()
 """
+
+#: The calls of each scene by function as the ceilings were last set
+#: (functions called at least `_PROFILED` times; all of a draw's), against
+#: which a failure names what grew. Rewritten with the ceilings, by
+#: ``PYTHONPATH=python .venv-pltrs/bin/python python/tests/test_perf7_import.py --record``.
+PROFILES = pathlib.Path(__file__).with_name("call_profiles.json")
+
+#: The fewest calls of a function a recorded profile keeps.
+_PROFILED = 4
+
+
+def _profiles(tmp_path):
+    """The calls by function of every scene of both programs, the second
+    run of each (the first writes the caches of a first import)."""
+    env = {"PLTRSCONFIGDIR": str(tmp_path), "PLTRS_LOOK": "matplotlib"}
+    _fresh(_CALLS_PROGRAM, **env)
+    calls, _ = _fresh(_CALLS_PROGRAM, **env)
+    built, _ = _fresh(_BUILD_PROGRAM, **env)
+    return {**calls, **built}
+
+
+def _grown(scene, profile):
+    """The functions of *scene* whose calls grew most against its recorded
+    profile, as ``file:function +calls``."""
+    recorded = json.loads(PROFILES.read_text())["scenes"].get(scene, {})
+    growth = sorted(((count - recorded.get(name, 0), name) for name, count in profile.items()
+                     if count >= _PROFILED or name in recorded), reverse=True)
+    return ", ".join(f"{name} +{grown}" for grown, name in growth[:8] if grown > 0)
+
+
+def _over(ceilings, profiles):
+    """What goes over its ceiling: the calls made, the ceiling and what
+    grew, by scene."""
+    return {scene: (sum(profiles[scene].values()), ceiling, _grown(scene, profiles[scene]))
+            for scene, ceiling in ceilings.items() if sum(profiles[scene].values()) > ceiling}
+
+
+#: What to tell the author of a change that goes over a ceiling.
+_ADVICE = ("keep new work off the plain path: answered once per class, made lazy, or in the "
+           "native code; move a ceiling (and rewrite the profiles with --record) only for a "
+           "call matplotlib's own code makes")
+
+
+def test_python_calls_at_import_and_per_draw_stay_under_their_ceiling(tmp_path):
+    over = _over(PYTHON_CALLS_CEILING, _profiles(tmp_path))
+    assert not over, f"Python calls (made, ceiling, grown most): {over}; {_ADVICE}"
 
 
 def test_python_calls_building_figures_stay_under_their_ceiling(tmp_path):
-    calls, _ = _fresh(_BUILD_PROGRAM, PLTRSCONFIGDIR=str(tmp_path), PLTRS_LOOK="matplotlib")
-    over = {name: (calls[name], ceiling) for name, ceiling in BUILD_CALLS_CEILING.items()
-            if calls[name] > ceiling}
-    assert not over, (
-        f"Python calls building (made, ceiling): {over}; a check or a dispatch now runs "
-        "in Python for each Axes or artist an ordinary program adds")
+    over = _over(BUILD_CALLS_CEILING, _profiles(tmp_path))
+    assert not over, f"Python calls building (made, ceiling, grown most): {over}; {_ADVICE}"
+
+
+def _record():
+    """Writes `PROFILES` from this tree."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as directory:
+        profiles = _profiles(pathlib.Path(directory))
+    scenes = {scene: dict(sorted((name, count) for name, count in profile.items()
+                                 if count >= _PROFILED or scene == "draw"))
+              for scene, profile in profiles.items()}
+    totals = {scene: sum(profile.values()) for scene, profile in profiles.items()}
+    PROFILES.write_text(json.dumps({"python": sys.version.split()[0], "totals": totals,
+                                    "scenes": scenes}, indent=1) + "\n")
+    print(f"wrote {PROFILES}: {totals}")
+
+
+if __name__ == "__main__" and sys.argv[1:] == ["--record"]:
+    _record()

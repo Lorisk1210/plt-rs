@@ -230,7 +230,7 @@ def _set_after(line, kwargs):
     """Give *line*, made natively with *kwargs*, those of them pltrs (Rust)
     makes no line with (see `_NATIVE_PROPERTIES`); returns *line*, which
     may be None (no line made)."""
-    after = _after_kwargs(kwargs)
+    after = not kwargs.keys() <= _MADE_WITH and _after_kwargs(kwargs)
     if after and line is not None:
         line._internal_update(after)
     return line
@@ -249,7 +249,7 @@ def _native_kwargs(kwargs, holder=None):
     for *holder*, the root figure the line is made in (see
     `._live_transforms.to_native`).
     """
-    after = _after_kwargs(kwargs)
+    after = not kwargs.keys() <= _MADE_WITH and _after_kwargs(kwargs)
     if after:
         check_known(Line2D, after)
         kwargs = {name: value for name, value in kwargs.items() if name not in after}
@@ -1912,6 +1912,13 @@ class VertexSelector:
         xdata, ydata = self.line.get_data()
         self.process_selected(ind, xdata[ind], ydata[ind])
 
+
+#: The keywords `_after_kwargs` leaves out, a line's own properties under
+#: their names and aliases, its data and its clip box: keywords all among
+#: these give a line nothing through its setters, told without the call.
+_MADE_WITH = frozenset((
+    *_NATIVE_PROPERTIES, *_DATA, "clip_box",
+    *(alias for alias, name in Line2D._alias_to_prop.items() if name in _NATIVE_PROPERTIES)))
 
 lineStyles = Line2D._lineStyles
 lineMarkers = MarkerStyle.markers

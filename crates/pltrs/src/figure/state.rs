@@ -11,7 +11,9 @@ use pltrs_render::ClipPath;
 
 use super::frame::FigureFrame;
 use super::{CanvasState, FreshArtists};
-use crate::artist::{Artist, ArtistId, ArtistLookup, ArtistStore, DetachedArtists, DrawError};
+use crate::artist::{
+    Artist, ArtistId, ArtistLookup, ArtistStore, DetachedArtists, DrawError, DrawErrorKind,
+};
 use crate::axes::{
     AxesState, LimitCallbacks, PatchOutline, ShareGroups, SharesAcross, TickUpdater,
 };
@@ -84,6 +86,10 @@ pub(crate) struct FigureState {
     /// The part of the figure being printed, in inches, while saving with
     /// `bbox_inches` (matplotlib's `adjust_bbox`).
     pub(crate) print_window: Option<Bbox>,
+    /// The magnification of the images the program's code makes in the
+    /// draw before a print (matplotlib's vector renderers make them at the
+    /// save resolution, their `image_magnification`), 1 outside prints.
+    pub(crate) print_image_magnification: f64,
     /// Whether the figure is being saved, when axes draw their animated
     /// artists too (matplotlib's `canvas.is_saving()`).
     pub(crate) saving: bool,
@@ -246,6 +252,7 @@ impl FigureState {
             cursor: CursorShape::default(),
             tools: ToolRegistry::default(),
             print_window: None,
+            print_image_magnification: 1.0,
             saving: false,
             suppress_composite: None,
             last_draw_dpi: None,
@@ -301,6 +308,7 @@ impl FigureState {
             cursor: CursorShape::default(),
             tools: ToolRegistry::default(),
             print_window: None,
+            print_image_magnification: 1.0,
             saving: false,
             suppress_composite: None,
             last_draw_dpi: None,
@@ -559,6 +567,11 @@ impl FigureState {
             crate::layout::failures::pass_over(crate::layout::failures::ErrorClass::ValueError);
         }
         let drawing = matches!(preparation, Preparation::Drawing(_));
+        if drawing && self.layout_failed() {
+            // matplotlib's draw raised in its layout engine, before it
+            // drew anything (see `take_layout_failure`).
+            return;
+        }
         let mut failed = false;
         let mut ticked = Vec::new();
         let laid_out: Vec<ArtistId> = (axes.iter().copied())
@@ -624,6 +637,24 @@ impl FigureState {
             .ids()
             .filter(|&id| self.store.get_as::<AxesState>(id).is_some())
             .collect()
+    }
+
+    /// Whether the layout a draw ran failed as matplotlib's engine fails
+    /// (raising a `ZeroDivisionError`).
+    fn layout_failed(&self) -> bool {
+        self.pending_errors.iter().any(Self::fails_layout)
+    }
+
+    /// The failure of the layout a draw ran (see `layout_failed`), taken
+    /// out of the problems it reports.
+    pub(crate) fn take_layout_failure(&mut self) -> Option<DrawError> {
+        let at = self.pending_errors.iter().position(Self::fails_layout)?;
+        Some(self.pending_errors.remove(at))
+    }
+
+    /// Whether `error` is a layout engine's failure.
+    fn fails_layout(error: &DrawError) -> bool {
+        error.kind == DrawErrorKind::DivisionByZero
     }
 
     /// The problems a draw reports besides those met drawing: those of

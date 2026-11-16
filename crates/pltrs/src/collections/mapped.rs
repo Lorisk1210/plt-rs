@@ -207,6 +207,12 @@ impl Mapped {
         self.at_draw
     }
 
+    /// The shape of the array matplotlib's collection holds; `None` for
+    /// one dimension.
+    pub(crate) fn shape(&self) -> Option<&[usize]> {
+        self.shape.as_deref()
+    }
+
     /// Why the values cannot be normalised, as the last normalisation
     /// found (for a norm of the program's, that of the last draw).
     pub(crate) fn problem(&self) -> Option<String> {

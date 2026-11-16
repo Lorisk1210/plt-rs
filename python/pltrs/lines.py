@@ -684,6 +684,14 @@ class Line2D(Artist):
         if not np.iterable(y):
             raise RuntimeError('y must be a sequence')
         self._xorig, self._yorig = _copied(x), _copied(y)
+        if self.axes is None and not (units._is_natively_supported(x)
+                                      and units._is_natively_supported(y)):
+            # Values in units convert once the line joins an axes
+            # (`_convert_units_for`), as for those it is made with.
+            self._unit_data = True
+            _unusable.drop(self, "data")
+            self.stale = True
+            return
         # Converted now, the numbers reach pltrs (Rust) when the next native
         # call is made. Data that converts to no numbers (strings on a
         # numeric axis) matplotlib keeps, failing to convert it as it

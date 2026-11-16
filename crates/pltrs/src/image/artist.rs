@@ -258,8 +258,10 @@ impl Artist for AxesImageArtist {
         if !self.maps_through_program() || state.ticks_by_program() || !self.base.visible {
             return None;
         }
-        // That draw renders the whole figure, before it is cut.
-        let placement = self.placement(*layout, layout.figure_box(), 1.0)?;
+        // That draw renders the whole figure, before it is cut, at the
+        // magnification of the print's renderer.
+        let magnification = state.print_image_magnification;
+        let placement = self.placement(*layout, layout.figure_box(), magnification)?;
         let alpha = self.core.alpha(self.base.alpha);
         let core = self.core.clone();
         Some(Box::new(move || {

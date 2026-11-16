@@ -396,8 +396,12 @@ def _held_settings(settings, n):
                           and np.size(value) in (1, n))
                 value = np.ravel(value).astype(float) if usable else value
         else:
-            usable = isinstance(value, Real)
-            value = float(value) if usable else value
+            # A number, or a numeric array of one, which matplotlib
+            # computes with as with the number.
+            usable = isinstance(value, Real) or (
+                isinstance(value, np.ndarray) and value.size == 1
+                and value.dtype.kind in "biuf")
+            value = float(np.ravel(value)[0]) if usable else value
         if usable:
             held[key] = value
         else:

@@ -6,7 +6,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use super::blocks::{BlockSpec, Blocks};
-use super::mappable::{ContourLevels, Mappable, MappableLink, Source};
+use super::mappable::{ContourLevels, Mappable, MappableLink, MappableValues, Source};
 use super::ticking::{self, Tickers};
 use super::{Colorbar, ColorbarError, ExtendFrac, Spacing, long_axis};
 use crate::artist::{
@@ -116,7 +116,7 @@ impl BlockSettings {
         contours: Option<&ContourLevels>,
         (extend, inverted): (Extend, bool),
         mapping: &mut ScalarMappable,
-        data: Option<&[Option<f64>]>,
+        data: Option<&MappableValues>,
     ) -> Result<Blocks, ColorbarError> {
         let spec = BlockSpec {
             data,
@@ -158,7 +158,7 @@ impl ColorbarState {
             self.contours.as_ref(),
             ends,
             &mut self.mapping,
-            data.as_deref(),
+            data.as_ref(),
         )?;
         let contours = self.contours.is_some();
         let scale = ticking::long_axis_scale(
@@ -190,7 +190,7 @@ impl ColorbarState {
                 self.contours.as_ref(),
                 ends,
                 &mut self.mapping,
-                data.as_deref(),
+                data.as_ref(),
             )?;
         }
         self.edges = self.blocks.edges(self.mapping.norm_mut())?;

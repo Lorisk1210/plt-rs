@@ -59,6 +59,7 @@ def set_artist_props(artist, had_transform, axes=None):
     program's overrides, which may do more (an artist holding another
     sets them on it too).
     """
+    from .artist import Artist
     from .axes._base import _AxesBase
     cls = type(artist)
     # matplotlib's ``add_axes`` joins an Axes without setting its figure,
@@ -66,7 +67,9 @@ def set_artist_props(artist, had_transform, axes=None):
     if takes_from_program(cls, "set_figure") and not isinstance(artist, _AxesBase):
         artist.set_figure(artist.get_figure(root=False))
     if not had_transform and takes_from_program(cls, "set_transform"):
-        artist.set_transform(artist.get_transform())
+        # The transform set (a patch's data transform), not the one a
+        # class composes from it.
+        artist.set_transform(Artist.get_transform(artist))
     if axes is not None and takes_from_program(cls, "axes"):
         artist.axes = axes
 

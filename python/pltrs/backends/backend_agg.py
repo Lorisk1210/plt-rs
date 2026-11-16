@@ -24,7 +24,7 @@ from .._native import (
     backends as _backends, drawing as _drawing, ft2font as _ft2font, table as _table,
     text_overrides as _text_overrides)
 from .._program_classes import from_program
-from .._python_drawing import drawing_with
+from .._python_drawing import drawing_with, printed_window
 from ..backend_bases import (
     _Backend, DrawEvent, FigureCanvasBase, FigureManagerBase, RendererBase)
 from ..font_manager import FontManager, FontProperties
@@ -243,7 +243,8 @@ class RendererAgg(AggArgumentsMixin, NativeDrawingMixin, RendererBase):
         from, and the program's drawing receives it."""
         replaced = getattr(self.draw_tex, "__func__", None) is not _OWN_DRAW_TEX
         program_gc = from_program(inspect.getattr_static(type(self), "new_gc"))
-        with _measuring_with(self), drawing_with(lambda: self):
+        figure = getattr(self, "_figure", None)
+        with _measuring_with(self), drawing_with(self._for_window, figure):
             if replaced:
                 _backends.set_tex_painter(self._paint_tex)
             if program_gc:
@@ -255,6 +256,20 @@ class RendererAgg(AggArgumentsMixin, NativeDrawingMixin, RendererBase):
                     _backends.set_tex_painter(None)
                 if program_gc:
                     _backends.set_program_gc(None)
+
+    def _for_window(self):
+        """What the program's drawing receives while this renderer draws:
+        itself, but while a print of its figure is cut to a window, its
+        canvas' renderer of the window's size, which matplotlib's print
+        draws the window with (having measured it with this one)."""
+        figure = getattr(self, "_figure", None)
+        if figure is None or printed_window(figure) is None:
+            return self
+        canvas_renderer = getattr(figure.canvas, "get_renderer", None)
+        if canvas_renderer is not None:
+            return canvas_renderer()
+        width, height = figure.bbox.size
+        return RendererAgg(int(width), int(height), figure.dpi)
 
     def _draw_artist(self, artist):
         """Draw *artist*, as pltrs (Rust) draws it, onto the canvas over

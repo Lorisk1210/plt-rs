@@ -100,6 +100,13 @@ pub(crate) fn draws_of_print() -> usize {
     if PRE_DRAW.get().is_some() { 2 } else { 1 }
 }
 
+/// Whether the program's code of the draw before the print running now
+/// ran already as the print began (a print cut to a window, see
+/// `Figure::predraw_program`), the draw running now calling it once.
+pub(crate) fn program_predrawn() -> bool {
+    PRE_DRAW.get() == Some(PreDraw::Measured)
+}
+
 /// Runs `measure` with a renderer of its own, whose text metrics cache
 /// starts empty, where the program measures through a cache.
 pub(crate) fn with_renderer_of_its_own<R>(measure: impl FnOnce() -> R) -> R {

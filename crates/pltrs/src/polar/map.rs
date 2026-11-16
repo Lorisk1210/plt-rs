@@ -63,6 +63,12 @@ pub(crate) struct RadialFrame {
     sign: f64,
 }
 
+pltrs_core::archive_struct!(RadialFrame {
+    scaled_origin,
+    origin,
+    sign
+});
+
 /// The radial frame `transform` maps polar coordinates with, if it does.
 pub(crate) fn radial_frame(transform: &ResolvedTransform) -> Option<RadialFrame> {
     transform.plane_maps().find_map(|map| {

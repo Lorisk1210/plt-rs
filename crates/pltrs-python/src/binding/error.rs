@@ -57,6 +57,9 @@ pub(crate) enum ExceptionKind {
     /// `AssertionError`: an assertion of matplotlib's code that failed (a
     /// PDF stream begun beside an open one).
     AssertionError,
+    /// `ZeroDivisionError`: a division by zero matplotlib's Python code
+    /// makes (a grid whose first ratio is zero, in constrained layout).
+    ZeroDivisionError,
 }
 
 impl ExceptionKind {
@@ -81,6 +84,7 @@ impl ExceptionKind {
                 Self::NotImplementedError => ffi::PyExc_NotImplementedError,
                 Self::SystemError => ffi::PyExc_SystemError,
                 Self::AssertionError => ffi::PyExc_AssertionError,
+                Self::ZeroDivisionError => ffi::PyExc_ZeroDivisionError,
             }
         }
     }

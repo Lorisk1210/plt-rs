@@ -70,12 +70,12 @@ class _ProgramSize:
         return (type(self), (self._size, None if self._figure is None else self._figure()))
 
     def get_size(self, _renderer):
-        from pltrs._python_drawing import made_renderer
-        renderer = made_renderer()
+        from pltrs._python_drawing import installed_renderer
+        renderer = installed_renderer()
         figure = None if self._figure is None else self._figure()
         if renderer is None and figure is not None:
             # The canvas' renderer as it stands: the figure is being laid
-            # out, and cannot be asked for one.
+            # out, and is not asked for one.
             renderer = vars(figure.canvas).get("renderer")
         return self._size.get_size(renderer)
 

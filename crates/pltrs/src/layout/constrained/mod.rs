@@ -22,6 +22,7 @@ mod reposition;
 mod tree;
 
 use super::kiwi::SolverError;
+use crate::artist::{DrawError, DrawErrorKind};
 use crate::figure::FigureState;
 use crate::numeric::numpy_arith;
 use crate::rc::RcParams;
@@ -113,6 +114,16 @@ pub(super) fn execute(fig: &mut FigureState, params: &ConstrainedLayout) -> Opti
             }
             return Ok(None);
         };
+        if tree.divides_by_zero {
+            // matplotlib's draw fails as it makes the grids.
+            let root = fig.root;
+            fig.pending_errors.push(DrawError {
+                artist: root,
+                message: "float division by zero".to_owned(),
+                kind: DrawErrorKind::DivisionByZero,
+            });
+            return Ok(None);
+        }
         if width == 0.0 || height == 0.0 {
             // matplotlib measures the axes through the inverse of the
             // figure's transform, which a figure of no area has not: its

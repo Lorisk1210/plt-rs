@@ -46,7 +46,7 @@ from ._offsetbox_trees import (
     artist_handle, box_tree, children, choice, follow, joinable, number,
     optional_number)
 from . import _program_classes
-from ._program_classes import takes_from_program
+from ._program_classes import takes_any_from_program, takes_from_program
 from .artist import Artist
 from .font_manager import FontManager, FontProperties
 from .transforms import Bbox, BboxBase, Transform, TransformedBbox
@@ -706,7 +706,15 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         --------
         .Artist.contains
         """
-        return super().contains(mouseevent)
+        # matplotlib's: the box contains what its children contain (pltrs
+        # (Rust) gives a box's own node no geometry to contain points).
+        if self._different_canvas(mouseevent):
+            return False, {}
+        for c in self.get_children():
+            a, b = c.contains(mouseevent)
+            if a:
+                return a, b
+        return False, {}
 
     def get_bbox(self, renderer):
         """Return the bbox of the offsetbox, ignoring parent offsets."""
@@ -1717,10 +1725,12 @@ class AnchoredOffsetbox(OffsetBox):
             renderer.points_to_pixels(self.prop.get_size_in_points())
         owner = self.__dict__.get("_tree_owner", self)
         owner._sync_tree()
-        if owner._tree_unusable() or (owner is self and "_tree_handle" not in self.__dict__):
+        if (owner._tree_unusable() or (owner is self and "_tree_handle" not in self.__dict__)
+                or self._measured_by_program()):
             # matplotlib's measure, failing where matplotlib's does on what
-            # pltrs (Rust) cannot take, and of a box added nowhere (one a
-            # program makes and draws in its own `draw`).
+            # pltrs (Rust) cannot take, of a box added nowhere (one a
+            # program makes and draws in its own `draw`), and of a box whose
+            # offset or measures are the program's, which it calls.
             return OffsetBox.get_window_extent(self, renderer)
         self.get_child()._measure_program_boxes(renderer)
         if self._synced_node() is not None:
@@ -1743,6 +1753,13 @@ class AnchoredOffsetbox(OffsetBox):
         self._sync_tree()
         _python_drawing.attach(self)
         return self
+
+    def _measured_by_program(self):
+        """Whether the box's offset, or the measure of a box of its tree,
+        is a method of the program's, which matplotlib's measure of the box
+        calls."""
+        return (takes_any_from_program(type(self), ("get_offset", "get_bbox"))
+                or any(takes_from_program(type(box), "get_bbox") for box in self._boxes()))
 
     def _locate_by_program(self, renderer):
         # docstring inherited; the child then goes where a ``get_offset``

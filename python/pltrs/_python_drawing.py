@@ -42,7 +42,7 @@ import weakref
 import numpy as np
 
 from . import _live_transforms, _transform_trees, transforms as mtransforms
-from ._native import drawing as _drawing, register as _register
+from ._native import drawing as _drawing, figure as _figure, register as _register
 from ._native import transforms as _transforms
 from ._program_classes import class_cache, takes_from_program
 from .path import Path
@@ -54,8 +54,10 @@ class _Drawing(threading.local):
 
     def __init__(self):
         #: The renderers pltrs (Rust) draws with, innermost last: what the
-        #: program's drawing receives, as ``[make, renderer]`` (the
-        #: renderer ``make()`` gives is made when first needed).
+        #: program's drawing receives, as ``(make, figure, made)``: the
+        #: renderer ``make()`` gives, made when first needed for each
+        #: window of *figure* printed (``made`` by window, see
+        #: `drawing_with`).
         self.renderers = []
         #: How many of the calls running draw while pltrs (Rust) is
         #: drawing the figure (an artist the draw reached before it was
@@ -187,36 +189,49 @@ def draw_through_python(artist, measures):
 
 
 @contextlib.contextmanager
-def drawing_with(make):
+def drawing_with(make, figure=None):
     """Hand the program's drawing the renderer *make()* makes (when first
-    needed) while pltrs (Rust) draws on this thread."""
+    needed) while pltrs (Rust) draws on this thread; one for each window
+    of *figure* printed meanwhile: matplotlib draws a print cut to a window
+    once whole before, measuring the window with the renderer of that
+    draw, and then the window with a renderer of the window's size, which
+    *make()* gives while the figure stands for the window."""
     renderers = _drawing_now.renderers
-    renderers.append([make, None])
+    renderers.append((make, figure, {}))
     try:
         yield
     finally:
         renderers.pop()
 
 
-def installed_renderer():
-    """The renderer a print installed for the program's drawing
-    (`drawing_with`), made when first needed; None outside prints."""
+def _installed():
+    """The renderers installed innermost (`drawing_with`), and the key of
+    the one for the window printed now; None outside prints."""
     renderers = _drawing_now.renderers
     if not renderers:
         return None
-    installed = renderers[-1]
-    if installed[1] is None:
-        installed[1] = installed[0]()
-    return installed[1]
+    make, figure, made = renderers[-1]
+    window = None if figure is None else printed_window(figure)
+    return make, made, window
 
 
-def made_renderer():
+def printed_window(figure):
+    """The window of *figure* printed now (`.figure.Figure` and its
+    canvas' print), None for the whole figure."""
+    native = getattr(figure, "_native", None)
+    return None if native is None else _figure.print_window(native)
+
+
+def installed_renderer():
     """The renderer a print installed for the program's drawing
-    (`drawing_with`) if it was made already, else None: what code that
-    runs while pltrs (Rust) lays the figure out may take, which cannot
-    make one then."""
-    renderers = _drawing_now.renderers
-    return renderers[-1][1] if renderers else None
+    (`drawing_with`), made when first needed; None outside prints."""
+    installed = _installed()
+    if installed is None:
+        return None
+    make, made, window = installed
+    if window not in made:
+        made[window] = make()
+    return made[window]
 
 
 def drawing_renderer(artist):
@@ -480,10 +495,11 @@ def _left_out_of_axes_box(artist):
 def measure_box(box):
     """The bounds ``(x0, y0, width, height)`` of *box*, an offset box of
     the program's in the tree of a box pltrs (Rust) lays out, relative to
-    its origin: its ``get_bbox`` with the renderer of its figure, which
-    pltrs (Rust) asks once the figure is laid out (matplotlib's parent asks
-    it when it draws)."""
-    bbox = box.get_bbox(box.get_figure(root=True)._get_renderer())
+    its origin: its ``get_bbox`` with the renderer matplotlib's draw hands
+    it (that of the print running, else its figure's), which pltrs (Rust)
+    asks once the figure is laid out (matplotlib's parent asks it when it
+    draws)."""
+    bbox = box.get_bbox(drawing_renderer(box))
     return tuple(map(float, bbox.bounds))
 
 

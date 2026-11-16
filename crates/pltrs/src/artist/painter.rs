@@ -557,9 +557,13 @@ mod tests {
         fig.set_layout_engine(crate::layout::LayoutEngine::tight())
             .unwrap();
         fig.layout();
-        assert_eq!(count(), Some(1), "a tight layout measures");
+        assert_eq!(
+            count(),
+            Some(2),
+            "a tight layout measures, in each of matplotlib's two passes"
+        );
         fig.set_layout_engine(None).unwrap();
         fig.layout();
-        assert_eq!(count(), Some(1), "its placeholder does not");
+        assert_eq!(count(), Some(2), "its placeholder does not");
     }
 }

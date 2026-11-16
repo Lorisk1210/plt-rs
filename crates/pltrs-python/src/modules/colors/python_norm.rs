@@ -34,17 +34,20 @@ pub(crate) struct PythonNorm {
     /// colorbars show as matplotlib's `isinstance` checks do (its
     /// boundaries, never its inverse); `None` for any other norm.
     boundary: Option<BoundaryNorm>,
+    /// Whether the norm derives from matplotlib's `NoNorm`, which
+    /// colorbars show by its colour indices.
+    identity: bool,
     hooks: Hooks,
 }
 
 /// The callables `native_norm` gives for a norm.
 #[derive(Clone, Debug)]
 struct Hooks {
-    /// `normalize(values, mask, clip, shape) -> (values, mask)`, the
-    /// values handed to the norm as an array of `shape` (`None`: as they
-    /// are).
+    /// `normalize(values, mask, clip, shape) -> (values, mask,
+    /// integers)`, the values handed to the norm as an array of `shape`
+    /// (`None`: as they are).
     normalize: Callback,
-    /// `normalize_scalar(value) -> (values, mask)`.
+    /// `normalize_scalar(value) -> (values, mask, integers)`.
     normalize_scalar: Callback,
     /// `autoscale_none(values, mask, shape) -> (vmin, vmax)`, the values
     /// handed to the norm as a masked array of `shape` (`None`: flat).
@@ -83,6 +86,7 @@ impl PythonNorm {
             clip,
             scale,
             boundary,
+            identity: hook("identity")?.extract()?,
             hooks: Hooks {
                 normalize: hook("normalize")?.extract()?,
                 normalize_scalar: hook("normalize_scalar")?.extract()?,
@@ -130,9 +134,10 @@ fn split_as(data: &[Option<f64>], masked: bool) -> (NdArray, Option<NdArray<bool
 
 /// What a `normalize` hook gave: the normalised values, masked or none
 /// at all when it raised (the exception raises from the native call
-/// drawing), `len` of them.
-fn normalized(given: Option<(NdArray, NdArray<bool>)>, len: usize) -> Vec<Normalized> {
-    let Some((values, mask)) = given else {
+/// drawing), `len` of them; integers (a `BoundaryNorm`'s) index the
+/// colours, as matplotlib's colormaps take them.
+fn normalized(given: Option<(NdArray, NdArray<bool>, bool)>, len: usize) -> Vec<Normalized> {
+    let Some((values, mask, integers)) = given else {
         return vec![Normalized::Masked; len];
     };
     values
@@ -142,6 +147,13 @@ fn normalized(given: Option<(NdArray, NdArray<bool>)>, len: usize) -> Vec<Normal
         .map(|(&value, &masked)| {
             if masked {
                 Normalized::Masked
+            } else if integers {
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    reason = "the norm gave integers, carried as floats"
+                )]
+                let index = value as i64;
+                Normalized::Index(index)
             } else {
                 Normalized::Fraction(value)
             }
@@ -188,12 +200,16 @@ impl Norm for PythonNorm {
         self.autoscale_none_as(data, Some(shape.to_vec()));
     }
 
-    /// A norm deriving from `BoundaryNorm` is shown by its bins; one made
+    /// A norm deriving from `BoundaryNorm` is shown by its bins, one
+    /// deriving from `NoNorm` by its colour indices; one made
     /// from a scale of pltrs (Rust)'s kind on that scale (matplotlib's
     /// colorbar takes `norm._scale`).
     fn kind(&self) -> NormKind<'_> {
         if let Some(boundary) = &self.boundary {
             return NormKind::Boundary(boundary);
+        }
+        if self.identity {
+            return NormKind::Identity;
         }
         let scale = self.scale.as_ref();
         scale
@@ -273,7 +289,7 @@ def hooks(norm, weak):
         return norm.vmin, norm.vmax, norm.clip
     return {'normalize': print, 'normalize_scalar': print, 'autoscale_none': print,
             'inverse': print, 'set_limits': set_limits, 'state': state, 'scale': None,
-            'boundary': getattr(norm, 'bins', None), 'object': norm}
+            'boundary': getattr(norm, 'bins', None), 'identity': False, 'object': norm}
 class Bins(Half):
     bins = ([0.0, 0.5, 2.0], 2, 'neither')
 ";

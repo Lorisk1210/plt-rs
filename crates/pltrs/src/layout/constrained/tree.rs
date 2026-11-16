@@ -53,6 +53,10 @@ pub(crate) struct LayoutTree {
     specs: Vec<(GridSpec, usize)>,
     /// The figure first, then its subfigures depth first.
     pub(super) frames: Vec<Frame>,
+    /// Whether a grid specification has a first width or height ratio of
+    /// zero, by which matplotlib's `LayoutGrid` divides (failing with a
+    /// `ZeroDivisionError`).
+    pub(super) divides_by_zero: bool,
 }
 
 impl LayoutTree {
@@ -64,6 +68,7 @@ impl LayoutTree {
             owners: Vec::new(),
             specs: Vec::new(),
             frames: Vec::new(),
+            divides_by_zero: false,
         };
         let grid = tree.push_frame_grid(fig.root, &GridParent::Rect(rect))?;
         tree.add_frame(fig, fig.root, grid, None)?;
@@ -178,9 +183,17 @@ impl LayoutTree {
             }
         };
         self.owners.push(GridOwner::GridSpec(gridspec.clone()));
-        let index =
-            self.grids
-                .push(&parent, &gridspec.width_ratios(), &gridspec.height_ratios())?;
+        let (mut widths, mut heights) = (gridspec.width_ratios(), gridspec.height_ratios());
+        let first_zero = |ratios: &[f64]| ratios.first().is_some_and(|&ratio| ratio == 0.0);
+        if first_zero(&widths) || first_zero(&heights) {
+            // matplotlib's `LayoutGrid` divides by them, and the layout
+            // fails (see `divides_by_zero`); even cells meanwhile, which
+            // nothing solves.
+            self.divides_by_zero = true;
+            widths.fill(1.0);
+            heights.fill(1.0);
+        }
+        let index = self.grids.push(&parent, &widths, &heights)?;
         self.specs.push((gridspec.clone(), index));
         Ok(index)
     }

@@ -324,6 +324,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             given = self._given_transform
         if given is not None:
             return given
+        kept = self.__dict__.get("_transform_set")
+        if kept is not None:
+            # The transform set, the native one being what the class
+            # computes from it (see `._computed_transforms`).
+            return kept
         # matplotlib's makes the identity its ``_transform`` here.
         self.__dict__["_transform_made"] = True
         return _live_transforms.of_artist(
@@ -354,6 +359,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         ----------
         t : `~matplotlib.transforms.Transform`
         """
+        self.__dict__.pop("_transform_set", None)
         if _live_transforms.gives_transform(t):
             # An object of the program's giving its transform for an Axes
             # (a cartopy CRS): that of the artist's Axes, asked once the

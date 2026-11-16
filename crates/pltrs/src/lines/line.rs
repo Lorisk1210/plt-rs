@@ -145,8 +145,9 @@ pltrs_core::archive_struct!(LineArtist {
     infinite,
     marker_rotation,
     unit_sources,
-    rc
-} skip { kept_paths, kept_polar });
+    rc,
+    kept_polar
+} skip { kept_paths });
 
 impl LineArtist {
     /// A line through `(x, y)` with defaults from `rc`.

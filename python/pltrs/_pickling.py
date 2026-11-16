@@ -149,7 +149,7 @@ class TreeReference:
 
 
 #: The attributes of an artist that may hold a transform of the trees.
-_TREE_HOLDERS = ("_given_transform",)
+_TREE_HOLDERS = ("_given_transform", "_transform_set")
 
 
 def referring_to_trees(artist, state):

@@ -1,7 +1,7 @@
 //! Lookup of matplotlib's named colours, and the names a program gives
 //! colours or takes away (matplotlib's `_colors_full_map` changed).
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 use std::sync::OnceLock;
@@ -23,6 +23,10 @@ pltrs_core::thread_state! {
     /// matplotlib's (ultraplot's `ColorDatabase`).
     static NAME_LOOKUP: RefCell<Option<NameLookup>> =
         const { RefCell::new(None) };
+    /// Whether the program's mapping of names stands in place of
+    /// matplotlib's, so that every name is looked up there first
+    /// ([`set_program_mapping`]).
+    static PROGRAM_MAPPING: Cell<bool> = const { Cell::new(false) };
 }
 
 /// A named colour as matplotlib's tables store it.
@@ -72,10 +76,23 @@ fn full_map() -> &'static HashMap<String, NamedColor> {
     })
 }
 
-/// Looks up a named colour exactly as matplotlib does: the name as given,
-/// then (for names longer than one character) its lowercase form, each
-/// as the program named it ([`set_color_name`]), else in the tables.
+/// Looks up a named colour exactly as matplotlib does: in the program's
+/// mapping of names first while one stands in place of matplotlib's
+/// ([`set_program_mapping`]); then the name as given, then (for names
+/// longer than one character) its lowercase form, each as the program
+/// named it ([`set_color_name`]), else in the tables; else in the
+/// program's mapping.
 pub(super) fn lookup(name: &str) -> Option<Rgba> {
+    // Called with the slot free: the lookup runs the program's code.
+    let program = || {
+        NAME_LOOKUP
+            .with_borrow(Clone::clone)
+            .and_then(|lookup| lookup(name))
+    };
+    let first = PROGRAM_MAPPING.get();
+    if first && let Some(color) = program() {
+        return Some(color);
+    }
     let find = |key: &str| {
         PROGRAM_NAMES
             .with_borrow(|names| names.get(key).copied())
@@ -87,11 +104,7 @@ pub(super) fn lookup(name: &str) -> Option<Rgba> {
                 .then(|| find(&name.to_lowercase()))
                 .flatten()
         })
-        .or_else(|| {
-            // Called with the slot free: the lookup runs the program's code.
-            let lookup = NAME_LOOKUP.with_borrow(Clone::clone)?;
-            lookup(name)
-        })
+        .or_else(|| if first { None } else { program() })
 }
 
 /// Has names the tables and [`set_color_name`] do not know looked up
@@ -99,6 +112,15 @@ pub(super) fn lookup(name: &str) -> Option<Rgba> {
 /// program put in place of `_colors_full_map`).
 pub fn set_color_name_lookup(lookup: impl Fn(&str) -> Option<Rgba> + 'static) {
     NAME_LOOKUP.with_borrow_mut(|slot| *slot = Some(Rc::new(lookup)));
+}
+
+/// Has every name looked up first with the lookup
+/// [`set_color_name_lookup`] gave, on this thread, while `program` is
+/// true: the program put a mapping of names of its own in place of
+/// matplotlib's (ultraplot's `ColorDatabase`, which renames `"plum"` and
+/// others), which matplotlib reads every name from.
+pub fn set_program_mapping(program: bool) {
+    PROGRAM_MAPPING.set(program);
 }
 
 /// Names `color` `name` on this thread, over the tables, or takes the

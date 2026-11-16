@@ -904,11 +904,19 @@ class _AxisText:
     #: The position matplotlib's axes of each name give the text when they
     #: make it (``self.label.set(x=0.5, y=0)``...), by axis name.
     _START = {}
+    #: The rotation mode matplotlib's axes of each name give the text, if
+    #: not the default, by axis name.
+    _ROTATION_MODE = {}
 
     def __init__(self, axis):
         self.axis = axis
         self.text = _mirrors.attach(
             Text(*self._START.get(axis.axis_name, (0, 0)), ''), _AxisPart(self))
+        mode = self._ROTATION_MODE.get(axis.axis_name)
+        if mode is not None:
+            # The mirror alone is told (its setter would give the axis the
+            # mode again, for each of a grid's Axes).
+            _text.set_rotation_mode(self.text._native, mode)
 
     def _args(self):
         return self.axis.axes._native, self.axis.axis_name
@@ -941,15 +949,6 @@ class _AxisText:
 class AxisLabel(_AxisText):
     """The mirror of an axis label."""
 
-    def __init__(self, axis):
-        super().__init__(axis)
-        if axis.axis_name == "y":
-            # As matplotlib's y-axis makes its label, which pltrs (Rust)
-            # turns about its anchor: the mirror alone is told (its
-            # setter would give the axis the mode again, for each of a
-            # grid's Axes).
-            _text.set_rotation_mode(self.text._native, "anchor")
-
     def _transform_of(self, text):
         # The transform `.Axis.set_label_coords` gave, else the default.
         given = self.axis.__dict__.get("_label_transform")
@@ -967,6 +966,9 @@ class AxisLabel(_AxisText):
     _push_effects_native = _axis.push_axis_label_effects
     _extent_native = _axis.axis_label_extent
     _START = {"x": (0.5, 0), "y": (0, 0.5)}
+    # As matplotlib's y-axis makes its label, which pltrs (Rust) turns about
+    # its anchor.
+    _ROTATION_MODE = {"y": "anchor"}
 
     def place_by_program(self, renderer):
         """Measure the axis, which places the label where its draw will,

@@ -107,13 +107,24 @@ default: %(va)s
         x = kwargs.pop('x', None)
         y = kwargs.pop('y', None)
         make, across_is_y = _SUPER_TEXTS[kind]
+        made = getattr(self, f"_sup{kind}") is None
         text = _handles.wrap(make(self._native, str(t)), Text, self.figure)
         across, along = (y, x) if across_is_y else (x, y)
         if across is not None:
             _figure_layout.place_super_text(self._native, kind, float(across))
         if along is not None:
             (text.set_x if across_is_y else text.set_y)(along)
-        text._internal_update(kwargs)
+        # matplotlib makes a new one with the properties (its constructor's
+        # ``update``) and sets them on the one it had.
+        if made:
+            try:
+                text.update(kwargs)
+            except Exception:
+                # matplotlib's figure keeps no text its constructor refused.
+                text.remove()
+                raise
+        else:
+            text._internal_update(kwargs)
         self.stale = True
         return text
 

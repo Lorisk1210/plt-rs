@@ -28,7 +28,9 @@ artist_handle!(Text);
 
 /// Parses one of matplotlib's names, raising `ValueError` with pltrs
 /// (Rust)'s reason.
-fn parse_name<T: FromStr<Err: std::fmt::Display>>(name: &str) -> PyResult<T> {
+pub(in crate::modules) fn parse_name<T: FromStr<Err: std::fmt::Display>>(
+    name: &str,
+) -> PyResult<T> {
     name.parse()
         .map_err(|err: T::Err| PyErr::value_error(err.to_string()))
 }

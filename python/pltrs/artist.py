@@ -38,8 +38,6 @@ from ._artist_units import UnitsMixin
 from ._native import artist as _artist
 from ._native import transforms as _transforms
 
-#: Loaded when a mirror's staleness is first read (see `_follow_part_drawer`).
-_drawn_with = _lazy_imports.module(globals(), "._drawn_with")
 #: Loaded when a program first gives an artist a position setter.
 _axis_artists = _lazy_imports.module(globals(), "._axis_artists")
 #: Loaded when a program first gives an axis an ``_update_ticks``.
@@ -48,6 +46,9 @@ _tick_updates = _lazy_imports.module(globals(), "._tick_updates")
 #: The setters a program may give an artist to follow where pltrs (Rust)
 #: places it (see `._axis_artists.follow_program_setters`).
 _POSITION_SETTERS = frozenset({"set_x", "set_y", "set_position"})
+
+#: An axis' tickers, which a program may replace (see `.Axis._adopt_ticker`).
+_TICKERS = frozenset({"major", "minor"})
 
 
 def allow_rasterization(draw):
@@ -164,6 +165,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         elif name == "_update_ticks":
             # An axis' (ultraplot's tick cache).
             _tick_updates.follow_program_update(self)
+        elif (name in _TICKERS and getattr(value, "_axis", self) is not self
+              and hasattr(self, "_adopt_ticker")):
+            # A ticker other than the axis' own (`.axis.Ticker._of_axis`).
+            self._adopt_ticker(value, name == "minor")
 
     def __delattr__(self, name):
         super().__delattr__(name)
@@ -396,15 +401,24 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         to match the internal state of the artist.
         """
         # A value other than a bool reads back as given (matplotlib keeps
-        # it) while pltrs (Rust) holds its truth.
-        self._follow_part_drawer()
+        # it) while pltrs (Rust) holds its truth. A mirror whose part its
+        # owner draws (see `._mirrors.Mirroring.drawer`) is fresh once the
+        # owner drew since the mirror was last checked.
+        mirror = self.__dict__.get("_mirror")
+        if mirror is not None and mirror.drawer is not None:
+            draws = _artist.draw_count(mirror.drawer._native)
+            if draws != self.__dict__.get("_drawer_draws", 0):
+                self._drawn_by_mirror_drawer(mirror, draws)
         return _values.given_flag(self, "stale", _artist.get_stale(self._native))
 
     @stale.setter
     def stale(self, val):
         # pltrs (Rust) marks what contains the artist stale too, unless
-        # the artist is animated.
-        self._follow_part_drawer()
+        # the artist is animated. A mirror's flag holds from the draws of
+        # its owner made so far.
+        mirror = self.__dict__.get("_mirror")
+        if mirror is not None and mirror.drawer is not None:
+            self._drawer_draws = _artist.draw_count(mirror.drawer._native)
         _artist.set_stale(self._native, bool(val))
         if type(val) is not bool:
             _values.remember(self, "stale", val)
@@ -412,13 +426,12 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             self.__dict__["_given_values"].pop("stale", None)
         self._went_stale(val)
 
-    def _follow_part_drawer(self):
-        """Make a mirror fresh once the artist drawing its part drew it
-        (see `._drawn_with`)."""
-        mirror = self.__dict__.get("_mirror")
-        if mirror is not None:
-            _drawn_with.follow(self, mirror.drawer(self),
-                               lambda: mirror.drawn_by_drawer(self))
+    def _drawn_by_mirror_drawer(self, mirror, draws):
+        """Note the *draws* of the owner drawing the part *mirror* stands
+        for, which leave the artist fresh if they drew the part."""
+        self._drawer_draws = draws
+        if mirror.drawn_by_drawer(self):
+            _artist.set_stale(self._native, False)
 
     def get_visible(self):
         """Return the visibility."""

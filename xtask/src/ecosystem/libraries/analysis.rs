@@ -307,7 +307,7 @@ pub(super) const LIBRARIES: [Library; 11] = [
         environment: Environment {
             variables: &[("MPLBACKEND", "agg")],
             display: true,
-            cache: false,
+            ..PLAIN
         },
         title: "lifelines' plotting tests",
     },

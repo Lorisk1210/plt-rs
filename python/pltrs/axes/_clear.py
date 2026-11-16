@@ -106,6 +106,8 @@ class ClearMixin:
             axis._ticks_seen = {False: 1, True: 1}
             axis.callbacks = cbook.CallbackRegistry(signals=["units"])
             axis.stale = True
+        if mscale._scale_mapping["linear"] is not mscale.LinearScale:
+            self._take_registered_linear()
         from .. import rcParams
         self._gridOn = rcParams['axes.grid']
         if takes_from_program(type(self), "grid"):
@@ -182,6 +184,16 @@ class ClearMixin:
             for other in (axis, *(other for other in axis._get_shared_axis()
                                   if other is not axis)):
                 other._given_scale = other.axes._default_axis_scale(other, "linear")
+
+    def _take_registered_linear(self):
+        """Give the axes pltrs (Rust) holds the tick helpers of the scale a
+        program registered as ``'linear'`` (see
+        `.Axis._take_registered_linear`), as matplotlib's clear does (and so
+        the `__init__` of its Axes)."""
+        self._took_registered_linear = True
+        for axis in self._axis_map.values():
+            if axis is not None and not axis._held:
+                axis._take_registered_linear()
 
     def clear(self):
         """Clear the Axes."""

@@ -40,12 +40,19 @@ from .._python_drawing import drawing_renderer
 #: figure's), whose locators may fail.
 _followed = weakref.WeakKeyDictionary()
 
-#: The Axes whose class of the program's autoscales them, per root figure.
+#: The Axes whose class of the program's autoscales them, per root figure,
+#: in the order they were followed (each table below is a dict of weak keys
+#: for that: a `weakref.WeakSet` iterates in the order of the objects'
+#: addresses, which differ from run to run, and the order the program's
+#: code runs in may change what it computes in the last bits).
 _autoscaled = weakref.WeakKeyDictionary()
 
 #: The axis labels (their `._axis_artists.AxisLabel`) given position setters
 #: of the program's, per root figure.
 _labels = weakref.WeakKeyDictionary()
+
+#: The 3-D axes whose ``_axinfo`` the program read, per root figure.
+_axinfos = weakref.WeakKeyDictionary()
 
 
 def follow(owner, figure):
@@ -62,11 +69,11 @@ def follow_autoscale(ax, figure):
     overrides ``autoscale_view``, up to date through it before every
     layout of a draw, while *ax* lives."""
     _owners(figure)
-    _autoscaled.setdefault(figure, weakref.WeakSet()).add(ax)
+    _autoscaled.setdefault(figure, weakref.WeakKeyDictionary())[ax] = None
 
 
 #: The Axes whose child Axes are a list the program assigned, per root
-#: figure.
+#: figure, in the order they were followed (as the tables above).
 _child_lists = weakref.WeakKeyDictionary()
 
 
@@ -75,7 +82,7 @@ def follow_child_axes(ax, figure):
     program assigned it (``ax.child_axes = [...]``) is before every layout
     of a draw, changes made in place included, while *ax* lives."""
     _owners(figure)
-    _child_lists.setdefault(figure, weakref.WeakSet()).add(ax)
+    _child_lists.setdefault(figure, weakref.WeakKeyDictionary())[ax] = None
 
 
 def follow_label(label, figure):
@@ -84,7 +91,15 @@ def follow_label(label, figure):
     ``set_y`` or ``set_position`` of its own) through its setters before
     every layout of a draw, while it lives."""
     _owners(figure)
-    _labels.setdefault(figure, weakref.WeakSet()).add(label)
+    _labels.setdefault(figure, weakref.WeakKeyDictionary())[label] = None
+
+
+def follow_axinfo(axis, figure):
+    """Have the root *figure* hand pltrs (Rust) the ``_axinfo`` of the 3-D
+    axis *axis* (`.axis3d.Axis._push_axinfo`) before every layout of a
+    draw, as matplotlib's draw reads it, while the axis lives."""
+    _owners(figure)
+    _axinfos.setdefault(figure, weakref.WeakKeyDictionary())[axis] = None
 
 
 def follow_engine(figure):
@@ -146,12 +161,15 @@ def _first_layout_of_print(figure):
 
 
 def _locate(figure):
-    """Give the Axes with assigned child lists those children, autoscale
-    the Axes of classes of the program's that autoscale themselves, run
-    the layout engine of the program's of *figure*, then place everything
-    it follows, with its renderer."""
+    """Give the Axes with assigned child lists those children, hand pltrs
+    (Rust) the ``_axinfo`` of the 3-D axes it follows, autoscale the Axes
+    of classes of the program's that autoscale themselves, run the layout
+    engine of the program's of *figure*, then place everything it follows,
+    with its renderer."""
     for ax in list(_child_lists.get(figure, ())):
         ax._follow_child_axes()
+    for axis in list(_axinfos.get(figure, ())):
+        axis._push_axinfo()
     for ax in list(_autoscaled.get(figure, ())):
         ax._unstale_viewLim()
     engine = figure.get_layout_engine()

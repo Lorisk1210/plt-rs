@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use std::rc::Rc;
 
 use pltrs_core::Rgba;
+use pltrs_text::{HAlign, RotationMode, VAlign};
 
 use crate::artist::ArtistId;
 use crate::axes::axis::TickOverrides;
@@ -129,6 +130,15 @@ pub(crate) struct AxisStyle {
     /// Width of the minor tick marks in points (`xtick.minor.width` for x
     /// and z, `ytick.minor.width` for y).
     pub(crate) minor_tick_width: f64,
+    /// How far the tick marks reach inwards and outwards, as fractions of
+    /// the tick offset (`_axinfo['tick']`'s `inward_factor` and
+    /// `outward_factor`).
+    pub(crate) tick_inward: f64,
+    pub(crate) tick_outward: f64,
+    /// How the axis label is aligned and turned (`_axinfo['label']`).
+    pub(crate) label_halign: HAlign,
+    pub(crate) label_valign: VAlign,
+    pub(crate) label_rotation_mode: RotationMode,
 }
 
 pltrs_core::archive_struct!(AxisStyle {
@@ -138,7 +148,12 @@ pltrs_core::archive_struct!(AxisStyle {
     grid_width,
     grid_style,
     major_tick_width,
-    minor_tick_width
+    minor_tick_width,
+    tick_inward,
+    tick_outward,
+    label_halign,
+    label_valign,
+    label_rotation_mode
 });
 
 impl AxisStyle {
@@ -155,6 +170,7 @@ impl AxisStyle {
                 grid_style: LineStyle::Solid,
                 major_tick_width: rc.lines_linewidth,
                 minor_tick_width: rc.lines_linewidth,
+                ..Self::fixed()
             };
         }
         let (major_tick_width, minor_tick_width) = if dir == Axis3::Y {
@@ -170,6 +186,28 @@ impl AxisStyle {
             grid_style: rc.grid_linestyle.clone(),
             major_tick_width,
             minor_tick_width,
+            ..Self::fixed()
+        }
+    }
+
+    /// What matplotlib's 3-D axis starts with whatever the rcParams say:
+    /// tick marks reaching 0.2 of the tick offset inwards and 0.1
+    /// outwards, a label centred and turned about its anchor; the fields
+    /// the rcParams give are filled by [`from_rc`](Self::from_rc).
+    fn fixed() -> Self {
+        Self {
+            line_width: 0.0,
+            line_color: Rgba::BLACK.into(),
+            grid_color: Rgba::BLACK.into(),
+            grid_width: 0.0,
+            grid_style: LineStyle::Solid,
+            major_tick_width: 0.0,
+            minor_tick_width: 0.0,
+            tick_inward: 0.2,
+            tick_outward: 0.1,
+            label_halign: HAlign::Center,
+            label_valign: VAlign::Center,
+            label_rotation_mode: RotationMode::Anchor,
         }
     }
 }

@@ -6,6 +6,7 @@ use pltrs::axes::{AspectError, Axes, AxisName, PropCycle, WhichPosition};
 use pltrs::colors::Color;
 use pltrs::mplot3d::SharedAxes;
 use pltrs::rc::{Cycler, CyclerError};
+use pltrs::transforms::Bbox;
 
 use crate::binding::prelude::*;
 
@@ -71,10 +72,10 @@ fn located_position(axes: Axes) -> PyResult<(f64, f64, f64, f64)> {
     Ok(axes.located_position().extents())
 }
 
-/// Moves the axes to `rect`, `[left, bottom, width, height]` in figure
-/// fractions, setting the position `which` names (`"both"`, `"active"`,
-/// `"original"`; `set_position`).
-fn set_position(axes: Axes, rect: (f64, f64, f64, f64), which: String) -> PyResult<()> {
+/// Moves the axes to the box of corners `extents`, `(x0, y0, x1, y1)` in
+/// figure fractions, kept as given, setting the position `which` names
+/// (`"both"`, `"active"`, `"original"`; `set_position`).
+fn set_position(axes: Axes, extents: (f64, f64, f64, f64), which: String) -> PyResult<()> {
     let which = match which.as_str() {
         "both" => WhichPosition::Both,
         "active" => WhichPosition::Active,
@@ -86,8 +87,8 @@ fn set_position(axes: Axes, rect: (f64, f64, f64, f64), which: String) -> PyResu
             )));
         }
     };
-    let (left, bottom, width, height) = rect;
-    axes.set_position_which([left, bottom, width, height], which);
+    let (x0, y0, x1, y1) = extents;
+    axes.set_position_box(Bbox::from_extents(x0, y0, x1, y1), which);
     Ok(())
 }
 
@@ -261,7 +262,7 @@ mod tests {
             Some(SharedAxes::Deep(deep))
         );
         assert!(axis_name("z").is_err());
-        set_position(left.clone(), (0.1, 0.2, 0.3, 0.4), "both".into()).unwrap();
+        set_position(left.clone(), (0.1, 0.2, 0.4, 0.6), "both".into()).unwrap();
         let (x0, y0, x1, y1) = position(left, true).unwrap();
         assert!((x0 - 0.1).abs() + (y0 - 0.2).abs() + (x1 - 0.4).abs() + (y1 - 0.6).abs() < 1e-12);
     }

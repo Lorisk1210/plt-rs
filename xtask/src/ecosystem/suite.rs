@@ -225,7 +225,7 @@ impl Tests<'_> {
             .display
             .then(|| give_display(self.dir, &mut variables))
             .flatten();
-        pytest::Run {
+        let run = pytest::Run {
             suite: self.library.title,
             python: self.python,
             site: &working_dir,
@@ -235,8 +235,11 @@ impl Tests<'_> {
             targets: &targets,
             environment: &[],
             cache: environment.cache,
+        };
+        match environment.workers {
+            Some(workers) => run.outcomes_with_workers(workers, &variables),
+            None => run.outcomes_with(&variables),
         }
-        .outcomes_with(&variables)
         .map(|outcomes| {
             let site = self.site.to_string_lossy();
             let venv = self

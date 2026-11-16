@@ -229,9 +229,8 @@ pub(super) const LIBRARIES: [Library; 7] = [
         // pytest's cache, whose `cache` fixture its image comparisons save
         // their differences in.
         environment: Environment {
-            variables: &[],
-            display: false,
             cache: true,
+            ..PLAIN
         },
         title: "scanpy's plotting tests",
     },

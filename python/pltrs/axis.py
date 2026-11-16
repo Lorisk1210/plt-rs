@@ -577,7 +577,9 @@ class Axis(DrawnWith, Artist):
             seen.add(id(root))
         if root is not self.axes:
             source = getattr(root, f"{self.axis_name}axis")
-            self.major, self.minor = source.major, source.minor
+            # (Shared natively, the axes tick with the same helpers: nothing
+            # to adopt.)
+            vars(self).update(major=source.major, minor=source.minor)
 
     def __init__(self, axes, *, pickradius=15, clear=True):
         """
@@ -850,6 +852,29 @@ class Axis(DrawnWith, Artist):
     @label_position.setter
     def label_position(self, position):
         self.set_label_position(position)
+
+    def _adopt_ticker(self, ticker, minor):
+        """
+        Tick with the helpers of *ticker*, which a program assigned to the
+        axis as its major (or *minor*) `Ticker`, as matplotlib's axis reads
+        its helpers from whatever object that is: the helpers a ticker made
+        alone holds (ultraplot detaches an axis from its sharing group so),
+        the ticker then standing for the axis' own, or those of another
+        axis' ticker.
+        """
+        if self._held or not isinstance(ticker, Ticker):
+            return
+        if ticker._axis is None:
+            helpers = [(kind, helper) for kind, helper in ticker._own.items()
+                       if helper is not None]
+            ticker._axis, ticker._minor = self, minor
+        else:
+            helpers = [(kind, helper) for kind in ("locator", "formatter")
+                       if (helper := ticker._current(kind))
+                       is not _tick_helpers.get(self, kind, minor)]
+        for kind, helper in helpers:
+            _tick_helpers.install(self, kind, minor, helper)
+        self.stale = True
 
     def get_major_locator(self):
         """Get the locator of the major ticker."""
@@ -1179,13 +1204,18 @@ class Axis(DrawnWith, Artist):
         # matplotlib's ``_scale`` is the attribute `_set_axes_scale` sets,
         # which programs set themselves (ultraplot's dual and shared
         # axes): the axis has the scale from then on, its tick helpers
-        # and their default flags left as they were.
-        helpers = self._tick_helpers()
+        # and their default flags left as they were, and those of the axes
+        # sharing it, which pltrs (Rust) gives the scale too. Those come
+        # back last: an axis just joined to them takes theirs (ultraplot's
+        # panels, then given their tickers as matplotlib's).
+        axes = [self, *(axis for axis in self._get_shared_axis() if axis is not self)]
+        helpers = [(axis, axis._tick_helpers()) for axis in axes]
         defaults = [(minor, kind, self._default(minor, kind))
                     for minor in (False, True) for kind in ("locator", "formatter")]
         self._given_scale = scale
         self._install_scale(scale)
-        self._restore_tick_helpers(helpers)
+        for axis, kept in helpers:
+            axis._restore_tick_helpers(kept)
         for minor, kind, default in defaults:
             self._set_default(minor, kind, default)
 
@@ -1196,11 +1226,17 @@ class Axis(DrawnWith, Artist):
                 self.get_major_formatter(), self.get_minor_formatter())
 
     def _restore_tick_helpers(self, helpers):
-        """Give the axis the tick helpers *helpers* (`_tick_helpers`)."""
-        for setter, helper in zip(
+        """Give the axis the tick helpers *helpers* (`_tick_helpers`) it
+        no longer has: a helper it still has is not set again, which would
+        give it to the axes sharing the axis (an axis just joined to them
+        holds its own until the program gives it theirs, ultraplot's
+        panels)."""
+        for setter, helper, current in zip(
                 (self.set_major_locator, self.set_minor_locator,
-                 self.set_major_formatter, self.set_minor_formatter), helpers):
-            setter(helper)
+                 self.set_major_formatter, self.set_minor_formatter), helpers,
+                self._tick_helpers()):
+            if current is not helper:
+                setter(helper)
 
     def _install_scale(self, scale):
         """Have pltrs (Rust) draw the axis with the scale object *scale*;
@@ -1391,6 +1427,24 @@ class Axis(DrawnWith, Artist):
         self._given_scale = None
         self._forget_units()
         self.stale = True
+
+    def _take_registered_linear(self):
+        """
+        Give the axis the tick helpers of the scale a program registered as
+        ``'linear'`` in place of matplotlib's (ultraplot's), as matplotlib's
+        clear sets the axis' scale by that name: an axis sharing another's
+        takes the tickers of that one instead. pltrs (Rust) keeps mapping
+        the axis linearly. Return whether the axis took them.
+        """
+        from . import scale as mscale
+        from .axes import _sharing
+        if _sharing.shared_from(self.axes, self.axis_name) is not None:
+            return False
+        scale = mscale.scale_factory("linear", self)
+        self._given_scale = scale
+        scale.set_default_locators_and_formatters(self)
+        _axis.mark_default_helpers(*self._args())
+        return True
 
     def _forget_units(self):
         """Forget the converter and units the program's Python side of the

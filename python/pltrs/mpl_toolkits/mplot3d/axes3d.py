@@ -22,7 +22,7 @@ import numpy as np
 from pltrs import _docstring
 from pltrs import _api, _handles, _lazy_imports, _live_transforms, _values, cbook, rcParams
 from pltrs import collections as mcoll, colors as mcolors, lines as mlines
-from pltrs import patches as mpatches, text as mtext
+from pltrs import patches as mpatches, scale as mscale, text as mtext
 from pltrs._native import artist as _artist, axes as _axes, axis as _axis
 from pltrs._native import mplot3d as _mplot3d
 from pltrs.axes import Axes
@@ -335,6 +335,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         self._init_axes_state()
         self._init_3d_state(fig.figure)
         self._connect_unit_change_handler()
+        if mscale._scale_mapping["linear"] is not mscale.LinearScale:
+            # What matplotlib's `__init__` clears with.
+            self._take_registered_linear()
         self._internal_update(kwargs)
 
     @classmethod
@@ -490,6 +493,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             # with new callbacks (the Axes' handler of its units gone).
             axis.callbacks = cbook.CallbackRegistry(signals=["units"])
             axis.stale = True
+        if mscale._scale_mapping["linear"] is not mscale.LinearScale:
+            self._take_registered_linear()
 
     def _on_limits_changed(self, name, notify):
         # docstring inherited: the limits of the three axes are pltrs
@@ -977,6 +982,42 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """Return the lower and upper y-axis bounds, in increasing order."""
         return _values.float64s(_mplot3d.get_bound(self._native, 'y'))
 
+    def _get_scaled_limits(self):
+        """
+        Get axis limits transformed through their respective scale transforms.
+
+        Returns
+        -------
+        tuple
+            (xmin_scaled, xmax_scaled, ymin_scaled, ymax_scaled,
+             zmin_scaled, zmax_scaled)
+        """
+        # matplotlib 3.11.2's, under the Matplotlib License, as is the next.
+        xmin, xmax = self.xaxis.get_transform().transform(self.get_xlim3d())
+        ymin, ymax = self.yaxis.get_transform().transform(self.get_ylim3d())
+        zmin, zmax = self.zaxis.get_transform().transform(self.get_zlim3d())
+        return xmin, xmax, ymin, ymax, zmin, zmax
+
+    def _transformed_cube(self, vals):
+        """Return cube with limits from *vals* transformed by self.M.
+
+        The vals are in data space and are first transformed through the
+        axis scale transforms before being projected.
+        """
+        minx, maxx, miny, maxy, minz, maxz = vals
+        minx, maxx = self.xaxis.get_transform().transform([minx, maxx])
+        miny, maxy = self.yaxis.get_transform().transform([miny, maxy])
+        minz, maxz = self.zaxis.get_transform().transform([minz, maxz])
+        xyzs = [(minx, miny, minz),
+                (maxx, miny, minz),
+                (maxx, maxy, minz),
+                (minx, maxy, minz),
+                (minx, miny, maxz),
+                (maxx, miny, maxz),
+                (maxx, maxy, maxz),
+                (minx, maxy, maxz)]
+        return np.column_stack(proj3d._proj_trans_points(xyzs, self.M))
+
     def get_zbound(self):
         """
         Return the lower and upper z-axis bounds, in increasing order.
@@ -1225,7 +1266,6 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         matplotlib's ``scale_factory`` does. pltrs (Rust) maps through a
         scale of the program's, calling its transform and range limits.
         """
-        from pltrs import scale as mscale
         from pltrs.axis import _native_scale_of
         axis = getattr(self, f'{name}axis')
         if isinstance(value, mscale.ScaleBase):

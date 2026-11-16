@@ -16,6 +16,7 @@ import numpy as np
 from . import _docstring
 from . import colorbar as cbar  # noqa: F401  (registers the colorbar snippets)
 from . import _api, _artist_clipping, _blocking_input, _handles, _values, cbook, rcParams
+from . import scale as mscale
 from . import _gridspec_kept, _transform_trees
 from ._native import artist as _artist
 from ._native import figure as _figure, gridspec as _gridspec
@@ -379,6 +380,10 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         if _native_maker(projection_class) is None:
             # As the `__init__` of matplotlib's, which no maker ran.
             _program_tick_params.apply(ax)
+        if (mscale._scale_mapping["linear"] is not mscale.LinearScale
+                and "_took_registered_linear" not in vars(ax)):
+            # Made without the clear matplotlib's `__init__` runs.
+            ax._take_registered_linear()
         # plt.subplot reuses an axes made with the same class and keywords.
         ax._projection_init = (projection_class, dict(kwargs))
         try:

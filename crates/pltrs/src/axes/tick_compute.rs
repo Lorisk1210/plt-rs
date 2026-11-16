@@ -101,19 +101,17 @@ impl AxisState {
     }
 
     /// How many ticks fit (matplotlib's `get_tick_space`): tick labels are
-    /// assumed to be at most 3:1 (x) or 2:1 (y) wide. Without a label size
-    /// from the tick parameters, the size is the rc's when the ticks are
-    /// laid out, as matplotlib reads it at draw time
+    /// assumed to be at most 3:1 (x) or 2:1 (y) wide. The label size of
+    /// the tick parameters, else the rc's, is taken in points when the
+    /// ticks are laid out, as matplotlib reads it at draw time
     /// (`_get_tick_label_size`).
     pub(crate) fn tick_space(&self, length_points: f64) -> TickSpace {
-        let label_size = self.label_size.unwrap_or_else(|| {
-            let rc = crate::rc::params();
-            let size = match self.name {
-                AxisName::X => rc.xtick_labelsize,
-                AxisName::Y => rc.ytick_labelsize,
-            };
-            size.to_points(rc.font_size)
+        let rc = crate::rc::params();
+        let size = self.label_size.unwrap_or(match self.name {
+            AxisName::X => rc.xtick_labelsize,
+            AxisName::Y => rc.ytick_labelsize,
         });
+        let label_size = size.to_points(rc.font_size);
         let ratio = match self.name {
             AxisName::X => 3.0,
             AxisName::Y => 2.0,

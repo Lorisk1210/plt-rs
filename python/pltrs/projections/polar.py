@@ -477,6 +477,15 @@ class ThetaAxis(XAxis):
         self.set_major_formatter(ThetaFormatter())
         _axis.mark_default_helpers(*self._args())
 
+    def _take_registered_linear(self):
+        # docstring inherited; matplotlib's ``_set_scale`` of the axis then
+        # ticks at multiples of degrees, wrapping what the scale gave.
+        took = super()._take_registered_linear()
+        if took:
+            self.get_major_locator().set_params(steps=[1, 1.5, 3, 4.5, 9, 10])
+            self._wrap_locator_formatter()
+        return took
+
     def clear(self):
         # docstring inherited
         super().clear()
@@ -562,6 +571,14 @@ class RadialAxis(YAxis):
     def _wrap_locator_formatter(self):
         self.set_major_locator(self.get_major_locator())
         _axis.mark_default_helpers(*self._args())
+
+    def _take_registered_linear(self):
+        # docstring inherited; matplotlib's ``_set_scale`` of the axis then
+        # wraps the scale's major locator.
+        took = super()._take_registered_linear()
+        if took:
+            self._wrap_locator_formatter()
+        return took
 
     def clear(self):
         # docstring inherited

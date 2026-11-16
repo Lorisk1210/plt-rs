@@ -233,7 +233,8 @@ def tricontour(ax, *args, **kwargs):
         set of linestyles to be used. If this iterable is shorter than the
         number of contour levels it will be repeated as necessary.
     """
-    return TriContourSet(ax, *args, filled=False, **kwargs)
+    kwargs['filled'] = False
+    return TriContourSet(ax, *args, **kwargs)
 
 
 @_docstring.Substitution(func='tricontourf', type='regions')
@@ -258,4 +259,5 @@ def tricontourf(ax, *args, **kwargs):
     except for the lowest interval, which is closed on both sides (i.e. it
     includes the lowest value).
     """
-    return TriContourSet(ax, *args, filled=True, **kwargs)
+    kwargs['filled'] = True
+    return TriContourSet(ax, *args, **kwargs)

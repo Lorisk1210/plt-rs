@@ -91,11 +91,10 @@ class Mirroring:
         listing it among its children), or `OWN`: the mirror's own draw."""
         return OWN
 
-    def drawer(self, artist):
-        """The artist whose draws draw the part, after which the mirror
-        *artist* reads as fresh as matplotlib's draw of it leaves it (see
-        `._drawn_with`), or None: the mirror's own draws."""
-        return None
+    #: The artist whose draws draw the part, after which the mirror reads
+    #: as fresh as matplotlib's draw of it leaves it (see `.Artist.stale`),
+    #: or None: the mirror's own draws.
+    drawer = None
 
     def drawn_by_drawer(self, artist):
         """Whether the draws of the `drawer` draw the part: unless the

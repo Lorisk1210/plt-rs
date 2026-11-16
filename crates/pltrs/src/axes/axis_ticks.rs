@@ -15,6 +15,7 @@ use super::{Axes, AxesState, PlotError, TickLabelProps};
 use crate::artist::{ArtistHandle, LayoutContext};
 use crate::figure::FigureState;
 use crate::polar::RadialLocator;
+use crate::rc::RcParams;
 use crate::spines::{SpineArtist, SpineSide};
 use crate::ticker::{AxisName, FixedFormatter, FixedLocator, Formatter, FuncFormatter, Locator};
 use crate::ticker::{NullFormatter, NullLocator, TickerError};
@@ -292,23 +293,27 @@ impl Axis {
 
     /// The display box of the label on the first (bottom or left) or the
     /// second side of the major (or `minor`) tick at `index` among those
-    /// the locator places, in the figure's current layout (laid out
-    /// first), if it has one: where it is drawn, or for a tick outside the
-    /// view where its label would be (matplotlib's
+    /// the locator places, in the figure as it stands (not laid out
+    /// first, the axes where it was last placed), if it has one: where it
+    /// is drawn, or for a tick outside the view where its label would be
+    /// (matplotlib's
     /// `tick.label1.get_window_extent()`, whose `Text` is placed at every
     /// tick the locator gives).
     ///
     /// ```
     /// use pltrs::prelude::*;
-    /// let ax = Figure::new().subplot();
-    /// ax.set_xlim(0.1, 0.9)?;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// ax.set_xlim(0.1, 0.9).expect("finite limits");
+    /// // Laid out by a draw, as the layout engine of the look places it.
+    /// fig.draw_without_rendering()?;
     /// let below = ax.xaxis().tick_label_extent(false, 0, true).expect("a label at 0");
     /// let frame = ax.window_extent().expect("an extent");
     /// assert!(below.x1() < frame.x0() + 50.0, "left of the view's first tick");
-    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// # Ok::<(), pltrs::figure::DrawErrors>(())
     /// ```
     pub fn tick_label_extent(&self, minor: bool, index: usize, first_side: bool) -> Option<Bbox> {
-        let state = self.axes.raw().figure_state().prepared();
+        let state = self.axes.raw().figure_state().as_is();
         let state = &*state;
         let axes = state.store.get_as::<AxesState>(self.axes.id())?;
         AxisPainter::new(self.axes.id(), axes, self.name)
@@ -390,6 +395,20 @@ impl Axis {
         f: impl FnOnce(&AxisTexts, &AxisState) -> R,
     ) -> Option<R> {
         self.with_texts_prepared(FigureState::prepare_as_is, f)
+    }
+
+    /// Runs `f` on this axis' painter and the figure where it stands
+    /// between draws (no layout engine, no aspect applied; see
+    /// [`FigureState::prepare_as_is`]), its texts not placed again.
+    pub(super) fn with_painter_as_is<R>(
+        &self,
+        f: impl FnOnce(&AxisPainter<'_>, &mut LayoutContext<'_>, &RcParams) -> R,
+    ) -> Option<R> {
+        let state = self.axes.raw().figure_state().as_is();
+        let state = &*state;
+        let axes = state.store.get_as::<AxesState>(self.axes.id())?;
+        let painter = AxisPainter::new(self.axes.id(), axes, self.name);
+        Some(f(&painter, &mut LayoutContext::new(state), &axes.rc))
     }
 
     /// Runs `f` on this axis and its texts once `prepare` prepared the

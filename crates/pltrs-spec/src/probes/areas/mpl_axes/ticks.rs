@@ -1,6 +1,7 @@
 //! Tick parameters and what the ticks show, gridlines, tick labels on
 //! fixed locations, the offset text and the axis labels.
 
+use pltrs::artist::ArtistHandle;
 use pltrs::axes::{
     Axes, AxisName, GridOptions, LabelLoc, TickDirection, TickLevel, TickParams, TickStyle,
 };
@@ -365,6 +366,10 @@ pub(super) fn ylabel_halign(args: Args<'_>) -> Outcome {
         yaxis.set_label_loc(LabelLoc::End).set_label_halign(halign);
         made(yaxis.set_label_position(SpineSide::Right))?;
         let shown = yaxis.label_halign().canon();
+        // Measured after a draw, which places the label.
+        ax.figure()
+            .draw_without_rendering()
+            .map_err(ProbeError::rejected)?;
         let extent = yaxis
             .label_extent()
             .ok_or_else(|| ProbeError::BadArgs("the label is not drawn".to_owned()))?;

@@ -30,7 +30,7 @@ class _Background(_mirrors.Mirroring):
     """The background of *owner*, an Axes or a (sub)figure."""
 
     def __init__(self, owner):
-        self.owner = owner
+        self.owner = self.drawer = owner
 
     def push(self, patch):
         _patches.push_background(self.owner._native, patch._native)
@@ -46,9 +46,6 @@ class _Background(_mirrors.Mirroring):
 
     def window_extent(self, patch, renderer=None, dpi=None):
         return patch.get_path().get_extents(patch.get_transform())
-
-    def drawer(self, patch):
-        return self.owner
 
     def contains(self, patch, mouseevent, radius=None):
         return self.owner.contains(mouseevent)

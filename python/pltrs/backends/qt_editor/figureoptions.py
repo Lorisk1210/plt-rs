@@ -6,7 +6,7 @@
 """Module that provides a GUI-based editor for Matplotlib's figure options."""
 
 from itertools import chain
-from ... import cbook, cm, colors as mcolors, markers, image as mimage
+from ... import cbook, cm, colorizer as mcolorizer, colors as mcolors, markers, image as mimage
 from ..qt_compat import QtGui
 from . import _formlayout
 from ...dates import DateConverter, num2date
@@ -142,7 +142,7 @@ def figure_edit(axes, parent=None):
     labeled_mappables = []
     for mappable in [*axes.images, *axes.collections]:
         label = mappable.get_label()
-        if label == '_nolegend_' or mappable.get_array() is None:
+        if label == '_nolegend_' or mcolorizer._array_of(mappable) is None:
             continue
         labeled_mappables.append((label, mappable))
     mappables = []

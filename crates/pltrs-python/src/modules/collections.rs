@@ -214,7 +214,9 @@ fn get_urls(collection: Collection) -> PyResult<Vec<Option<String>>> {
 /// edge colours as `(N, 4)` RGBA arrays after defaults, alpha and the
 /// mapping the last draw applied (matplotlib's `get_facecolor` and
 /// `get_edgecolor`, see `Collection::reported_colors`), widths and line
-/// styles as lists, the hatch, cap and join styles by name.
+/// styles as lists, the hatch, cap and join styles by name;
+/// `edgecolor_setting` and `hatchcolor_setting` say whether the edges take
+/// the faces' colours (`"face"`) and the hatches the edges' (`"edge"`).
 fn get(collection: Collection, name: String) -> PyResult<Owned> {
     Python::with_gil(|py| {
         let style = collection.style();
@@ -227,6 +229,10 @@ fn get(collection: Collection, name: String) -> PyResult<Owned> {
             "facecolor" => rgba_array(&colors()?.faces)?.into_py(py)?,
             "edgecolor" => rgba_array(&colors()?.edges)?.into_py(py)?,
             "hatchcolor" => rgba_array(&colors()?.hatches)?.into_py(py)?,
+            "hatchcolor_setting" => match style.hatchcolors {
+                HatchColors::Edge => "edge".into_py(py)?,
+                HatchColors::Colors(_) => Bound::none(py),
+            },
             "edgecolor_setting" => match style.edgecolors {
                 EdgeColors::Face => "face".into_py(py)?,
                 EdgeColors::Default => Bound::none(py),

@@ -32,7 +32,7 @@ from .transforms import (
     composite_transform_factory)
 from .path import Path
 
-_owned_paths = _lazy_imports.module(globals(), "._owned_paths")
+_own_state = _lazy_imports.module(globals(), "._own_state")
 _transform_trees = _lazy_imports.module(globals(), "._transform_trees")
 
 
@@ -261,31 +261,68 @@ def ask_transform(artist, rendered=True):
             _native_collections.set_offset_transform(artist._native, to_native(offset))
 
 
+def _push_transform(artist, transform):
+    """Hand pltrs (Rust) the transform *artist* was given again."""
+    _transforms.set_transform(artist._native, to_native(transform))
+
+
+def _push_offset_transform(artist, transform):
+    """Hand pltrs (Rust) the offset transform the collection *artist* was
+    given again."""
+    from ._native import collections as _collections
+    _collections.set_offset_transform(artist._native, to_native(transform))
+
+
+def _push_clip_path(artist, clip_path):
+    """Hand pltrs (Rust) the clip path *artist* was given again, a
+    `.TransformedPath`."""
+    from ._artist_clipping import clip_path_spec
+    _artist.set_clip_path(artist._native, clip_path_spec(clip_path))
+
+
+#: What an artist follows of what it was given, by role: the attribute
+#: holding the object given, the attribute holding its watcher, and how
+#: pltrs (Rust) is handed the object again.
+_WATCHED = {
+    "transform": ("_given_transform", "_given_watcher", _push_transform),
+    "offset": ("_offset_transform", "_offset_watcher", _push_offset_transform),
+    "clip": ("_clippath", "_clip_watcher", _push_clip_path),
+}
+
+
 class _GivenWatcher(TransformNode):
     """
-    A parent of the transform an artist was given, holding parts pltrs
-    (Rust) takes by their matrix as it is when handed (an affine transform
-    of Python's, on a box the program changes): a change of one of them
-    hands pltrs (Rust) the transform again, as matplotlib maps through the
-    transform's parts as they are wherever it draws or measures.
+    A parent of the transform an artist was given (as its transform, as
+    the transform of its offsets or with its clip path), holding parts
+    pltrs (Rust) takes by their matrix as it is when handed (an affine
+    transform of Python's, on a box the program changes): a change of one
+    of them hands pltrs (Rust) the transform again, as matplotlib maps
+    through the transform's parts as they are wherever it draws or
+    measures (``t.clear().rotate_deg(angle)`` turns what was given ``t +
+    ax.transData``).
     """
 
-    def __init__(self, artist, transform):
+    def __init__(self, artist, given, role):
         super().__init__()
         self._artist = weakref.ref(artist)
-        self._given = transform
-        self.set_children(transform)
+        self._given = given
+        self._role = role
+        # (A clip path is told of its transform's changes only once it was
+        # mapped, which pltrs (Rust) does in its place: its transform is
+        # followed itself.)
+        self.set_children(given._transform if role == "clip" else given)
 
     def _invalidate_internal(self, level, invalidating_node):
         artist = self._artist()
+        attribute, _, push = _WATCHED[self._role]
         # Changes made while pltrs (Rust) lays the figure out or draws it
         # are its own syncs and the code of the program's it calls (an
         # axis placing its spine), which it follows itself.
         if (artist is not None and not _transform_trees._syncing()
-                and artist.__dict__.get("_given_transform") is self._given
+                and getattr(artist, attribute, None) is self._given
                 and "_native" in artist.__dict__
                 and not _artist.figure_in_use(artist._native)):
-            _transforms.set_transform(artist._native, to_native(self._given))
+            push(artist, self._given)
 
     def __reduce__(self):
         # Pickled with the artist, it unpickles as a plain node (the artist
@@ -293,15 +330,65 @@ class _GivenWatcher(TransformNode):
         return (TransformNode, ())
 
 
-def watch_given(artist, transform):
-    """Have *artist*, made with *transform* by a plotting method (``plot``'s
-    ``transform``), follow it where pltrs (Rust) took parts of it by their
-    matrix (see `_GivenWatcher`); nothing to follow otherwise."""
-    artist.__dict__.pop("_given_watcher", None)
+def _holds_affine_of_program(t):
+    """Whether *t* holds, anywhere in its tree, an `.Affine2D` (the
+    transform programs make and change in place: ``translate``,
+    ``rotate_deg``, ``clear``), not a node of the trees of an Axes or a
+    figure."""
+    if getattr(t, "_live", None) is not None or not isinstance(t, Transform):
+        return False
+    if isinstance(t, TransformWrapper):
+        return _holds_affine_of_program(t._child)
+    if isinstance(t, (CompositeGenericTransform, CompositeAffine2D)):
+        return _holds_affine_of_program(t._a) or _holds_affine_of_program(t._b)
+    if isinstance(t, (BlendedGenericTransform, BlendedAffine2D)):
+        return _holds_affine_of_program(t._x) or _holds_affine_of_program(t._y)
+    return isinstance(t, Affine2D)
+
+
+def watch_given(artist, transform, role="transform"):
+    """Have *artist*, made by a plotting method with *transform* (``plot``'s
+    ``transform``; with the *role* ``"offset"`` the transform of a
+    collection's offsets), follow it where pltrs (Rust) took parts of it
+    by their matrix (see `_GivenWatcher`); nothing to follow otherwise."""
+    _, watcher, _ = _WATCHED[role]
+    artist.__dict__.pop(watcher, None)
     if isinstance(transform, Transform) and _takes_matrices(_description(transform)):
-        artist.__dict__["_given_watcher"] = _GivenWatcher(artist, transform)
-    if getattr(transform, "_live", None) is None or "_asked_transform" in artist.__dict__:
+        artist.__dict__[watcher] = _GivenWatcher(artist, transform, role)
+    if role == "transform" and (
+            getattr(transform, "_live", None) is None or "_asked_transform" in artist.__dict__):
         ask_when_drawn(artist)
+
+
+def watch_set(artist, transform, role="transform"):
+    """
+    Have *artist*, whose setter was given *transform* (`.Artist.set_transform`,
+    or with the *role* ``"offset"`` `.Collection.set_offset_transform`),
+    follow the `.Affine2D` transforms in it, which programs change in place
+    afterwards (see `_GivenWatcher`). The other parts pltrs (Rust) takes by
+    their matrix stay as they were handed (the boxes of the trees a
+    projection of the program's builds change while pltrs (Rust) lays the
+    figure out, and are handed over where the projection's hooks are
+    asked).
+    """
+    _, watcher, _ = _WATCHED[role]
+    artist.__dict__.pop(watcher, None)
+    if _holds_affine_of_program(transform):
+        artist.__dict__[watcher] = _GivenWatcher(artist, transform, role)
+    if role == "transform" and (
+            getattr(transform, "_live", None) is None or "_asked_transform" in artist.__dict__):
+        ask_when_drawn(artist)
+
+
+def watch_clip_path(artist, clip_path):
+    """Have *artist*, given the clip path *clip_path*, follow the transform
+    it was given with where pltrs (Rust) took parts of it by their matrix,
+    as matplotlib's `.TransformedPath` maps its path anew once its
+    transform changed; nothing to follow for any other clip path."""
+    artist.__dict__.pop("_clip_watcher", None)
+    transform = getattr(clip_path, "_transform", None)
+    if isinstance(clip_path, TransformedPath) and _holds_affine_of_program(transform):
+        artist.__dict__["_clip_watcher"] = _GivenWatcher(artist, clip_path, "clip")
 
 
 def _takes_matrices(description):
@@ -439,7 +526,7 @@ class _ProgramMap:
         if self._transform.is_affine:
             matrix = Affine2D(self._transform.get_affine().get_matrix())
             return matrix.transform_path(Path(vertices, codes, _interpolation_steps=steps))
-        held = _owned_paths.held(vertices, codes, steps)
+        held = _own_state.held_path(vertices, codes, steps)
         if held is not None:
             return self._transform.transform_path(held)
         key = (vertices.tobytes(), None if codes is None else codes.tobytes(), steps)
@@ -488,7 +575,7 @@ def _given_path(vertices, codes, steps):
     steps: the one an artist was given or handed out with that content, if
     one lives (programs keep what they computed by path, see
     `_ProgramMap.transform_path`), else a new one."""
-    held = _owned_paths.held(vertices, codes, steps)
+    held = _own_state.held_path(vertices, codes, steps)
     if held is not None:
         return held
     return Path(vertices, codes, _interpolation_steps=steps)

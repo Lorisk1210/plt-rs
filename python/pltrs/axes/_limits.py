@@ -14,9 +14,11 @@ import weakref
 
 import numpy as np
 
-from .. import _api, _program_classes, _transform_trees, _values
+from .. import _api, _lazy_imports, _program_classes, _transform_trees, _values
 from .._native import axes as _axes, axes_base as _axes_base
 from ._ticks import _axis_method_wrapper
+
+_own_state = _lazy_imports.module(globals(), ".._own_state")
 
 
 def _check_margin(m):
@@ -666,7 +668,12 @@ class LimitsMixin:
             if not visible_only or image.get_visible():
                 # matplotlib reads the extent of each image it counts,
                 # which one without data refuses.
-                image.get_extent()
+                image._extent_now()
+        figure = self._figure
+        if figure is not None and "_own_state_artists" in figure.__dict__:
+            # The limits are those of the artists as they are now, with
+            # what the program changed in place of their state.
+            _own_state.tell_figure(figure)
         _axes_base.relim(self._native, bool(visible_only))
         _transform_trees.relimmed(self, visible_only)
         for collection in list(self.__dict__.get("_measured_in_relim", ())):

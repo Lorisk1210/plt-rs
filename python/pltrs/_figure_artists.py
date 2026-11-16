@@ -33,6 +33,12 @@ class DrawnList(list):
         #: put in it there rather than among its artists.
         self._texts = texts
 
+    def __reduce__(self):
+        # Made of its figure and its artists again (a list's own pickle
+        # would put the artists back through `extend` before the list has
+        # its figure).
+        return (type(self), (self._figure, list(self)), {"_texts": self._texts})
+
     def _put(self, artists):
         """Have the figure draw *artists* as they are; return them."""
         artists = list(artists)

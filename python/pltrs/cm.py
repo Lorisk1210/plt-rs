@@ -32,7 +32,7 @@ from .colorizer import _ScalarMappable as ScalarMappable  # noqa: F401
 def _rc(key):
     """The rcParam *key* (imported when first needed)."""
     from . import rcParams
-    return rcParams[key]
+    return rcParams._get(key)
 
 
 _LUTSIZE = _rc('image.lut')

@@ -97,7 +97,7 @@ def _check_bbox_arguments(rectprops):
 def _rc(name):
     """The rcParam *name* (the package's rcParams, imported once it exists)."""
     from . import rcParams
-    return rcParams[name]
+    return rcParams._get(name)
 
 
 def _get_text_metrics_with_cache(renderer, text, fontprop, ismath, dpi):

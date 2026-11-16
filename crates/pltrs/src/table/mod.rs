@@ -301,6 +301,14 @@ impl TableArtist {
         }
     }
 
+    /// Takes the cell at `(row, col)` out of the table; whether there was
+    /// one.
+    fn remove_cell(&mut self, row: i32, col: i32) -> bool {
+        let before = self.cells.len();
+        self.cells.retain(|(key, _)| *key != (row, col));
+        self.cells.len() < before
+    }
+
     fn set_fontsize(&mut self, size: f64) {
         let base = self.rc.font_size;
         for (_, cell) in &mut self.cells {

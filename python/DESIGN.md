@@ -38,6 +38,7 @@ crates/pltrs-python/            the native extension (a cdylib, no crates)
     callback.rs                 Callback: Python called from pltrs (Rust)
     reentrant.rs                changes made while their figure is in use, applied after
     deferred.rs                 work Python leaves to the next native call (line data)
+    own_state.rs                artists whose objects are told before a native call reaches them
     after_call.rs               work left to the end of each native call (queued warnings)
     registry.rs                 Python objects registered for native code
     threads.rs                  every thread holding the GIL uses every object
@@ -1022,14 +1023,194 @@ Results that matplotlib returns as arrays come back as `NdArray` (numpy
 arrays); lists come back as `Vec`.
 
 pltrs (Rust) keeps copies of what it is given, where matplotlib keeps
-the program's arrays and reads them again when it draws. Where programs
-change such arrays in place, pltrs (Python) hands them over again: the
-`Path` objects of the program's a collection is given keep copies of
-their arrays (`_program_paths`), compared when an Axes adds the
-collection and at each draw of its figure (the draw hook of
-`_computed_transforms`), and handed to pltrs (Rust) again if they
-changed; arrays pltrs hands out whose items the program assigns give
-their owner the values again (`_changing_arrays`).
+the program's arrays and reads them again when it draws: see the next
+section.
+
+### State programs change in place
+
+matplotlib's artists are Python objects whose state is plain attributes,
+and many getters return the attribute itself: `collection.get_paths()` is
+the list of `Path`s the draw reads, `scatter.get_offsets()` the array it
+places the markers by, `line.get_xydata()` the array of the line's path.
+Programs change those objects in place and expect the artist to follow;
+the half violin alone (`body.get_paths()[0].vertices[:, 0] = ...`) is in
+countless scripts. matplotlib also keeps some of what it is *given*
+without copying (a polygon's `xy`, a `PathCollection`'s list of paths,
+the array given to `set_sizes`, a `PathPatch`'s path). pltrs (Rust) holds
+that state itself. What both do, object by object, is measured:
+`python/tests/mutability` changes in place every object reached from
+every public getter and attribute of every kind of artist, and every
+object given to one, and compares the read back, the next draw, the data
+limits, a measure and a pickle with matplotlib's
+(`python/tests/mutability/reference.json`, `python -m mutability`).
+
+One mechanism answers it, `_own_state`, in two halves.
+
+**The object handed out or taken in is the artist's own.** A class names
+each such piece of state once, as a `State`: how to read what pltrs
+(Rust) holds as the object matplotlib's attribute would be (`read`), how
+to hand pltrs (Rust) what such an object holds (`take`, through the
+native setter of the property and nothing else: the object was changed,
+not set), and what an object holds (`key`: the bytes and shape of an
+array, the contents of a list or a `Path`). The states of a class live in
+a module of their own, imported when a getter first needs them
+(`_collection_state`, `_line_state`, `_patch_state`). An artist keeps a
+*record* per state in its `__dict__`, made the first time the object is
+handed out (`hand_out`, which the getter calls) or taken in (`keep`,
+which a setter calls where matplotlib keeps what it is given): the
+object, what it held when pltrs (Rust) last took it, and what pltrs
+(Rust) held then.
+
+* *Identity.* `hand_out` reads pltrs (Rust)'s state and gives the
+  recorded object while that state is what it was; a new object, recorded
+  in its place, once pltrs (Rust) changed it by another way (a setter of
+  another property, a draw), as matplotlib's code then binds a new one. A
+  setter that binds a new object in matplotlib forgets the record
+  (`drop`: after `set_offsets(new)` the old array is nobody's) or records
+  the new object. A state matplotlib's draw binds anew although nothing
+  changed (the colours of a collection that maps values, the shape
+  transforms of one with sizes) has a `version`, the artist's count of
+  draws. Where matplotlib returns a new object at each call, the getter
+  has no state and does too.
+* *Views share.* What matplotlib keeps as one buffer is one buffer:
+  a line's `_xy`, its views `_x` and `_y` and the vertices of its path
+  (without steps), a polygon's `xy` and its path's vertices, the edge
+  colours that are the face colours.
+* *Read-only stays read-only.* The paths matplotlib shares between
+  artists (the unit circle of circles and ellipses, a regular polygon's,
+  the codes of a marker's or a patch's path transformed) are handed out
+  read-only, and refuse a change as matplotlib's do.
+
+**pltrs (Rust) draws from it.** `sync(artist)` hands over each recorded
+object whose content is no longer what pltrs (Rust) last took. It runs
+before pltrs (Rust) reads the artist, and nowhere else:
+
+* before any native call that takes the artist's native object as an
+  argument: the binding lets a native object ask to be told
+  (`binding::own_state`, `_native.artist.tell_before_calls`), and an
+  artist with a record asks. That is every getter, measure, hit test and
+  copy of the artist itself, with no list of them to keep. Only a
+  thread's outermost native call tells, and the calls made while an
+  object is told tell nobody;
+* before pltrs (Rust) reads the artists of a figure together, which no
+  argument names: the figure's layout hook (see "Grids, layout engines,
+  legends") tells them before every layout of a draw or a print
+  (`sync_figure`), and the package tells them before the data limits are
+  recomputed (`relim`), before a figure or an artist is pickled, and
+  wherever else it has pltrs (Rust) measure or search a figure's artists
+  (`tell_figure`).
+
+What is handed over makes nothing stale (`pltrs::figure::unseen`), as a
+change in place makes no artist of matplotlib's stale, and moves no data
+limit: pltrs (Rust) recomputes limits where matplotlib does (`relim`,
+adding the artist), from the state as it then is. A `fill_between`
+collection measures the points it fills whatever its polygons are, as
+matplotlib's keeps their box.
+
+**What it costs.** An artist without a record pays nothing: its native
+object asks for nothing, its figure has no hook for it, and its setters
+test one key of its `__dict__`. What every native call pays is the
+binding's check that nothing asks: a few loads and the size of one dict
+(a native call from Python takes 349 ns in all, measured as 200,000
+`line.get_alpha()`; 357 ns once another artist of the process has a
+record). An artist with records pays the comparison of each recorded
+object, one pass over its bytes, per native call on it and per draw of
+its figure, and one copy of an object the program did change: 1.2 µs per
+call for a line of two points, 2.2 µs for a scatter of 1,000 points,
+74 µs for one of 100,000. That is per call and not per draw so that
+`contains`, a measure and a getter see the change at once, as
+matplotlib's read the attribute; the benchmark
+`calls/scatter_1e5_read_then_1000_calls` (offsets read once and held,
+then 1,000 setter calls) pins the worst case, which must stay linear in
+the calls: 178 ms built and saved where matplotlib takes 80 ms and the
+same figure without the read 48 ms (130 µs per `set_linewidth`, two
+native calls each). Records hold their objects as the artist would; pltrs (Rust)
+holds only the artist's weak callable. Records are left out of pickles,
+which hold what pltrs (Rust) holds after a last `sync`. An assignment to
+a recorded path (``path.vertices = vertices``) says that it changed, and
+hands it over at once (`path_assigned`): code of the program's that pltrs
+(Rust) calls inside a draw moves paths so, past every point where the
+artists are told.
+
+**What is no live object.** State pltrs (Rust) computes at each read and
+matplotlib stores is kept from its first hand-out on, by the same
+record: the path of a wedge, an annulus or an arrow (pltrs (Rust) draws
+the object's content as the outline in place of the shape's,
+`Patch::set_program_path`, until a setter of the geometry makes the path
+anew), the colours of a collection as its last draw mapped them. A
+collection that maps values keeps the edge and hatch colours a program
+changed in the array only until its next draw sets them again, as
+matplotlib's does (`_collection_state.shown_until_drawn`). The path of a
+line drawn in steps is made of the line's numbers at every draw: it can
+be read and changed, and the change is not drawn.
+
+**What the package's own code reads** is kept by nobody. A getter about
+to make an artist's first record of a state looks at what the program
+called (`_own_state._read_by_package`: the outermost function of the
+package in the call). A member of the artist itself
+(``scatter.get_offsets()``, ``line._x``) or a getter of another object
+handing the artist's state on (``shadow.get_path()``) is the program
+asking, and makes the record. Anything else is the package working:
+`boxplot` reading the lines it made, a legend handler reading the
+collection it stands for, `getp`, a draw; it gets a new object and no
+record, so that only state a program (or a library) asked for is compared
+afterwards. Over matplotlib's gallery the package then makes records only
+where it keeps an object it is given by reference (a `PathPatch`'s path,
+`markevery`). The reads on the plain path of every figure go around the
+getters altogether, `colorizer._array_of(mappable)` for matplotlib's
+`get_array()` (every colorbar asks for it) and `image._extent_now()` for
+`get_extent()`, and pay no look at the caller.
+
+**Transforms** are objects of the program's with matplotlib's own way of
+saying they changed: a transform an artist was given (`set_transform`,
+`set_offset_transform`, a clip path's, the `transform=` of `plot` and
+`scatter`) that holds an `Affine2D` gets a parent node
+(`_live_transforms._GivenWatcher`), and a change of the `Affine2D`
+through its methods (`t.clear().rotate_deg(angle)`, the animation idiom)
+hands pltrs (Rust) the transform again at once, so that nothing is
+compared at a draw.
+
+**The lists of rcParams** are no artist's: `rcParams["font.sans-serif"]`
+is the parameter itself in matplotlib, and programs insert into it. An
+`RcParams` keeps a list it hands out by its key (`__getitem__`) with a
+copy of what it held and the rc text pltrs (Rust) then held; read again
+it is the same list while pltrs (Rust) holds that text, and what the
+program changed in it is taken first. Any native call may read the
+current parameters, so the binding compares the kept lists with their
+copies before each outermost native call (`binding::own_state`'s
+`install_lists`, one C comparison per list, 12 ns) and has the changed
+ones taken. Two rules keep that off the plain path, where 30 kept lists
+cost the gate scenes 13 to 35% (`dict(rcParams)` held, measured):
+
+* *A list is kept only while a program holds it.* Once nothing but the
+  record references it (`sys.getrefcount`), nothing can change it: it is
+  forgotten at the next read of any parameter, with what was changed in
+  it. ``rcParams["font.sans-serif"].insert(0, name)`` keeps a list for
+  one statement.
+* *A walk over all the parameters keeps none.* Reads by item that follow
+  the order of the last iteration (``dict(rcParams)``, ``items()``,
+  `__repr__`, a comprehension over the keys) are a copy of them all: the
+  lists are the copy's own, where matplotlib's copy shares them with the
+  parameters. `copy()` is a new `RcParams` with lists of its own too.
+
+The package's own code reads list parameters with `_get`, which keeps
+nothing. So a program that changes no list in place has none compared
+(`python/tests/test_mut1.py` checks it), and one that holds a few (a
+style context of seaborn's holds two for its block) pays 12 ns per list
+and native call. A list that was the parameter once and is no more (the
+parameter was set by another way since) is nobody's: nothing takes it,
+and the end of an `rc_context` does not put it back; the lists that were
+the parameters when the context began are put back as the very objects,
+with what was changed in them meanwhile, as matplotlib's are.
+
+This mechanism retires three partial ones: `_program_paths` (copies of
+the arrays of the paths a collection was given, compared at each draw),
+`_owned_paths` (paths telling their collections and patches when a
+vertex array was assigned, not changed) and `_changing_arrays` (an
+`ndarray` subclass telling its owner of item assignments, which the
+program could see). `_own_state.held_path` keeps what `_owned_paths` did
+besides: finding the path an artist keeps by its content, for transforms
+of the program's that cache what they compute by path.
 
 ### Units
 
@@ -2979,7 +3160,7 @@ the boxes of the program's inside it first, collections measure the union
 of their shapes, an artist a program's `draw` draws more than once is
 drawn each time as it was then (`DrawnArtist`), the paths a collection
 hands out reach it again when the program sets their vertices
-(`_owned_paths`), an Axes class with its own `tick_params` keeps the ticks
+(`_own_state`), an Axes class with its own `tick_params` keeps the ticks
 of matplotlib's `Tick` (`axes/_program_tick_params.py`), and tight layouts
 ask Axes classes measuring themselves (astropy's `WCSAxes`).
 
@@ -3007,7 +3188,7 @@ given while its data limits come through it, an Axes class constructed
 with the arguments its projection object gives (`_as_mpl_axes`) for
 insets too, the private registers libraries read (an artist's `_axes`,
 `_artist_private.py`; a figure's `_axstack`, `_axes_stack.py`), arrays a
-program changes in place reaching pltrs (Rust) (`_changing_arrays.py`:
+program changes in place reaching pltrs (Rust) (`_own_state`:
 `Poly3DCollection._facecolor3d`), and `MaxNLocator._raw_ticks` as the
 place a subclass changes its steps (cartopy's `LongitudeLocator`).
 

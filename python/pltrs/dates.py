@@ -55,7 +55,7 @@ UTC = datetime.timezone.utc
 def _rc(key):
     """The rcParam *key* (imported when first needed)."""
     from . import rcParams
-    return rcParams[key]
+    return rcParams._get(key)
 
 
 def _get_tzinfo(tz=None):

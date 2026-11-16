@@ -31,7 +31,7 @@ from .transforms import Bbox, IdentityTransform, blended_transform_factory
 
 def _rc(key):
     from . import rcParams
-    return rcParams[key]
+    return rcParams._get(key)
 
 
 def _val_or_rc(val, *keys):

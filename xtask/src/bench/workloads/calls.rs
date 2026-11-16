@@ -16,6 +16,12 @@ pub(super) const WORKLOADS: &[Workload] = &[
     many("calls/scatter_300", "scatter_300", scatter_300).calls(300),
     many("calls/bar_300", "bar_300", bar_300).calls(300),
     many("calls/annotate_1000", "annotate_1000", annotate_1000).calls(1001),
+    many(
+        "calls/scatter_1e5_read_then_1000_calls",
+        "scatter_1e5_read_then_1000_calls",
+        scatter_read_then_called,
+    )
+    .calls(1001),
 ];
 
 /// A workload of many calls, saved as PNG.
@@ -82,6 +88,27 @@ fn line_setters() -> Build {
                 .set_linewidth(0.5 + 0.5 * (k % 4) as f64)
                 .set_linestyle(style(k));
         }
+        Ok(())
+    })
+}
+
+/// A scatter of 10⁵ points whose offsets are read once and held, then
+/// 1,000 setter calls on it: in pltrs (Python) the array read is the
+/// collection's own from then on, looked at before each call that
+/// reaches the collection (the worst case of a state handed out). pltrs
+/// (Rust) hands out a copy, and pays for the calls alone.
+fn scatter_read_then_called() -> Build {
+    let mut rng = SpecRng::new(27);
+    let x = rng.uniform(100_000, 0.0, 1.0);
+    let y = rng.uniform(100_000, 0.0, 1.0);
+    Box::new(move |fig| {
+        let points = fig.subplot().scatter(&x, &y)?;
+        let offsets = points.offsets();
+        for k in 0..1000_u32 {
+            points.set_linewidths(vec![0.5 + 0.001 * f64::from(k)]);
+        }
+        // Held until here, as the script holds its array.
+        drop(offsets);
         Ok(())
     })
 }

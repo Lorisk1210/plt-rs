@@ -15,7 +15,9 @@ import numpy as np
 from pltrs import (_api, _program_classes, _unusable, _values, cbook, collections as mcoll,
                    colors as mcolors, lines)
 from pltrs import rcParams  # noqa: F401  (matplotlib's art3d has it)
-from pltrs import _docstring, _lazy_imports, patches as mpatches, text as mtext
+from pltrs import _docstring, _lazy_imports, _own_state, colorizer as mcolorizer
+from pltrs import patches as mpatches
+from pltrs import text as mtext
 from pltrs._native import artist as _artist, lines as _lines, mplot3d as _mplot3d
 from pltrs._native import patches as _patches
 
@@ -210,7 +212,7 @@ class _ProjectedPaths:
         stamp = (_artist.draw_count(self._native),
                  self.__dict__.get("_projections", 0))
         if self.__dict__.get("_paths_stamp") != stamp:
-            self.__dict__.pop("_kept_paths", None)
+            _own_state.drop(self, "paths")
             self._paths_stamp = stamp
         return super().get_paths()
 
@@ -1174,6 +1176,20 @@ class Path3DCollection(_Lifted3DOffsets, mcoll.PathCollection):
         return super().get_edgecolor()
 
 
+#: The face and the edge colours of a `Poly3DCollection`, in polygon order
+#: (matplotlib's ``_facecolor3d`` and ``_edgecolor3d``), which the collection
+#: keeps as arrays of its own (`pltrs._own_state`): changed in place, they
+#: are set as its colours again.
+_FACECOLOR3D = _own_state.State(
+    "facecolor3d",
+    lambda collection: _mplot3d.poly_colors(collection.axes._native, collection._native)[0],
+    lambda collection, colors: collection.set_facecolor(np.array(colors)))
+_EDGECOLOR3D = _own_state.State(
+    "edgecolor3d",
+    lambda collection: _mplot3d.poly_colors(collection.axes._native, collection._native)[1],
+    lambda collection, colors: collection.set_edgecolor(np.array(colors)))
+
+
 class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
     """
     A collection of 3D polygons.
@@ -1284,19 +1300,17 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
     @property
     def _facecolor3d(self):
         """The face colours the polygons are drawn with, in polygon order:
-        changed in place, they colour the polygons (nilearn's contours of
-        surface regions)."""
-        from pltrs._changing_arrays import ChangingArray
-        return ChangingArray(_mplot3d.poly_colors(self.axes._native, self._native)[0],
-                             self.set_facecolor)
+        the collection's own array (`pltrs._own_state`), so that changed in
+        place they colour the polygons (nilearn's contours of surface
+        regions)."""
+        return _own_state.hand_out(self, _FACECOLOR3D)
 
     @property
     def _edgecolor3d(self):
         """The edge colours the polygons are drawn with, in polygon order:
-        changed in place, they colour the edges."""
-        from pltrs._changing_arrays import ChangingArray
-        return ChangingArray(_mplot3d.poly_colors(self.axes._native, self._native)[1],
-                             self.set_edgecolor)
+        the collection's own array, so that changed in place they colour
+        the edges."""
+        return _own_state.hand_out(self, _EDGECOLOR3D)
 
     @property
     def _facecolors(self):
@@ -1364,7 +1378,7 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         if _axes3d(self) is None:
             return
         problem = None
-        if self.get_array() is not None:
+        if mcolorizer._array_of(self) is not None:
             try:
                 _unusable.check_one(self, "array")
                 refused = _unusable.kept(self, "refused edgecolor", None)
@@ -1411,6 +1425,8 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
 
     def _set_faces(self, faces, closed):
         """Make the polygons those of the 3-D vertices *faces*."""
+        self.__dict__["_faces_set"] = faces
+        self.__dict__.pop("_faces_made", None)
         axes = _axes3d(self)
         if axes is None:
             self._verts3d_pending = faces
@@ -1419,6 +1435,36 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
             _mplot3d.set_poly_verts(axes._native, self._native, faces,
                                     bool(closed))
         self.stale = True
+
+    def _made_faces(self):
+        """matplotlib's array of the faces and its mask of the vertices
+        ragged faces lack (``_get_vector``), made once of the vertices last
+        set: one object until they are set again, as matplotlib's is
+        (libraries tell a changed geometry by it). The faces of a
+        collection pltrs (Rust) made itself (a surface) are pltrs
+        (Rust)'s, and no array is made of them."""
+        made = self.__dict__.get("_faces_made")
+        if made is None:
+            faces = self.__dict__.get("_faces_set")
+            if faces is None:
+                raise AttributeError(
+                    f"{type(self).__name__!r} object has no attribute '_faces'",
+                    name="_faces", obj=self)
+            counts = np.fromiter(map(len, faces), dtype=np.intp, count=len(faces))
+            most = counts.max(initial=0)
+            padded = np.empty((len(faces), most, 3))
+            for index, face in enumerate(faces):
+                padded[index, :len(face)] = face
+            invalid = np.arange(most) >= counts[:, None]
+            made = self.__dict__["_faces_made"] = (
+                padded, invalid if invalid.any() else False)
+        return made
+
+    _faces = property(lambda self: self._made_faces()[0],
+                      doc="The faces as matplotlib keeps them: (faces, vertices, 3).")
+    _invalid_vertices = property(
+        lambda self: self._made_faces()[1],
+        doc="Which vertices of matplotlib's array of faces ragged faces lack.")
 
     @_api.deprecated("3.10")
     def get_vector(self, segments3d):

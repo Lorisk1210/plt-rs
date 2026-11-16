@@ -14,7 +14,7 @@
 //! transform, a spine's path) from what they hold before a first draw,
 //! and keeps the tick its last draw ended at (see `drawn_changes`).
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 
 use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
@@ -22,6 +22,43 @@ use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
 use super::FigureState;
 use super::drawn_changes::{drawn_after_change, next_draw_tick};
 use crate::artist::{ArtistId, ArtistLookup};
+
+thread_local! {
+    /// Whether the thread's changes to artists go unseen (see [`unseen`]).
+    static UNSEEN: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Puts the thread's [`UNSEEN`] back when dropped, also when the changes
+/// panic.
+struct Unseen(bool);
+
+impl Drop for Unseen {
+    fn drop(&mut self) {
+        UNSEEN.set(self.0);
+    }
+}
+
+/// Runs `changes`, whose changes to artists make nothing stale: they hand
+/// a figure state its program already counts as the artists' (matplotlib
+/// keeps an artist's state in arrays and lists the program changes in
+/// place, which makes no artist stale; pltrs is handed such a change when
+/// it next reads the artist).
+///
+/// ```
+/// use pltrs::prelude::*;
+/// let fig = Figure::new();
+/// let line = fig.subplot().plot([0.0, 1.0], [1.0, 0.0])?;
+/// fig.canvas().draw()?;
+/// pltrs::figure::unseen(|| line.set_data(vec![0.0, 1.0], vec![2.0, 3.0]));
+/// assert!(!line.stale() && !fig.is_stale());
+/// line.set_data(vec![0.0, 1.0], vec![1.0, 0.0]);
+/// assert!(line.stale() && fig.is_stale());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn unseen<R>(changes: impl FnOnce() -> R) -> R {
+    let _restored = Unseen(UNSEEN.replace(true));
+    changes()
+}
 
 /// The artists of a figure drawn since they last changed, and the draws
 /// of each artist.
@@ -119,8 +156,12 @@ impl FigureState {
     /// it is animated or removed, the artists containing it and the
     /// figure (matplotlib's `artist.stale = True`). A change the program's
     /// code asked for while a figure was drawn leaves the artists whose
-    /// draw ended after it fresh (see `drawn_changes`).
+    /// draw ended after it fresh (see `drawn_changes`), and one made
+    /// [`unseen`] marks nothing.
     pub(crate) fn mark_stale(&mut self, id: ArtistId) {
+        if UNSEEN.get() {
+            return;
+        }
         let FreshArtists { fresh, draws } = &mut self.fresh;
         let (fresh, draws) = (fresh.get_mut(), draws.get_mut());
         let mut changed = |id: ArtistId| {

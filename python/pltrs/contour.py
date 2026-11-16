@@ -15,18 +15,19 @@ from numbers import Integral, Real
 import numpy as np
 from numpy import ma
 
-from . import _docstring, _lazy_imports
+from . import _docstring, _lazy_imports, colorizer as mcolorizer
 from . import (_api, _blocking_input, _handles, _mirrors, _qualnames, _values,
                artist as martist, cbook, collections as mcoll, colors as mcolors,
                lines as mlines)
-from ._native import artist as _artist, collections as _collections, contour as _contour
+from ._native import artist as _artist, contour as _contour
 from .backend_bases import MouseButton
 from .path import Path
 
 _contour_arguments = _lazy_imports.module(globals(), "._contour_arguments")
 _contour_chunks = _lazy_imports.module(globals(), "._contour_chunks")
 _contour_reference = _lazy_imports.module(globals(), "._contour_reference")
-_owned_paths = _lazy_imports.module(globals(), "._owned_paths")
+_own_state = _lazy_imports.module(globals(), "._own_state")
+_collection_state = _lazy_imports.module(globals(), "._collection_state")
 
 
 def _contour_labeler_event_handler(cs, inline, inline_spacing, event):
@@ -1124,29 +1125,21 @@ class ContourSet(ContourLabeler, mcoll.Collection):
 
     def get_paths(self):
         """Return the paths: one compound path per level or band."""
-        native = _contour.get_paths(self._contour)
-        # The same list while the paths stay, as matplotlib keeps its
-        # ``_paths``.
-        kept = self.__dict__.get("_paths_kept")
-        if kept is None or len(kept) != len(native) or not all(
-                np.array_equal(path.vertices, vertices)
-                and np.array_equal(path.codes, codes)
-                for path, (vertices, codes) in zip(kept, native)):
-            # The levels a contour generator found no line of share one
-            # empty path (matplotlib's ``_make_paths_from_contour_generator``).
-            empty = None if self.__dict__.get("_paths_of_segments") else Path(np.empty((0, 2)))
-            kept = self._paths_kept = [
-                Path(vertices, codes) if empty is None or len(vertices) else empty
-                for vertices, codes in native]
-            _owned_paths.hand_out(kept, self._push_kept_paths)
-        return kept
+        # The set's own list of its own paths, as matplotlib's ``_paths``
+        # (`._own_state`): what a program changes of them is drawn (astropy's
+        # ``transform_contour_set_inplace`` moves the lines of a contour set
+        # into another coordinate system so).
+        return _own_state.hand_out(self, _collection_state.PATHS)
 
-    def _push_kept_paths(self):
-        """Hand pltrs (Rust) the paths handed out again, one of which the
-        program changed (see `._owned_paths`)."""
-        kept = self.__dict__.get("_paths_kept")
-        if kept is not None:
-            _collections.set_paths(self._native, list(kept))
+    def _read_paths(self):
+        # docstring inherited
+        native = _contour.get_paths(self._contour)
+        # The levels a contour generator found no line of share one empty
+        # path (matplotlib's ``_make_paths_from_contour_generator``).
+        empty = None if self.__dict__.get("_paths_of_segments") else Path(np.empty((0, 2)))
+        paths = [Path(vertices, codes) if empty is None or len(vertices) else empty
+                 for vertices, codes in native]
+        return paths
 
     allsegs = property(lambda self: [
         [subp.vertices for subp in p._iter_connected_components()]
@@ -1158,8 +1151,12 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     def get_linewidth(self):
         # The line widths of the levels (of the collection, for filled
         # contours).
+        return super().get_linewidth()
+
+    def _read_linewidth(self):
+        # docstring inherited
         if self.filled:
-            return super().get_linewidth()
+            return super()._read_linewidth()
         # The widths given, which pltrs (Rust) holds one per level, as
         # matplotlib broadcasts them against the dash patterns of the line
         # styles (``_bcast_lwls``; one per level until a style is set).
@@ -1188,6 +1185,14 @@ class ContourSet(ContourLabeler, mcoll.Collection):
                               for style in self._given_linestyles()])
         _contour.set_linewidths(self._contour, [float(w) for w in lw])
         _values.remember(self, "linewidth", lw)
+        _own_state.drop(self, "linewidths")
+
+    def _take_linewidth(self, widths):
+        # docstring inherited
+        if self.filled:
+            super()._take_linewidth(widths)
+        else:
+            _contour.set_linewidths(self._contour, [float(width) for width in widths])
 
     get_linewidth.__doc__ = mcoll.Collection.get_linewidth.__doc__
     set_linewidth.__doc__ = mcoll.Collection.set_linewidth.__doc__
@@ -1215,7 +1220,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         last once drawn, until its mapping changes.
         """
         faces = super().get_facecolor()
-        values = self.get_array()
+        values = mcolorizer._array_of(self)
         hatched = self.filled and any(hatch is not None for hatch in self.hatches)
         if (not hatched or values is None or len(values) < 2 or len(faces) != 1
                 or not np.allclose(faces, self.to_rgba(values[:1], self.get_alpha()))):

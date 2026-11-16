@@ -463,7 +463,7 @@ default: None
         if fig_label:
             fig.set_label(fig_label)
 
-        for hookspecs in rcParams["figure.hooks"]:
+        for hookspecs in rcParams._get("figure.hooks"):
             module_name, dotted_name = hookspecs.split(":")
             obj = importlib.import_module(module_name)
             for part in dotted_name.split("."):

@@ -15,7 +15,8 @@ import logging
 import numpy as np
 
 from . import _docstring
-from . import _api, _live_transforms, _mirrors, _unusable, _values, cbook, units
+from . import (_api, _lazy_imports, _live_transforms, _mirrors, _own_state, _unusable,
+               _values, cbook, units)
 from ._artist_kwargs import check_known, native_artist_kwargs
 from ._native import artist as _artist, lines as _lines
 from . import _program_classes
@@ -26,7 +27,10 @@ from .markers import (  # noqa: F401  (matplotlib re-exports these here)
     CARETLEFT, CARETRIGHT, CARETUP, CARETDOWN,
     CARETLEFTBASE, CARETRIGHTBASE, CARETUPBASE, CARETDOWNBASE,
     TICKLEFT, TICKRIGHT, TICKUP, TICKDOWN, MarkerStyle)
-from .path import Path, _drawn_path_of
+from .path import Path
+
+# The states lines keep as objects of their own (`._own_state`).
+_state = _lazy_imports.module(globals(), "._line_state", "_state")
 
 _log = logging.getLogger(__name__)
 
@@ -602,7 +606,7 @@ class Line2D(Artist):
         """
         if orig and "_xorig" in self.__dict__:
             return self._xorig
-        return _lines.get_xdata(self._native)
+        return self._x
 
     def get_ydata(self, orig=True):
         """
@@ -613,7 +617,7 @@ class Line2D(Artist):
         """
         if orig and "_yorig" in self.__dict__:
             return self._yorig
-        return _lines.get_ydata(self._native)
+        return self._y
 
     def get_data(self, orig=True):
         """
@@ -626,15 +630,16 @@ class Line2D(Artist):
     def get_xydata(self):
         """Return the *xy* data as a (N, 2) array."""
         _unusable.check(self, measuring=True)
-        x, y = np.broadcast_arrays(self.get_xdata(orig=False),
-                                   self.get_ydata(orig=False))
-        return np.column_stack([x, y]).astype(float)
+        # The line's own array, as matplotlib's ``_xy`` (`._own_state`):
+        # what a program changes in it is drawn and measured.
+        return _own_state.hand_out(self, _state.XY)
 
     # The numbers drawn, as matplotlib's ``recache`` keeps them (attributes
-    # programs read: scikit-learn's tests read ``line._y``).
+    # programs read: scikit-learn's tests read ``line._y``): the array, and
+    # the two views of it.
     _xy = property(get_xydata, doc="The *xy* data drawn, as a (N, 2) array.")
-    _x = property(lambda self: self.get_xydata()[:, 0], doc="The x data drawn.")
-    _y = property(lambda self: self.get_xydata()[:, 1], doc="The y data drawn.")
+    _x = property(lambda self: _state.columns(self)[0], doc="The x data drawn.")
+    _y = property(lambda self: _state.columns(self)[1], doc="The y data drawn.")
 
     @property
     def _path(self):
@@ -648,9 +653,8 @@ class Line2D(Artist):
         """Return the `~matplotlib.path.Path` associated with this line."""
         _unusable.check(self, measuring=True)
         self.__dict__["_path_made"] = True
-        return _drawn_path_of(self, *_lines.get_path(self._native), (
-            lambda: _lines.get_interpolation_steps(self._native),
-            lambda steps: _lines.set_interpolation_steps(self._native, steps)))
+        # The line's own path, as matplotlib's ``_path`` (`._own_state`).
+        return _own_state.hand_out(self, _state.PATH)
 
     def set_data(self, *args):
         """
@@ -684,6 +688,9 @@ class Line2D(Artist):
         if not np.iterable(y):
             raise RuntimeError('y must be a sequence')
         self._xorig, self._yorig = _copied(x), _copied(y)
+        if "_own_state" in self.__dict__:
+            # New arrays and a new path, as matplotlib's ``recache`` makes.
+            self._forget_drawn_data()
         if self.axes is None and not (units._is_natively_supported(x)
                                       and units._is_natively_supported(y)):
             # Values in units convert once the line joins an axes
@@ -705,6 +712,12 @@ class Line2D(Artist):
             return
         _unusable.drop(self, "data")
         _deferred_data[self._native] = numbers
+
+    def _forget_drawn_data(self):
+        """Forget the array of the numbers drawn and the path handed out
+        (`._own_state`): the data were set anew."""
+        _own_state.drop(self, "xy")
+        _own_state.drop(self, "path")
 
     def _convert_units_for(self, axes):
         if self.__dict__.pop("_unit_data", False):
@@ -1324,6 +1337,12 @@ class Line2D(Artist):
         axes-bounding-box-diagonal regardless of the actual axes data limits.
 
         """
+        self._take_markevery(every)
+        self._keep_markevery(every)
+        self.stale = True
+
+    def _take_markevery(self, every):
+        """Hand pltrs (Rust) the markers to draw, *every*."""
         try:
             self._set_native(markevery=every)
         except ValueError:
@@ -1333,8 +1352,16 @@ class Line2D(Artist):
                            measured=False)
         else:
             _unusable.drop(self, "markevery")
+
+    def _keep_markevery(self, every):
+        """Keep *every* as `get_markevery` gives it; a list or an array is
+        the line's own from now on, as matplotlib keeps the object it is
+        given and samples the markers by it at every draw (`._own_state`)."""
         self._markevery = every
-        self.stale = True
+        if "_own_state" in self.__dict__:
+            _own_state.drop(self, "markevery")
+        if isinstance(every, (list, np.ndarray)):
+            _own_state.keep(self, _state.MARKEVERY, every)
 
     def _draw_markevery(self, every):
         """Fail as matplotlib's draw samples the markers with *every*: where

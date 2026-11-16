@@ -60,7 +60,7 @@ __all__ = ('TickHelper', 'Formatter', 'FixedFormatter',
 def _rc(key):
     """The rcParam *key* (imported when first needed)."""
     from . import rcParams
-    return rcParams[key]
+    return rcParams._get(key)
 
 
 def _check_text_font():

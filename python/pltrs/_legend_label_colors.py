@@ -13,7 +13,7 @@ import itertools
 
 import numpy as np
 
-from . import _val_or_rc, _values, cbook, colors, rcParams
+from . import _val_or_rc, _values, cbook, colorizer as mcolorizer, colors, rcParams
 
 #: The getters of the handles' colour a *labelcolor* name picks from, in
 #: order (matplotlib's ``color_getters``).
@@ -54,7 +54,7 @@ def _picked(handle, getter_names):
     None when it takes none (a handle mapping values to colours, colours
     of several kinds, no colour)."""
     try:
-        if handle.get_array() is not None:
+        if mcolorizer._array_of(handle) is not None:
             return None
     except AttributeError:
         pass

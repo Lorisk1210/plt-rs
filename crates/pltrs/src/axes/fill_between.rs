@@ -136,7 +136,7 @@ pub(crate) struct FillGeometry {
     /// The box of the points filled, on both curves, and their smallest
     /// positive coordinates (matplotlib's `_bbox`, which `get_datalim`
     /// gives and the data limits take when the collection is made).
-    filled: DataLimits,
+    pub(crate) filled: DataLimits,
 }
 
 pltrs_core::archive_struct!(FillGeometry {

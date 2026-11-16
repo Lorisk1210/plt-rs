@@ -18,6 +18,7 @@ mod clip;
 mod copy;
 mod extent;
 pub(in crate::modules) mod filter;
+mod own_state;
 mod picking;
 mod stale;
 
@@ -348,6 +349,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     copy::register(module)?;
     extent::register(module)?;
     filter::register(module)?;
+    own_state::register(module)?;
     picking::register(module)?;
     stale::register(module)
 }

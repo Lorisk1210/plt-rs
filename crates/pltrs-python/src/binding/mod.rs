@@ -18,6 +18,8 @@
 //! * [`reentrant`] — changes Python code makes to a figure pltrs (Rust) is
 //!   laying out or drawing, applied once it is done;
 //! * [`deferred`] — work Python leaves to the next native call;
+//! * [`own_state`] — the Python objects of artists told before a native
+//!   call reaches their artist, to hand over the state they keep;
 //! * [`Watched`] — attributes of the package a program may replace, read
 //!   where pltrs (Rust) needs to know whether they are;
 //! * the extension's allocator (Linux): the system's, with transparent
@@ -50,6 +52,7 @@ mod init;
 mod module;
 mod native;
 mod object;
+mod own_state;
 mod reentrant;
 mod registry;
 mod stack;
@@ -73,10 +76,11 @@ pub(crate) use home::{set_loop_waker, wake_loop};
 pub(crate) use init::init_module;
 pub(crate) use module::Module;
 pub(crate) use native::{
-    Native, artist_handle, live_objects, native_value, retyped, wrap as wrap_native, wrap_artist,
-    wrap_thread_bound,
+    Native, artist_handle, live_objects, native_value, retyped, set_asker, wrap as wrap_native,
+    wrap_artist, wrap_thread_bound,
 };
 pub(crate) use object::{Bound, Owned};
+pub(crate) use own_state::install_lists as install_own_lists;
 #[cfg(test)]
 pub(crate) use registry::register;
 pub(crate) use registry::{lookup, registered_error};

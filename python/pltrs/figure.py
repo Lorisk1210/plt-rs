@@ -1772,7 +1772,7 @@ None}, default: None
             %(Figure:kwdoc)s
         """
         if figsize is None:
-            figsize = rcParams['figure.figsize']
+            figsize = rcParams._get('figure.figsize')
         if dpi is None:
             dpi = rcParams['figure.dpi']
         width, height = _parse_figsize(figsize, dpi)
@@ -2643,7 +2643,7 @@ def figaspect(arg):
         arr_ratio = arg
 
     # Height of user figure defaults
-    fig_height = rcParams['figure.figsize'][1]
+    fig_height = rcParams._get('figure.figsize')[1]
 
     # New size for the figure, keeping the aspect ratio of the caller
     newsize = np.array((fig_height / arr_ratio, fig_height))
@@ -2710,7 +2710,7 @@ def _parse_figsize(figsize, dpi):
             "figsize=(None, None) is invalid; at least one of width or "
             "height must be provided")
 
-    default_width, default_height = rcParams["figure.figsize"]
+    default_width, default_height = rcParams._get("figure.figsize")
     if x is None:
         x = default_width
     if y is None:

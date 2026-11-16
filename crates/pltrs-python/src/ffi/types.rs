@@ -23,6 +23,8 @@ pub(crate) const Py_tp_repr: c_int = 66;
 
 /// `METH_FASTCALL`: a C function taking `(self, args, nargs)`.
 pub(crate) const METH_FASTCALL: c_int = 0x0080;
+/// The comparison `==` for `PyObject_RichCompareBool`.
+pub(crate) const Py_EQ: c_int = 2;
 
 /// `PYTHON_ABI_VERSION`, what `PyModule_Create2` is told under the
 /// limited API.

@@ -33,6 +33,9 @@ unsafe extern "C" {
     pub(crate) fn PyObject_Str(o: *mut PyObject) -> *mut PyObject;
     /// `PyObject_IsTrue`: `bool(o)`, or -1 on error.
     pub(crate) fn PyObject_IsTrue(o: *mut PyObject) -> c_int;
+    /// `PyObject_RichCompareBool`: whether `a op b` holds (`op` one of the
+    /// `Py_EQ`... constants), or -1 on error.
+    pub(crate) fn PyObject_RichCompareBool(a: *mut PyObject, b: *mut PyObject, op: c_int) -> c_int;
     /// `PyObject_SetItem`: `o[key] = v`.
     pub(crate) fn PyObject_SetItem(o: *mut PyObject, key: *mut PyObject, v: *mut PyObject)
     -> c_int;

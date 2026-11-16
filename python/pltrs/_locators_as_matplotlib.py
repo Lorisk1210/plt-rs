@@ -28,7 +28,7 @@ def _nonsingular(*args, **kwargs):
 def _rc(key):
     """The rcParam *key* (imported when first needed)."""
     from . import rcParams
-    return rcParams[key]
+    return rcParams._get(key)
 
 
 def _decade_less_equal(x, base):

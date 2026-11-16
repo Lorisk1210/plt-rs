@@ -39,6 +39,7 @@ use super::error::{PyErr, PyResult};
 use super::gil::{GilScope, Python, entry};
 use super::module::Module;
 use super::object::{Bound, Owned};
+use super::own_state::Asker;
 use crate::ffi;
 use pltrs::artist::{ArtistHandle, RawHandle};
 
@@ -54,6 +55,10 @@ struct NativeCell {
     artist: Option<RawHandle>,
     /// The value.
     value: RefCell<Box<dyn Any>>,
+    /// What is called before a native call takes the object as an
+    /// argument, if its artist's Python object asked for it (see
+    /// [`own_state`](super::own_state)).
+    asker: RefCell<Option<Asker>>,
 }
 
 /// The native type, made once when the module is initialised.
@@ -228,6 +233,7 @@ fn wrap_cell<T: Any>(
         type_name: std::any::type_name::<T>(),
         artist,
         value: RefCell::new(Box::new(value)),
+        asker: RefCell::new(None),
     };
     // SAFETY: the type data of a fresh instance, aligned for any type and
     // sized for a cell, written once before anything reads it.
@@ -307,6 +313,34 @@ pub(super) unsafe fn artist_of<'a>(object: *mut ffi::PyObject) -> Option<&'a Raw
     let native = NATIVE_TYPE.get()?.0.as_ptr();
     // SAFETY: as in `owner_of`; the cell lives as long as the object.
     unsafe { ((*object).ob_type == native).then(|| cell(object).artist.as_ref()) }.flatten()
+}
+
+/// Has `callable` called before every native call taking the native
+/// object `object` as an argument (`None`: no more).
+pub(crate) fn set_asker(object: &Bound<'_>, callable: Option<Owned>) -> PyResult<()> {
+    let cell = checked_cell(object, "artist")?;
+    // The callable it replaces is dropped after the borrow ends: releasing
+    // it may run Python code.
+    let replaced = cell.asker.replace(callable.map(Asker::new));
+    drop(replaced);
+    Ok(())
+}
+
+/// The callable `object` asked to have called before native calls taking
+/// it, if it is a native object that asked.
+///
+/// # Safety
+///
+/// The GIL is held and `object` is a live Python object.
+pub(super) unsafe fn asker_of(object: *mut ffi::PyObject) -> Option<Owned> {
+    let native = NATIVE_TYPE.get()?.0.as_ptr();
+    // SAFETY: as in `owner_of`; the cell is read with the GIL held, and
+    // nothing holds its borrow across a call into Python.
+    let cell = unsafe { ((*object).ob_type == native).then(|| cell(object)) }?;
+    cell.asker
+        .borrow()
+        .as_ref()
+        .map(|asker| asker.callable().clone())
 }
 
 /// The cell of `object`, if it is a native object this thread may use,

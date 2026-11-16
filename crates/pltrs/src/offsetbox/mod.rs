@@ -68,6 +68,8 @@ mod pending;
 mod placed_box;
 mod program;
 mod rebuild;
+mod text_notes;
+pub(crate) use text_notes::{note_drawn as note_drawn_texts, note_measured as note_measured_texts};
 #[cfg(test)]
 mod tests;
 mod walk;
@@ -82,7 +84,7 @@ pub use anchored_node::AnchoredNode;
 pub(crate) use annotation_bbox::AnnotationBboxArtist;
 pub use annotation_bbox::{AnnotationBbox, AnnotationBboxOptions};
 pub use apply::edit_tree;
-pub(crate) use apply::{apply_placements, lay_out_box, lay_out_boxes};
+pub(crate) use apply::{apply_placements, lay_out_box, lay_out_boxes, place_drawn_box};
 pub use boxes::{OffsetBox, Packer, Placement, TreeLayout};
 pub use leaves::{
     AuxTransformBox, DrawingArea, OffsetImage, PaddedBox, TextArea, text_area_baseline_shift,

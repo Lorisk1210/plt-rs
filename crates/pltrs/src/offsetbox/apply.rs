@@ -210,7 +210,8 @@ pub(super) fn refresh_tree(state: &mut FigureState, id: ArtistId) {
 pub(crate) fn lay_out_box(state: &mut FigureState, id: ArtistId) {
     state.pending_errors.retain(|error| error.artist != id);
     refresh_tree(state, id);
-    match tree_layout(state, id) {
+    // matplotlib measures a box where it is asked to (see `text_notes`).
+    match crate::text::font_notes::layouts_counted(0, || tree_layout(state, id)) {
         Some(Ok(layout)) => {
             let fresh = &state.fresh;
             apply_placements(&mut state.store, layout.placements, &|artist| {
@@ -222,6 +223,15 @@ pub(crate) fn lay_out_box(state: &mut FigureState, id: ArtistId) {
             ..DrawError::new(id, err.to_string())
         }),
         Some(Err(_)) | None => {}
+    }
+}
+
+/// Lays out `id` if it is an anchored, annotation or placed box (see
+/// [`lay_out_box`]), as matplotlib's `draw` of such a box places it before
+/// drawing it: for a box drawn by itself, outside the figure's draw.
+pub(crate) fn place_drawn_box(state: &mut FigureState, id: ArtistId) {
+    if owner(&state.store, id).is_some() {
+        lay_out_box(state, id);
     }
 }
 

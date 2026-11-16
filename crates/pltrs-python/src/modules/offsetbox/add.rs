@@ -316,6 +316,13 @@ fn set_annotation_clip(annotation: RawHandle, clip: Option<bool>) -> PyResult<()
     Ok(())
 }
 
+/// Takes the added annotation box `annotation` out of its figure's lists,
+/// still placed in that figure (`set_figure` without an add).
+fn unlist_annotation_bbox(annotation: RawHandle) -> PyResult<()> {
+    annotation_bbox(&annotation)?.unlist();
+    Ok(())
+}
+
 /// Sets the font size, in points, that scales the frame and the arrow of
 /// the added annotation box `annotation` (`set_fontsize`).
 fn set_annotation_fontsize(annotation: RawHandle, points: f64) -> PyResult<()> {
@@ -341,6 +348,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("update_annotation_positions", update_annotation_positions)?;
     module.add("get_annotation_clip", get_annotation_clip)?;
     module.add("set_annotation_clip", set_annotation_clip)?;
+    module.add("unlist_annotation_bbox", unlist_annotation_bbox)?;
     module.add("set_annotation_fontsize", set_annotation_fontsize)?;
     module.add("set_anchored_options", set_anchored_options)?;
     module.add("set_anchored_offset", set_anchored_offset)?;

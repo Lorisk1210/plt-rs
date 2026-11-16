@@ -2077,6 +2077,15 @@ class OffsetImage(OffsetBox):
         return Bbox.from_bounds(0, 0, w, h)
 
 
+def _of_axes(coords):
+    """Whether the coordinate systems *coords* of an annotation are those of
+    its Axes (data, polar or the Axes' box), which matplotlib reads from
+    ``self.axes``."""
+    return any(isinstance(system, str)
+               and (system in ("data", "polar") or system.startswith("axes "))
+               for system in (coords if isinstance(coords, tuple) else (coords,)))
+
+
 class AnnotationBbox(TreeOwner, Artist, mtext._AnnotationBase):
     """
     Container for an `OffsetBox` referring to a specific position *xy*.
@@ -2088,7 +2097,19 @@ class AnnotationBbox(TreeOwner, Artist, mtext._AnnotationBase):
 
     def set_figure(self, fig):
         # docstring inherited: matplotlib's override has none.
+        joining = fig is not None and "_tree_handle" not in self.__dict__
         super().set_figure(fig)
+        if joining:
+            self._join_unlisted(fig)
+
+    def _join_unlisted(self, fig):
+        """Join *fig* in none of its lists, as `set_figure` leaves the box
+        in matplotlib (drawn only when a program calls its ``draw``):
+        pltrs (Rust) makes the box and holds it apart in *fig*, where its
+        draw and its measures place it."""
+        self._join(fig)
+        _offsetbox.unlist_annotation_bbox(self._native)
+        self._only_given_figure = True
 
     # matplotlib's draw of the class is not decorated with
     # `allow_rasterization`: asking to rasterize it warns.
@@ -2446,7 +2467,8 @@ or callable, default: value of *xycoords*
         say) converted by *parent* or the box's Axes, as matplotlib's
         ``_get_xy`` converts them; `Unusable` for any other value."""
         coords = self.xycoords if name == "xy" else self.boxcoords
-        axes = self.axes if parent is None else parent
+        # The Axes joined, else the box's own (a figure has no units).
+        axes = parent if hasattr(parent, "xaxis") else self.axes
         try:
             x, y = getattr(self, name)
             if hasattr(axes, "convert_xunits"):
@@ -2474,9 +2496,12 @@ or callable, default: value of *xycoords*
 
     def _hold_coords(self, figure):
         """Keep the coordinate systems of the box as a problem while pltrs
-        (Rust) cannot take one: matplotlib places the points with them as
-        it draws the box (`_fail_as_drawn`)."""
-        if None in self._native_coords(figure).values():
+        (Rust) cannot take one, or while one is an Axes' and the box, once
+        joined, has none: matplotlib places the points with them as it
+        draws the box (`_fail_as_drawn`), which fails on the latter."""
+        axes_missing = self.axes is None and any(
+            _of_axes(getattr(self, name)) for name in ("xycoords", "boxcoords"))
+        if axes_missing or None in self._native_coords(figure).values():
             self._keep_problem("coords")
         else:
             _unusable.drop(self, "coords")

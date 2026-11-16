@@ -37,7 +37,7 @@ from .legend_handler import (HandlerCircleCollection, HandlerErrorbar,
                              HandlerRegularPolyCollection, HandlerStem,
                              HandlerStepPatch, HandlerTuple,
                              update_from_first_child)
-from .lines import Line2D
+from .lines import Line2D, _get_dash_pattern
 from .offsetbox import DraggableOffsetBox
 from .patches import FancyBboxPatch, Patch, Rectangle, StepPatch
 from .text import Text
@@ -857,6 +857,7 @@ class Legend(Artist):
         if index < len(entry_handles):
             _values.inherit(drawn, entry_handles[index])
             _copy_unheld(drawn, entry_handles[index])
+            _copy_handler_styles(drawn, entry_handles[index])
         return drawn
 
     def get_lines(self):
@@ -1285,6 +1286,31 @@ def _copy_unheld(drawn, entry):
     for name in _UNHELD:
         if name in getattr(source, "__dict__", {}):
             drawn.__dict__[name] = source.__dict__[name]
+
+
+def _copy_handler_styles(drawn, entry):
+    """Give the handle *drawn* the line style it reads back in matplotlib,
+    where the entry's handler made it of the entry's handle *entry*:
+    `HandlerPatch` makes a fresh patch, whose ``update_from`` copies the
+    dash pattern but leaves its own line style (solid);
+    `HandlerPolyCollection` and `HandlerStem` set the collection's first
+    one, as it reads it back (scaled by its width, of the very types
+    given); `HandlerLineCollection` sets the first one given
+    (``_us_linestyles[0]``). The handle keeps it until the program sets
+    another."""
+    if isinstance(drawn, Patch) and "_linestyle" not in drawn.__dict__:
+        if isinstance(entry, (Patch, BarContainer)):
+            drawn._linestyle = "solid"
+        elif isinstance(entry, PolyCollection):
+            styles = entry.get_linestyles()
+            drawn._linestyle = styles[0] if len(styles) else "solid"
+    elif isinstance(drawn, Line2D) and "_given_dash_pattern" not in drawn.__dict__:
+        if (isinstance(entry, StemContainer)
+                and isinstance(entry.stemlines, LineCollection)):
+            drawn._given_dash_pattern = _get_dash_pattern(
+                entry.stemlines.get_linestyle()[0])
+        elif isinstance(entry, LineCollection):
+            drawn._given_dash_pattern = _get_dash_pattern(entry._given_linestyles()[0])
 
 
 def _get_legend_handles(axs, legend_handler_map=None):

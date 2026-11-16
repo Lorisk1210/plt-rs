@@ -151,6 +151,9 @@ pub fn rebuild_tree(
     owner_handle: &RawHandle,
     tree: OffsetBox<RawHandle>,
 ) -> Option<Result<Vec<RawHandle>, AttachError>> {
+    // A removed box (or one only given its figure) is rebuilt in place,
+    // its new parts going apart with it.
+    let _standing = owner_handle.standing_in();
     let figure = owner_handle.figure_state();
     let held: Vec<ArtistId> = owner(&figure.borrow().store, owner_handle.id())?
         .tree()
@@ -239,6 +242,7 @@ fn rebuild(
 ///
 /// When the box cannot be measured (a text of malformed math).
 pub fn node_extent(owner_handle: &RawHandle, index: usize) -> Option<Result<Bbox, OffsetBoxError>> {
+    let _standing = owner_handle.standing_in();
     let mut state = owner_handle.figure_state().borrow_mut();
     refresh_tree(&mut state, owner_handle.id());
     let ctx = LayoutContext::new(&state);
@@ -274,6 +278,7 @@ pub fn node_origin(
     owner_handle: &RawHandle,
     index: usize,
 ) -> Option<Result<Option<Point>, OffsetBoxError>> {
+    let _standing = owner_handle.standing_in();
     let mut state = owner_handle.figure_state().borrow_mut();
     refresh_tree(&mut state, owner_handle.id());
     if index >= owner(&state.store, owner_handle.id())?.tree().box_count() {

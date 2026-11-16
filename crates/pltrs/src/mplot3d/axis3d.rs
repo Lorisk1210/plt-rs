@@ -476,6 +476,7 @@ impl Axis3DState {
     /// Replaces the scale and installs its default tick helpers, made
     /// under the current rcParams (matplotlib's `Axis._set_scale`).
     pub(crate) fn set_scale(&mut self, scale: AxisScale) {
+        crate::scale::note_default_formatter(scale.scale().name());
         let settings = TickerSettings::current();
         self.tickers = Tickers3D::defaults(scale.scale().as_ref(), self.dir, &settings);
         self.scale = scale;

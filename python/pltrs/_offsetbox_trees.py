@@ -200,7 +200,11 @@ class TreeOwner:
         """Whether the owner joins *parent*, an Axes or a (sub)figure, of
         the figure it was removed from with its tree: pltrs (Rust) kept
         both, and takes them back as they were."""
-        return (bool(self.__dict__.get("_removed")) and "_tree_handle" in self.__dict__
+        given = self.__dict__.get("_removed") or (
+            # Only given its figure (`set_figure`), it joins the figure as
+            # made for it (an Axes would give it the Axes' coordinates).
+            self.__dict__.get("_only_given_figure") and parent is self.get_figure(root=False))
+        return (bool(given) and "_tree_handle" in self.__dict__
                 and self._figure is parent.get_figure(root=True))
 
     def _tree_description(self):

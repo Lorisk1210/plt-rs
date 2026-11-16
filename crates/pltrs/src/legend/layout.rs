@@ -261,8 +261,11 @@ pub(crate) fn lay_out_legends(state: &mut FigureState) {
         .ids()
         .filter(|&id| state.store.get_as::<LegendArtist>(id).is_some())
         .collect();
+    // matplotlib measures a legend's texts where it draws or measures the
+    // legend (see `offsetbox::text_notes`).
     for id in legends {
-        if let Err(err) = lay_out_legend(state, id) {
+        let laid_out = crate::text::font_notes::layouts_counted(0, || lay_out_legend(state, id));
+        if let Err(err) = laid_out {
             state.pending_errors.push(err);
         }
     }

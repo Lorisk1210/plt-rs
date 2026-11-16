@@ -258,10 +258,11 @@ fn insert_axes3d(
     camera.set_box_aspect(options.box_aspect, 1.0)?;
     let state = figure.raw().figure_state();
     let frame = figure.raw().id();
-    let plane = match placing {
+    // The plane is none of matplotlib's axes: its formatters are not.
+    let plane = crate::scale::uncounted(|| match placing {
         Placing::InFigure => insert_axes(state, frame, Bbox::UNIT, None),
         Placing::Removed => make_axes(state, None, Bbox::UNIT, None),
-    };
+    });
     show_view_window(&plane);
     // mplot3d draws its own frame: matplotlib hides the axes' spines.
     for spine in plane.spines().iter() {
@@ -293,6 +294,7 @@ fn insert_axes3d(
     let axes = Axes3D::from_raw(RawHandle::new(Rc::clone(state), id));
     // As in matplotlib, the axes joins its groups before its first
     // autoscaling, which the axes sharing its limits follow.
+    let joins_z = options.sharez.is_some();
     let shared = [
         options.sharex,
         options.sharey,
@@ -302,6 +304,14 @@ fn insert_axes3d(
         shared.each_ref().map(Option::as_ref),
         options.shareview.as_ref(),
     )?;
+    if joins_z {
+        // matplotlib's `Axes3D.__init__` joins the z group before it clears
+        // the axes, which sets the z scale of every other axes in the
+        // group anew, with its default formatter.
+        for _ in (axes.shared_axes(Axis3::Z).iter()).filter(|other| **other != axes) {
+            crate::scale::note_default_formatter(crate::scale::ScaleName::Linear);
+        }
+    }
     axes.with_mut(Axes3DState::autoscale_view)?;
     Ok(axes)
 }

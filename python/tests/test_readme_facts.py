@@ -322,3 +322,18 @@ def test_the_libraries_the_readme_names_pass_in_full():
     for library in ("pandas", "seaborn"):
         assert any(test.startswith(f"{library}/") for test in passing)
         assert library not in incomplete
+
+
+def test_third_party_names_every_golden_holding_ghostscripts_prolog():
+    """THIRD_PARTY.md lists each golden Ghostscript wrote (its AGPL-3.0
+    prolog, ``opdfread.ps``, is inside), and no file that is not one."""
+    goldens = ROOT / "spec" / "goldens"
+    if not goldens.is_dir():
+        pytest.skip("no spec/ here (an installed pltrs)")
+    holding = {path.relative_to(ROOT).as_posix()
+               for path in goldens.rglob("*")
+               if path.suffix in (".ps", ".eps") and b"opdfread" in path.read_bytes()}
+    notice = (ROOT / "THIRD_PARTY.md").read_text()
+    section = notice.split("## Test data in the repository only", 1)[1]
+    listed = set(re.findall(r"^- `(spec/goldens/[^`]+)`$", section, flags=re.M))
+    assert listed == holding

@@ -2,7 +2,7 @@
 
 use super::{AutoLocator, Locator};
 use crate::ticker::pymath::{arange, ceil_int, floor_int, round_int, warn_log};
-use crate::ticker::{AutolimitMode, LogBase, TickContext, TickerError, TickerSettings};
+use crate::ticker::{AutolimitMode, AxisInfo, LogBase, TickContext, TickerError, TickerSettings};
 
 /// Multiples of each power of the base at which [`LogLocator`] places
 /// ticks.
@@ -339,7 +339,8 @@ impl Locator for LogLocator {
             // No (positive) data yet: matplotlib's initial log range.
             return (1.0, 10.0);
         }
-        let minpos = ctx.axis().map_or(f64::INFINITY, |axis| axis.minpos);
+        // matplotlib's takes the smallest of the axes sharing the axis.
+        let minpos = ctx.axis().map_or(f64::INFINITY, AxisInfo::minpos_of_shared);
         let minpos = if minpos.is_finite() { minpos } else { 1e-300 };
         if vmin <= 0.0 {
             vmin = minpos;

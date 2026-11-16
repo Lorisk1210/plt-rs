@@ -5,14 +5,14 @@
 use pltrs_core::{Bbox, Path, Point};
 
 use super::artist::LegendParent;
-use crate::artist::{Artist, ArtistId, LayoutContext};
+use crate::artist::{Artist, ArtistId, ArtistStore, LayoutContext};
 use crate::axes::AxesState;
 use crate::axes_grid1::parasites_of;
 use crate::collections::{CollectionArtist, CollectionKind};
 use crate::lines::LineArtist;
 use crate::offsetbox::{AnchorLoc, anchored_bbox};
 use crate::patches::Rectangle;
-use crate::text::TextArtist;
+use crate::text::{TextArtist, font_notes};
 use crate::transforms::Transform;
 use crate::{clock, warnings};
 
@@ -33,11 +33,7 @@ impl Obstacles {
     fn of_axes(ctx: LayoutContext<'_>, axes: ArtistId) -> Self {
         let mut obstacles = Self::default();
         let store = ctx.store();
-        let owners = std::iter::once(axes).chain(parasites_of(store, axes));
-        let plotted = owners
-            .filter_map(|owner| store.get_as::<AxesState>(owner))
-            .flat_map(|state| state.children.iter().filter(|&&id| !state.is_own_part(id)));
-        for &id in plotted {
+        for id in plotted(store, axes) {
             let Some(artist) = store.get(id) else {
                 continue;
             };
@@ -154,6 +150,31 @@ const SLOW_SEARCH: f64 = 1.0;
 /// location codes winning ties. Figure legends have nothing to avoid
 /// (and never ask: `"best"` is rejected for them).
 ///
+/// The plotted artists of `axes` and of its parasites, which a host draws
+/// as its own, in drawing order.
+fn plotted(store: &ArtistStore, axes: ArtistId) -> Vec<ArtistId> {
+    std::iter::once(axes)
+        .chain(parasites_of(store, axes))
+        .filter_map(|owner| store.get_as::<AxesState>(owner))
+        .flat_map(|state| state.children.iter().filter(|&&id| !state.is_own_part(id)))
+        .copied()
+        .collect()
+}
+
+/// Notes the font lookups of matplotlib's `_auto_legend_data` measuring
+/// the texts of `axes` (and of its parasites) `times` times: each
+/// placement of a legend at its best location measures them, which pltrs
+/// does once, where it lays the legend out, its layouts counting for
+/// nothing there (see `text::font_notes::layouts_counted`).
+pub(crate) fn note_avoided_texts(ctx: LayoutContext<'_>, axes: ArtistId, times: usize) {
+    let store = ctx.store();
+    for id in plotted(store, axes) {
+        if let (Some(artist), Some(_)) = (store.get(id), store.get_as::<TextArtist>(id)) {
+            font_notes::layouts_counted(times, || artist.window_extent(&ctx));
+        }
+    }
+}
+
 /// As matplotlib does, the search times itself on [`clock`] and warns
 /// when it took longer than a second for a legend at the default location
 /// (`warn_if_slow`), reading the clock at the end only then.

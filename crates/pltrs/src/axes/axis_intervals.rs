@@ -210,6 +210,7 @@ impl Axis {
             view_interval,
             data_interval,
             minpos,
+            shared_minpos: None,
             tick_space,
             major_ticks,
             scale: axis.scale().hint(),

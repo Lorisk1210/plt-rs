@@ -60,6 +60,12 @@ pub struct AxisInfo {
     pub data_interval: (f64, f64),
     /// Smallest positive data value (used by log and logit locators).
     pub minpos: f64,
+    /// Smallest positive data value of every axis sharing this one, where
+    /// it is known (`None` takes [`minpos`](Self::minpos)): what
+    /// matplotlib's `LogLocator.nonsingular` takes (`min(axis.get_minpos()
+    /// for axis in self.axis._get_shared_axis())`), where its other
+    /// readers take this axis' own.
+    pub shared_minpos: Option<f64>,
     /// How many ticks fit along the axis (`Axis.get_tick_space`).
     pub tick_space: TickSpace,
     /// Current major tick locations (consulted by `AutoMinorLocator`).
@@ -79,11 +85,18 @@ impl AxisInfo {
         view_interval: (0.0, 1.0),
         data_interval: (0.0, 1.0),
         minpos: 0.0,
+        shared_minpos: None,
         tick_space: TickSpace::of(9),
         major_ticks: Vec::new(),
         scale: ScaleHint::Linear,
         three_d: false,
     };
+
+    /// The smallest positive data value of the axes sharing this axis
+    /// (see [`shared_minpos`](Self::shared_minpos)).
+    pub fn minpos_of_shared(&self) -> f64 {
+        self.shared_minpos.unwrap_or(self.minpos)
+    }
 
     /// A dummy axis whose view *and* data intervals are `(vmin, vmax)`.
     pub fn with_view(vmin: f64, vmax: f64) -> Self {

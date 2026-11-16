@@ -318,7 +318,8 @@ pub(crate) struct SharedData {
 }
 
 /// How long an axis is and how many ticks fit along it, which
-/// round-number autoscaling needs (matplotlib's `get_tick_space`).
+/// round-number autoscaling needs (matplotlib's `get_tick_space`), and
+/// what the locator reads of the axis it is bound to.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub(crate) struct AxisSpace {
     /// The length of the axis in points.
@@ -326,6 +327,24 @@ pub(crate) struct AxisSpace {
     /// How many ticks fit along the axis of another axes the locator is
     /// bound to (`None` measures this axis).
     pub(crate) tick_space: Option<TickSpace>,
+    /// The smallest positive datum of that other axes (`None` takes this
+    /// axis'): a locator shared by axes sharing an axis reads it from the
+    /// axis it is bound to (matplotlib's `LogLocator.nonsingular` asks
+    /// `self.axis.get_minpos()`), whichever axes autoscales.
+    pub(crate) minpos: Option<f64>,
+}
+
+/// The smallest positive data a locator reads beside those of the axes
+/// asking it, where the locator is shared: those of the axis it is bound
+/// to (matplotlib's `self.axis.get_minpos()`) and of every axes sharing
+/// that axis (`LogLocator.nonsingular`'s); `None` takes the asking axes'
+/// own.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct LocatorMinpos {
+    /// The bound axis' smallest positive datum.
+    pub(crate) bound: Option<f64>,
+    /// The smallest positive datum of the axes sharing the axis.
+    pub(crate) shared: Option<f64>,
 }
 
 /// What the next data added to an axes does to its data limits
@@ -559,7 +578,12 @@ impl AxesState {
     /// keep the current value, with matplotlib's warning for each,
     /// singular intervals are expanded by the major locator, and the scale
     /// clamps the range; `v0 > v1` keeps the axis inverted.
-    pub(crate) fn validated_limits(&self, name: AxisName, v0: f64, v1: f64) -> (f64, f64) {
+    pub(crate) fn validated_limits(
+        &self,
+        name: AxisName,
+        (v0, v1): (f64, f64),
+        locator: LocatorMinpos,
+    ) -> (f64, f64) {
         let axis = self.axis(name);
         let ((v0, v1), replaced) = self.log_limits(name, (v0, v1));
         for _ in 0..replaced {
@@ -578,7 +602,7 @@ impl AxesState {
             ));
         }
         let reverse = v0 > v1;
-        let (v0, v1) = self.nonsingular(name, v0, v1);
+        let (v0, v1) = self.nonsingular(name, v0, v1, locator);
         let (_, minpos) = self.data_interval(name);
         let (v0, v1) = axis.scale().limit_range_for_scale(v0, v1, minpos);
         let (low, high) = if v0 <= v1 { (v0, v1) } else { (v1, v0) };
@@ -586,19 +610,29 @@ impl AxesState {
     }
 
     /// The interval `(v0, v1)` made safe for one axis by its major locator
-    /// (matplotlib's `locator.nonsingular`); `(-inf, inf)` gives the
-    /// locator's default limits.
-    pub(crate) fn nonsingular(&self, name: AxisName, v0: f64, v1: f64) -> (f64, f64) {
+    /// (matplotlib's `locator.nonsingular`), which reads the smallest
+    /// positive data `locator` says; `(-inf, inf)` gives the locator's
+    /// default limits.
+    pub(crate) fn nonsingular(
+        &self,
+        name: AxisName,
+        v0: f64,
+        v1: f64,
+        locator: LocatorMinpos,
+    ) -> (f64, f64) {
         let axis = self.axis(name);
-        let (data, minpos) = self.data_interval(name);
-        let info = axis.info(&AxisGeometry {
-            view: self.view_interval(name),
-            data,
-            minpos,
-            length_points: 0.0,
-            tick_space: None,
-            tick_floor: None,
-        });
+        let (data, own) = self.data_interval(name);
+        let info = AxisInfo {
+            shared_minpos: locator.shared,
+            ..axis.info(&AxisGeometry {
+                view: self.view_interval(name),
+                data,
+                minpos: locator.bound.unwrap_or(own),
+                length_points: 0.0,
+                tick_space: None,
+                tick_floor: None,
+            })
+        };
         let settings = axis.settings();
         let ctx = TickContext::new(&info, &settings);
         axis.major_locator.nonsingular(v0, v1, &ctx)
@@ -702,9 +736,10 @@ impl AxesState {
             None => (f64::NEG_INFINITY, f64::INFINITY),
         };
         let axis = self.axis(name);
-        let (_, minpos) = self.data_interval(name);
+        let minpos = space.minpos.unwrap_or_else(|| self.data_interval(name).1);
         let info = AxisInfo {
             data_interval: data,
+            shared_minpos: Some(shared.minpos),
             ..axis.info(&AxisGeometry {
                 view: self.view_interval(name),
                 data,

@@ -238,6 +238,19 @@ impl LegendArtist {
     }
 }
 
+impl LegendArtist {
+    /// Notes the font lookups of `times` placements of the legend at its
+    /// best location, which measure the texts of its Axes (see
+    /// [`best::note_avoided_texts`](super::best::note_avoided_texts)).
+    fn note_placement(&self, ctx: LayoutContext<'_>, times: usize) {
+        if let (LegendParent::Axes(axes), Location::Best, None) =
+            (self.parent, self.location, self.box_offset)
+        {
+            super::best::note_avoided_texts(ctx, axes, times);
+        }
+    }
+}
+
 impl Artist for LegendArtist {
     fn base(&self) -> &ArtistBase {
         &self.base
@@ -253,8 +266,10 @@ impl Artist for LegendArtist {
         let draws = if self.kept && self.current { 2 } else { 1 };
         for _ in 0..draws {
             // matplotlib's draw measures the legend's box once, then each
-            // packer measures its children again as it draws them.
+            // packer measures its children again as it draws them; it
+            // places the legend twice (its frame, then its box).
             crate::offsetbox::note_drawn_texts(ctx.layout(), &self.legend_box, 1);
+            self.note_placement(ctx.layout(), 2);
             ctx.renderer()
                 .open_group("legend", self.base.gid.as_deref());
             if let Some(shadow) = self.shadow_id() {
@@ -281,6 +296,7 @@ impl Artist for LegendArtist {
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         let extent = crate::text::font_notes::layouts_counted(0, || self.extent(*ctx));
         crate::offsetbox::note_measured_texts(*ctx, &self.legend_box, 1);
+        self.note_placement(*ctx, 1);
         extent.ok()
     }
 

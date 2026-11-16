@@ -339,3 +339,32 @@ def test_an_annotation_box_placed_in_axes_coordinates_is_picked(boxcoords):
     MouseEvent("button_press_event", fig.canvas, x + shift[boxcoords],
                y + shift[boxcoords], MouseButton.LEFT)._process()
     assert picked == [box]
+
+
+@pytest.mark.parametrize("arrow, loc, expected", [
+    (False, "best", (59, 140)), (True, "best", (62, 148)),
+    (False, "upper left", (57, 135)), (True, "upper left", (58, 138)),
+], ids=["best", "best, arrow", "upper left", "upper left, arrow"])
+def test_a_best_placed_legend_measures_the_texts_it_avoids(arrow, loc, expected):
+    # matplotlib's `_auto_legend_data` measures each text of the Axes (and
+    # an annotation's arrow places it first) as the legend is placed.
+    pltrs.rcParams["font.family"] = NOPE
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], label="energy")
+    ax.annotate("friday", xy=(1, 1), xytext=(0.5, 0.5),
+                **({"arrowprops": {"arrowstyle": "->"}} if arrow else {}))
+    ax.legend(loc=loc)
+    fig.canvas.draw()
+    assert (lookups(lambda: _draw(fig)), lookups(lambda: _tight_save(fig))) == expected
+
+
+def test_a_box_and_a_legend_measured_without_a_renderer_measure_through_the_figures():
+    # matplotlib asks the figure for its renderer, whose text metrics cache
+    # holds the lines the draw measured.
+    fig, ax = plt.subplots()
+    box = ax.add_artist(AnchoredText("box", loc="center", prop={"family": NOPE}))
+    ax.plot([0, 1], label="l")
+    legend = ax.legend(prop={"family": NOPE})
+    fig.canvas.draw()
+    assert [lookups(box.get_window_extent) for _ in range(2)] == [1, 1]
+    assert [lookups(legend.get_window_extent) for _ in range(2)] == [1, 1]

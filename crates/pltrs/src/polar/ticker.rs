@@ -41,6 +41,7 @@ fn in_degrees(axis: &AxisInfo) -> AxisInfo {
         view_interval: degrees(axis.view_interval),
         data_interval: degrees(axis.data_interval),
         minpos: axis.minpos.to_degrees(),
+        shared_minpos: axis.shared_minpos.map(f64::to_degrees),
         ..axis.clone()
     }
 }

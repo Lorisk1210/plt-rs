@@ -254,11 +254,13 @@ def _measured_by_print(figure):
     a canvas without one of its own (SVG, PDF, PostScript) runs its print
     up to the draw, which leaves the figure at the canvas' fixed resolution
     (72 dpi) and measures the texts as the print measures them. Other
-    canvases' renderers measure as pltrs (Rust) does."""
+    canvases' renderers measure as pltrs (Rust) does, through the text
+    metrics cache of the renderer the figure is laid out with (the lines
+    it measured before are not measured again)."""
     canvas = figure.canvas
     if (canvas.fixed_dpi is None or hasattr(canvas, "get_renderer")
             or not hasattr(canvas, "_print_renderer")):
-        return contextlib.nullcontext()
+        return _measured_by(_layout_renderer(figure), figure.dpi)
     figure.dpi = canvas.fixed_dpi
     return _measuring_with(canvas._print_renderer())
 

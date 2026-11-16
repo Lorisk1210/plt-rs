@@ -406,16 +406,42 @@ def _check_loaded(package: Any, impl: str, installed: bool) -> None:
         raise SystemExit(f"trace.py: `import matplotlib` gave {found}, outside {site}")
 
 
-#: The recorder of the run, which `_record` records with.
-_RECORDER: Recorder | None = None
+#: The attribute of `sys` holding the recorder of the run, which the
+#: hooks of the instrumented program (`_record`, `_statement`,
+#: `_statement_error`)
+#: record with. The hooks find it there, not among their globals: a
+#: program that hands its functions to other processes (joblib's and
+#: multiprocess' pools, which pickle a function of ``__main__`` with the
+#: globals it uses) would ship the whole recorder with each task, which
+#: made iminuit's workers outgrow loky's memory check under one library
+#: and not the other; in another process the hooks record nothing.
+_RECORDER = "_difftest_recorder"
+
+
+def _recorder() -> Any:
+    """The recorder of the run, None in another process (see `_RECORDER`).
+    (Annotated `Any`: a pickled hook would carry the class it names.)"""
+    return getattr(sys, _RECORDER, None)
 
 
 def _record(site: str, value: Any) -> Any:
     """Record *value* at *site* (the call the instrumented program makes);
     return it. In code numba compiles (py-pde compiles the program's
     functions) it is *value* alone (`_NumbaTaught`)."""
-    assert _RECORDER is not None
-    return _RECORDER.record(site, value)
+    recorder = _recorder()
+    return value if recorder is None else recorder.record(site, value)
+
+
+def _statement(index: int, line: int) -> None:
+    """Note the top-level statement running (`Recorder.site`)."""
+    if (recorder := _recorder()) is not None:
+        recorder.site(index, line)
+
+
+def _statement_error(error: BaseException) -> None:
+    """Record the exception of a statement (`Recorder.exception`)."""
+    if (recorder := _recorder()) is not None:
+        recorder.exception(error)
 
 
 class _NumbaTaught(importlib.abc.MetaPathFinder):
@@ -598,8 +624,8 @@ def main() -> int:
     package_dirs = [str(pathlib.Path(package.__file__).parent)]
     names = Names(NAME_PREFIXES[args.impl], package_dirs, os.environ.get("MPLCONFIGDIR"), str(workdir), sys.prefix,
                   str(out.resolve()))
-    global _RECORDER
-    recorder = _RECORDER = Recorder(names, program)
+    recorder = Recorder(names, program)
+    setattr(sys, _RECORDER, recorder)
     text = importlib.util.decode_source(args.program.read_bytes())
     if args.shell:
         text = ipython_shell.python_of(text)
@@ -622,8 +648,8 @@ def main() -> int:
         "__file__": program,
         "__builtins__": __builtins__,
         REC: _record,
-        EXC: recorder.exception,
-        SITE: recorder.site,
+        EXC: _statement_error,
+        SITE: _statement,
         CELL_END: cell_end,
         CALENDAR: _read_calendar,
     }

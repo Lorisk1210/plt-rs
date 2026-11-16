@@ -14,6 +14,7 @@ import numpy as np
 
 from .. import _api, cbook
 from .._native import axis as _axis
+from . import _failed_calls
 # Register the category and date unit converters as a side effect, as
 # matplotlib's axes module does.
 from .. import category, dates  # noqa: F401
@@ -99,6 +100,7 @@ class UnitsMixin:
         datasets = datasets or []
         kwargs = kwargs or {}
         axis_map = self._unit_axis_map
+        units_taken = False
         for axis_name, data in datasets:
             try:
                 axis = axis_map[axis_name]
@@ -106,7 +108,7 @@ class UnitsMixin:
                 raise ValueError(f"Invalid axis name: {axis_name!r}") from None
             # Update from data if axis is already set but no unit is set yet.
             if axis is not None and data is not None and not axis.have_units():
-                axis.update_units(data)
+                units_taken |= bool(axis.update_units(data))
         for axis_name, axis in axis_map.items():
             if axis is None:
                 continue
@@ -117,12 +119,18 @@ class UnitsMixin:
                 polar_units = {"x": "thetaunits", "y": "runits"}
                 units = kwargs.pop(polar_units[axis_name], units)
             if units != axis.units and units is not None:
+                units_taken = True
                 axis.set_units(units)
                 # If the units being set imply a different converter,
                 # we need to update again.
                 for dataset_axis_name, data in datasets:
                     if dataset_axis_name == axis_name and data is not None:
                         axis.update_units(data)
+        if units_taken:
+            # matplotlib's plotting call keeps the units it gave the axes
+            # (and the limits they asked for) should it fail later, as a
+            # bar of categories with no heights does.
+            _failed_calls.keep_added(self)
         return [axis_map[axis_name].convert_units(data)
                 if convert and data is not None
                 and axis_map[axis_name] is not None else data

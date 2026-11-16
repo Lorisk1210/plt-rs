@@ -53,7 +53,7 @@ pub use error::{SET_CHAR_SIZE_LINE, TextError};
 pub use lookups::{
     FontLookup, FontNote, LookupKind, LookupRun, keep_every_lookup, take_font_notes,
 };
-pub use mathtext_log::{log_mathtext, take_mathtext_log};
+pub use mathtext_log::{MathNote, log_mathtext, take_mathtext_log};
 pub use missing::{MissingGlyph, take_missing_glyphs};
 pub use pltrs_font::{
     AfmChoice, AfmDirectory, AfmEntry, AfmFont, AfmMetrics, CatalogueReport, CatalogueState,

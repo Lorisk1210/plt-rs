@@ -177,6 +177,7 @@ impl Renderer for PathEffectRenderer<'_> {
     /// 100 points and 72 dpi (`TextToPath.get_text_path`), scaled to the
     /// text size; runs without a source keep their own outlines.
     fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
+        crate::text::parsed_as_path(run);
         draw_text_as_path(self, gc, run, origin, angle);
     }
 

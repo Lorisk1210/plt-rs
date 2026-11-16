@@ -17,7 +17,11 @@ uses this module to
    Markdown page or a reStructuredText page (its IPython directives and
    plot directives, ``doc_examples.py``) becomes a script of cells (``# %%``
    lines, the percent format), the corpus' ``prelude`` its first, under
-   ``OUT/corpora/<name>/converted``, as do the ``Examples`` sections of the
+   ``OUT/corpora/<name>/converted`` (named as its source with ``.py`` for
+   its suffix, or after it where the tree has a file of that name, so that
+   the page never stands in a script's place: ``repr_gallery.ipynb.py``
+   beside ``repr_gallery.py``; two programs of one name are an error), as
+   do the ``Examples`` sections of the
    docstrings of the modules its ``docstrings`` globs match (under
    ``docstrings/`` in the tree a run sees, away from the module's own
    directory, whose modules would shadow others),
@@ -179,7 +183,8 @@ class CorpusProgram:
     #: The corpus' fetched tree.
     tree: pathlib.Path
     #: The program's path in the tree (a converted program's: its source's,
-    #: with ``.py`` for its suffix), where a run puts it.
+    #: with ``.py`` for its suffix, or after it where the tree has a file of
+    #: that name), where a run puts it.
     relative: str
     #: The text run: the file in the tree, or the converted script.
     path: pathlib.Path
@@ -575,7 +580,7 @@ def programs(corpus: Corpus, out: pathlib.Path) -> list[CorpusProgram]:
         return []
     tree = fetch(corpus, out)
     converted = corpus.directory(out) / "converted"
-    found = []
+    found: dict[str, CorpusProgram] = {}
 
     def add(relative: str, path: pathlib.Path, text: str, cellwise: bool) -> None:
         rewritten = _rewrite_urls(text, corpus, tree)
@@ -585,7 +590,10 @@ def programs(corpus: Corpus, out: pathlib.Path) -> list[CorpusProgram]:
             path = converted / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(rewritten, encoding="utf-8")
-        found.append(CorpusProgram(corpus, tree, relative, path, "cells" if cellwise else "program"))
+        program = CorpusProgram(corpus, tree, relative, path, "cells" if cellwise else "program")
+        if (taken := found.get(program.name)) is not None:
+            raise CorpusError(f"{corpus.name}: {taken.path} and {path} would both run as {program.name}")
+        found[program.name] = program
 
     def as_cells(code_cells: list[str]) -> str:
         return as_script([corpus.prelude] * bool(corpus.prelude) + code_cells)
@@ -596,11 +604,15 @@ def programs(corpus: Corpus, out: pathlib.Path) -> list[CorpusProgram]:
             add(run_as, path, path.read_text(encoding="utf-8"), cellwise=False)
         elif code_cells := cells(path, corpus.doctests, corpus.shell):
             # (A page without code, or of code shown only, is no program.)
-            add(run_as, path, as_cells(code_cells), cellwise=True)
+            # A page keeps its suffix where its tree has a script of its
+            # name: the run would put the page in the script's place
+            # (``repr_gallery.ipynb`` beside ``repr_gallery.py``; a book's
+            # ``redline.ipynb`` that imports its ``redline.py``).
+            add(relative + ".py" if (tree / run_as).exists() else run_as, path, as_cells(code_cells), cellwise=True)
     for relative, path in _matching(tree, corpus.docstrings, corpus.exclude):
         if code_cells := _usable(doc_examples.docstring_sources(path.read_text(encoding="utf-8"))):
             add(f"docstrings/{relative}", path, as_cells(code_cells), cellwise=True)
-    return found
+    return list(found.values())
 
 
 def _matching(tree: pathlib.Path, patterns: tuple[str, ...],

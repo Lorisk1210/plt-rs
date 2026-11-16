@@ -71,9 +71,9 @@ pub enum TextSource {
         text: String,
         /// Its fonts and resolution.
         style: MathStyle,
-        /// What matplotlib's mathtext logs typesetting it (see
+        /// What matplotlib's mathtext says parsing it (see
         /// [`MathLayout::logged`](crate::mathtext::MathLayout::logged)).
-        logged: Vec<String>,
+        logged: Vec<crate::MathNote>,
     },
     /// TeX text (`ismath="TeX"`, drawn by `draw_tex`): the run carries
     /// no glyphs, only the extent of the typeset line; backends typeset

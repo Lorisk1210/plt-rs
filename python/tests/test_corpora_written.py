@@ -80,3 +80,55 @@ def test_a_path_corpus_without_its_directory_is_refused(corpora, tmp_path):
         'programs = ["*.py"]\n')))
     with pytest.raises(corpora.CorpusError, match="no directory spec/diff/no-such-family"):
         corpora.programs(corpus, tmp_path)
+
+
+def _family(corpora, tmp_path, files, programs):
+    """The programs of a path corpus of *files* (relative name: text) whose
+    ``programs`` globs are *programs*."""
+    family = tmp_path / "repo" / "family"
+    for relative, text in files.items():
+        (family / relative).parent.mkdir(parents=True, exist_ok=True)
+        (family / relative).write_text(text)
+    corpora.ROOT, root = tmp_path / "repo", corpora.ROOT
+    try:
+        [corpus] = corpora.load(_manifest(tmp_path, (
+            '[family]\ntitle = "t"\npath = "family"\nlicence = "MIT"\n'
+            f'programs = {list(programs)!r}\n'.replace("'", '"'))))
+        return corpora.programs(corpus, tmp_path / "out")
+    finally:
+        corpora.ROOT = root
+
+
+_NOTEBOOK = '{"cells": [{"cell_type": "code", "source": ["print(2)"]}], "nbformat": 4}'
+
+
+def test_a_page_beside_a_script_of_its_name_keeps_its_suffix(corpora, tmp_path):
+    # python-control's examples/repr_gallery.py and repr_gallery.ipynb.
+    script, page = _family(corpora, tmp_path, {"ex/gallery.py": "print(1)\n", "ex/gallery.ipynb": _NOTEBOOK},
+                           ["ex/*.py", "ex/*.ipynb"])
+    assert (script.name, script.relative, script.mode) == ("corpus/family/ex/gallery", "ex/gallery.py", "program")
+    assert (page.name, page.relative, page.mode) == ("corpus/family/ex/gallery.ipynb", "ex/gallery.ipynb.py", "cells")
+    placed = page.lay_out(tmp_path / "run")
+    assert placed == tmp_path / "run" / "ex" / "gallery.ipynb.py"
+    assert (tmp_path / "run" / "ex" / "gallery.py").read_text() == "print(1)\n", "the script stays itself"
+
+
+def test_a_page_never_stands_in_its_scripts_place(corpora, tmp_path):
+    # probably-overthinking-it's redline.ipynb imports its redline.py.
+    [page] = _family(corpora, tmp_path, {"redline.ipynb": _NOTEBOOK, "redline.py": "SPEED = 1\n"},
+                     ["*.ipynb"])
+    assert (page.name, page.relative) == ("corpus/family/redline.ipynb", "redline.ipynb.py")
+    page.lay_out(tmp_path / "run")
+    assert (tmp_path / "run" / "redline.py").read_text() == "SPEED = 1\n"
+
+
+def test_a_page_alone_takes_the_name_of_its_source(corpora, tmp_path):
+    [page] = _family(corpora, tmp_path, {"ex/gallery.ipynb": _NOTEBOOK}, ["ex/*.ipynb"])
+    assert (page.name, page.relative) == ("corpus/family/ex/gallery", "ex/gallery.py")
+
+
+def test_two_programs_of_one_name_are_refused(corpora, tmp_path):
+    page = "```python\nprint(3)\n```\n"
+    with pytest.raises(corpora.CorpusError, match=r"would both run as corpus/family/ex/notes"):
+        _family(corpora, tmp_path, {"ex/notes.md": page, "ex/notes.rst": ".. plot::\n\n   print(4)\n"},
+                ["ex/*.md", "ex/*.rst"])

@@ -56,6 +56,7 @@ impl Finder<'_> {
             generics: Arc::clone(self.generics),
             weight_keyword,
             stretch_keyword,
+            math_fontfamily: None,
         };
         lookups::note(lookup, &[best.map(|(entry, _)| entry.weight)]);
         Ok(self.db.find_font_with(query, self.generics)?)

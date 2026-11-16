@@ -81,6 +81,7 @@ pub use layout::{LaidOutText, measure_text, text_path, text_path_shaped, text_pa
 pub(crate) use layout::{Typesetting, lay_out, lay_out_as, lay_out_with};
 pub use math::math_style;
 pub use math_image::{MathImage, MathImageError, MathImageOptions, math_to_image};
+pub(crate) use math_parses::parsed_as_path;
 pub use measuring::measuring;
 pub use metrics::{RendererMetrics, clear_text_caches};
 pub(crate) use metrics::{

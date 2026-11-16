@@ -109,6 +109,15 @@ fn rc_color(setting: &ColorOrAuto, figure: &Color) -> Color {
     }
 }
 
+/// Runs `draw`, the first draw of a print with `output`: a vector print
+/// measures with a renderer of its own.
+fn first_draw<R>(output: Output, draw: impl FnOnce() -> R) -> R {
+    match output {
+        Output::Raster => draw(),
+        Output::Vector => font_notes::with_renderer_of_its_own(draw),
+    }
+}
+
 /// The resolution vector backends draw at: one unit per point.
 const POINTS_PER_INCH: f64 = 72.0;
 
@@ -200,40 +209,30 @@ impl Figure {
         // prints it without the engine: the program's tick helpers see
         // both draws.
         let predrawn = self.layout_engine().is_some();
-        // The first draw of a vector print measures with a renderer of
-        // its own.
-        let first_draw = |draw: &dyn Fn()| match output {
-            Output::Raster => draw(),
-            Output::Vector => font_notes::with_renderer_of_its_own(draw),
-        };
         // The draw before a print cut to a window calls the program's
         // code with the whole figure, before the window is measured.
-        match bbox {
+        let window = match bbox {
+            None => None,
             // The draw measuring the figure, which lays the axis artists
-            // out as their draw does.
-            Some(BboxInches::Tight) => first_draw(&|| {
+            // out as their draw does; matplotlib measures the tight box
+            // with that draw's renderer.
+            Some(BboxInches::Tight) => Some(first_draw(output, || {
                 self.layout();
                 crate::axisartist::lay_out_as_drawn(&self.state());
                 self.predraw_program();
-            }),
+                let (w_pad, h_pad) = self.tight_padding(options.pad_inches, rc.savefig_pad_inches);
+                self.tight_bbox().padded(w_pad, h_pad)
+            })),
             // The layout the window is cut from, at the print resolution.
-            Some(BboxInches::Inches(_)) => {
+            Some(BboxInches::Inches(bbox)) => {
                 self.state_mut().draws_per_layout = usize::from(predrawn);
                 // A hook stopping the draw leaves the window as it was.
-                first_draw(&|| {
+                first_draw(output, || {
                     if self.prepare_layout().is_continue() && predrawn {
                         self.predraw_program();
                     }
                 });
-            }
-            None => {}
-        }
-        let window = match bbox {
-            None => None,
-            Some(BboxInches::Inches(bbox)) => Some(bbox),
-            Some(BboxInches::Tight) => {
-                let (w_pad, h_pad) = self.tight_padding(options.pad_inches, rc.savefig_pad_inches);
-                Some(self.tight_bbox().padded(w_pad, h_pad))
+                Some(bbox)
             }
         };
         let (width, height) =

@@ -759,15 +759,14 @@
    "clean": 46,
    "failed_imports": {
     "__main__": 1,
-    "audiofilter": 1,
     "sounddevice": 1
    },
    "programs": 46,
    "ran": 46,
    "runs": {
     "ended, drew": {
-     "clean": 36,
-     "ran": 36
+     "clean": 37,
+     "ran": 37
     },
     "ended, no figure": {
      "clean": 0,
@@ -778,8 +777,8 @@
      "ran": 9
     },
     "raised, no figure": {
-     "clean": 1,
-     "ran": 1
+     "clean": 0,
+     "ran": 0
     }
    }
   },
@@ -1236,17 +1235,17 @@
    }
   },
   "iminuit": {
-   "clean": 20,
+   "clean": 23,
    "failed_imports": {
     "jacobi": 1,
     "numba": 1
    },
    "programs": 32,
-   "ran": 24,
+   "ran": 27,
    "runs": {
     "ended, drew": {
-     "clean": 13,
-     "ran": 16
+     "clean": 16,
+     "ran": 19
     },
     "ended, no figure": {
      "clean": 3,
@@ -1287,7 +1286,7 @@
    }
   },
   "ipython-cookbook": {
-   "clean": 58,
+   "clean": 57,
    "failed_imports": {
     "CudaSupportError: Error at driver init: \n\nCUDA driver library cannot be found.": 1,
     "ImportError: `load_boston` has been removed from scikit-learn since versi": 1
@@ -1296,7 +1295,7 @@
    "ran": 77,
    "runs": {
     "ended, drew": {
-     "clean": 27,
+     "clean": 26,
      "ran": 38
     },
     "ended, no figure": {
@@ -1415,13 +1414,13 @@
    }
   },
   "librosa": {
-   "clean": 23,
+   "clean": 24,
    "failed_imports": {},
    "programs": 30,
    "ran": 24,
    "runs": {
     "ended, drew": {
-     "clean": 22,
+     "clean": 23,
      "ran": 23
     },
     "ended, no figure": {
@@ -1691,13 +1690,13 @@
    }
   },
   "matplotlib-docs": {
-   "clean": 65,
+   "clean": 66,
    "failed_imports": {},
    "programs": 67,
    "ran": 66,
    "runs": {
     "ended, drew": {
-     "clean": 30,
+     "clean": 31,
      "ran": 31
     },
     "ended, no figure": {
@@ -1939,6 +1938,7 @@
   "ml-with-python": {
    "clean": 43,
    "failed_imports": {
+    "cProfile": 1,
     "keras": 3,
     "pydbgen": 1,
     "sklearn.cross_validation": 3,
@@ -2281,13 +2281,13 @@
    }
   },
   "numerical-methods-hawke": {
-   "clean": 38,
+   "clean": 40,
    "failed_imports": {},
    "programs": 40,
    "ran": 40,
    "runs": {
     "ended, drew": {
-     "clean": 28,
+     "clean": 30,
      "ran": 30
     },
     "ended, no figure": {
@@ -2601,10 +2601,7 @@
    "failed_imports": {
     "IPython.html": 1,
     "arviz": 1,
-    "pymc3": 2,
-    "redline": 1,
-    "relay": 1,
-    "survival": 1
+    "pymc3": 2
    },
    "programs": 52,
    "ran": 45,
@@ -2618,12 +2615,12 @@
      "ran": 7
     },
     "raised, drew": {
-     "clean": 20,
-     "ran": 23
+     "clean": 21,
+     "ran": 24
     },
     "raised, no figure": {
-     "clean": 12,
-     "ran": 12
+     "clean": 11,
+     "ran": 11
     }
    }
   },
@@ -2676,13 +2673,13 @@
    }
   },
   "py-pde": {
-   "clean": 44,
+   "clean": 46,
    "failed_imports": {},
    "programs": 51,
    "ran": 46,
    "runs": {
     "ended, drew": {
-     "clean": 40,
+     "clean": 42,
      "ran": 42
     },
     "ended, no figure": {
@@ -2775,7 +2772,7 @@
    }
   },
   "pygad": {
-   "clean": 23,
+   "clean": 24,
    "failed_imports": {},
    "programs": 103,
    "ran": 81,
@@ -2785,7 +2782,7 @@
      "ran": 36
     },
     "ended, no figure": {
-     "clean": 13,
+     "clean": 14,
      "ran": 31
     },
     "raised, drew": {
@@ -2799,13 +2796,13 @@
    }
   },
   "pygtc": {
-   "clean": 0,
+   "clean": 1,
    "failed_imports": {},
    "programs": 2,
    "ran": 1,
    "runs": {
     "ended, drew": {
-     "clean": 0,
+     "clean": 1,
      "ran": 1
     },
     "ended, no figure": {
@@ -3073,8 +3070,7 @@
   "python-control": {
    "clean": 62,
    "failed_imports": {
-    "ControlSlycot: can't find slycot module sb01bd": 1,
-    "repr_gallery": 1
+    "ControlSlycot: can't find slycot module sb01bd": 1
    },
    "programs": 67,
    "ran": 63,
@@ -3084,16 +3080,16 @@
      "ran": 52
     },
     "ended, no figure": {
-     "clean": 7,
-     "ran": 7
+     "clean": 8,
+     "ran": 8
     },
     "raised, drew": {
      "clean": 3,
      "ran": 3
     },
     "raised, no figure": {
-     "clean": 1,
-     "ran": 1
+     "clean": 0,
+     "ran": 0
     }
    }
   },
@@ -3402,7 +3398,7 @@
    }
   },
   "qutip-tutorials": {
-   "clean": 61,
+   "clean": 60,
    "failed_imports": {
     "jax": 1
    },
@@ -3418,8 +3414,8 @@
      "ran": 5
     },
     "raised, drew": {
-     "clean": 7,
-     "ran": 9
+     "clean": 6,
+     "ran": 8
     },
     "raised, no figure": {
      "clean": 0,
@@ -3428,7 +3424,7 @@
    }
   },
   "rougier-book": {
-   "clean": 160,
+   "clean": 159,
    "failed_imports": {},
    "programs": 168,
    "ran": 160,
@@ -3442,8 +3438,8 @@
      "ran": 7
     },
     "raised, drew": {
-     "clean": 12,
-     "ran": 12
+     "clean": 11,
+     "ran": 11
     },
     "raised, no figure": {
      "clean": 7,
@@ -3814,9 +3810,9 @@
    }
   },
   "scipy-2017-sklearn": {
-   "clean": 19,
+   "clean": 18,
    "failed_imports": {
-    "sklearn.externals": 4,
+    "sklearn.externals": 3,
     "sklearn.metrics.scorer": 1,
     "sklearn.neighbors.kde": 1
    },
@@ -3832,7 +3828,7 @@
      "ran": 1
     },
     "raised, drew": {
-     "clean": 8,
+     "clean": 7,
      "ran": 8
     },
     "raised, no figure": {
@@ -4100,7 +4096,7 @@
    "clean": 8,
    "failed_imports": {},
    "programs": 13,
-   "ran": 12,
+   "ran": 11,
    "runs": {
     "ended, drew": {
      "clean": 7,
@@ -4108,7 +4104,7 @@
     },
     "ended, no figure": {
      "clean": 1,
-     "ran": 2
+     "ran": 1
     },
     "raised, drew": {
      "clean": 0,
@@ -4247,13 +4243,13 @@
    }
   },
   "ultraplot": {
-   "clean": 30,
+   "clean": 29,
    "failed_imports": {},
    "programs": 45,
    "ran": 41,
    "runs": {
     "ended, drew": {
-     "clean": 23,
+     "clean": 22,
      "ran": 33
     },
     "ended, no figure": {
@@ -4418,7 +4414,7 @@
   }
  },
  "total": {
-  "clean": 5239,
+  "clean": 5245,
   "failed_imports": {
    "CBE30338": 1,
    "ControlSlycot: can't find slycot module sb01bd": 1,
@@ -4436,7 +4432,7 @@
    "PIDsim": 1,
    "__main__": 2,
    "arviz": 6,
-   "audiofilter": 1,
+   "cProfile": 1,
    "cartopy": 5,
    "celerite": 1,
    "clawpack": 3,
@@ -4483,22 +4479,18 @@
    "pytest": 3,
    "pythia_datasets": 1,
    "pyweno": 1,
-   "redline": 1,
-   "relay": 1,
-   "repr_gallery": 1,
    "scipy": 1,
    "scipy.misc": 1,
    "scipy.sparse.linalg.eigen.arpack": 4,
    "sklearn.cross_validation": 9,
    "sklearn.datasets.samples_generator": 9,
-   "sklearn.externals": 4,
+   "sklearn.externals": 3,
    "sklearn.grid_search": 1,
    "sklearn.metrics.scorer": 1,
    "sklearn.mixture": 1,
    "sklearn.neighbors.kde": 1,
    "sounddevice": 2,
    "stock_analysis": 1,
-   "survival": 1,
    "tclab": 1,
    "tensorflow": 3,
    "theano": 1,
@@ -4510,23 +4502,23 @@
    "watermark": 2
   },
   "programs": 6408,
-  "ran": 5452,
+  "ran": 5454,
   "runs": {
    "ended, drew": {
-    "clean": 3617,
-    "ran": 3752
+    "clean": 3626,
+    "ran": 3756
    },
    "ended, no figure": {
-    "clean": 599,
+    "clean": 601,
     "ran": 640
    },
    "raised, drew": {
-    "clean": 707,
-    "ran": 740
+    "clean": 705,
+    "ran": 739
    },
    "raised, no figure": {
-    "clean": 316,
-    "ran": 320
+    "clean": 313,
+    "ran": 317
    }
   }
  }

@@ -159,10 +159,13 @@ impl TextEngine {
         source: &str,
         style: &MathStyle,
         then: impl FnOnce(&boxes::List, &mut fonts::Fonts<'_>) -> Result<T, TextError> + Send,
-    ) -> Result<(T, Vec<String>), TextError> {
+    ) -> Result<(T, Vec<crate::MathNote>), TextError> {
         // As deep as the formula nests: where it has room on the stack.
         let (result, logged) = crate::deep::with_room(crate::deep::formula_need(source), || {
-            mathtext_log::collecting(|| {
+            // The formula's font properties carry its fontset as their
+            // math font family, which matplotlib's font manager caches
+            // lookups by.
+            mathtext_log::collecting(Some(style.fontset), || {
                 let db = self.database();
                 let text_font = style.font.font(db)?;
                 let mut fonts = fonts::Fonts::new(db, style, text_font)?;
@@ -256,10 +259,11 @@ mod tests {
         };
         assert_eq!(
             logged.as_slice(),
-            [
+            [crate::MathNote::Message(
                 "Font 'rm' does not have a glyph for '\\U0001f60e' [U+1f60e], \
                  substituting with a dummy symbol."
-            ]
+                    .to_owned()
+            )]
         );
         assert!(
             crate::take_mathtext_log().is_empty(),

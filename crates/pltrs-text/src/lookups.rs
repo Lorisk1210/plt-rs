@@ -51,6 +51,10 @@ pub struct FontLookup {
     /// The keyword the stretch was given as, if it was (matplotlib's font
     /// manager caches lookups by it).
     pub stretch_keyword: Option<&'static str>,
+    /// The math font family of the font properties looked up, for a
+    /// formula's (matplotlib's font manager caches lookups by it too);
+    /// `None` for the program's `mathtext.fontset` of the moment.
+    pub math_fontfamily: Option<crate::mathtext::Fontset>,
 }
 
 impl FontLookup {
@@ -59,6 +63,7 @@ impl FontLookup {
         self.kind == other.kind
             && self.weight_keyword == other.weight_keyword
             && self.stretch_keyword == other.stretch_keyword
+            && self.math_fontfamily == other.math_fontfamily
             && self.query == other.query
             && (Arc::ptr_eq(&self.generics, &other.generics) || self.generics == other.generics)
     }
@@ -149,6 +154,8 @@ pub(crate) fn adopt(notes: Vec<FontNote>) {
 /// lookup, a font opened unless it was noted since the notes were last
 /// taken.
 fn keep(note: FontNote) {
+    // A formula's notes are said again wherever it is parsed.
+    let note = crate::mathtext_log::in_formula(note);
     NOTES.with(|notes| {
         let mut notes = notes.borrow_mut();
         match note {
@@ -214,6 +221,7 @@ mod tests {
             generics: Arc::default(),
             weight_keyword: None,
             stretch_keyword: None,
+            math_fontfamily: None,
         }
     }
 

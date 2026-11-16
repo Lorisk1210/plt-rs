@@ -138,6 +138,7 @@ impl FontRequest {
                 generics: self.generics.clone(),
                 weight_keyword: self.weight_keyword,
                 stretch_keyword: self.stretch_keyword,
+                math_fontfamily: None,
             },
             weights,
         );

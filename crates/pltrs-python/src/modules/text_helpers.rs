@@ -31,7 +31,7 @@ pub(super) fn warn_missing_glyphs(py: Python<'_>) -> PyResult<()> {
 /// Hands what pltrs (Rust) noted of fonts on this thread to the
 /// package, in order: each font lookup matplotlib's font manager logs
 /// about to `report_font_lookup(kind, family, style, variant, weight,
-/// stretch, size, times)`, which looks the fonts up with the program's
+/// stretch, size, times, math_fontfamily)`, which looks the fonts up with the program's
 /// font manager as many times as pltrs (Rust) made the lookup in a row,
 /// logging as matplotlib's does; each font mathtext opened while the
 /// deprecated `text.kerning_factor` is set to `report_font_open(name,
@@ -75,6 +75,9 @@ fn report_lookup(py: Python<'_>, run: &LookupRun) -> PyResult<()> {
             stretch,
             query.size.into_py(py)?,
             run.times.into_py(py)?,
+            font.math_fontfamily
+                .map(pltrs_text::mathtext::Fontset::name)
+                .into_py(py)?,
         ],
         &[],
     )?;

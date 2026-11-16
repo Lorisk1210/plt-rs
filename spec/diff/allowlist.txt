@@ -210,11 +210,11 @@ corpus/johansson-lectures/Lecture-5-Sympy$ | ^type\[solve\]: | sympy's solve ret
 # twice under matplotlib (the two runs differ as listed).
 corpus/emcee/docs/tutorials/parallel$ | ^(value\[end\]: float|stdout)$ | the tutorial times its serial and parallel samplings with time.time() and prints the seconds
 corpus/pmdarima/examples/example_(pipeline|simple_fit)$ | ^stdout$ | auto_arima's trace prints the seconds each fit took ("Time=0.10 sec")
-corpus/pydmd/tutorials/tutorial1[68]/tutorial-1[68]-(rdmd|lando)$ | ^(value\[t1\]: float|stdout)$ | the tutorial prints the seconds its fits took
+corpus/pydmd/tutorials/tutorial1[68]/tutorial-1[68]-(rdmd|lando)\.ipynb$ | ^(value\[t1\]: float|stdout)$ | the tutorial prints the seconds its fits took
 corpus/pyroomacoustics/examples/(noise_reduction_(subspace|wiener_filtering)|room_shoebox_3d_rt)$ | ^(value\[(runtime|chrono)\]: float|stdout)$ | the example times its processing (time.time(), time.perf_counter()) and prints the seconds
 corpus/pythia-foundations/core/datetime/datetime$ | ^(value\[end\]: float|stdout)$ | the lesson prints the clock (time.time()) and the seconds a sleep took
 corpus/salib/examples/Problem/problem_spec$ | ^stdout$ | the example prints the seconds its analyses took on one core and on several
-corpus/pydmd/tutorials/tutorial(4/tutorial-4-cdmd|16/tutorial-16-rdmd)$ | ^image: (RMS > 1|other size)$ | the compressed and randomized DMD draw unseeded random matrices (numpy's global generator, np.random.randn in pydmd), so the modes plotted differ: two matplotlib runs' figures differ by RMS 34 and 38 and in size (833x448, 842x448)
+corpus/pydmd/tutorials/tutorial(4/tutorial-4-cdmd|16/tutorial-16-rdmd)\.ipynb$ | ^image: (RMS > 1|other size)$ | the compressed and randomized DMD draw unseeded random matrices (numpy's global generator, np.random.randn in pydmd), so the modes plotted differ: two matplotlib runs' figures differ by RMS 34 and 38 and in size (833x448, 842x448)
 corpus/arch/examples/univariate_(forecasting_with_exogenous_variables|using_fixed_variance|volatility_modeling)$ | ^stdout$ | arch's model summaries print the time of day they were fitted ("Time: 22:19:33", datetime.now() in arch's own code, which the harness's calendar does not reach)
 corpus/arch/examples/univariate_volatility_forecasting$ | ^image: (RMS > 1|other size)$ | the figure of cell 15 differs between two matplotlib runs (sizes 1187x460 and 1170x460)
 corpus/prml/notebooks/ch01_Introduction$ | ^warning missing: SyntaxWarning: | Python warns of the invalid escape sequence in prml's own module when it compiles it, not when it loads the bytecode cached by an earlier run: the first matplotlib run warned, the second did not
@@ -429,10 +429,15 @@ api/module_matplotlib_pyplot_0$ | ^warning missing: RuntimeWarning: overflow enc
 # "A draw started from a callback during a draw"). matplotlib with the
 # callback drawing nothing gives pltrs's image exactly (RMS 0.0 in all 14
 # kinds; librosa's 05-onsets with AdaptiveWaveplot.update's draw_idle
-# left out: figures 3 to 5, RMS 0.00); the values the callback read and
+# left out: figures 3 to 5, RMS 0.00; 03-advanced/plot_dynamic_beat
+# likewise, figures 1 to 3, RMS 0.0, task CORP14); the values the callback read and
 # the state after the draw (limits, ticks, the figure's artists, the next
 # draw and print) are matplotlib's.
-(generated/reentry/(agg_filter|artist-draw|colormap-call|formatter|locator-call|locator-tick_values|locator-tick_values-3d|locator-tick_values-polar|norm-call|path_effect|scale-transform|transform-affine|transform-non_affine|xlim_changed-stale)--draw_idle-at-save|corpus/librosa/docs/tutorials/01-intro/05-onsets)$ | ^image: RMS > 1$ | a callback that matplotlib's draw calls redraws the canvas: matplotlib paints that draw into the buffer of the draw under way and paints the rest of the figure over it again; pltrs draws the figure once, the image matplotlib gives when the callback draws nothing
+(generated/reentry/(agg_filter|artist-draw|colormap-call|formatter|locator-call|locator-tick_values|locator-tick_values-3d|locator-tick_values-polar|norm-call|path_effect|scale-transform|transform-affine|transform-non_affine|xlim_changed-stale)--draw_idle-at-save|corpus/librosa/docs/tutorials/(01-intro/05-onsets|03-advanced/plot_dynamic_beat))$ | ^image: RMS > 1$ | a callback that matplotlib's draw calls redraws the canvas: matplotlib paints that draw into the buffer of the draw under way and paints the rest of the figure over it again; pltrs draws the figure once, the image matplotlib gives when the callback draws nothing
+
+# matplotlib warns that a legend at loc="best" can be slow when its search
+# for the place took more than a second (`Legend._find_best_position`).
+corpus/librosa/docs/tutorials/03-advanced/plot_dynamic_beat$ | ^warning missing: UserWarning: Creating legend with loc="best" can be slow with large amounts of data\.$ | matplotlib's search for the legend's place over the tempogram's 1,000-point curves takes 0.85 to 1.33 s a time (timed on MS-02, loaded or not: one search past the second, two under load), and warns when one passes the second; pltrs (Rust) saves the whole figure in 0.04 s, its search included (task CORP14)
 
 # The same, for members a library overrides publicly (GEN8): the library's
 # own figures are the same under both (images plain and tight, the values
@@ -489,6 +494,7 @@ api/module_matplotlib_pyplot_0$ | ^warning missing: RuntimeWarning: overflow enc
 ^generated/overrides/PathCollection- | ^image: RMS > 1$ @ ^figure 2$ | the unpickled copy autoscales to matplotlib's limits in display pixels (an empty Axes) and to the data's under pltrs
 # Corpus round 11 (CORP11): pltrs' looks and backend, listed with matplotlib's.
 corpus/dataviz-course/2\. Style sheets$ | ^value\[sorted\]: list length$ | the notebook sorts style.available, which lists pltrs' two looks (pltrs-modern, pltrs-modern-dark) with matplotlib's sheets
+corpus/matplotlib-docs/doc/release/prev_whats_new/whats_new_3\.4\.0$ | ^callback\[x\]: runs another number of times$ | the FuncNorm's forward runs 185 times under matplotlib, 184 under pltrs: the one more is matplotlib's transform tree recomputing a TransformedBbox through the colorbar's FuncNorm scale in one draw of the tight print (get_points < bounds < get_matrix < get_affine, as its caches were invalidated), where pltrs (Rust) computes the box natively; the values, the norm's results and the images are matplotlib's (task CORP14)
 corpus/matplotlib-docs/doc/release/prev_whats_new/whats_new_3\.9\.0$ | ^value\[list_all\]: list length$ | backend_registry.list_all() lists pltrs' own backend, 'pltrs', after matplotlib's built-in ones
 
 # The written family (corpus `written`, spec/diff/written, task USR1).

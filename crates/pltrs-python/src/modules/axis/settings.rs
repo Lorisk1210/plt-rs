@@ -66,6 +66,20 @@ fn is_default_label(owner: AxisOwner, name: String) -> PyResult<bool> {
     })
 }
 
+/// Says whether the label text counts as never set (`isDefault_label`
+/// assigned), which unit converters then replace or leave alone.
+fn set_default_label(owner: AxisOwner, name: String, default: bool) -> PyResult<()> {
+    match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => {
+            axis.set_default_label(default);
+        }
+        AnyAxis::Deep(axis) => {
+            axis.set_default_label(default);
+        }
+    }
+    Ok(())
+}
+
 /// Sets the label text, which unit converters then leave alone, even when
 /// it stays the same (`set_label_text`).
 fn set_label_text(owner: AxisOwner, name: String, text: String) -> PyResult<()> {
@@ -460,6 +474,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("is_default_helper", is_default_helper)?;
     module.add("set_default_helper", set_default_helper)?;
     module.add("is_default_label", is_default_label)?;
+    module.add("set_default_label", set_default_label)?;
     module.add("set_label_text", set_label_text)?;
     module.add("minorticks", minorticks)?;
     module.add("get_remove_overlapping_locs", get_remove_overlapping_locs)?;

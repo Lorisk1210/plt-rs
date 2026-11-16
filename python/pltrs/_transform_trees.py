@@ -422,6 +422,10 @@ def _push_size(fig, bbox_inches):
 def _push_limits(ax, which, bbox):
     """The view or data limits the program gave the box of *ax*, for
     pltrs (Rust), as they are (matplotlib assigns the box's points)."""
+    if getattr(ax, "name", None) == "3d":
+        # A 3-D Axes' boxes are its projection plane's, which matplotlib's
+        # 3-D limits (``xy_viewLim``, ``zz_dataLim``...) do not read.
+        return
     (x0, y0), (x1, y1) = bbox.get_points()
     setter = (_axis.set_view_interval if which == "view"
               else _axis.set_data_interval)

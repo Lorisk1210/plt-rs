@@ -80,6 +80,11 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
     """The base class of `~.axes.Axes`: an axes apart from its plotting
     methods."""
 
+    #: The projection class and keywords the figure made the Axes with
+    #: (matplotlib's field, which ``plt.subplot`` compares to reuse an
+    #: Axes); None for an Axes the figure did not make.
+    _projection_init = None
+
     def set_figure(self, fig):
         # docstring inherited: matplotlib's override has none.
         super().set_figure(fig)

@@ -23,9 +23,6 @@
 # pltrs computes them in `cm` from pltrs (Rust)'s definitions. The names and
 # values are the same (`cargo xtask diff --docs` compares module values).
 ^matplotlib\.cm\.(datad|cmaps_listed|multivar_cmaps|bivar_cmaps)$ | ^is not present in stub$ | matplotlib imports these tables from private modules; pltrs builds the same tables in cm itself
-# matplotlib binds packaging's `parse`; pltrs's function calls it, importing
-# packaging on the first call only (the import cost of `import matplotlib`).
-^matplotlib\.parse_version$ | ^is not present in stub$ | packaging's parse, imported on the first call rather than at import
 
 # matplotlib's FT2Font and FT2Image are C++ (pybind11): stubtest cannot read
 # their signatures, so where matplotlib's stub differs from its own run time

@@ -14,7 +14,7 @@ under the Matplotlib License.
 
 from numbers import Real
 
-from .. import _api, _handles, _live_transforms, _unusable
+from .. import _api, _handles, _live_transforms, _unusable, _values
 from .._native import axes as _axes
 from .._program_classes import takes_from_program
 from ..text import Text
@@ -31,7 +31,7 @@ class TitlesMixin:
         return _handles.wrap(_axes.title_text(self._native, loc), Text,
                              self._figure)
 
-    @property
+    @_values.reassignable
     def title(self):
         """The centre title (a `.Text`)."""
         return self._title_at("center")

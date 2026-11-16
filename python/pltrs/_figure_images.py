@@ -12,7 +12,7 @@ from numbers import Real
 import numpy as np
 
 from . import _docstring
-from . import _api, _handles, _val_or_rc, colorizer as mcolorizer, image as mimage
+from . import _api, _handles, _val_or_rc, _values, colorizer as mcolorizer, image as mimage
 from ._native import backends as _backends, image as _native_image
 
 
@@ -128,7 +128,7 @@ class FigureImagesMixin:
         im._internal_update(kwargs)
         return im
 
-    @property
+    @_values.reassignable
     def images(self):
         """The `.FigureImage`\\s of the figure, in the order they were
         added."""

@@ -555,12 +555,18 @@ impl<'a> AxisPainter<'a> {
         if !self.axes.projection.has_spine(side) {
             return None;
         }
-        let outline = {
+        let (outline, unregistered) = {
             let layout = cx.read();
-            self.spine(layout, side)?.outline_through(layout)?
+            let spine = self.spine(layout, side)?;
+            (spine.outline_through(layout)?, spine.unregistered)
         };
         cx.release_for(outline.transform());
         let spine = outline.extent();
+        if unregistered {
+            // matplotlib's spine with no axis registered measures as its
+            // line alone.
+            return Some(spine);
+        }
         let mut bbox = spine;
         let layout = cx.read();
         if self.axis.ticks.is_err() {

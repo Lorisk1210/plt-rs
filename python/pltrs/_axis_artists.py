@@ -15,6 +15,7 @@ Kept close to matplotlib 3.11.2's ``axis`` (Matplotlib License).
 """
 
 import functools
+import weakref
 from numbers import Real
 
 import numpy as np
@@ -48,6 +49,27 @@ def _axis_of(owner):
     """The `.Axis` of the owner of an axis' part (a `Tick` or an
     `_AxisText`), None for a tick made alone."""
     return owner._tick_axis if isinstance(owner, Tick) else owner.axis
+
+
+#: The transforms of the spines the program replaced, by axis and side
+#: (True for the high side), which the axis' tick lines keep until they are
+#: made anew; pltrs (Rust) draws them so (`_axis.keep_tick_spine`). Not
+#: pickled, as the native sides are not.
+_KEPT_TICK_SIDES = weakref.WeakKeyDictionary()
+
+
+def keep_tick_side(axis, high, transform):
+    """Have the tick lines of *axis* on the low or *high* side keep
+    *transform*, the one of the spine there that the program replaces, as
+    matplotlib's ticks (and those copied from them) keep the transform
+    their spine gave them."""
+    _KEPT_TICK_SIDES.setdefault(axis, {})[high] = transform
+
+
+def forget_tick_sides(axis):
+    """Have the tick lines of *axis* take the transforms of the spines
+    there now, as matplotlib's ticks made anew (`~.Axis.reset_ticks`) do."""
+    _KEPT_TICK_SIDES.pop(axis, None)
 
 
 class _AxisPart(_mirrors.Mirroring):
@@ -495,6 +517,11 @@ class Tick(Artist):
                                          lambda: make(pad)[0])
         which = ("tick1" if part is self.tick1line
                  else "tick2" if part is self.tick2line else "grid")
+        axis = self._tick_axis
+        kept = (_KEPT_TICK_SIDES.get(axis, {})
+                if axis is not None and which != "grid" else {})
+        if (which == "tick2") in kept:
+            return kept[which == "tick2"]
         return _live_transforms.kept(
             part, "transform", which,
             lambda: getattr(axes, f"get_{prefix}axis_transform")(which))

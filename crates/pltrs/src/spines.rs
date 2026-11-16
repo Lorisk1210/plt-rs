@@ -160,6 +160,10 @@ pub(crate) struct SpineArtist {
     /// that takes the place of one before the axes was ever drawn counts
     /// as placed ([`Axes::replace_spine`](crate::axes::Axes::replace_spine)).
     pub(crate) unplaced: bool,
+    /// Whether the program made the spine and registered no axis with it
+    /// ([`Spine::set_unregistered`]): matplotlib's spine then measures as
+    /// its line alone, without the ticks of the axis of its side.
+    pub(crate) unregistered: bool,
     rc: Rc<RcParams>,
 }
 
@@ -172,6 +176,7 @@ pltrs_core::archive_struct!(SpineArtist {
     bounds,
     patch,
     unplaced,
+    unregistered,
     rc
 } skip { program_path });
 
@@ -203,6 +208,7 @@ impl SpineArtist {
             program_path: None,
             patch: SpinePatch::Line,
             unplaced: false,
+            unregistered: false,
             rc,
         };
         spine.place(SpinePosition::default());
@@ -550,6 +556,33 @@ impl Spine {
     /// ```
     pub fn is_unplaced(&self) -> bool {
         self.raw.with::<SpineArtist, _>(|s| s.unplaced)
+    }
+
+    /// Has the spine, one the program made, measure with (`false`) or
+    /// without (`true`) the ticks of the axis of its side, as matplotlib's
+    /// spine measures with those of the axis registered with it
+    /// (`register_axis`), and as its line alone while it has none.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::prelude::*;
+    /// // matplotlib's look, whose ticks stand out of the spines.
+    /// pltrs::look::set_figure_look(pltrs::look::FigureLook::Matplotlib);
+    /// let fig = Figure::with_size(6.4, 4.8, 100.0);
+    /// let ax = fig.subplot();
+    /// ax.plot([0.0, 1.0], [0.0, 1.0])?;
+    /// fig.layout();
+    /// let bottom = &ax.spines().bottom;
+    /// let padded = bottom.window_extent().expect("drawn");
+    /// bottom.set_unregistered(true);
+    /// let line = bottom.window_extent().expect("drawn");
+    /// assert!(line.height() < padded.height(), "the ticks pad it no more");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_unregistered(&self, unregistered: bool) -> &Self {
+        self.raw
+            .with_mut::<SpineArtist, _>(|s| s.unregistered = unregistered);
+        self
     }
 
     /// The spine position.

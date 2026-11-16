@@ -213,7 +213,7 @@ class ContoursMixin:
         native = _mplot3d.contour(self._native, bool(filled), grids, placement,
                                   _levels(levels), *look[:2])
         return _finish(_in_3d(mcontour.QuadContourSet, placement), native, self,
-                       look, kwargs)
+                       look, kwargs, levels=levels)
 
     def _tricontour3d(self, filled, args, kwargs, placement):
         """The `.TriContourSet` of ``tricontour`` (or, *filled*,
@@ -234,7 +234,8 @@ class ContoursMixin:
         tri._turn_clockwise_triangles()
         native = _mplot3d.tricontour(self._native, bool(filled), (tri._native, z),
                                      placement, _levels(levels), *look[:2])
-        return _finish(_in_3d(TriContourSet, placement), native, self, look, kwargs)
+        return _finish(_in_3d(TriContourSet, placement), native, self, look, kwargs,
+                       levels=levels)
 
     @_preprocess_data()
     def contour(self, X, Y, Z, *args,

@@ -18,8 +18,9 @@ import warnings
 import numpy as np
 
 from . import (
-    _api, _artist_clipping, _artist_effects, _docstring, _lazy_imports, _program_classes,
-    _tick_helpers, _unusable, _values, cbook, scale as mscale, units as munits)
+    _api, _artist_clipping, _artist_effects, _axis_artists, _docstring, _lazy_imports,
+    _program_classes, _tick_helpers, _unusable, _values, cbook, scale as mscale,
+    units as munits)
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._drawn_with import DrawnWith
 from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
@@ -836,6 +837,11 @@ class Axis(DrawnWith, Artist):
         converter's label replaces it."""
         return _axis.is_default_label(*self._args())
 
+    @isDefault_label.setter
+    def isDefault_label(self, value):
+        # matplotlib's field, which its unit handling reads.
+        _axis.set_default_label(*self._args(), bool(value))
+
     @property
     def label_position(self):
         """The side the label is on (see `get_label_position`)."""
@@ -1314,14 +1320,14 @@ class Axis(DrawnWith, Artist):
         tick_kw = self._major_tick_kw if major else self._minor_tick_kw
         return self._tick_class(self.axes, 0, major=major, **tick_kw)
 
-    @property
+    @_values.reassignable
     def majorTicks(self):
         """The major ticks made so far, at least one: those of the locations
         the axis placed when drawn and those `get_major_ticks` listed, as
         matplotlib's tick list holds them."""
         return self._tick_objects(False, _axis.ticks_made(*self._args(), False))
 
-    @property
+    @_values.reassignable
     def minorTicks(self):
         """The minor ticks made so far, at least one (see `majorTicks`)."""
         return self._tick_objects(True, _axis.ticks_made(*self._args(), True))
@@ -1428,6 +1434,7 @@ class Axis(DrawnWith, Artist):
         self._ticks_seen = {False: 0, True: 0}
         # Made anew, they take their transforms from the spines there now.
         _axis.forget_tick_spines(*self._args())
+        _axis_artists.forget_tick_sides(self)
 
     def _retire_ticks(self):
         """Leave the ticks made so far as matplotlib's `clear` and
@@ -2169,12 +2176,12 @@ class Axis(DrawnWith, Artist):
 
     # --- Label and offset text -----------------------------------------------
 
-    @property
+    @_values.reassignable
     def label(self):
         """The `.Text` object of the axis label."""
         return self._axis_label._synced()
 
-    @property
+    @_values.reassignable
     def offsetText(self):
         """The `.Text` object of the offset (or scale) of the ticks."""
         return self._offset_text._synced()

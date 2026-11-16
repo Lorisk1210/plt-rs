@@ -362,10 +362,12 @@ class Patch(Artist):
         return self.convert_xunits(xy[0]), self.convert_yunits(xy[1])
 
     def update_from(self, other):
+        # matplotlib copies the dash pattern *other* draws but not its
+        # ``_linestyle``: the linestyle reads back as the patch's own.
+        linestyle = self.get_linestyle()
         super().update_from(other)
         _patches.update_style_from(self._native, other._native)
-        if "_linestyle" in other.__dict__:
-            self._linestyle = other._linestyle
+        self._linestyle = linestyle
 
     def _process_radius(self, radius):
         """The tolerance of a containment test: *radius*, else a number
@@ -456,6 +458,13 @@ class Patch(Artist):
     #: of a figure or an Axes were made from, by property, until the
     #: program gives that colour (see `._background_patch`).
     _made_colors = {}
+
+    def _cycled_number(self, name, native):
+        # A number pltrs (Rust) took from the Axes' property cycle reads back
+        # as the cycle holds it (an alpha cycled over an array: numpy floats).
+        if self.axes is None:
+            return _values.NONE_GIVEN
+        return _values.cycle_number(self.axes, name, native)
 
     def _take_cycle_color(self, name):
         """Keep the colour *name* pltrs (Rust) took from the property cycle

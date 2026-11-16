@@ -6,10 +6,14 @@ uses this module to
 1. fetch each corpus (``fetch``): a sparse, shallow git checkout of its
    ``fetch`` patterns at its commit into ``OUT/corpora/<name>/tree``,
    checked against the manifest's SHA-256 (``tree_digest``) and made
-   read-only, done again only when the manifest changes;
+   read-only, done again only when the manifest changes; a corpus of this
+   repository's own (a ``path`` instead of a repository) is its directory
+   here, fetched from nowhere;
 2. list its programs (``programs``): the files its ``programs`` globs
    match, but those its ``exclude`` globs match and those naming a URL
-   outside its ``data-urls`` (they would need the network); a notebook, a
+   outside its ``data-urls`` (they would need the network; a corpus of the
+   repository's own is written to run offline, and its URLs are data, such
+   as XML namespaces and links in a saved SVG); a notebook, a
    Markdown page or a reStructuredText page (its IPython directives and
    plot directives, ``doc_examples.py``) becomes a script of cells (``# %%``
    lines, the percent format), the corpus' ``prelude`` its first, under
@@ -53,6 +57,8 @@ from typing import Any, Iterator
 import doc_examples
 
 HERE = pathlib.Path(__file__).resolve().parent
+#: The repository's root, where a corpus' ``path`` starts.
+ROOT = HERE.parents[1]
 #: The manifest of the corpora.
 MANIFEST = HERE / "corpora.toml"
 #: The line starting a cell of a script in the percent format.
@@ -97,18 +103,24 @@ class Corpus:
 
     name: str
     title: str
-    repository: str
-    commit: str
     licence: str
-    fetch: tuple[str, ...]
-    sha256: str
     programs: tuple[str, ...]
-    exclude: tuple[str, ...]
-    outputs: tuple[str, ...]
-    data_urls: tuple[str, ...]
-    file_urls: tuple[str, ...]
+    #: Where it is fetched from (a git URL), at which commit, which
+    #: patterns of it, and the SHA-256 of what is fetched (`tree_digest`);
+    #: all empty for a corpus of the repository's own (`path`).
+    repository: str = ""
+    commit: str = ""
+    fetch: tuple[str, ...] = ()
+    sha256: str = ""
+    #: A corpus of the repository's own: its directory, relative to the
+    #: repository's root (`ROOT`), which is its tree.
+    path: str = ""
+    exclude: tuple[str, ...] = ()
+    outputs: tuple[str, ...] = ()
+    data_urls: tuple[str, ...] = ()
+    file_urls: tuple[str, ...] = ()
     #: Code each program's cells start with, a cell of its own.
-    prelude: str
+    prelude: str = ""
     #: The variables the programs run with, as the manifest spells them
     #: (see `environment`).
     environment: tuple[tuple[str, str], ...] = ()
@@ -128,8 +140,9 @@ class Corpus:
         return out / "corpora" / self.name
 
     def tree(self, out: pathlib.Path) -> pathlib.Path:
-        """The fetched tree."""
-        return self.directory(out) / "tree"
+        """The fetched tree, or the repository's directory of a corpus of
+        its own."""
+        return ROOT / self.path if self.path else self.directory(out) / "tree"
 
 
 #: The fields of a corpus that choose what of its tree is read, not what is
@@ -141,6 +154,14 @@ def _output_listing(tree: pathlib.Path) -> pathlib.Path:
     """The file listing the output directories of the corpus fetched into
     *tree*, with their subdirectories."""
     return tree.parent / "outputs.json"
+
+
+def _output_directories(corpus: Corpus, tree: pathlib.Path) -> list[str]:
+    """The corpus' output directories, with the subdirectories its
+    repository has (listed when it was fetched)."""
+    if corpus.path:
+        return list(corpus.outputs)
+    return json.loads(_output_listing(tree).read_text())
 
 
 @dataclasses.dataclass(frozen=True)
@@ -182,12 +203,13 @@ def load(manifest: pathlib.Path = MANIFEST) -> list[Corpus]:
         Corpus(
             name=name,
             title=table["title"],
-            repository=table["repository"],
-            commit=table["commit"],
             licence=table["licence"],
-            fetch=tuple(table["fetch"]),
-            sha256=table["sha256"],
             programs=tuple(table["programs"]),
+            repository=table.get("repository", ""),
+            commit=table.get("commit", ""),
+            fetch=tuple(table.get("fetch", ())),
+            sha256=table.get("sha256", ""),
+            path=table.get("path", ""),
             exclude=tuple(table.get("exclude", ())),
             outputs=tuple(table.get("outputs", ())),
             data_urls=tuple(table.get("data-urls", ())),
@@ -251,9 +273,13 @@ def tree_digest(tree: pathlib.Path) -> str:
 
 def fetch(corpus: Corpus, out: pathlib.Path) -> pathlib.Path:
     """The corpus' tree, fetched first unless it is there for the manifest's
-    entry as it is."""
-    directory = corpus.directory(out)
+    entry as it is; a corpus of the repository's own is there already."""
     tree = corpus.tree(out)
+    if corpus.path:
+        if not tree.is_dir():
+            raise CorpusError(f"{corpus.name}: no directory {corpus.path} in the repository")
+        return tree
+    directory = corpus.directory(out)
     stamp = directory / "fetched.json"
     entry = json.dumps({key: value for key, value in dataclasses.asdict(corpus).items()
                         if key not in _READING_ONLY}, sort_keys=True)
@@ -520,7 +546,7 @@ def programs(corpus: Corpus, out: pathlib.Path) -> list[CorpusProgram]:
 
     def add(relative: str, path: pathlib.Path, text: str, cellwise: bool) -> None:
         rewritten = _rewrite_urls(text, corpus, tree)
-        if _names_url(rewritten):
+        if not corpus.path and _names_url(rewritten):
             return
         if cellwise or rewritten != text:
             path = converted / relative
@@ -577,5 +603,5 @@ def shadow(corpus: Corpus, tree: pathlib.Path, into: pathlib.Path) -> None:
             target.symlink_to(tree / relative)
         except OSError:
             shutil.copyfile(tree / relative, target)
-    for output in json.loads(_output_listing(tree).read_text()):
+    for output in _output_directories(corpus, tree):
         (into / output).mkdir(parents=True, exist_ok=True)

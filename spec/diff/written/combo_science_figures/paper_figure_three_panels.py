@@ -1,0 +1,37 @@
+# Paper figure: (a) spectrum with inset zoom, (b) 2-D map with colour bar, (c) fit with residual subpanel; panel letters.
+import numpy as np
+import matplotlib.pyplot as plt
+
+rng = np.random.default_rng(30)
+fig = plt.figure(figsize=(10, 6.5), layout="constrained")
+gs = fig.add_gridspec(2, 2, height_ratios=[1, 1])
+ax_a = fig.add_subplot(gs[0, 0])
+w = np.linspace(400, 700, 600)
+spec = np.exp(-((w - 520) / 15) ** 2) + 0.4 * np.exp(-((w - 610) / 8) ** 2) + rng.normal(0, 0.01, w.size)
+ax_a.plot(w, spec, lw=0.8)
+ax_a.set_xlabel(r"$\lambda$ [nm]")
+ins = ax_a.inset_axes([0.6, 0.5, 0.35, 0.4], xlim=(595, 625), ylim=(0.2, 0.5))
+ins.plot(w, spec, lw=0.8)
+ax_a.indicate_inset_zoom(ins)
+ax_b = fig.add_subplot(gs[0, 1])
+y, x = np.mgrid[-1:1:80j, -1:1:80j]
+m = ax_b.pcolormesh(x, y, np.exp(-(x ** 2 + 2 * y ** 2) * 3) * np.cos(6 * x), cmap="RdBu_r", vmin=-1, vmax=1)
+fig.colorbar(m, ax=ax_b, label=r"$\Delta n$ [a.u.]")
+ax_b.set_aspect("equal")
+sub = gs[1, :].subgridspec(2, 1, height_ratios=[3, 1], hspace=0)
+ax_c = fig.add_subplot(sub[0])
+ax_r = fig.add_subplot(sub[1], sharex=ax_c)
+t = np.linspace(0, 5, 40)
+yv = 2 * np.exp(-t / 1.5) + rng.normal(0, 0.05, 40)
+fit = 2 * np.exp(-t / 1.5)
+ax_c.errorbar(t, yv, yerr=0.05, fmt="o", ms=3)
+ax_c.plot(t, fit, "r", label=r"$2e^{-t/\tau}$, $\tau=1.5$")
+ax_c.legend()
+ax_c.tick_params(labelbottom=False)
+ax_r.plot(t, yv - fit, "k.")
+ax_r.axhline(0, color="r", lw=0.8)
+ax_r.set_xlabel("t [s]")
+for ax, letter in [(ax_a, "a"), (ax_b, "b"), (ax_c, "c")]:
+    ax.text(-0.1, 1.05, f"({letter})", transform=ax.transAxes, fontweight="bold")
+print(round(float(np.std(yv - fit)), 5), [round(v, 3) for v in ins.get_xlim()])
+fig.savefig("paper.png", dpi=50)

@@ -155,6 +155,11 @@ def _group_datasets(tup, kwargs, ambiguous_fmt_datakey, axes):
     if any(v is None for v in tup):
         raise ValueError("x, y, and format string must not be None")
     if fmt is not None and fmt.lower() != 'none':
+        # The colour as matplotlib's ``_process_plot_format`` gives it, which
+        # the warning shows: an RGBA tuple for a whole-colour format or "Cn".
+        whole = _format_color(fmt)
+        if whole is not None:
+            parts = (*parts[:2], whole)
         for prop_name, val in zip(('linestyle', 'marker', 'color'), parts):
             if (val is not None and prop_name in kwargs and val != 'None'):
                 _api.warn_external(

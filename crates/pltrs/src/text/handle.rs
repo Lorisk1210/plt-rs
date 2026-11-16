@@ -295,8 +295,9 @@ artist_properties! {
         position, set_position: Point => position_replaced;
         /// Text colour.
         color, set_color: Color;
-        /// Counter-clockwise rotation in degrees.
-        rotation, set_rotation: f64;
+        /// Counter-clockwise rotation in degrees, stored in `[0, 360)` as
+        /// matplotlib's `set_rotation` stores it.
+        rotation, set_rotation: f64 => rotation_replaced;
         /// Whether the rotation is a direction in the text's coordinates,
         /// turned by its transform (matplotlib's `transform_rotates_text`).
         transform_rotates_text, set_transform_rotates_text: bool;

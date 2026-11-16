@@ -1,0 +1,20 @@
+# Clear axes and figures between plots (cla, clf, close) and check what remains.
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(4, 3))
+ax.plot([1, 2, 3])
+ax.set_title("first")
+ax.cla()
+print(len(ax.lines), repr(ax.get_title()))
+ax.plot([3, 2, 1], "r")
+fig.savefig("after_cla.png")
+plt.clf()
+print(len(fig.axes))
+plt.plot([1, 3, 2], "g")
+fig.savefig("after_clf.png")
+plt.close(fig)
+print(plt.get_fignums())
+plt.figure()
+plt.figure()
+plt.close("all")
+print(plt.get_fignums())

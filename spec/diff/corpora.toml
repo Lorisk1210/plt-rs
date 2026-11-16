@@ -15,6 +15,11 @@
 # as the programs reading it would download it, and may lack a licence
 # statement: nothing of it runs, is copied as a corpus or is redistributed.
 #
+# A corpus of the repository's own has a `path` (its directory, relative to
+# the repository's root, which is its tree) instead of `repository`,
+# `commit`, `fetch` and `sha256`: nothing is fetched, and its programs'
+# reference runs depend on their text alone.
+#
 # * `programs`: the programs, globs in the tree. A `.py` file runs whole, as
 #   a gallery example does; a notebook (`.ipynb`, nbformat 3 or 4) or a
 #   Markdown page with ```python blocks or a MyST page's ```{code-cell}
@@ -1702,3 +1707,9 @@ sha256 = "9915f8712178be29e92f65f268c9185aeaf33ada9da086eaab28c3fc12eaf3c6"
 programs = ["Labs/*.ipynb", "Lectures/*.ipynb", "Worksheets/*.ipynb"]
 exclude = []
 outputs = []
+
+[written]
+title = "Programs of the kind users write for an ordinary chart, about 60 topics, written for pltrs (task USR1)"
+path = "spec/diff/written"
+licence = "MIT OR Apache-2.0 (the repository's)"
+programs = ["*/*.py"]

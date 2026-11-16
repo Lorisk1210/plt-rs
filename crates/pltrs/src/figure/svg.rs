@@ -140,4 +140,23 @@ mod tests {
             assert!(svg.contains(&format!("<g id=\"{gid}\"")), "{gid}");
         }
     }
+
+    #[test]
+    fn text_elements_write_their_style_before_their_anchor() {
+        let svg = crate::rc::context(|| {
+            crate::rc::set("svg.fonttype", "none").expect("a valid font type");
+            let fig = Figure::new();
+            fig.subplot().text(0.5, 0.5, "label");
+            fig.to_svg().expect("an SVG document")
+        });
+        let element = svg
+            .lines()
+            .find(|line| line.contains(">label</text>"))
+            .expect("the text as a text element");
+        let attributes: Vec<_> = ["style=", "x=", "y=", "transform="]
+            .iter()
+            .map(|name| element.find(name).expect("each attribute"))
+            .collect();
+        assert!(attributes.is_sorted(), "{element}");
+    }
 }

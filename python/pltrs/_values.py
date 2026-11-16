@@ -163,6 +163,18 @@ def cycle_color(axes, native):
     return NONE_GIVEN
 
 
+def cycle_number(axes, name, native):
+    """The value of the property cycle of *axes* for the number property
+    *name* (``alpha``) that *native* is, as the cycle holds it (a cycler of
+    an array holds numpy floats), or `given`'s default for none."""
+    if native is None:
+        return NONE_GIVEN
+    for value in prop_cycle(axes).by_key().get(name, []):
+        if _same(value, native):
+            return value
+    return NONE_GIVEN
+
+
 def _same_truth(value, native):
     """Whether *value* has the truth value pltrs (Rust) holds as
     *native*."""

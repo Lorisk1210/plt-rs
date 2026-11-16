@@ -1039,6 +1039,10 @@ class Colorbar:
         _colorbar.update_normal(self._native, self._shown())
         if self.mappable.norm is not self._ticker_norm:
             self._keep_tickers()
+        # matplotlib's ``_draw_all`` puts the colorbar's own tickers back on
+        # its long axis, replacing what ``set_ticks(labels=...)``,
+        # ``set_ticklabels`` or ``minorticks_on`` set there.
+        self.update_ticks()
         self._adopt_solids()
         self.stale = True
 
@@ -1079,8 +1083,10 @@ class Colorbar:
         if np.iterable(ticks):
             self.long_axis.set_ticks(ticks, labels=labels, minor=minor,
                                      **kwargs)
+            self._locator = self.long_axis.get_major_locator()
         else:
-            self.long_axis.set_major_locator(ticks)
+            self._locator = ticks
+            self.long_axis.set_major_locator(self._locator)
 
     def set_ticklabels(self, ticklabels, *, minor=False, **kwargs):
         """
@@ -1140,6 +1146,7 @@ class Colorbar:
     def minorticks_off(self):
         """Turn the minor ticks of the colorbar off."""
         _colorbar.set_minorticks(self._native, False)
+        self._minorlocator = self.long_axis.get_minor_locator()
 
     def set_label(self, label, *, loc=None, **kwargs):
         """

@@ -1,0 +1,30 @@
+# Weather station: temperature band (min/max) with mean line, rain bars on twin axis, a wind rose and a monthly table.
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+rng = np.random.default_rng(150)
+days = pd.date_range("2024-01-01", "2024-12-31", freq="D")
+doy = days.dayofyear.to_numpy()
+tmean = 10 + 9 * np.sin((doy - 110) / 365 * 2 * np.pi) + rng.normal(0, 2, len(days))
+tmin, tmax = tmean - rng.uniform(3, 7, len(days)), tmean + rng.uniform(3, 7, len(days))
+rain = np.where(rng.random(len(days)) > 0.65, rng.gamma(2, 4, len(days)), 0)
+wind_dir = rng.vonmises(np.deg2rad(240), 2, len(days)) % (2 * np.pi)
+fig = plt.figure(figsize=(12, 8))
+ax = fig.add_subplot(2, 3, (1, 2))
+ax.fill_between(days, tmin, tmax, color="C3", alpha=0.25)
+ax.plot(days, pd.Series(tmean).rolling(7, center=True).mean(), color="C3")
+tw = ax.twinx()
+tw.bar(days, rain, color="C0", width=1, alpha=0.6)
+tw.set_ylim(0, 80)
+rose = fig.add_subplot(2, 3, 3, projection="polar")
+counts, edges = np.histogram(wind_dir, bins=16, range=(0, 2 * np.pi))
+rose.bar(edges[:-1], counts, width=2 * np.pi / 16, align="edge", color="C2", edgecolor="w")
+rose.set_theta_zero_location("N"); rose.set_theta_direction(-1)
+tab = fig.add_subplot(2, 1, 2)
+tab.axis("off")
+monthly = pd.DataFrame({"tmean": tmean, "rain": rain}, index=days).resample("MS").agg({"tmean": "mean", "rain": "sum"}).round(1)
+tab.table(cellText=monthly.T.values, rowLabels=["T mean", "rain"], colLabels=[d.strftime("%b") for d in monthly.index], loc="center")
+fig.tight_layout()
+print(monthly["rain"].tolist(), counts.tolist())
+fig.savefig("station.png", dpi=50)

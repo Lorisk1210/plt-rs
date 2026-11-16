@@ -19,7 +19,9 @@ import weakref
 import numpy as np
 
 from . import _lazy_imports
+from . import transforms as _mtransforms
 from ._native import artist as _artist, drawing as _drawing, register as _register, transforms as _transforms
+from ._native import collections as _native_collections
 from . import _program_classes
 from ._program_classes import class_cache
 from .transforms import (
@@ -144,29 +146,57 @@ def for_axes(transform, axes):
     return transform
 
 
-def _computes_matrix(t):
+def _computes_matrix(t, by_matrix=False):
     """Whether *t* holds, anywhere in its tree, an affine transform of a
     class of the program's that computes its matrix itself (``get_matrix``,
     as mpltern's shift of a tick label away from its corner does, from
-    where the Axes is when asked)."""
+    where the Axes is when asked) where pltrs (Rust) takes it by that
+    matrix: not where it maps points through the class' own methods
+    (`_description`, whose *by_matrix* this follows)."""
     if getattr(t, "_live", None) is not None or not isinstance(t, Transform):
         return False
     if isinstance(t, TransformWrapper):
-        return _computes_matrix(t._child)
+        return _computes_matrix(t._child, by_matrix)
     if isinstance(t, (CompositeGenericTransform, CompositeAffine2D)):
-        return _computes_matrix(t._a) or _computes_matrix(t._b)
+        first_by_matrix = by_matrix or isinstance(t, CompositeAffine2D) or (
+            _maps_points_itself(type(t._a)) and t._b.is_affine)
+        return _computes_matrix(t._a, first_by_matrix) or _computes_matrix(t._b, True)
     if isinstance(t, (BlendedGenericTransform, BlendedAffine2D)):
-        return _computes_matrix(t._x) or _computes_matrix(t._y)
+        return _computes_matrix(t._x, True) or _computes_matrix(t._y, True)
     from ._program_classes import takes_from_program
-    return t.is_affine and takes_from_program(type(t), "get_matrix")
+    return (t.is_affine and takes_from_program(type(t), "get_matrix")
+            and (by_matrix or not _maps_points_itself(type(t))))
+
+
+def ask_measured(artist, for_layout):
+    """
+    matplotlib's tight box of the Axes of *artist* (for a layout engine with
+    *for_layout*) as far as it asks the artist's transforms: an artist it
+    takes in (``get_default_bbox_extra_artists``) is asked for its own
+    (``get_tightbbox``), whose text and image map their place through their
+    transform (`._transform_replay.tight_box_measured`); pltrs (Rust)
+    handed the transforms again with what they answered. Where an artist
+    `ask_when_drawn` registered is measured.
+    """
+    from . import _transform_replay
+    axes = artist.axes
+    if axes is None or artist not in axes.get_default_bbox_extra_artists():
+        return
+    with _mtransforms._noting() as noted:
+        _transform_replay.tight_box_measured(artist)
+        given = artist.__dict__.get("_given_transform")
+        if noted and isinstance(given, Transform):
+            _transforms.set_transform(artist._native, to_native(given, held_by=artist._figure or artist))
 
 
 def follow_given(artist):
     """
-    Hand pltrs (Rust) the transform *artist* was given again where the
-    artist is measured, when it holds a matrix the program's class
-    computes: pltrs (Rust) took the matrix as it was then, and matplotlib
-    computes it wherever it maps through the transform.
+    Hand pltrs (Rust) the transform the text *artist* was given again where
+    the text is measured, when it holds a matrix the program's class
+    computes: pltrs (Rust) took the matrix as it was then, and matplotlib's
+    ``Text.get_window_extent`` maps the text's position through the
+    transform, which asks it (that call is made, and what it answered
+    handed over).
     """
     given = artist.__dict__.get("_given_transform")
     if not isinstance(given, Transform):
@@ -176,25 +206,59 @@ def follow_given(artist):
         # (The tree of a transform is made once.)
         computes = given.__dict__["_computes_matrix"] = _computes_matrix(given)
     if computes:
-        _transforms.set_transform(artist._native, to_native(given, held_by=artist._figure or artist))
+        with _mtransforms._noting():
+            artist.get_transform().transform(artist.get_unitless_position())
+            _transforms.set_transform(artist._native, to_native(given, held_by=artist._figure or artist))
 
 
-def ask_when_drawn(artist, transform):
+#: Where an artist keeps the transforms it was given as they were (its
+#: transform, a collection's offset transform): what `ask_transform` asks
+#: again and hands over.
+_ROLES = ("_given_transform", "_offset_transform")
+
+
+def ask_when_drawn(artist):
     """
-    Have pltrs (Rust) ask *artist* for *transform*, the transform it was
-    given, before every draw and measure reaching it when *transform*
-    computes a matrix in the program's code (`_computes_matrix`), as
-    matplotlib asks it for the matrix wherever it draws or measures the
+    Have pltrs (Rust) ask *artist* for its transforms before every draw
+    reaching it (`ask_transform`) when one it was given (its transform, a
+    collection's offset transform) computes a matrix in the program's code
+    (`_computes_matrix`), as matplotlib asks them wherever it draws the
     artist (pltrs (Rust) holds a matrix as it was when handed over); no
-    more once the artist is given another. Called only for transforms
-    pltrs (Rust) has no node for, or for an artist asked so before.
+    more once it has none. Called only where an artist is given a
+    transform pltrs (Rust) has no node for, or for one asked so before.
     """
-    computes = isinstance(transform, Transform) and _computes_matrix(transform)
+    computes = any(isinstance(given, Transform) and _computes_matrix(given)
+                   for given in (artist.__dict__.get(name) for name in _ROLES))
     if computes:
         artist.__dict__["_asked_transform"] = True
         _drawing.ask_for_transform(artist._native, weakref.ref(artist))
     elif artist.__dict__.pop("_asked_transform", False):
         _drawing.ask_for_transform(artist._native, None)
+
+
+def ask_transform(artist, rendered=True):
+    """
+    matplotlib's draw of *artist* as far as it asks the artist's transforms
+    (`._transform_replay.drawn`: the calls its ``draw`` makes, in its
+    order; a draw *rendered* or laying a tight print out), and pltrs (Rust)
+    handed them again with what their parts of the
+    program's answered there, asked nothing more (`.transforms._noting`).
+    Before each draw reaching an artist `ask_when_drawn` registered.
+    """
+    from . import _transform_replay
+    held = artist._figure or artist
+    with _mtransforms._noting() as noted:
+        _transform_replay.drawn(artist, rendered)
+        if not noted:
+            # Nothing asked (what only a renderer reads, in a draw laying a
+            # tight print out): pltrs (Rust) keeps what it holds.
+            return
+        given = artist.__dict__.get("_given_transform")
+        if isinstance(given, Transform):
+            _transforms.set_transform(artist._native, to_native(given, held_by=held))
+        offset = artist.__dict__.get("_offset_transform")
+        if isinstance(offset, Transform):
+            _native_collections.set_offset_transform(artist._native, to_native(offset))
 
 
 class _GivenWatcher(TransformNode):
@@ -237,7 +301,7 @@ def watch_given(artist, transform):
     if isinstance(transform, Transform) and _takes_matrices(_description(transform)):
         artist.__dict__["_given_watcher"] = _GivenWatcher(artist, transform)
     if getattr(transform, "_live", None) is None or "_asked_transform" in artist.__dict__:
-        ask_when_drawn(artist, transform)
+        ask_when_drawn(artist)
 
 
 def _takes_matrices(description):
@@ -284,7 +348,13 @@ def _description(t, by_matrix=False, held=None):
         return ("affine_delta", _description(t._base_transform, by_matrix, held))
     if (isinstance(t, Affine2DBase) or t.is_affine) and (
             by_matrix or not _maps_points_itself(type(t))):
-        return ("affine", np.asarray(t.get_matrix(), dtype=float))
+        # What it answered where the artist was just asked as matplotlib
+        # asks it (`ask_transform`), else its matrix now.
+        noted = _mtransforms._NOTED
+        matrix = noted.get(id(t)) if noted is not None else None
+        if matrix is None:
+            matrix = t.get_matrix()
+        return ("affine", np.asarray(matrix, dtype=float))
     return ("python", _ProgramMap(_program_classes.held(t, held)))
 
 
@@ -587,3 +657,7 @@ def _named(figure, artist_id):
 # The masked arrays pltrs (Rust) hands the program's scales where
 # matplotlib hands masked ones (a mesh's coordinates).
 _register("masked_invalid", np.ma.masked_invalid)
+# What an artist's painter asks before a draw and where it is measured
+# (`ask_when_drawn`).
+_register("ask_transform", ask_transform)
+_register("ask_measured", ask_measured)

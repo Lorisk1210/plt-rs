@@ -57,13 +57,15 @@ fn clips_to_artist(artist: RawHandle) -> PyResult<bool> {
 }
 
 /// Clips `artist` to the box a live transform maps the unit square to
-/// (`ax.transAxes` for `ax.bbox`, a figure's `transSubfigure` for its
-/// `bbox`), or to no box. Other transforms span boxes the artist cannot
-/// follow, which raise `ValueError`.
+/// (`ax.transAxes` for `ax.bbox`, a figure's `transSubfigure` or the box
+/// of its frame for its `bbox`), or to no box. Other transforms span boxes
+/// the artist cannot follow, which raise `ValueError`.
 fn set_clip_box(artist: RawHandle, spanning: Option<Transform>) -> PyResult<()> {
     let owner = match spanning {
         None => None,
-        Some(Transform::Axes(owner) | Transform::Figure(owner)) => Some(owner),
+        Some(Transform::Axes(owner) | Transform::Figure(owner) | Transform::FigureBox(owner)) => {
+            Some(owner)
+        }
         Some(other) => {
             return Err(PyErr::value_error(format!(
                 "a clip box spanned by {other:?} is not the box of an axes or a figure"

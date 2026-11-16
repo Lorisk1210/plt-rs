@@ -41,6 +41,7 @@ matrices, and the bounding-box computations.
 # `np.minimum` instead of the builtin `min`, and likewise for `max`.  This is
 # done so that `nan`s are propagated, instead of being silently dropped.
 
+import contextlib
 import functools
 import itertools
 import textwrap
@@ -54,6 +55,24 @@ from . import _api, _docstring, _program_classes
 from ._native import transforms as _transforms
 from ._path import affine_transform, count_bboxes_overlapping_bbox  # noqa: F401  (also matplotlib's names)
 from .path import Path
+
+#: The matrices the parts of transforms answered while an artist is asked
+#: for its transforms (`_noting`), by the part's id; None otherwise.
+_NOTED = None
+
+
+@contextlib.contextmanager
+def _noting():
+    """Note the matrix each part of a transform answers meanwhile (where
+    matplotlib's code reads one: an affine part, a frozen one, an array),
+    so that pltrs (Rust) is handed what it answered without asking again
+    (see `._live_transforms.ask_transform`). Yields the notes."""
+    global _NOTED
+    outer, _NOTED = _NOTED, {}
+    try:
+        yield _NOTED
+    finally:
+        _NOTED = outer
 
 DEBUG = False
 
@@ -1503,7 +1522,10 @@ class Transform(TransformNode):
 
     def __array__(self, *args, **kwargs):
         """Array interface to get at this Transform's affine matrix."""
-        return self.get_affine().get_matrix()
+        matrix = self.get_affine().get_matrix()
+        if _NOTED is not None:
+            _NOTED[id(self)] = matrix
+        return matrix
 
     def transform(self, values):
         """
@@ -1811,7 +1833,10 @@ class AffineBase(Transform):
 
     def __array__(self, *args, **kwargs):
         # optimises the access of the transform matrix vs. the superclass
-        return self.get_matrix()
+        matrix = self.get_matrix()
+        if _NOTED is not None:
+            _NOTED[id(self)] = matrix
+        return matrix
 
     def __eq__(self, other):
         if getattr(other, "is_affine", False) and hasattr(other, "get_matrix"):
@@ -1870,7 +1895,10 @@ class Affine2DBase(AffineBase):
 
     def frozen(self):
         # docstring inherited
-        return Affine2D(self.get_matrix().copy())
+        matrix = self.get_matrix()
+        if _NOTED is not None:
+            _NOTED[id(self)] = matrix
+        return Affine2D(matrix.copy())
 
     @property
     def is_separable(self):
@@ -2483,6 +2511,9 @@ class CompositeGenericTransform(Transform):
         if self._affine is None:
             a = self._a.get_affine().get_matrix()
             b = self._b.get_affine().get_matrix()
+            if _NOTED is not None:
+                _NOTED[id(self._a)] = a
+                _NOTED[id(self._b)] = b
             affine = Affine2D(_transforms.compose(a, b))
             if not _transforms.tame(a, b) or _asks_program(self):
                 # A product numpy may warn about is made at every call, as
@@ -2583,7 +2614,11 @@ class CompositeAffine2D(Affine2DBase):
     def get_matrix(self):
         # docstring inherited
         if self._invalid:
-            self._mtx = _transforms.compose(self._a.get_matrix(), self._b.get_matrix())
+            a, b = self._a.get_matrix(), self._b.get_matrix()
+            if _NOTED is not None:
+                _NOTED[id(self._a)] = a
+                _NOTED[id(self._b)] = b
+            self._mtx = _transforms.compose(a, b)
             self._inverted = None
             self._invalid = 0
         return self._mtx

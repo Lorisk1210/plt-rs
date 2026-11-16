@@ -50,9 +50,9 @@ libraries under it keeps their permissive licences (`THIRD_PARTY.md`,
 * Jupyter: all <!--fact:notebooks.all-passing-->1,091 notebook comparisons and tests of IPython,
   matplotlib-inline and ipympl that pass under matplotlib.
 * A differential tester running matplotlib's gallery, generated programs
-  and the programs of <!--fact:corpora-->140 corpora (books, courses, cheat sheets,
+  and the programs of <!--fact:corpora-->178 corpora (books, courses, cheat sheets,
   galleries) under both: of the corpora's programs compared whole,
-  all but <!--fact:corpora.compared-different-->72 of <!--fact:corpora.compared-->2,444 behave as under matplotlib.
+  all but <!--fact:corpora.compared-different-->135 of <!--fact:corpora.compared-->3,752 behave as under matplotlib.
 * A conformance spec recorded from matplotlib: about <!--fact:spec.probes-->48,500 probes
   and some <!--fact:spec.figure-cases-->3,400 figures, accounting for every one of matplotlib's
   own <!--fact:mpl-tests-->2,939 tests.

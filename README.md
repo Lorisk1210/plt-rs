@@ -381,14 +381,14 @@ pltrs (Python) is measured against matplotlib in these ways:
   under pltrs too (`spec/notebooks/`).
 * **A differential tester** (`cargo xtask diff`): it runs matplotlib's
   gallery, programs generated from its API, and programs users wrote
-  (<!--fact:corpora-->140 corpora of books, courses, cheat sheets and
+  (<!--fact:corpora-->178 corpora of books, courses, cheat sheets and
   libraries' galleries, fetched at fixed commits:
   `spec/diff/corpora.toml`) under both, and compares every value, type,
   exception, warning, printed line and figure. Every image of the
   gallery programs that run here matches matplotlib's. Of the corpora's
   programs that matplotlib runs to their end here, drawing or writing a
-  figure, so that each is compared whole, <!--fact:corpora.compared-clean-->2,372
-  of <!--fact:corpora.compared-->2,444 behave as under matplotlib
+  figure, so that each is compared whole, <!--fact:corpora.compared-clean-->3,617
+  of <!--fact:corpora.compared-->3,752 behave as under matplotlib
   (`spec/diff/corpus-outcomes.json`; a program both stop at the same
   exception, or that draws nothing, is counted apart). With `--docs` it
   compares every public callable's signature and docstring, and every

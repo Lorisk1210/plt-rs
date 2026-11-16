@@ -66,6 +66,13 @@
 #
 # The programs run offline: what they would download fails under both.
 #
+# The pltrs side runs pltrs as its users have it, the `matplotlib`
+# distribution installed in the venv's `site-packages` (`install.py` copies
+# it there before a run, with its `.dist-info`): `import matplotlib`, in the
+# program and in every library it plots through, loads pltrs under
+# matplotlib's names, nothing imports `pltrs` by name first, and the
+# source tree is not on the program's path.
+#
 # Every program runs in its own directory, in a copy of the tree made of
 # links, so that the paths it reads and writes relative to it work as in
 # its repository.
@@ -1713,3 +1720,378 @@ title = "Programs of the kind users write for an ordinary chart, about 60 topics
 path = "spec/diff/written"
 licence = "MIT OR Apache-2.0 (the repository's)"
 programs = ["*/*.py"]
+
+# The corpora of task CORP10 (2026-11-15): libraries' own documentation,
+# galleries and tutorials.
+
+[pymoo]
+title = "pymoo, multi-objective optimization in Python: its documentation's notebooks and its examples"
+repository = "https://github.com/anyoptimization/pymoo"
+commit = "07bb779fa07f3c1043c011c83483680e9845ec41"
+licence = "Apache-2.0 (LICENSE)"
+fetch = ["/LICENSE", "/docs/source/", "/examples/"]
+sha256 = "8b81f6ca0b66697843f44fb0663d6d239485f2ef181852e117f6bc347d544517"
+programs = ["docs/source/**/*.ipynb", "examples/**/*.py"]
+exclude = [
+    "examples/**/__init__.py",  # package markers, no programs
+]
+
+[qutip-tutorials]
+title = "QuTiP's tutorials for QuTiP 5 (MyST notebooks): qubits, time evolution, lectures, visualization"
+repository = "https://github.com/qutip/qutip-tutorials"
+commit = "6b19230c46a0af021f6b4e44ebffc0ef3485a54a"
+licence = "BSD-3-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/tutorials-v5/"]
+sha256 = "9cba373b6a505165a5dcae74cbfd723a219c64c6e997aa09ff57fed3868e6c60"
+programs = ["tutorials-v5/**/*.md"]
+
+[arviz-plots]
+title = "ArviZ's plotting library: its gallery and tutorials (matplotlib backend)"
+repository = "https://github.com/arviz-devs/arviz-plots"
+commit = "8928a97ade5e63a0a3f37edeaf3fe3e677267449"
+licence = "Apache-2.0 (LICENSE)"
+fetch = ["/LICENSE", "/docs/source/gallery/", "/docs/source/tutorials/"]
+sha256 = "0c350c7a8811cadcd72e881d07358e7e49a260fc7396ee0b6cd64a4f8ad58c00"
+programs = ["docs/source/gallery/**/*.py", "docs/source/tutorials/*.ipynb"]
+
+[pyod]
+title = "PyOD, outlier detection: its examples and notebooks"
+repository = "https://github.com/yzhao062/pyod"
+commit = "9680a8b9d767d8226f76e5b3157ed318af881d74"
+licence = "BSD-2-Clause (LICENSE)"
+fetch = ["/LICENSE", "/examples/", "/notebooks/"]
+sha256 = "9812455bc79356da31e75abf556f7a71a0511385262788dd8c871aa9cf3b5722"
+programs = ["examples/**/*.py", "notebooks/*.ipynb"]
+exclude = [
+    "examples/**/__init__.py",  # package markers, no programs
+]
+
+[tensorly]
+title = "TensorLy, tensor learning: its gallery of examples"
+repository = "https://github.com/tensorly/tensorly"
+commit = "6a0c16d300bd11dd50b100477fd46541e92ded66"
+licence = "BSD-3-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/examples/"]
+sha256 = "9828026ab7ebe245e9250e4d006a7073f87340ef0dc19391281ddf8a44bf2bac"
+programs = ["examples/**/*.py"]
+
+[scikit-lego]
+title = "scikit-lego, scikit-learn extensions: the scripts its documentation's figures come from"
+repository = "https://github.com/koaning/scikit-lego"
+commit = "ce01ba9de255f14c8a77814851fa2eb1d1f3c6c0"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/docs/_scripts/", "/docs/_static/"]
+sha256 = "4d5db179fc01e5e972e6b691d39ed5fc4a0f7be1b8bf593ad86115b1eee39a91"
+programs = ["docs/_scripts/*.py"]
+
+[chaospy]
+title = "chaospy, uncertainty quantification with polynomial chaos: its user guide's notebooks"
+repository = "https://github.com/jonathf/chaospy"
+commit = "ec8cd460bf1440eca4b409d996cfdb104d24ae06"
+licence = "MIT (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/docs/user_guide/"]
+sha256 = "3ba37fc211e77e4c15dcae3404c1af8291f0fa12a1709dfb18890bb0e518328b"
+programs = ["docs/user_guide/**/*.ipynb"]
+
+[iminuit]
+title = "iminuit, function minimisation and fitting: its documentation's notebooks and plot scripts"
+repository = "https://github.com/scikit-hep/iminuit"
+commit = "8a4fee0f9d9949cc4ced680ff7dae235849a5155"
+licence = "MIT (LICENSE; the bundled Minuit2 C++ code, LGPL-2.1, is not fetched)"
+fetch = ["/LICENSE", "/doc/notebooks/", "/doc/plots/"]
+sha256 = "d4c537ef1eda3cedcfaf7da574aa699ac6d3e0d005a20596b9a38f44845ea837"
+programs = ["doc/notebooks/**/*.ipynb", "doc/plots/*.py"]
+
+[pysindy]
+title = "PySINDy, sparse identification of nonlinear dynamics: its example notebooks"
+repository = "https://github.com/dynamicslab/pysindy"
+commit = "c4421fcec275c8f4cc5c1e93bebb961b212067ae"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "e646bcb4de4bc8416af802357280e118f9d5a0567edd8fc7d20eb24a1d2e0cc5"
+programs = ["examples/*.ipynb", "examples/*/example.ipynb"]
+exclude = [
+    "examples/5_differentiation/example.ipynb",  # holds 14 GB at its peak, under matplotlib and pltrs alike
+]
+
+[colour]
+title = "Colour, colour science for Python: its examples (plotting, colorimetry, appearance models...)"
+repository = "https://github.com/colour-science/colour"
+commit = "e412d1851529346b06174194b2f32aede11b6a70"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/colour/examples/"]
+sha256 = "f63d9c0b91bc128c9e4a6fbced1c73f8bb9601aab218848e52b4d7cb706eab08"
+programs = ["colour/examples/**/*.py"]
+exclude = [
+    "colour/examples/**/__init__.py",  # package markers, no programs
+]
+
+[mpl-interactions]
+title = "mpl-interactions, interactive matplotlib: its documentation's example notebooks"
+repository = "https://github.com/mpl-extensions/mpl-interactions"
+commit = "fc32f932e8ba6a03b85232ca065f51c33ec7951d"
+licence = "BSD-3-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/docs/examples/"]
+sha256 = "d9be019d826c46d2268507f6a1e4110e42304290aa75f1645d835e682205fa77"
+programs = ["docs/examples/**/*.ipynb"]
+
+[ruptures]
+title = "ruptures, change point detection: its documentation (Markdown pages and example notebooks)"
+repository = "https://github.com/deepcharles/ruptures"
+commit = "ee1c8ff8a548d54c641b2bb471562165931f31c7"
+licence = "BSD-2-Clause (LICENSE)"
+fetch = ["/LICENSE", "/docs/"]
+sha256 = "42ff1b073321526e6b2efa6039a096f128af7c7440ca8fb3bc1dea05e67670d4"
+programs = ["docs/user-guide/**/*.md", "docs/custom-cost-function.md", "docs/fit-and-predict.md", "docs/examples/*.ipynb"]
+
+[hdbscan]
+title = "hdbscan, density-based clustering: its notebooks and examples"
+repository = "https://github.com/scikit-learn-contrib/hdbscan"
+commit = "a06a8042e9d49f3a5bbfcfe928ba7113d8cf5c76"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/notebooks/", "/examples/"]
+sha256 = "de8bfb63647cb141754c3e491f4932e5c70dc2a7e88b7a0cfac4da1dbc6b031b"
+programs = ["notebooks/*.ipynb", "examples/*.py"]
+
+[scikit-gstat]
+title = "SciKit-GStat, geostatistical variograms: its tutorials"
+repository = "https://github.com/mmaelicke/scikit-gstat"
+commit = "01598fa1f68be7e1b5c17b58cc1128527081be36"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/tutorials/", "/docs/tutorials/"]
+sha256 = "172c24fee661bf5dbc7b3a3a92b5e4548312ed255aff80b0d83b87b71a70f779"
+programs = ["tutorials/*.ipynb", "docs/tutorials/*.py"]
+
+[dynesty]
+title = "dynesty, nested sampling: its demonstration notebooks"
+repository = "https://github.com/joshspeagle/dynesty"
+commit = "0831eb7cf4dc6faa3c607e11ac753aec0c508d60"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/demos/"]
+sha256 = "30910661cbad457269ca3fafccb2c1e43f6dd6432194160a32167a0c9efc01d4"
+programs = ["demos/*.ipynb"]
+
+[hist]
+title = "hist, histograms for analysts: its user guide's notebooks"
+repository = "https://github.com/scikit-hep/hist"
+commit = "6706833215dcf0d99037dcd7300362d44a811acb"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/docs/user-guide/notebooks/", "/notebooks/"]
+sha256 = "40df8752e2dce80dd04077f236b0eb4ad3ab8e9cbbf42ef086e03e7ebd2cef18"
+programs = ["docs/user-guide/notebooks/*.ipynb", "notebooks/*.ipynb"]
+
+[boost-histogram]
+title = "boost-histogram: its examples and notebooks"
+repository = "https://github.com/scikit-hep/boost-histogram"
+commit = "1e5fd6f49c20ef781995c501c2d0932d6d4f5661"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/examples/", "/notebooks/"]
+sha256 = "812cd1bf63814e60f10f633d1faf95c575e9c6c634d70f2e83b581c1304c04f2"
+programs = ["examples/*.py", "notebooks/*.ipynb"]
+
+[pykrige]
+title = "PyKrige, kriging: its gallery of examples"
+repository = "https://github.com/GeoStat-Framework/PyKrige"
+commit = "5e896fb3398cc86acd735d170fb758a02528b70e"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "104d72bada269e4edca8e28f78df6f8e950685fffd8a44afc0c4c26dcae9cd00"
+programs = ["examples/*.py"]
+
+[scikit-fuzzy]
+title = "scikit-fuzzy, fuzzy logic: its gallery of examples"
+repository = "https://github.com/scikit-fuzzy/scikit-fuzzy"
+commit = "be7e344f3ce65845e39922aa5fc1af7412d01944"
+licence = "BSD-3-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/docs/examples/"]
+sha256 = "45d9d9ad2d694cf9dc10be97d56a89a6ee446e17c78eefe56ba3fa991d4b089a"
+programs = ["docs/examples/*.py"]
+
+[bayesian-optimization]
+title = "BayesianOptimization: its example notebooks"
+repository = "https://github.com/bayesian-optimization/BayesianOptimization"
+commit = "ec451235ec4c4c8782d7d10a83a59311c1937aa9"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "7e7f00daac18809e1ad4e973fd54d9267645b7fe71aff4f34fc6f2db2c1513e4"
+programs = ["examples/*.ipynb"]
+
+[minisom]
+title = "MiniSom, self-organizing maps: its example notebooks"
+repository = "https://github.com/JustGlowing/minisom"
+commit = "4f5f065b5f4567b8b23d67b1e0e70510ea6d6bfc"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "233011db332e5237c03d3f300e5eec2c6f5522053feae2203fbc18a7476c1486"
+programs = ["examples/*.ipynb"]
+
+[metric-learn]
+title = "metric-learn, metric learning algorithms: its gallery of examples"
+repository = "https://github.com/scikit-learn-contrib/metric-learn"
+commit = "8eb775ea82c41829bc583629ca3fab0fd8f204fc"
+licence = "MIT (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/examples/"]
+sha256 = "8411845bdf8e6a587334c191de83ecbe75294789f28d1996b7c16fbf25278431"
+programs = ["examples/*.py"]
+
+[pyswarms]
+title = "PySwarms, particle swarm optimisation: its documentation's tutorials and use cases"
+repository = "https://github.com/ljvmiranda921/pyswarms"
+commit = "70c969d929bb2dab6211765def0431680fc5cb01"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/docs/examples/"]
+sha256 = "5786bbf32f3fbafdd903d0a02bcf218ba973fd07f410e4a3caff8b48bb68a3d6"
+programs = ["docs/examples/**/*.ipynb"]
+exclude = [
+    "docs/examples/usecases/feature_subset_selection.ipynb",  # not JSON: the notebook's file holds a second document after the first
+]
+
+[scikit-optimize]
+title = "scikit-optimize, sequential model-based optimisation: its gallery of examples"
+repository = "https://github.com/scikit-optimize/scikit-optimize"
+commit = "a2369ddbc332d16d8ff173b12404b03fea472492"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "f8a1ac549cf9ff52bd19a10219abdfabdbed04afda3955b1d0c237f310249f01"
+programs = ["examples/**/*.py"]
+
+[neurokit2]
+title = "NeuroKit2, physiological signal processing: its documentation's example notebooks"
+repository = "https://github.com/neuropsychology/NeuroKit"
+commit = "f49ad489fd291d99b22df5dac3ad13951ab9cdef"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/docs/examples/", "/data/"]
+sha256 = "a99fb091db1c95d6484c8dc8b292e38b9370be9cac43a1f79df251c0be24eac9"
+programs = ["docs/examples/**/*.ipynb"]
+
+[umap]
+title = "UMAP, dimension reduction: its examples and notebooks"
+repository = "https://github.com/lmcinnes/umap"
+commit = "5113b770a4ca109b21e51edd5c88bf981a1702e3"
+licence = "BSD-3-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/examples/", "/notebooks/"]
+sha256 = "3860f292b88e891ea0318540d77416cd60b5ad2f0f34b5a70c32644986bfc175"
+programs = ["examples/*.py", "notebooks/*.ipynb"]
+
+[joypy]
+title = "joypy, ridgeline plots: its README and demonstration notebook"
+repository = "https://github.com/leotac/joypy"
+commit = "fb74cb6c725199cca4f5260fdbc0a90ff579c7f3"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/README.md", "/Joyplot.ipynb", "/data/"]
+sha256 = "ec961caaad072279011a34a5cdc6b7d278bc86015072d785dcaa509133976fa9"
+programs = ["README.md", "Joyplot.ipynb"]
+
+[aquarel]
+title = "aquarel, matplotlib themes: its README"
+repository = "https://github.com/lgienapp/aquarel"
+commit = "3e7522ea3adcd05d77ca3fe6062bd311923421db"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/README.md"]
+sha256 = "56cf314a20825754f2770ec0667bdc5481a71cfb2de6208b065aa39bb98ad231"
+programs = ["README.md"]
+
+[july]
+title = "july, calendar heatmaps: its README"
+repository = "https://github.com/e-hulten/july"
+commit = "2ba3087fc59e1d4b6b485e67008d08d0348e8402"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/README.md"]
+sha256 = "93a896b160ac9538ed20c2757f9df94c4d7115fa82480bcbeb1feaaaf3d69006"
+programs = ["README.md"]
+
+[librosa]
+title = "librosa, audio analysis: its documentation's tutorials (sphinx-gallery), with the example recordings of librosa-data"
+repository = "https://github.com/librosa/librosa"
+commit = "76f10b8d2d00870fed47b4698927a4e7e78d1fb4"
+licence = "ISC (LICENSE.md)"
+fetch = ["/LICENSE.md", "/docs/tutorials/"]
+sha256 = "d31136b484019c588d4c9b2a5552e1ff82063acc26cd722dd9616b49ea831523"
+programs = ["docs/tutorials/**/*.py"]
+environment = { LIBROSA_DATA_DIR = "{corpus:librosa-data}/audio" }
+
+[lightgbm]
+title = "LightGBM: its Python guide's examples and notebook"
+repository = "https://github.com/microsoft/LightGBM"
+commit = "53350cd896c6fd76d2cc03354f452f18646830e9"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "121056f39704b56c57b2c6462d417c7f053743f741ecc8e2dd277caa7c798eb3"
+programs = ["examples/python-guide/*.py", "examples/python-guide/notebooks/*.ipynb"]
+
+[pygad]
+title = "PyGAD, genetic algorithms: its examples and documentation pages"
+repository = "https://github.com/ahmedfgad/GeneticAlgorithmPython"
+commit = "da4b0bf6ceaec0cadf9b354c37f34e5e317cbe2a"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/examples/", "/docs/source/"]
+sha256 = "158bb7eaab6b0d1a32c13ae1a06117f52a996594f6f2250fe5abd5c4bd7de8fc"
+programs = ["examples/**/*.py", "docs/source/*.md"]
+exclude = [
+    "examples/KerasGA/*.py",  # needs Keras (TensorFlow)
+    "examples/TorchGA/*.py",  # needs PyTorch
+]
+
+[scikit-opt]
+title = "scikit-opt, swarm and evolutionary optimisation: its examples"
+repository = "https://github.com/guofei9987/scikit-opt"
+commit = "57d78324e72cd847750e0f4b1f65fdebc24fb524"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "818e193062ee6e7fd2be3a14975a13e9572e08e73ddadd0d1c42d63e2d3e307a"
+programs = ["examples/*.py"]
+
+[hyppo]
+title = "hyppo, multivariate hypothesis testing: its tutorials and examples (sphinx-gallery)"
+repository = "https://github.com/neurodata/hyppo"
+commit = "a3a2ac323c34b7c98adbf8486bf112afc82f6705"
+licence = "MIT-0 (LICENSE.md)"
+fetch = ["/LICENSE.md", "/tutorials/", "/examples/"]
+sha256 = "7d087d40761eaf85ea948eb4bce9d2cb4bae5fb2f6c1ff617903b52d7bab343c"
+programs = ["tutorials/*.py", "examples/*.py"]
+
+[pykalman]
+title = "pykalman, Kalman filtering: its examples"
+repository = "https://github.com/pykalman/pykalman"
+commit = "d62e60be00bd028ecc7eea6a8bea02f583910428"
+licence = "BSD-3-Clause (LICENSE; pykalman/utils.py, under another licence, is not fetched)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "c3efacebc5452fef393b66290f257352a80d0343e49238b40975469797cde718"
+programs = ["examples/**/*.py"]
+
+[scikit-plot]
+title = "scikit-plot, plots for machine learning: its examples and notebooks"
+repository = "https://github.com/reiinakano/scikit-plot"
+commit = "2dd3e6a76df77edcbd724c4db25575f70abb57cb"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "4d64d544a66ccc1fb1fd9829a93d41b4cf0b3bdf449474a8192e42867ac38aa1"
+programs = ["examples/*.py", "examples/jupyter_notebooks/*.ipynb"]
+
+[dowhy]
+title = "DoWhy, causal inference: its documentation's example notebooks"
+repository = "https://github.com/py-why/dowhy"
+commit = "2a13dad75cf7c03d9450536084782d00fe41207c"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/docs/source/example_notebooks/"]
+sha256 = "2925258e48e059d339b7b42ec4a1cc797701b91866ec20d6dd1f53f9cc7c11c7"
+programs = ["docs/source/example_notebooks/**/*.ipynb"]
+
+[scqubits]
+title = "scqubits, superconducting qubits: the example notebooks of scqubits-examples"
+repository = "https://github.com/scqubits/scqubits-examples"
+commit = "653829b79a2f9b041b00da78c411254c47c92305"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "ccdb9eeefb4c0fd7b746b8bed2b5b9fdad306c42d3d23b7dcaaa3dfc222f5380"
+programs = ["examples/*.ipynb"]
+
+[librosa-data]
+title = "librosa's example recordings, which librosa.ex downloads: no programs, read by the tutorials of librosa through LIBROSA_DATA_DIR"
+kind = "data"
+repository = "https://github.com/librosa/data"
+commit = "5285c94e33c74bbe97501f5c9fa95e5e2ce55d48"
+licence = "CC0-1.0 (LICENSE), each recording's own licence in its .toml beside it; data only, fetched at test time as librosa.ex fetches it"
+fetch = ["/LICENSE", "/README.md", "/audio/"]
+sha256 = "9094ad957579ec719cc9a83260b61ca4c069c8ac51cc378df3f7436ddd64ad69"
+programs = []

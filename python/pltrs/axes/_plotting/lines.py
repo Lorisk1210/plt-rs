@@ -27,6 +27,15 @@ def _span_geometry(patch, x, y, width, height):
                          Rectangle._FIELDS)
 
 
+def _position(value):
+    """The position of a reference line as a number: matplotlib's line
+    takes an array of one value too (librosa's tempo estimates), as its
+    data, which its comparison with the bounds has let through."""
+    if np.ndim(value):
+        return float(np.asarray(value).reshape(-1)[0])
+    return float(value)
+
+
 def _check_no_units(vals, names):
     """Check that *vals*, named *names*, are not unitized."""
     from ... import units
@@ -578,7 +587,7 @@ class LinesMixin:
         # which is where positions that are no numbers fail.
         ymin, ymax = self.get_ybound()
         _ = (yy < ymin) or (yy > ymax)
-        native = _axes.axline(self._native, "h", float(yy), (xmin, xmax),
+        native = _axes.axline(self._native, "h", _position(yy), (xmin, xmax),
                               made_line_kwargs(kwargs))
         line = mlines._set_after(keep_python_kwargs(wrap(self, native, mlines.Line2D), kwargs),
                                  kwargs)
@@ -660,7 +669,7 @@ class LinesMixin:
         # which is where positions that are no numbers fail.
         xmin, xmax = self.get_xbound()
         _ = (xx < xmin) or (xx > xmax)
-        native = _axes.axline(self._native, "v", float(xx), (ymin, ymax),
+        native = _axes.axline(self._native, "v", _position(xx), (ymin, ymax),
                               made_line_kwargs(kwargs))
         line = mlines._set_after(keep_python_kwargs(wrap(self, native, mlines.Line2D), kwargs),
                                  kwargs)

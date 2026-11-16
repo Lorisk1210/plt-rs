@@ -85,3 +85,35 @@ engine, windowing layer and conformance suite.
 | matplotlib's sample data (`mpl-data/sample_data`: the files `cbook.get_sample_data` opens, among them the photograph `grace_hopper.jpg`, a U.S. Navy photograph in the public domain) | Matplotlib License, as matplotlib distributes them (`matplotlib.txt`) | `python/pltrs/mpl-data/sample_data` |
 | matplotlib's window and toolbar icons (`mpl-data/images`: the PNGs the Tk backend shows) | Matplotlib License, as matplotlib distributes them (`matplotlib.txt`) | `python/pltrs/mpl-data/images` |
 | matplotlib's WebAgg page, scripts and toolbar icons, the toolbar icons also those of the figure windows in matplotlib's look | Matplotlib License | `crates/pltrs/src/web/assets` (see its `LICENSE`), embedded for the windows by `crates/pltrs/src/gui/images.rs` |
+
+## Test data in the repository only
+
+The goldens of the conformance spec (`spec/goldens`) are files matplotlib
+3.11 wrote on the reference machine. Thirteen of them are PostScript that
+matplotlib wrote through Ghostscript (`ps.usedistiller`, and usetex's
+PostScript, which is distilled too), and Ghostscript's `ps2write` device
+puts its prolog `opdfread.ps` into every file it writes. That prolog is
+part of Ghostscript, which Artifex Software licenses under the GNU Affero
+General Public License, version 3 (AGPL-3.0). These thirteen files
+therefore contain AGPL-3.0 code:
+
+- `spec/goldens/figures/basic/line.ghostscript.eps`
+- `spec/goldens/figures/basic/line.ghostscript.ps`
+- `spec/goldens/figures/basic/line.ghostscript_figure.ps`
+- `spec/goldens/figures/images/imshow_default.ghostscript.ps`
+- `spec/goldens/figures/usetex/math_display.ps`
+- `spec/goldens/figures/usetex/mpl_test_usetex.ps`
+- `spec/goldens/figures/usetex/pdf_kerning.ps`
+- `spec/goldens/figures/usetex/rotation.ps`
+- `spec/goldens/figures/usetex/text_basic.a4.ps`
+- `spec/goldens/figures/usetex/text_basic.encapsulated.eps`
+- `spec/goldens/figures/usetex/text_basic.figure.ps`
+- `spec/goldens/figures/usetex/ticks.ps`
+- `spec/goldens/figures/vectors/text_fonts.ghostscript.ps`
+
+They are test data: pltrs' checks compare the structure of what pltrs
+writes with them. **No package distributes them**: the source
+distribution and the wheels leave `spec/` out, and no crate includes it.
+pltrs itself holds no code of Ghostscript's; where matplotlib runs
+Ghostscript, pltrs runs the `gs` the user has installed, as matplotlib
+does.

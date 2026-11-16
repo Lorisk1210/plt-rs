@@ -40,12 +40,19 @@ class _Lookups(logging.Handler):
             self.count += 1
 
 
+#: Families no font has, whatever this machine holds (a real family's name,
+#: Roboto, Source Code Pro, is found where a library installed or cached it).
+ABSENT = "pltrs-absent-family"
+ABSENT_SANS = "pltrs-absent-sans"
+ABSENT_TITLE = "pltrs-absent-title"
+
+
 @pytest.fixture
 def lookups():
     """The warnings of a family no font has, counted."""
     handler = _Lookups()
     logging.getLogger().addHandler(handler)
-    pltrs.rcParams["font.family"] = "Source Code Pro"
+    pltrs.rcParams["font.family"] = ABSENT
     yield handler
     logging.getLogger().removeHandler(handler)
 
@@ -213,7 +220,7 @@ def test_font_lookups_of_prints_drawn_twice(lookups, layout, saves):
 
 
 def test_font_lookups_after_tight_layout(lookups):
-    pltrs.rcParams["font.sans-serif"] = ["Roboto Condensed"]
+    pltrs.rcParams["font.sans-serif"] = [ABSENT_SANS]
     pltrs.rcParams["font.family"] = "sans-serif"
     fig = plt.figure(figsize=(6, 2.5))
     ax = plt.subplot()
@@ -235,11 +242,11 @@ def test_font_lookups_of_measures(lookups):
 
 
 def test_font_lookups_of_a_title_over_tick_labels(lookups):
-    pltrs.rcParams["font.sans-serif"] = ["Roboto Condensed"]
+    pltrs.rcParams["font.sans-serif"] = [ABSENT_SANS]
     pltrs.rcParams["font.family"] = "sans-serif"
     fig = plt.figure(figsize=(7, 7))
     ax = plt.subplot()
     ax.set_xticks(np.linspace(0, 1, 5)), ax.set_yticks(np.linspace(0, 1, 5))
-    ax.set_title("Title", family="Roboto")
+    ax.set_title("Title", family=ABSENT_TITLE)
     # 55 for the families of the ticks, 4 for the title's.
     assert _counted(lookups, lambda: fig.savefig(io.BytesIO(), format="png")) == 59

@@ -398,12 +398,24 @@ impl Path {
     }
 
     /// The points bounding the path as matplotlib takes them of its curves
-    /// (`Path.get_extents`, `Axes._update_patch_limits`): the ends of every
-    /// segment and the points where a curve's coordinate derivative
-    /// vanishes, found and evaluated with the arithmetic of matplotlib's
-    /// `BezierSegment`, so that they agree to the last bit. Straight
-    /// segments, which have no extrema, allocate nothing.
+    /// (`Path.get_extents`, `Axes._update_patch_limits`): every move's
+    /// point, then the ends of every segment and the points where a
+    /// curve's coordinate derivative vanishes, found and evaluated with the
+    /// arithmetic of matplotlib's `BezierSegment`, so that they agree to
+    /// the last bit. matplotlib's `Path.iter_bezier` yields a move as a
+    /// curve of one point, so a move that no segment follows bounds the
+    /// path too. Straight segments, which have no extrema, allocate
+    /// nothing.
     pub fn bezier_bounding_points(&self) -> impl Iterator<Item = Point> + '_ {
+        let moves = self.segments().filter_map(|segment| match segment {
+            Segment::MoveTo(point) => Some(point),
+            _ => None,
+        });
+        moves.chain(self.pieces_bounding_points())
+    }
+
+    /// The ends and axis extrema of every drawn piece of the path.
+    fn pieces_bounding_points(&self) -> impl Iterator<Item = Point> + '_ {
         self.beziers().flat_map(|curve| match curve {
             Bezier::Line(start, end) => vec![start, end],
             curve => {

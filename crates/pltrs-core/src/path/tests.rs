@@ -95,6 +95,43 @@ fn curve_extents_agree_with_matplotlib_to_the_last_bit() {
 }
 
 #[test]
+fn a_move_no_segment_follows_bounds_a_curved_path() {
+    // matplotlib 3.11's `Path.get_extents`: its `iter_bezier` yields a move
+    // as a curve of one point, wherever the move stands; the vertex of a
+    // close is ignored.
+    let arch = [p(1.0, 1.0), p(1.0, 2.0), p(2.0, 2.0), p(2.0, 1.0)];
+    let curve = [PathCode::Curve4; 3];
+    let with_last = |vertex, code| {
+        let vertices = arch.iter().copied().chain([vertex]).collect();
+        let codes = [PathCode::MoveTo].into_iter().chain(curve).chain([code]);
+        Path::new(vertices, codes.collect()).expect("valid")
+    };
+    assert_eq!(
+        with_last(p(0.0, 0.0), PathCode::MoveTo).bezier_extents(),
+        Bbox::from_extents(0.0, 0.0, 2.0, 1.75)
+    );
+    assert_eq!(
+        with_last(p(0.0, 0.0), PathCode::ClosePoly).bezier_extents(),
+        Bbox::from_extents(1.0, 1.0, 2.0, 1.75)
+    );
+    let moved_twice = Path::new(
+        [p(1.0, 1.0), p(5.0, 5.0)]
+            .into_iter()
+            .chain(arch[1..].iter().copied())
+            .collect(),
+        [PathCode::MoveTo, PathCode::MoveTo]
+            .into_iter()
+            .chain(curve)
+            .collect(),
+    )
+    .expect("valid");
+    assert_eq!(
+        moved_twice.bezier_extents(),
+        Bbox::from_extents(1.0, 1.0, 5.0, 5.0)
+    );
+}
+
+#[test]
 fn extents_ignore_closepoly_vertex_and_nans() {
     let path = Path::new(
         vec![p(0.0, 0.0), p(2.0, 1.0), p(f64::NAN, 0.0), p(9.0, 9.0)],

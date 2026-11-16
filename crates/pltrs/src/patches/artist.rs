@@ -523,12 +523,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bounding_points_are_segment_ends_and_curve_extrema() {
+    fn bounding_points_are_moves_segment_ends_and_curve_extrema() {
         let p = Point::new;
         let polyline = Path::polyline(vec![p(0.0, 0.0), p(1.0, 2.0), p(3.0, 1.0)]);
         assert_eq!(
             polyline.bezier_bounding_points().collect::<Vec<_>>(),
-            [p(0.0, 0.0), p(1.0, 2.0), p(1.0, 2.0), p(3.0, 1.0)]
+            [
+                p(0.0, 0.0),
+                p(0.0, 0.0),
+                p(1.0, 2.0),
+                p(1.0, 2.0),
+                p(3.0, 1.0)
+            ]
         );
         // A symmetric arch peaks at t = 1/2, between its ends, where x
         // turns (matplotlib evaluates those extrema too).
@@ -539,6 +545,7 @@ mod tests {
         assert_eq!(
             arch.bezier_bounding_points().collect::<Vec<_>>(),
             [
+                p(0.0, 0.0),
                 p(0.0, 0.0),
                 p(0.0, 0.0),
                 p(2.0, 0.0),

@@ -450,11 +450,13 @@ fn a_pump_without_a_timeout_waits_through_the_hook_until_woken() {
         wait();
     })));
     let proxy = host.proxy();
+    // Before the waker starts: read after it, the clock could start
+    // while the waker already sleeps, and the wait measure short.
+    let start = Instant::now();
     let waker = std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(50));
         proxy.wake_up().unwrap();
     });
-    let start = Instant::now();
     assert_eq!(host.pump(None).unwrap(), []);
     waker.join().unwrap();
     assert!(start.elapsed() >= Duration::from_millis(50));

@@ -232,6 +232,13 @@ impl TextArtist {
         self.unit_sources = UnitSources::default();
     }
 
+    /// Brings a rotation just set into `[0, 360)`, where matplotlib's
+    /// `set_rotation` keeps it (`float(s) % 360`), so that it reads back so
+    /// whoever set it (the hook of [`Text::set_rotation`]).
+    pub(crate) fn rotation_replaced(&mut self) {
+        self.rotation = self.rotation.rem_euclid(360.0);
+    }
+
     /// Forgets that wrapping switched the rotation mode, which was set
     /// (the hook of [`Text::set_rotation_mode`]).
     pub(crate) fn rotation_mode_replaced(&mut self) {
@@ -867,5 +874,18 @@ mod tests {
             (rotation - expected).abs() < 1e-6,
             "{rotation} vs {expected}"
         );
+    }
+
+    #[test]
+    fn rotations_are_kept_in_one_turn() {
+        let fig = Figure::new();
+        let ax = fig
+            .add_axes([0.125, 0.11, 0.775, 0.77])
+            .expect("a valid rectangle");
+        let text = ax.text(0.0, 0.0, "turned");
+        for (set, kept) in [(369.0, 9.0), (-45.0, 315.0), (720.0, 0.0), (90.0, 90.0)] {
+            assert_eq!(text.set_rotation(set).rotation(), kept);
+        }
+        assert!(text.set_rotation(f64::NAN).rotation().is_nan());
     }
 }

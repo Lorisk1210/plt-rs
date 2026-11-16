@@ -5,7 +5,6 @@ use pltrs_core::{Path, Point};
 use pltrs_render::{CapStyle, JoinStyle};
 
 use super::arrow_style::ArrowStyle;
-use super::artist::bounding_points;
 use super::connection_style::{ClipRegion, ConnectionStyle};
 use super::{DisplayPath, PatchError, PatchShape, PatchStyle, ShapeFrame};
 use crate::artist::{ArtistBase, ArtistId, LayoutContext, ProgramShaping};
@@ -247,7 +246,7 @@ impl FancyArrowPatch {
                 .iter()
                 .flat_map(|piece| {
                     let outline = to_data.transform_path(&piece.to_display());
-                    bounding_points(&outline).collect::<Vec<_>>()
+                    outline.bezier_bounding_points().collect::<Vec<_>>()
                 })
                 .collect(),
         )

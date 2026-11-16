@@ -436,7 +436,7 @@ fn get_extents(py_path: PyPath, trans: Option<NdArray>) -> PyResult<NdArray> {
         Some(t) => py_path.path.transformed(&t),
         None => py_path.path,
     };
-    bbox_array(path.extents())
+    bbox_array(path.bezier_extents())
 }
 
 /// Registers the module's functions.

@@ -535,7 +535,14 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         ``_alpha``, which `set_alpha` sets)."""
         if self._kept_only:
             return self.__dict__.get("_kept_alpha")
-        return _values.given(self, "alpha", _artist.get_alpha(self._native))
+        native = _artist.get_alpha(self._native)
+        return _values.given(self, "alpha", native, self._cycled_number("alpha", native))
+
+    def _cycled_number(self, name, native):
+        """The number property *name* as the property cycle holds it, if the
+        artist can have taken *native* from it, else `_values.given`'s
+        default (only the lines and patches of the plotting methods do)."""
+        return _values.NONE_GIVEN
 
     @_alpha.setter
     def _alpha(self, alpha):

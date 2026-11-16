@@ -149,10 +149,12 @@ impl SvgRenderer {
             };
             style.push(("text-anchor", text_anchor.to_owned()));
             style.extend(Self::color_style(gc));
+            // matplotlib's attribute dict holds the style first, before the
+            // anchor it adds, and writes the attributes in that order.
             vec![
+                ("style", css(&style)),
                 ("x", short(ax)),
                 ("y", short(ay)),
-                ("style", css(&style)),
                 (
                     "transform",
                     transform_attr(&[TransformOp::RotateAbout(-angle, ax, ay)]),

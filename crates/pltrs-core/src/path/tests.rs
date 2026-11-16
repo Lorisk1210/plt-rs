@@ -74,6 +74,27 @@ fn extents_include_curve_extrema() {
 }
 
 #[test]
+fn curve_extents_agree_with_matplotlib_to_the_last_bit() {
+    // matplotlib 3.11's `Path.get_extents` of this heart (two cubic
+    // curves): its extremes are not mirror images in floating point.
+    let path = Path::builder()
+        .move_to(p(0.0, -1.0))
+        .cubic_to(p(-1.5, 0.3), p(-0.8, 1.4), p(0.0, 0.6))
+        .cubic_to(p(0.8, 1.4), p(1.5, 0.3), p(0.0, -1.0))
+        .close()
+        .build();
+    assert_eq!(
+        path.bezier_extents(),
+        Bbox::from_extents(
+            -0.881_632_653_061_224_4,
+            -1.0,
+            0.881_632_653_061_224_6,
+            0.871_280_276_816_608_9
+        )
+    );
+}
+
+#[test]
 fn extents_ignore_closepoly_vertex_and_nans() {
     let path = Path::new(
         vec![p(0.0, 0.0), p(2.0, 1.0), p(f64::NAN, 0.0), p(9.0, 9.0)],

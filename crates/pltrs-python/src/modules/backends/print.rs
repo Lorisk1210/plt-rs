@@ -4,8 +4,8 @@
 use pltrs::colors::Color;
 use pltrs::events::EventKind;
 use pltrs::figure::{
-    BboxInches, Figure, Metadata, PadInches, PageOrientation, Paper, PgfTextMetrics, SaveError,
-    SaveFormat, SaveOptions, SvgMetadata,
+    BboxInches, Figure, Metadata, PadInches, PageOrientation, Paper, PgfTextMetrics, PngMetadata,
+    SaveError, SaveFormat, SaveOptions, SvgMetadata,
 };
 use pltrs::transforms::Bbox;
 use pltrs_render::{Timestamp, VectorError};
@@ -74,6 +74,12 @@ fn metadata_over(base: Metadata, object: &Bound<'_>) -> PyResult<Metadata> {
             continue;
         }
         if svg_entry(&mut metadata.svg, &key, &value)? {
+            // PNG keeps every entry of text as a chunk of its own, those
+            // only SVG's Dublin Core names too (matplotlib hands each to
+            // Pillow's `add_text`: `Description` and `Source` are PNG's).
+            if let Ok(text) = value.extract::<Option<String>>() {
+                metadata.png = png_text(metadata.png, key, text);
+            }
             continue;
         }
         let text: Option<String> = value.extract()?;
@@ -89,12 +95,17 @@ fn metadata_over(base: Metadata, object: &Bound<'_>) -> PyResult<Metadata> {
         if let Some(field) = field {
             field.clone_from(&text);
         }
-        metadata.png = match text {
-            Some(text) => metadata.png.with(key, text),
-            None => metadata.png.without(&key),
-        };
+        metadata.png = png_text(metadata.png, key, text);
     }
     Ok(metadata)
+}
+
+/// `png` with its text entry `key` set to `text`, or left out for `None`.
+fn png_text(png: PngMetadata, key: String, text: Option<String>) -> PngMetadata {
+    match text {
+        Some(text) => png.with(key, text),
+        None => png.without(&key),
+    }
 }
 
 /// Document metadata as native functions take it: a dict of
@@ -408,6 +419,9 @@ mod tests {
             assert!(!pdf.contains("/CreationDate"));
             let png = print(&native, "png", "{'metadata': {'Author': 'me'}}").unwrap();
             assert!(png.repr().unwrap().contains("Author"));
+            let described = "{'metadata': {'Description': 'waves', 'Source': 'model'}}";
+            let png = print(&native, "png", described).unwrap().repr().unwrap();
+            assert!(png.contains("Description\\x00waves") && png.contains("Source\\x00model"));
             let err = print(&native, "jpeg", "{'metadata': {}}").unwrap_err();
             assert!(err.message(py).contains("metadata not supported"));
             let dated = "{'metadata': {'ModDate': 1}}";

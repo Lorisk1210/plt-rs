@@ -4,7 +4,6 @@
 use std::any::Any;
 use std::rc::Rc;
 
-use pltrs_core::bezier::{Bezier, BezierSegment};
 use pltrs_core::{Affine2D, Bbox, Path, Point};
 use pltrs_render::ClipPath;
 
@@ -327,7 +326,8 @@ impl<S: PatchShape> PatchArtist<S> {
     /// in the coordinates of the artist transform.
     pub(crate) fn data_points(&self) -> Vec<Point> {
         if let Some((path, placement)) = &self.program_path {
-            return bounding_points(path)
+            return path
+                .bezier_bounding_points()
                 .map(|p| placement.transform_point(p))
                 .collect();
         }
@@ -338,7 +338,10 @@ impl<S: PatchShape> PatchArtist<S> {
         let path = self.shape.path();
         // Two points per segment of a polygon, the usual outline.
         let mut points = Vec::with_capacity(2 * path.vertices().len());
-        points.extend(bounding_points(&path).map(|p| placement.transform_point(p)));
+        points.extend(
+            path.bezier_bounding_points()
+                .map(|p| placement.transform_point(p)),
+        );
         points
     }
 
@@ -390,27 +393,6 @@ impl<S: PatchShape> PatchArtist<S> {
         self.region(ctx, radius)
             .is_some_and(|region| region.contains(point))
     }
-}
-
-/// The points bounding `path`: the ends and axis extrema of every curve
-/// (what matplotlib's `_update_patch_limits` takes of a patch's path),
-/// found and evaluated with the arithmetic of matplotlib's
-/// `BezierSegment`. Straight segments, which have no extrema, allocate
-/// nothing.
-pub(crate) fn bounding_points(path: &Path) -> impl Iterator<Item = Point> + '_ {
-    path.beziers().flat_map(|curve| match curve {
-        Bezier::Line(start, end) => vec![start, end],
-        curve => {
-            let segment = BezierSegment::from_points(&curve.control_points())
-                .expect("a curve has control points of two coordinates");
-            let (_, roots) = segment.axis_aligned_extrema();
-            std::iter::once(0.0)
-                .chain(roots)
-                .chain(std::iter::once(1.0))
-                .map(|t| segment.point_at(t))
-                .collect()
-        }
-    })
 }
 
 impl<S: PatchShape> Artist for PatchArtist<S> {
@@ -545,7 +527,7 @@ mod tests {
         let p = Point::new;
         let polyline = Path::polyline(vec![p(0.0, 0.0), p(1.0, 2.0), p(3.0, 1.0)]);
         assert_eq!(
-            bounding_points(&polyline).collect::<Vec<_>>(),
+            polyline.bezier_bounding_points().collect::<Vec<_>>(),
             [p(0.0, 0.0), p(1.0, 2.0), p(1.0, 2.0), p(3.0, 1.0)]
         );
         // A symmetric arch peaks at t = 1/2, between its ends, where x
@@ -555,7 +537,7 @@ mod tests {
             .cubic_to(p(0.0, 4.0), p(2.0, 4.0), p(2.0, 0.0))
             .build();
         assert_eq!(
-            bounding_points(&arch).collect::<Vec<_>>(),
+            arch.bezier_bounding_points().collect::<Vec<_>>(),
             [
                 p(0.0, 0.0),
                 p(0.0, 0.0),

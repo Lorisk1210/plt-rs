@@ -786,6 +786,13 @@ class Line2D(Artist):
         # matplotlib keeps the object given (None, ``1``, ``'False'``).
         _values.remember(self, "antialiased", b)
 
+    def _cycled_number(self, name, native):
+        # A number pltrs (Rust) took from the Axes' property cycle reads back
+        # as the cycle holds it (an alpha cycled over an array: numpy floats).
+        if self.axes is None:
+            return _values.NONE_GIVEN
+        return _values.cycle_number(self.axes, name, native)
+
     def get_color(self):
         """
         Return the line color.

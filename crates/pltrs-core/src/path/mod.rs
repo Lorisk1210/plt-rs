@@ -42,7 +42,7 @@ pub use extents::{DataLimits, count_overlapping};
 pub use polygons::PolygonOptions;
 pub use svg::SvgPathError;
 
-use crate::bezier::Bezier;
+use crate::bezier::{Bezier, BezierSegment};
 use crate::{Affine2D, Bbox, Point};
 
 /// The most vertices [`Path::interpolated`] makes: a path of more
@@ -395,6 +395,40 @@ impl Path {
             }
         }
         bbox
+    }
+
+    /// The points bounding the path as matplotlib takes them of its curves
+    /// (`Path.get_extents`, `Axes._update_patch_limits`): the ends of every
+    /// segment and the points where a curve's coordinate derivative
+    /// vanishes, found and evaluated with the arithmetic of matplotlib's
+    /// `BezierSegment`, so that they agree to the last bit. Straight
+    /// segments, which have no extrema, allocate nothing.
+    pub fn bezier_bounding_points(&self) -> impl Iterator<Item = Point> + '_ {
+        self.beziers().flat_map(|curve| match curve {
+            Bezier::Line(start, end) => vec![start, end],
+            curve => {
+                let segment = BezierSegment::from_points(&curve.control_points())
+                    .expect("a curve has control points of two coordinates");
+                let (_, roots) = segment.axis_aligned_extrema();
+                std::iter::once(0.0)
+                    .chain(roots)
+                    .chain(std::iter::once(1.0))
+                    .map(|t| segment.point_at(t))
+                    .collect()
+            }
+        })
+    }
+
+    /// The box matplotlib's `Path.get_extents` gives: a path with curves
+    /// bounded by its [`bezier_bounding_points`](Self::bezier_bounding_points),
+    /// a straight one by its vertices as [`extents`](Self::extents) takes
+    /// them; non-finite points skipped.
+    pub fn bezier_extents(&self) -> Bbox {
+        if !self.has_curves() {
+            return self.extents();
+        }
+        self.bezier_bounding_points()
+            .fold(Bbox::NULL, |bbox, point| bbox.including(point))
     }
 
     /// Splits the path into its sub-paths (each starting with a move).

@@ -79,10 +79,13 @@ def _ecosystem():
 
 
 def _corpora():
-    # Code corpora: a data-only entry (kind = "data") holds no programs.
+    # Code corpora users wrote: a data-only entry (kind = "data") holds no
+    # programs, and a corpus of the repository's own (a `path`, such as the
+    # written family) is not of the books, courses and galleries counted.
     with open(ROOT / "spec/diff/corpora.toml", "rb") as file:
         manifest = tomllib.load(file)
-    return _number(sum(entry.get("kind", "code") != "data" for entry in manifest.values()))
+    return _number(sum(entry.get("kind", "code") != "data" and "path" not in entry
+                       for entry in manifest.values()))
 
 
 def _corpus_compared(key):

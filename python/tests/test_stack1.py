@@ -399,9 +399,10 @@ def test_the_fuzzer_keeps_a_crashs_fault_address_and_first_lines(tmp_path):
 #: reserve 64: PNG 39.3 / 37.4, SVG 47.1 / 45.6, PDF 42.3 / 42.9, EPS
 #: 42.2 / 40.1 (61 and more before the renderers, the figure state a
 #: layout works on and the axis draw's locals left the frames the layout
-#: runs below). A change taking more of the stack on that path fails here,
-#: in its author's smoke tests, not in a draw on a small thread or a merge
-#: check.
+#: runs below); arm64 macOS, reserve 64: PNG 40.9 / 38.7, SVG 48.7 /
+#: 46.4, PDF 44.3 / 44.2, EPS 43.5 / 41.1. A change taking more of the
+#: stack on that path fails here, in its author's smoke tests, not in a
+#: draw on a small thread or a merge check.
 STRETCH_MARGIN = 12 << 10
 
 #: The scenes measured: each figure saved with a formatter that saves it

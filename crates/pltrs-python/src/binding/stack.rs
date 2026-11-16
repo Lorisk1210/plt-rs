@@ -50,27 +50,13 @@ mod linux;
 /// the next (an optimised build, a tight PDF save), and a call goes on at
 /// most 47 KiB below the check that let it in, the nested calls it makes
 /// refused (an SVG save under constrained layout drawing its tick labels;
-/// 46 KiB optimised), which `test_stack1.py` keeps 12 KiB under the
-/// reserve of the system it runs on. Shaping a new line of text and
-/// typesetting a formula, which go deeper with their input, run where the
-/// stack has room for them (`pltrs_text`, `pltrs_core::stack`). So a
-/// thread of 128 KiB (musl's default) draws with callbacks of the
-/// program's, as matplotlib does there.
-#[cfg(not(target_os = "macos"))]
+/// 46 KiB optimised; on arm64 macOS 49 and 46), which `test_stack1.py`
+/// keeps 12 KiB under the reserve of the system it runs on. Shaping a new
+/// line of text and typesetting a formula, which go deeper with their
+/// input, run where the stack has room for them (`pltrs_text`,
+/// `pltrs_core::stack`). So a thread of 128 KiB (musl's default) draws
+/// with callbacks of the program's, as matplotlib does there.
 const RESERVE: usize = 64 * 1024;
-
-/// [`RESERVE`] on macOS (arm64), whose native stretches below a nested
-/// call go deeper than Linux's. Measured on Apple silicon by the same
-/// recursions (`test_stack1.py`, the Python fuzzer's seed 22 on a stack
-/// of 1 MiB): with 64 KiB a formatter saving its figure overflows the
-/// stack of a 512 KiB thread before the check refuses a call; from 72 to
-/// 88 KiB every recursion ends in `RecursionError` and a thread asked for
-/// 128 KiB (macOS gives it 140) still makes its nested calls, which 96 KiB
-/// refuses to a PDF save there. (Measured before the frames a draw runs
-/// below were made leaner; `test_stack1.py`'s ceiling of the stretch does
-/// not run on macOS yet.)
-#[cfg(target_os = "macos")]
-const RESERVE: usize = 80 * 1024;
 
 /// The stack a call from native code into Python needs left. CPython 3.14
 /// refuses a Python call once less than twice `_PyOS_STACK_MARGIN_BYTES`

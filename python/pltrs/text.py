@@ -1105,6 +1105,10 @@ class Text(Artist):
         if (not self.get_visible() or self.get_text() == ""
                 or not _text.in_data_domain(self._native)):
             return Bbox.null()
+        if "_asked_transform" in self.__dict__ and self.axes is not None:
+            # matplotlib compares the transform with the data transform
+            # first, which asks a transform the program's code computes.
+            self.get_transform() == self.axes.transData  # noqa: B015
         return super().get_tightbbox(renderer)
 
     def draw(self, renderer):

@@ -123,6 +123,63 @@ def _spines_placed(axes):
             spine._position_set = False
 
 
+def drawn(artist, rendered=True):
+    """matplotlib's ``draw`` of *artist* as far as it evaluates transforms,
+    replayed on its own (an artist whose transforms the program's code
+    computes, see `._live_transforms.ask_transform`): in a draw that
+    renders it, or with *rendered* false in matplotlib's draw with drawing
+    disabled (the one laying a tight print out), whose renderer methods do
+    nothing, so that what only the renderer reads is not read."""
+    global _renders
+    outer, _renders = _renders, rendered
+    try:
+        with _spines_placed(getattr(artist, "axes", None)):
+            if _maps_its_extent(artist):
+                _image_made(artist)
+            else:
+                _artist_drawn(artist)
+    finally:
+        _renders = outer
+
+
+def tight_box_measured(artist):
+    """``get_tightbbox`` of *artist*, which its Axes' tight box asks, as far
+    as it evaluates transforms: a text compares its transform with the data
+    transform and maps its position, an image maps the corners of its
+    extent."""
+    from .text import Text
+    if isinstance(artist, Text):
+        if artist.get_text() == "":
+            return
+        artist.get_transform() == artist.axes.transData  # noqa: B015
+        _position_mapped(artist.get_transform())
+    elif _maps_its_extent(artist):
+        _position_mapped(artist.get_transform())
+
+
+#: Whether the draw replayed renders (see `drawn`).
+_renders = True
+
+
+def _image_made(image):
+    """``AxesImage.make_image``'s ``_make_image``: the image's box through
+    its transform clipped to the Axes (the box's corners read), the corners
+    snapped to whole pixels, then the data and, for data of numbers, their
+    mask resampled, each mapping a point to choose the kernel and handing
+    the transform to the resampler (its matrix, or the mesh of its inverse
+    for a non-affine one)."""
+    transform = image.get_transform()
+    _position_mapped(transform)
+    _position_mapped(transform)
+    data = image.get_array()
+    for _ in range(1 if data is not None and data.ndim == 3 else 2):
+        _position_mapped(transform)
+        if transform.is_affine:
+            transform.__array__()
+        else:
+            _position_mapped(transform.inverted())
+
+
 def _artist_drawn(artist):
     """matplotlib's ``draw`` of *artist*, as far as it evaluates
     transforms."""
@@ -179,6 +236,8 @@ def _clip_read(artist):
     each time it draws for *artist*: its clip path through its transform,
     refused with a log message when it is not finite."""
     from .backend_bases import GraphicsContextBase
+    if not _renders:
+        return
     clip_path = artist.get_clip_path() if artist.get_clip_on() else None
     if clip_path is not None:
         gc = GraphicsContextBase()
@@ -326,7 +385,7 @@ def _collection_drawn(collection):
     tried_in_full = type(renderer).__name__ != "MixedModeRenderer"
     for last in ([True] if once else [False, True]):
         transform.frozen()
-        if last or tried_in_full:
+        if _renders and (last or tried_in_full):
             offset_transform.__array__()
             _clip_read(collection)
 

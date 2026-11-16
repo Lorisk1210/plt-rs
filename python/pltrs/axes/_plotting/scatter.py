@@ -12,6 +12,7 @@ from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...artist import _check_array_alpha
 from ...markers import MarkerStyle
+from ...transforms import Transform
 from ._helpers import floats, wrap
 
 
@@ -457,6 +458,12 @@ class ScatterMixin:
             (None if alpha is None else float(alpha), alphas),
             (bool(plotnonfinite), _live_transforms.given_to_native(offset_transform, self)))
         collection = wrap(self, native, mcoll.PathCollection)
+        if (isinstance(offset_transform, Transform)
+                and getattr(offset_transform, "_live", None) is None):
+            # Kept as given, as matplotlib's collection keeps it, and asked
+            # where matplotlib asks it if the program's code computes it.
+            collection._offset_transform = offset_transform
+            _live_transforms.ask_when_drawn(collection)
         # matplotlib's scatter gives its marker path as a tuple, its sizes as
         # given, and its face colours as an array (a face, even if clear).
         collection._paths_container = tuple

@@ -7,8 +7,8 @@
 //! handed over; matplotlib asks it for its matrix wherever it draws or
 //! measures the artist. The artist gets an [`AskingPainter`], which hands
 //! pltrs (Rust) the transform again, through the package's
-//! `ask_transform(artist)`, before every draw and every measure reaching
-//! the artist, and draws it as pltrs draws it.
+//! `ask_transform(artist, rendered)`, before every draw reaching the
+//! artist, and draws it as pltrs draws it.
 
 use pltrs::artist::{ArtistId, ArtistPainter, DrawContext, DrawTarget, Painter, RawHandle};
 
@@ -36,21 +36,39 @@ impl AskingPainter {
         (!artist.is_none()).then_some(artist)
     }
 
-    /// Hands pltrs (Rust) the artist's transform as it computes it now;
-    /// nothing once the artist is gone. What the program's code raises is
-    /// raised when the native call running returns.
-    fn ask(&self) {
+    /// Asks the artist's transforms as matplotlib's draw asks them, in a
+    /// draw that renders the artist (`rendered`) or only lays the figure out
+    /// (matplotlib's draw with drawing disabled, before a tight print), and
+    /// hands pltrs (Rust) what they answered, through the package's
+    /// `ask_transform(artist, rendered)`; nothing once the artist is gone.
+    /// What the program's code raises is raised when the native call
+    /// running returns.
+    fn ask(&self, rendered: bool) {
         Python::with_gil(|py| {
             let artist = self.artist(py)?;
             let ask: Callback = lookup(py, "ask_transform").ok()?.extract().ok()?;
-            ask.call::<Owned>((artist,))
+            ask.call::<Owned>((artist, rendered))
+        });
+    }
+}
+
+impl AskingPainter {
+    /// Asks the artist's transforms as matplotlib's tight box of its Axes
+    /// asks them (for a layout engine with `for_layout`), through the
+    /// package's `ask_measured(artist, for_layout)`: only where that box
+    /// takes the artist in.
+    fn measured(&self, for_layout: bool) {
+        Python::with_gil(|py| {
+            let artist = self.artist(py)?;
+            let ask: Callback = lookup(py, "ask_measured").ok()?.extract().ok()?;
+            ask.call::<Owned>((artist, for_layout))
         });
     }
 }
 
 impl ArtistPainter for AskingPainter {
-    fn prepare(&self, _artist: &RawHandle, _target: DrawTarget<'_>) {
-        self.ask();
+    fn prepare(&self, _artist: &RawHandle, target: DrawTarget<'_>) {
+        self.ask(target.rendered);
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>, artist: ArtistId) {
@@ -58,12 +76,12 @@ impl ArtistPainter for AskingPainter {
     }
 
     fn measure(&self, _artist: &RawHandle) {
-        self.ask();
+        self.measured(false);
     }
 
-    /// Nothing: matplotlib's layout engines measure Axes, whose clipped
-    /// children they leave out, and ask no transform of theirs.
-    fn measure_for_layout(&self, _artist: &RawHandle) {}
+    fn measure_for_layout(&self, _artist: &RawHandle) {
+        self.measured(true);
+    }
 }
 
 /// Has the artist `artist`, whose Python object the weak reference

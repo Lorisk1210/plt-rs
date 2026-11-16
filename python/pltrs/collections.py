@@ -527,6 +527,10 @@ class Collection(mcolorizer.ColorizingArtist):
             _unusable.keep(self, "offset_transform", offset_transform,
                            operator.attrgetter("is_affine"))
         self._offset_transform = offset_transform
+        if (getattr(offset_transform, "_live", None) is None
+                or "_asked_transform" in self.__dict__):
+            # One the program's code may compute anew at each draw.
+            _live_transforms.ask_when_drawn(self)
 
     def _prepare_points(self):
         # Helper for drawing and hit testing, which exporters call

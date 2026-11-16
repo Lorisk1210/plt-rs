@@ -506,7 +506,7 @@ fn child_tight_bbox(
     if state.spines.contains(&child) && !state.decorations.framed() {
         return None;
     }
-    if fully_clipped(base, axes) {
+    if fully_clipped(base, axes, layout.axes_extent(axes)) {
         return None;
     }
     if let Some(text) = layout.store().get_as::<TextArtist>(child)
@@ -537,10 +537,19 @@ pub(crate) fn spine_extent_with_ticks(
         .then(|| AxisPainter::new(axes, state, name).spine_extent(&mut { layout }, spine.side))?
 }
 
-/// Whether an artist is clipped to exactly its axes (matplotlib's
-/// `_fully_clipped_to_axes`).
-pub(crate) fn fully_clipped(base: &ArtistBase, axes: ArtistId) -> bool {
-    base.clip_on && base.clip_path.is_none() && base.clip_box == Some(axes)
+/// Whether an artist is clipped to exactly its axes, whose box is
+/// `extent` (matplotlib's `_fully_clipped_to_axes`). matplotlib compares
+/// the extents of the clip box, its axes' patch (the unit box through
+/// `BboxTransformTo` of the axes' box: `(x1 - x0) + x0` for its right
+/// edge), with those of the axes' box, so a box whose far corner that
+/// sum rounds (at 150 dpi, the top of a box 633.6 pixels high) does not
+/// clip the artist exactly, and the artist's tight box is measured.
+#[expect(clippy::float_cmp, reason = "matplotlib compares the extents exactly")]
+pub(crate) fn fully_clipped(base: &ArtistBase, axes: ArtistId, extent: Option<Bbox>) -> bool {
+    base.clip_on
+        && base.clip_path.is_none()
+        && base.clip_box == Some(axes)
+        && extent.is_none_or(|b| b.x0() + b.width() == b.x1() && b.y0() + b.height() == b.y1())
 }
 
 /// `bbox` reduced by the artist's clip box and clip path (the clipping

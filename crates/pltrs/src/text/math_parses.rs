@@ -25,7 +25,7 @@ use std::collections::VecDeque;
 use std::rc::Weak;
 
 use pltrs_text::mathtext::MathStyle;
-use pltrs_text::{TextRun, TextSource};
+use pltrs_text::{TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine, TextRun, TextSource};
 
 use super::metrics_cache::{self, MetricsCache};
 
@@ -169,6 +169,22 @@ pub(crate) fn parsed(run: &TextRun, antialiased: bool) {
     }
 }
 
+/// Notes that matplotlib's `TextToPath` parses the formula of `run`,
+/// drawn as its outline (through path effects, `_draw_text_as_path`): by
+/// its own parser, at 100 points and 72 dpi, so that its fonts are looked
+/// up at that size.
+pub(crate) fn parsed_as_path(run: &TextRun) {
+    let Some(source @ TextSource::Math { .. }) = &run.source else {
+        return;
+    };
+    // (A formula that was laid out typesets again.)
+    if let Ok(at_path_size) =
+        source.layout(TextEngine::global(), TEXT_PATH_FONT_SCALE, TEXT_PATH_DPI)
+    {
+        for_text_path(|| parsed(&at_path_size, crate::rc::params().text_antialiased));
+    }
+}
+
 /// Logs the messages typesetting the formula `run` noted, as a parser of
 /// its own (which keeps nothing yet) logs them.
 pub(crate) fn log_typesetting(run: &TextRun) {
@@ -182,7 +198,7 @@ mod tests {
     use std::rc::Rc;
 
     use super::*;
-    use pltrs_text::TextEngine;
+    use pltrs_text::{MathNote, TextEngine};
 
     /// A run of `text` typeset at `size` points, noting `logged`.
     fn run(text: &str, size: f64, logged: &[&str]) -> TextRun {
@@ -193,7 +209,9 @@ mod tests {
         run.source = Some(TextSource::Math {
             text: text.to_owned(),
             style,
-            logged: logged.iter().map(|&message| message.to_owned()).collect(),
+            logged: (logged.iter())
+                .map(|&message| MathNote::Message(message.to_owned()))
+                .collect(),
         });
         run
     }

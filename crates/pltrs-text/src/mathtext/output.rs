@@ -95,11 +95,11 @@ pub struct MathLayout {
     pub rects: Vec<MathRect>,
     /// Resolution the math was typeset for.
     pub dpi: f64,
-    /// What matplotlib's mathtext logs while it typesets the math (lists
-    /// packed to a size their glue cannot reach), for the caller to log
-    /// where matplotlib parses the formula (see
-    /// [`log_mathtext`](crate::log_mathtext)).
-    pub logged: Vec<String>,
+    /// What matplotlib's mathtext says while it parses the math (lists
+    /// packed to a size their glue cannot reach, the lookups of its
+    /// fontset's fonts), for the caller to say again where matplotlib
+    /// parses the formula (see [`log_mathtext`](crate::log_mathtext)).
+    pub logged: Vec<crate::MathNote>,
 }
 
 impl MathLayout {

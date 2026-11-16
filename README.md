@@ -388,8 +388,8 @@ pltrs (Python) is measured against matplotlib in these ways:
   exception, warning, printed line and figure. Every image of the
   gallery programs that run here matches matplotlib's. Of the corpora's
   programs that matplotlib runs to their end here, drawing or writing a
-  figure, so that each is compared whole, <!--fact:corpora.compared-clean-->3,617
-  of <!--fact:corpora.compared-->3,752 behave as under matplotlib
+  figure, so that each is compared whole, <!--fact:corpora.compared-clean-->3,626
+  of <!--fact:corpora.compared-->3,756 behave as under matplotlib
   (`spec/diff/corpus-outcomes.json`; a program both stop at the same
   exception, or that draws nothing, is counted apart). With `--docs` it
   compares every public callable's signature and docstring, and every

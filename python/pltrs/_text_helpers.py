@@ -30,7 +30,7 @@ _AFM_DIRECTORIES = {"afm": "fonts/afm", "core fonts": "fonts/pdfcorefonts"}
 
 
 def report_font_lookup(kind, family, style, variant, weight, stretch, size,
-                       times):
+                       times, math_fontfamily=None):
     """
     Look up, with the program's font manager, the fonts of a text pltrs
     (Rust) laid out that matplotlib's font manager logs about (a family no
@@ -39,12 +39,15 @@ def report_font_lookup(kind, family, style, variant, weight, stretch, size,
     matplotlib's renderers do for every text they lay out
     (``_find_fonts_by_props`` for *kind* ``"fonts"``, ``findfont`` for
     ``"font"``, among the AFM fonts for ``"afm"`` and ``"core fonts"``), so
-    that the program's font manager logs as matplotlib's does.
+    that the program's font manager logs as matplotlib's does. A
+    formula's lookups name its *math_fontfamily* (the fontset of its font
+    properties, by which the font manager caches lookups too).
     """
     from . import rcParams
     from .font_manager import FontProperties, fontManager, get_font
     prop = FontProperties(family=family, style=style, variant=variant,
-                          weight=weight, stretch=stretch, size=size)
+                          weight=weight, stretch=stretch, size=size,
+                          math_fontfamily=math_fontfamily)
     if kind in _AFM_DIRECTORIES:
         # The font a PostScript or PDF renderer measures and draws the
         # text in (``_get_font_afm``); the PDF renderer looks the fonts up

@@ -7,7 +7,7 @@ use super::{AggFilter, ArtistId, BaseProps, ClipPathSpec, LayoutContext, Picker,
 use crate::axes::Axes;
 use crate::figure::{Figure, FigureState};
 use crate::patheffects::PathEffect;
-use crate::transforms::Transform;
+use crate::transforms::{Transform, TransformContext};
 
 /// The handles of one type of artist, which [`RawHandle::downcast`] turns
 /// untyped handles into.
@@ -96,8 +96,9 @@ pub trait ArtistHandle {
     /// ```
     fn fully_clipped_to_axes(&self) -> bool {
         self.axes().is_some_and(|axes| {
+            let extent = self.raw().figure_state().borrow().axes_bbox(axes.id());
             self.raw()
-                .with_base(|base| crate::axes::fully_clipped(base, axes.id()))
+                .with_base(|base| crate::axes::fully_clipped(base, axes.id(), extent))
         })
     }
 

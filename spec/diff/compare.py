@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import ast
 import dataclasses
+import importlib.util
 import math
 import pathlib
 import re
@@ -68,7 +69,7 @@ class Source:
 
     def __init__(self, path: pathlib.Path) -> None:
         try:
-            self.text = path.read_text()
+            self.text = importlib.util.decode_source(path.read_bytes())
             self.tree = ast.parse(self.text)
         except (OSError, SyntaxError):
             self.text, self.tree = "", None

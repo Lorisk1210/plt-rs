@@ -60,6 +60,7 @@ import warnings
 from typing import Any
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from corpora import unchanged_copies  # noqa: E402
 from describe import Describer, Names, public_mro  # noqa: E402
 import ipython_shell  # noqa: E402
 
@@ -537,11 +538,14 @@ def _display(*objs: Any, **_options: Any) -> None:
 
 def _written(tree: pathlib.Path, program: pathlib.Path) -> list[str]:
     """The files the program wrote in *tree*: those that are no links into
-    the corpus' tree, but the program itself and Python's caches."""
-    return sorted(
-        path.relative_to(tree).as_posix() for path in tree.rglob("*")
-        if path.is_file() and not path.is_symlink() and path != program and "__pycache__" not in path.parts
-    )
+    the corpus' tree nor copies standing in for such links left unchanged
+    (where the system makes no links), but the program itself and Python's
+    caches."""
+    copies = unchanged_copies(tree)
+    written = (path.relative_to(tree).as_posix() for path in tree.rglob("*")
+               if path.is_file() and not path.is_symlink() and path != program
+               and "__pycache__" not in path.parts)
+    return sorted(name for name in written if name not in copies)
 
 
 def main() -> int:
@@ -573,7 +577,7 @@ def main() -> int:
                   str(out.resolve()))
     global _RECORDER
     recorder = _RECORDER = Recorder(names, program)
-    text = args.program.read_text()
+    text = importlib.util.decode_source(args.program.read_bytes())
     if args.shell:
         text = ipython_shell.python_of(text)
     code = compile(instrument(text, program, args.impl, args.mode), program, "exec")

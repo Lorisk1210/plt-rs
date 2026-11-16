@@ -238,6 +238,26 @@ pub fn distill_file(
     write(path, &file.contents()?)
 }
 
+/// `document` with the program of its `%%Invocation` line written `gs`:
+/// Ghostscript writes `path/gs` when it was started by an absolute path (a
+/// wrapper script), `gs` when by name, and on Windows `gswin64c` followed
+/// by the arguments its build adds for the display
+/// (`-dDisplayFormat=... -dDisplayResolution=...`), before matplotlib's.
+#[cfg(test)]
+pub(super) fn invoked_as_gs(document: &str) -> String {
+    const INVOCATION: &str = "%%Invocation: ";
+    let program = document.find(INVOCATION).and_then(|at| {
+        let start = at + INVOCATION.len();
+        document[start..]
+            .find(" -dBATCH")
+            .map(|end| (start, start + end))
+    });
+    match program {
+        Some((start, end)) => format!("{}gs{}", &document[..start], &document[end..]),
+        None => document.to_owned(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -315,13 +335,10 @@ mod tests {
         };
         match gs_distill(&file, &eps, 6000) {
             Ok(()) => {
-                // Ghostscript writes `path/gs` when it was started by an
-                // absolute path (a wrapper script), `gs` when by name; and
-                // its date follows `SOURCE_DATE_EPOCH` only in builds that
+                // Its date follows `SOURCE_DATE_EPOCH` only in builds that
                 // read it (Debian's), else the clock.
-                let distilled = String::from_utf8(file.contents().unwrap())
-                    .unwrap()
-                    .replacen("%%Invocation: path/gs ", "%%Invocation: gs ", 1);
+                let distilled =
+                    invoked_as_gs(&String::from_utf8(file.contents().unwrap()).unwrap());
                 assert!(distilled.starts_with(
                     "%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 100 100\n\
                      %%HiResBoundingBox: 0.000000 0.000000 100.000000 100.000000\n\

@@ -71,7 +71,9 @@ def sdist(name, version, dest):
 def archive(url, sha256, dest):
     """Downloads, checks and unpacks the archive at *url* into *dest*."""
     data = download(url, sha256)
-    partial = dest.with_name(f".{dest.name}.partial")
+    # Beside it under a short name: Windows' paths hold 259 characters at
+    # most, which scanpy's deepest test images come near.
+    partial = dest.with_name(".partial")
     shutil.rmtree(partial, ignore_errors=True)
     partial.mkdir(parents=True)
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:

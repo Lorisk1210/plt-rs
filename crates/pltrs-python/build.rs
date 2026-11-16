@@ -29,7 +29,8 @@
 //! on Windows its DLLs) into `OUT_DIR/embed`, where `cargo test` also
 //! finds them at run time, and sets the `pltrs_python_embed` cfg and the
 //! `PLTRS_PYTHON_HOME` variable the tests read. Without one, or when
-//! cross-compiling, the crate's test build is empty.
+//! cross-compiling, the crate's test build is empty (which a build of the
+//! tests, not of the optimised extension, warns of).
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -217,9 +218,14 @@ fn main() {
         link_python3();
     }
     let Some(found) = candidates().iter().find_map(|python| embeddable(python)) else {
-        println!(
-            "cargo::warning=no shared Python 3.14+ found: pltrs-python's unit tests are empty"
-        );
+        // Said where tests are built from: not in the optimised builds of
+        // the extension and the wheels (`PROFILE` is `release` for every
+        // profile inheriting it), whose Python may well be older.
+        if std::env::var("PROFILE").as_deref() != Ok("release") {
+            println!(
+                "cargo::warning=no shared Python 3.14+ found: pltrs-python's unit tests are empty"
+            );
+        }
         return;
     };
     let out = PathBuf::from(std::env::var_os("OUT_DIR").expect("cargo sets OUT_DIR"));

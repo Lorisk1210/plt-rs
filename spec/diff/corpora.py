@@ -39,6 +39,7 @@ It uses the standard library and git alone.
 from __future__ import annotations
 
 import ast
+import collections
 import dataclasses
 import fnmatch
 import hashlib
@@ -95,6 +96,12 @@ _URL = re.compile(r"https?://", re.I)
 
 class CorpusError(Exception):
     """A corpus that cannot be fetched or does not match its manifest."""
+
+
+class CorpusUnfit(CorpusError):
+    """A corpus whose tree this system cannot hold: file names Windows
+    forbids (``<``, ``>``, ``:``, ``|``, ``*``, ...), or names a file system
+    that ignores case (Windows', macOS') takes for one."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -198,7 +205,7 @@ class CorpusProgram:
 
 def load(manifest: pathlib.Path = MANIFEST) -> list[Corpus]:
     """The corpora of the manifest, in its order."""
-    tables = tomllib.loads(manifest.read_text())
+    tables = tomllib.loads(manifest.read_text(encoding="utf-8"))
     return [
         Corpus(
             name=name,
@@ -245,7 +252,7 @@ def environment(corpus: Corpus, out: pathlib.Path) -> dict[str, str]:
 
 def _git(*args: str | os.PathLike[str]) -> str:
     """What git prints running *args*."""
-    done = subprocess.run(["git", *map(str, args)], capture_output=True, text=True)
+    done = subprocess.run(["git", *map(str, args)], capture_output=True, text=True, encoding="utf-8")
     if done.returncode != 0:
         raise CorpusError(f"git {' '.join(map(str, args[:3]))}...: {done.stderr.strip()[-500:]}")
     return done.stdout
@@ -259,6 +266,16 @@ def _files(tree: pathlib.Path) -> Iterator[pathlib.Path]:
         for name in files:
             if not (here == pathlib.Path(".") and name == ".git"):
                 yield here / name
+
+
+def _names_clashing_by_case(tree: pathlib.Path) -> list[str]:
+    """The files of the checkout *tree* whose names differ from another's
+    in case alone, sorted."""
+    by_folded = collections.defaultdict(list)
+    for name in _git("-C", tree, "ls-files", "-z").split("\0"):
+        if name:
+            by_folded[name.casefold()].append(name)
+    return sorted(name for names in by_folded.values() if len(names) > 1 for name in names)
 
 
 def tree_digest(tree: pathlib.Path) -> str:
@@ -289,12 +306,28 @@ def fetch(corpus: Corpus, out: pathlib.Path) -> pathlib.Path:
         shutil.rmtree(directory, onexc=_writable_then_retry)
     directory.mkdir(parents=True)
     _git("init", "--quiet", f"--separate-git-dir={directory / 'git'}", tree)
+    # The files as the commit has them wherever git runs: Windows' git turns
+    # LF into CRLF (by its own setting, and for a repository's `text=auto`
+    # files by the platform's line ending) and writes links as plain files
+    # unless told otherwise.
+    _git("-C", tree, "config", "core.autocrlf", "false")
+    _git("-C", tree, "config", "core.eol", "lf")
+    _git("-C", tree, "config", "core.symlinks", "true")
     _git("-C", tree, "remote", "add", "origin", corpus.repository)
     _git("-C", tree, "sparse-checkout", "set", "--no-cone", *corpus.fetch)
     _git("-C", tree, "fetch", "--quiet", "--depth", "1", "--filter=blob:none", "origin", corpus.commit)
-    _git("-C", tree, "-c", "advice.detachedHead=false", "checkout", "--quiet", "FETCH_HEAD")
+    try:
+        _git("-C", tree, "-c", "advice.detachedHead=false", "checkout", "--quiet", "FETCH_HEAD")
+    except CorpusError as err:
+        if os.name == "nt" and "invalid path" in str(err):
+            raise CorpusUnfit(f"{corpus.name}: {err}") from err
+        raise
     digest = tree_digest(tree)
     if digest != corpus.sha256:
+        clashing = _names_clashing_by_case(tree)
+        if clashing and (tree.parent / tree.name.upper()).exists():
+            raise CorpusUnfit(f"{corpus.name}: names this file system takes for one: "
+                              f"{', '.join(clashing)}")
         raise CorpusError(f"{corpus.name}: the tree fetched has SHA-256 {digest}, "
                           f"the manifest says {corpus.sha256 or 'nothing'}")
     outputs = [*corpus.outputs]
@@ -513,11 +546,11 @@ def cells(path: pathlib.Path, doctests: bool = False, shell: str = "") -> list[s
     blocks too with *doctests*); for a *shell* (``"ipython"``), the cells
     an IPython shell runs (`shell_cell`)."""
     if path.suffix == ".ipynb":
-        sources = _notebook_sources(json.loads(path.read_text()))
+        sources = _notebook_sources(json.loads(path.read_text(encoding="utf-8")))
     elif path.suffix == ".rst":
-        sources = _rst_sources(path.read_text(), doctests)
+        sources = _rst_sources(path.read_text(encoding="utf-8"), doctests)
     else:
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         sources = ([_MYST_OPTIONS.sub("", block, count=1) for block in _MYST_CODE.findall(text)]
                    or _MARKDOWN_CODE.findall(text))
     return _usable(sources, shell)
@@ -551,7 +584,7 @@ def programs(corpus: Corpus, out: pathlib.Path) -> list[CorpusProgram]:
         if cellwise or rewritten != text:
             path = converted / relative
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(rewritten)
+            path.write_text(rewritten, encoding="utf-8")
         found.append(CorpusProgram(corpus, tree, relative, path, "cells" if cellwise else "program"))
 
     def as_cells(code_cells: list[str]) -> str:
@@ -560,12 +593,12 @@ def programs(corpus: Corpus, out: pathlib.Path) -> list[CorpusProgram]:
     for relative, path in _matching(tree, corpus.programs, corpus.exclude):
         run_as = relative.removesuffix(path.suffix) + ".py"
         if path.suffix not in CELL_SUFFIXES:
-            add(run_as, path, path.read_text(), cellwise=False)
+            add(run_as, path, path.read_text(encoding="utf-8"), cellwise=False)
         elif code_cells := cells(path, corpus.doctests, corpus.shell):
             # (A page without code, or of code shown only, is no program.)
             add(run_as, path, as_cells(code_cells), cellwise=True)
     for relative, path in _matching(tree, corpus.docstrings, corpus.exclude):
-        if code_cells := _usable(doc_examples.docstring_sources(path.read_text())):
+        if code_cells := _usable(doc_examples.docstring_sources(path.read_text(encoding="utf-8"))):
             add(f"docstrings/{relative}", path, as_cells(code_cells), cellwise=True)
     return found
 
@@ -581,16 +614,57 @@ def _matching(tree: pathlib.Path, patterns: tuple[str, ...],
                 yield relative, path
 
 
+def link(target: pathlib.Path, at: pathlib.Path) -> bool:
+    """A symbolic link at *at* to *target*, or where the system makes none
+    (Windows, but in Developer Mode or for administrators) a junction to a
+    directory, which every user may make there, or a copy of a file.
+    Returns whether it made a copy."""
+    try:
+        at.symlink_to(target, target_is_directory=target.is_dir())
+    except OSError:
+        if not target.is_dir():
+            shutil.copyfile(target, at)
+            return True
+        if os.name != "nt":
+            raise
+        import _winapi  # CPython's own junctions, as its tests make them
+        _winapi.CreateJunction(str(target.resolve()), str(at))
+    return False
+
+
+def copies_listing(into: pathlib.Path) -> pathlib.Path:
+    """The file beside the tree laid out at *into* listing the copies that
+    stand in for links there (``shadow``): by relative name, the size and
+    modification time each had once copied."""
+    return into.with_name(f"{into.name}-copies.json")
+
+
+def unchanged_copies(into: pathlib.Path) -> set[str]:
+    """The copies of ``copies_listing`` a run has left as they were made:
+    files of the corpus' tree, not ones the program wrote."""
+    listing = copies_listing(into)
+    if not listing.exists():
+        return set()
+    copies = json.loads(listing.read_text(encoding="utf-8"))
+    unchanged = set()
+    for relative, (size, modified) in copies.items():
+        stat = (into / relative).stat() if (into / relative).is_file() else None
+        if stat is not None and (stat.st_size, stat.st_mtime_ns) == (size, modified):
+            unchanged.add(relative)
+    return unchanged
+
+
 def shadow(corpus: Corpus, tree: pathlib.Path, into: pathlib.Path) -> None:
     """Lays out at *into* the tree a run sees: *tree*'s directories, its
-    files as links to them (copies where the system makes no links) but
-    the figures its scripts save next to themselves under their own names,
-    and the corpus' output directories empty, with their
-    subdirectories."""
+    files as links to them (copies where the system makes no links, listed
+    in ``copies_listing``) but the figures its scripts save next to
+    themselves under their own names, and the corpus' output directories
+    empty, with their subdirectories."""
     if into.exists():
         shutil.rmtree(into)
     scripts = {path.relative_to(tree) for pattern in corpus.programs
                for path in tree.glob(pattern) if path.suffix == ".py"}
+    copies = {}
     for relative in _files(tree):
         if _matches(relative.as_posix(), tuple(f"{output}/*" for output in corpus.outputs)):
             continue
@@ -599,9 +673,12 @@ def shadow(corpus: Corpus, tree: pathlib.Path, into: pathlib.Path) -> None:
             continue
         target = into / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            target.symlink_to(tree / relative)
-        except OSError:
-            shutil.copyfile(tree / relative, target)
+        if link(tree / relative, target):
+            stat = target.stat()
+            copies[relative.as_posix()] = [stat.st_size, stat.st_mtime_ns]
     for output in _output_directories(corpus, tree):
         (into / output).mkdir(parents=True, exist_ok=True)
+    listing = copies_listing(into)
+    listing.unlink(missing_ok=True)
+    if copies:
+        listing.write_text(json.dumps(copies), encoding="utf-8")

@@ -202,7 +202,7 @@ fn run_diff(args: &[String]) -> Result<(), String> {
     let mut build = mode.runs_pltrs();
     let mut suites = Vec::new();
     let mut corpus = false;
-    let mut script = Command::new(root.join(".venv/bin/python"));
+    let mut script = Command::new(crate::python::reference_python());
     script
         .arg(root.join("spec/diff").join(mode.script()))
         .arg("--root")

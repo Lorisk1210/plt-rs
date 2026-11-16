@@ -1031,7 +1031,7 @@ def _vector_metadata(fname, format, metadata):
     matplotlib's `imsave` calls."""
     if format == "pdf":
         from .backends.backend_pdf import _native_info
-        return _native_info(metadata)
+        return _native_info(metadata or {})
     if format == "svg":
         from .backends.backend_svg import _svg_metadata
         return _svg_metadata(metadata)

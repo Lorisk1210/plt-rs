@@ -89,7 +89,9 @@ fn link_vendored(library: &Library, installed: &Path, site: &Path) -> Result<(),
     let name = format!("{}.libs", library.name.replace('-', "_"));
     let link = site.join(&name);
     if link.is_symlink() {
-        fs::remove_file(&link).map_err(|err| format!("{}: {err}", link.display()))?;
+        // (A link to a directory is a directory to Windows, which
+        // `remove_file` does not remove.)
+        prepare::remove(&link)?;
     }
     let vendored = installed.join(&name);
     if vendored.is_dir() {

@@ -260,7 +260,8 @@ fn read<D: Archive>(catalogue: &Path) -> Result<Vec<CataloguedFile<D>>, String> 
 }
 
 /// Writes the catalogue of `files` to the file `catalogue`: to a new file
-/// in the same directory, then renamed over it.
+/// in the same directory, then renamed over it, unless another process's
+/// catalogue took its place at that moment.
 fn write<D: Archive>(catalogue: &Path, files: Vec<CataloguedFile<D>>) -> io::Result<()> {
     let kept = Kept {
         format: FORMAT,
@@ -276,7 +277,12 @@ fn write<D: Archive>(catalogue: &Path, files: Vec<CataloguedFile<D>>) -> io::Res
         // Nothing is left behind; the file may not even have been made.
         let _ = fs::remove_file(&temporary);
     }
-    written
+    match written {
+        // Another process saved its catalogue at that moment (several
+        // programs using a new cache directory at once): it stands.
+        Err(err) if pltrs_core::os::lost_rename_race(&err, catalogue) => Ok(()),
+        written => written,
+    }
 }
 
 /// The checksum ending a catalogue's file, which tells its bytes from

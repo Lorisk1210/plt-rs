@@ -95,6 +95,45 @@ fn c_unsigned(value: f64) -> u32 {
     }
 }
 
+/// `(long)value` as matplotlib's C++ casts a size on Windows, where C's
+/// `long` has 32 bits: on x86-64 the "integer indefinite" `i32::MIN` for
+/// what is out of its range or no number, elsewhere saturated.
+fn c_long32(value: f64) -> i32 {
+    let outside = value.is_nan() || value >= 2_147_483_648.0 || value <= -2_147_483_649.0;
+    if cfg!(target_arch = "x86_64") && outside {
+        i32::MIN
+    } else {
+        value as i32
+    }
+}
+
+/// The pixels per em `FT_Request_Metrics` computes for matplotlib's
+/// `FT_Set_Char_Size(face, points * 64, 0, dpi, dpi)`, before FreeType
+/// stores them in 16 bits: `((size * resolution + 36) / 72 + 32) >> 6` in
+/// C's `long` (`FT_Long`, `FT_Pos`). That has 64 bits on Linux and macOS;
+/// on Windows 32, where the size, the resolution and their product wrap
+/// around, so that a negative resolution reads as negative there (as a huge
+/// one elsewhere) and a few too large ones as small.
+fn requested_ppem(points: f64, dpi: f64) -> i64 {
+    let resolution = match c_unsigned(dpi) {
+        0 => 72,
+        resolution => resolution,
+    };
+    if cfg!(windows) {
+        let char_size = c_long32(points * 64.0).max(64);
+        let scaled = char_size.wrapping_mul(resolution as i32).wrapping_add(36) / 72;
+        i64::from(scaled.wrapping_add(32) >> 6)
+    } else {
+        let char_size = ((points * 64.0) as i64).max(64);
+        (char_size
+            .saturating_mul(i64::from(resolution))
+            .saturating_add(36)
+            / 72
+            + 32)
+            >> 6
+    }
+}
+
 impl Size {
     /// The size matplotlib's `FT2Font.set_size(points, dpi)` selects: the
     /// point size is truncated to 26.6 and the resolution to an integer.
@@ -106,7 +145,8 @@ impl Size {
     /// than 65 535 pixels per em, or of none in a TrueType face. The
     /// resolution is cast to FreeType's unsigned resolution as matplotlib's
     /// `FT2Font::set_size` casts it (on x86-64, a negative one wraps around
-    /// to a huge one, which FreeType refuses).
+    /// to a huge one, which FreeType refuses; on Windows its 32-bit `long`
+    /// reads it as negative again, and as no pixel per em).
     ///
     /// ```
     /// use pltrs_font::{Face, Size, SizeError, bundled_font_data};
@@ -115,7 +155,14 @@ impl Size {
     /// assert_eq!(Size::checked(&face, 10.0, 2.5), Err(SizeError::InvalidPpem));
     /// assert_eq!(Size::checked(&face, 1e5, 72.0), Err(SizeError::InvalidPixelSize));
     /// if cfg!(target_arch = "x86_64") {
-    ///     assert_eq!(Size::checked(&face, 10.0, -1.0), Err(SizeError::InvalidPixelSize));
+    ///     // -1 wraps around to 2³² - 1, which C's 32-bit `long` on
+    ///     // Windows reads as -1 again.
+    ///     let refused = if cfg!(windows) {
+    ///         SizeError::InvalidPpem
+    ///     } else {
+    ///         SizeError::InvalidPixelSize
+    ///     };
+    ///     assert_eq!(Size::checked(&face, 10.0, -1.0), Err(refused));
     ///     assert!(Size::checked(&face, 10.0, f64::INFINITY).is_ok(), "no resolution: 72");
     /// }
     /// # Ok::<(), pltrs_font::FontError>(())
@@ -125,15 +172,10 @@ impl Size {
     ///
     /// The [`SizeError`] FreeType gives for the size.
     pub fn checked(face: &Face<'_>, points: f64, dpi: f64) -> Result<Self, SizeError> {
-        let char_size = ((points * 64.0) as i64).max(64);
-        let resolution = match c_unsigned(dpi) {
-            0 => 72,
-            resolution => i64::from(resolution),
-        };
-        let ppem = (char_size.saturating_mul(resolution).saturating_add(36) / 72 + 32) >> 6;
+        let ppem = requested_ppem(points, dpi);
         if ppem > i64::from(u16::MAX) {
             Err(SizeError::InvalidPixelSize)
-        } else if ppem == 0 && !face.is_cff() {
+        } else if ppem as u16 == 0 && !face.is_cff() {
             Err(SizeError::InvalidPpem)
         } else {
             Ok(Self::new(face, points, dpi))

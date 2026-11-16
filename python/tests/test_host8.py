@@ -9,6 +9,7 @@ value is recorded from matplotlib.
 """
 
 import math
+import sys
 
 import numpy as np
 import pytest
@@ -45,10 +46,12 @@ def test_the_trapezoid_map_finds_matplotlibs_triangles():
               (1.0, 1.0), (0.0, 0.0), (2.0, 2.0), (1.0, 2.0), (2.5, 1.0)]
     found = finder([x for x, _ in points], [y for _, y in points])
     assert found.tolist() == [0, 1, 1, 4, 0, 0, 0, 6, 4, -1]
-    # Points that are not finite end where the search through the map ends.
+    # Points that are not finite end where the search through the map ends,
+    # which the C++ library's std::shuffle orders: MSVC's (matplotlib's
+    # Windows wheel) ends one elsewhere.
     found = finder([np.nan, 0.5, np.nan, np.inf, 1.0],
                    [1.0, np.nan, np.nan, 1.0, -np.inf])
-    assert found.tolist() == [-1, 1, -1, -1, -1]
+    assert found.tolist() == [-1, 5 if sys.platform == "win32" else 1, -1, -1, -1]
 
 
 def test_masked_triangles_are_not_found():

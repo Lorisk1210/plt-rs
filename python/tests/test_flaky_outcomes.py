@@ -7,12 +7,14 @@ themselves leak state or race (colour codes, network, kernels' sockets).
 """
 
 import argparse
-import errno
 import importlib.util
+import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
+import tempfile
 import types
 import warnings
 
@@ -141,7 +143,39 @@ def test_the_gallery_and_generated_programs_run_offline(tmp_path):
              "    print(type(err).__name__, getattr(err, 'reason', err))\n")
     done = subprocess.run([sys.executable, "-c", fetch], capture_output=True, text=True,
                           env=setup.environment("pltrs", program))
-    assert done.stdout.startswith(f"URLError [Errno {errno.ECONNREFUSED}] Connection refused")
+    # Refused at once, or on Windows, which retries a refused connection
+    # for about two seconds, when the one-second timeout runs out.
+    assert re.match(r"URLError (\[(Errno|WinError) \d+\] .*refused|timed out)", done.stdout)
+
+
+def test_copies_standing_in_for_links_count_as_written_once_changed(tmp_path):
+    # Where the system makes no links, a corpus' tree is laid out with
+    # copies of its files: those a run leaves as they were are no files the
+    # program wrote.
+    corpora = _diff_driver().corpora
+    into = tmp_path / "tree"
+    (into / "sub").mkdir(parents=True)
+    kept, changed = into / "sub" / "kept.png", into / "changed.txt"
+    for file in (kept, changed):
+        file.write_text("as copied", encoding="utf-8")
+    corpora.copies_listing(into).write_text(json.dumps({
+        file.relative_to(into).as_posix(): [file.stat().st_size, file.stat().st_mtime_ns]
+        for file in (kept, changed)}), encoding="utf-8")
+    changed.write_text("as the program wrote it", encoding="utf-8")
+    assert corpora.unchanged_copies(into) == {"sub/kept.png"}
+
+
+def test_records_name_a_runs_temporary_directory_as_the_shared_one():
+    # Each run has a temporary directory of its own; its records read as
+    # if the run had the shared one, also where a message names a path by
+    # its repr (on Windows with its backslashes doubled).
+    driver = _diff_driver()
+    tmp = pathlib.Path(os.sep, "runs", "program", "pltrs", "tmp")
+    own = str(tmp / "tmpabcdefgh")
+    message = f"cleaning up <TemporaryDirectory {own!r}> at {own} in {tmp}"
+    record = json.loads(driver._records_shared_tmp(json.dumps({"message": message}), tmp))
+    assert record["message"] == (
+        f"cleaning up <TemporaryDirectory '<tmp>'> at <tmp> in {tempfile.gettempdir()}")
 
 
 def _jupyter_config():

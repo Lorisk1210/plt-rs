@@ -32,6 +32,7 @@
 pub mod compare;
 pub mod figures;
 mod fonts;
+mod ghostscript;
 pub mod json;
 pub mod probes;
 pub mod rng;
@@ -73,7 +74,10 @@ pub fn probe_goldens_dir() -> PathBuf {
 /// where its output on a platform differs from a common golden, the
 /// reference runner records it there under the same relative path (only
 /// what differs; see `spec/reference/spec_support/golden.py`, whose
-/// `_platform` this mirrors).
+/// `_platform` this mirrors). Windows' goldens are matplotlib's `win_amd64`
+/// wheel's, built with MSVC: a build of pltrs with the GNU toolchain is
+/// held to them too, as it computes with the same maths library (the
+/// UCRT's, see `pltrs-core`'s build script).
 pub const PLATFORM: Option<&str> = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
     Some("aarch64-apple-darwin")
 } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
@@ -81,6 +85,8 @@ pub const PLATFORM: Option<&str> = if cfg!(all(target_os = "macos", target_arch 
 } else if cfg!(all(target_os = "linux", target_arch = "aarch64")) {
     // glibc's and musl's alike: matplotlib's goldens there are its wheel's.
     Some("aarch64-unknown-linux-gnu")
+} else if cfg!(all(windows, target_arch = "x86_64")) {
+    Some("x86_64-pc-windows-msvc")
 } else {
     None
 };

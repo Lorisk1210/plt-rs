@@ -10,6 +10,7 @@ that fails for the common ones (see ``spec_support.golden``).
 
 from __future__ import annotations
 
+import locale
 import pathlib
 import sys
 
@@ -29,6 +30,11 @@ _FILTERED = pytest.StashKey[bool]()
 def reference_rc() -> None:
     """Reset matplotlib to the exact configuration the goldens assume."""
     _mpl_testing_setup()
+    # Dates written in the C locale's words and order (`%c`, `%x`, `%X`), as
+    # pltrs writes them: matplotlib's setup asks for en_US.UTF-8, which some
+    # hosts have (Windows: "1/1/2000 12:00:00 AM") and the one recording the
+    # common goldens does not.
+    locale.setlocale(locale.LC_TIME, "C")
     # Unhinted glyph outlines: geometrically exact and reproducible without
     # a FreeType bytecode interpreter.
     matplotlib.rcParams["text.hinting"] = "none"

@@ -19,6 +19,12 @@ const WORKERS: &str = "8";
 /// shared with other work.
 const WORKERS_VARIABLE: &str = "PLTRS_SUITE_WORKERS";
 
+/// The length of the targets beyond which they go to pytest in a file of
+/// arguments (`@targets.txt`, one a line) rather than on the command line,
+/// which Windows holds to 32,767 characters (the failing tests of a run,
+/// which runs making baselines take again, need more).
+const TARGETS_ON_THE_COMMAND_LINE: usize = 16_384;
+
 /// The seconds a single test may take before pytest-timeout fails it.
 const TEST_TIMEOUT: &str = "600";
 
@@ -137,7 +143,7 @@ impl Run<'_> {
             // own directory, not in the system's temporary directory.
             .arg(crate::python::basetemp(&self.dir.join("pytest-tmp")))
             .args(self.options)
-            .args(self.targets)
+            .args(self.target_args()?)
             .current_dir(self.site)
             .env("PYTHONPATH", python_path)
             .env(LOOK_VARIABLE, "matplotlib")
@@ -168,6 +174,23 @@ impl Run<'_> {
             .map_err(|err| format!("{}: {err}", results.display()))?;
         Outcomes::from_results(&text)
     }
+
+    /// The arguments naming the targets: themselves, or when they are too
+    /// many for the command line ([`TARGETS_ON_THE_COMMAND_LINE`]) the
+    /// file of arguments in the run's directory that holds them.
+    fn target_args(&self) -> Result<Vec<OsString>, String> {
+        let length: usize = self.targets.iter().map(|target| target.len() + 1).sum();
+        if length <= TARGETS_ON_THE_COMMAND_LINE {
+            return Ok(self.targets.iter().map(OsString::from).collect());
+        }
+        let file = self.dir.join("targets.txt");
+        let mut listed = self.targets.join("\n");
+        listed.push('\n');
+        std::fs::write(&file, listed).map_err(|err| format!("{}: {err}", file.display()))?;
+        let mut argument = OsString::from("@");
+        argument.push(&file);
+        Ok(vec![argument])
+    }
 }
 
 /// Removes matplotlib's font list cache (`fontlist-v*.json`) from the
@@ -187,4 +210,39 @@ fn forget_font_list(config: &Path) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn many_targets_go_to_pytest_in_a_file() {
+        let dir = std::env::temp_dir().join(format!("xtask-targets-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let run = |targets: &[String]| {
+            Run {
+                suite: "a suite",
+                python: Path::new("python"),
+                site: &dir,
+                dir: &dir,
+                python_path: Vec::new(),
+                options: &[],
+                targets,
+                environment: &[],
+                cache: false,
+            }
+            .target_args()
+            .unwrap()
+        };
+        let few = vec!["test_a.py::test_one".to_owned()];
+        assert_eq!(run(&few), [OsString::from("test_a.py::test_one")]);
+        let many: Vec<String> = (0..2000).map(|i| format!("test_a.py::test_{i}")).collect();
+        let mut file = OsString::from("@");
+        file.push(dir.join("targets.txt"));
+        assert_eq!(run(&many), [file]);
+        let listed = std::fs::read_to_string(dir.join("targets.txt")).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(listed.lines().collect::<Vec<_>>(), many);
+    }
 }

@@ -102,7 +102,8 @@ must reproduce them.
   output on another platform fails pltrs' check against one (a value past
   the tolerance, an image past RMS 1, a document's structure),
   `spec/goldens/platforms/<target>/` (`aarch64-apple-darwin`,
-  `aarch64-unknown-linux-gnu`) holds that
+  `aarch64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`, which gnu builds
+  for Windows read too) holds that
   output under the same path, and `pltrs-spec` built for that target
   prefers it. Only `spec/mpl-reference --update-goldens` run on that
   platform writes it; rerun it there when the common goldens change.

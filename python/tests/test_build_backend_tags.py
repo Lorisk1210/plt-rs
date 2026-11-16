@@ -189,7 +189,8 @@ def test_the_built_extension_earns_the_tag_of_the_glibc_it_needs():
     assert minor >= newest and not _manylinux.policy_problems(elf, minor)
 
 
-@pytest.mark.parametrize("target, library, extension", [
+#: Libraries of each target, with the extension file they are.
+TAGGED_LIBRARIES = [
     (GNU, glibc_library(("GLIBC_2.17", False)), "_native.abi3.so"),
     ("aarch64-unknown-linux-musl", binaries.elf(machine=183, needed=("libc.so",)),
      "_native.abi3.so"),
@@ -199,7 +200,13 @@ def test_the_built_extension_earns_the_tag_of_the_glibc_it_needs():
                                 (binaries.ARM64, binaries.macho(binaries.ARM64))),
      "_native.abi3.so"),
     ("x86_64-pc-windows-msvc", binaries.pe(), "_native.pyd"),
-])
+]
+
+
+# Named by their targets: an id spelling out a library's bytes is longer
+# than Windows lets pytest's PYTEST_CURRENT_TEST variable be.
+@pytest.mark.parametrize("target, library, extension", TAGGED_LIBRARIES,
+                         ids=[target for target, _, _ in TAGGED_LIBRARIES])
 def test_wheels_tagged_by_their_library_pass_the_audit(tmp_path, target, library, extension):
     tags = [f"cp312-abi3-{platform}" for platform in _tags.platform_tags(target, library)]
     name = wheel_of(tmp_path, library, extension, tags)

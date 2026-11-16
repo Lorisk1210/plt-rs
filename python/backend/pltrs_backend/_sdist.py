@@ -42,6 +42,10 @@ DROPPED_MEMBERS = ("crates/pltrs-spec", "xtask", "examples/rust")
 #: Names never included, wherever they are.
 EXCLUDED_NAMES = {"target", "__pycache__", ".pytest_cache", "result_images"}
 
+#: The licences at the root, which each crate's files of the same names
+#: link to.
+LICENCES = ("LICENSE-MIT", "LICENSE-APACHE")
+
 
 def _included(root):
     """The files of the sdist, relative to *root*, sorted."""
@@ -59,6 +63,23 @@ def _included(root):
                 os.path.join(directory, name) for name in names
                 if not name.endswith(".pyc") and not name.startswith("_native."))
     return sorted(os.path.relpath(file, root).replace(os.sep, "/") for file in files)
+
+
+def _contents(root, name):
+    """The bytes of the file *name*: a crate's licence is the root's, which
+    it links to (a checkout without symbolic links, Windows' by default,
+    has the link as a text file naming its target)."""
+    base = name.rsplit("/", 1)[-1]
+    return (root / (base if base in LICENCES else name)).read_bytes()
+
+
+def _executable(path, data):
+    """Whether the file at *path*, holding *data*, is executable: by its
+    mode, or on Windows, which keeps none, by its ``#!`` line (the tree's
+    executables are its scripts)."""
+    if os.name == "nt":
+        return data.startswith(b"#!")
+    return os.access(path, os.X_OK)
 
 
 def _dropped_packages(root):
@@ -122,11 +143,10 @@ def write_sdist(project, directory):
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w", format=tarfile.PAX_FORMAT) as archive:
         for name in _included(project.root):
-            path = project.root / name
-            data = path.read_bytes()
+            data = _contents(project.root, name)
+            executable = _executable(project.root / name, data)
             if name in rewrites:
                 data = rewrites[name](data.decode("utf-8"), dropped).encode("utf-8")
-            executable = os.access(path, os.X_OK)
             archive.addfile(*entry(name, data, 0o755 if executable else 0o644))
         archive.addfile(*entry("PKG-INFO", project.metadata().encode()))
     with open(os.path.join(directory, filename), "wb") as file:

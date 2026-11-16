@@ -461,7 +461,9 @@ mod tests {
                 if says_missing(message, "pltrs-no-such-program")),
             "{missing:?}"
         );
-        if pltrs_core::os::which("sh").is_some() {
+        // (A POSIX shell on Windows, Git's or MSYS2's, prints the directory
+        // its own way: `/c/Users/...`.)
+        if cfg!(unix) && pltrs_core::os::which("sh").is_some() {
             let script = |text: &str| [OsString::from("-c"), OsString::from(text)];
             let printed = workspace.run("sh", &script("pwd; echo $SOURCE_DATE_EPOCH"));
             let expected = format!("{}\n0\n", directory.canonicalize().unwrap().display());

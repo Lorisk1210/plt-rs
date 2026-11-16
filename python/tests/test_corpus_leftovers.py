@@ -7,6 +7,8 @@ expected value was recorded from matplotlib.
 
 import io
 import logging
+import os
+import re
 import types
 
 import numpy as np
@@ -208,8 +210,10 @@ def test_markers_inside_a_pixel_stamp_their_fill_again_for_a_zero_width_edge():
 def test_a_missing_font_file_fails_when_the_text_is_drawn():
     fig = plt.figure()
     fig.text(0.5, 0.5, "x", fontproperties=FontProperties(fname="/nonexistent/x.ttf"))
+    # matplotlib opens the file at its real path (on Windows with a drive).
+    missing = os.path.realpath("/nonexistent/x.ttf")
     with pytest.raises(FileNotFoundError,
-                       match=r"^\[Errno 2\] No such file or directory: '/nonexistent/x.ttf'$"):
+                       match=f"^{re.escape(f'[Errno 2] No such file or directory: {missing!r}')}$"):
         fig.canvas.draw()
 
 

@@ -1,13 +1,14 @@
 //! Discovery of the fonts installed on the system, where matplotlib's
 //! `findSystemFonts` looks on each system: the X11 and freedesktop.org
 //! directories on Linux, those and macOS' own on macOS, and on Windows
-//! the system's and the user's font directories and the fonts the
-//! registry lists. (matplotlib also asks fontconfig's `fc-list` and
-//! macOS' `system_profiler`; pltrs keeps to directories, which hold those
-//! fonts too, so that starting up runs no program but, on Windows
-//! without a registry reader, the registry query. On macOS these include the two places of fonts its
-//! font list holds beyond its font directories: the reserved interface
-//! fonts and the fonts it downloads on demand.)
+//! the fonts the registry lists, by their real paths (matplotlib's
+//! `_get_win32_installed_fonts`). (matplotlib also asks fontconfig's
+//! `fc-list` and macOS' `system_profiler`; pltrs keeps to directories,
+//! which hold those fonts too, so that starting up runs no program but,
+//! on Windows without a registry reader, the registry query. On macOS
+//! these include the two places of fonts its font list holds beyond its
+//! font directories: the reserved interface fonts and the fonts it
+//! downloads on demand.)
 
 mod registry;
 
@@ -15,7 +16,7 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use pltrs_core::os::Os;
+use pltrs_core::os::{self, Os};
 
 pub(crate) use registry::Registry;
 pub use registry::{RegistryReader, read_registry_with};
@@ -55,8 +56,8 @@ const WINDOWS_USER_DIRECTORIES: [&str; 2] = [
     "AppData/Roaming/Microsoft/Windows/Fonts",
 ];
 
-/// Where a system keeps its fonts: directories to search, and font files
-/// found elsewhere (those the Windows registry lists outside them).
+/// Where a system keeps its fonts: directories to search, and single font
+/// files (those the Windows registry lists).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct SystemFonts {
     /// The directories, searched recursively.
@@ -80,10 +81,12 @@ impl SystemFonts {
             |name| std::env::var_os(name),
             &registry,
         );
-        if Os::CURRENT == Os::MacOs {
-            fonts
+        match Os::CURRENT {
+            Os::MacOs => fonts
                 .directories
-                .extend(font_asset_directories(Path::new(MACOS_ASSETS)));
+                .extend(font_asset_directories(Path::new(MACOS_ASSETS))),
+            Os::Windows => fonts.files = existing_by_real_path(&fonts.files),
+            Os::Linux => {}
         }
         fonts
     }
@@ -153,8 +156,9 @@ impl SystemFonts {
                     .iter()
                     .filter_map(|relative| in_home(relative))
                     .collect();
-                let mut directories: Vec<PathBuf> = system.iter().cloned().collect();
-                directories.extend(users.iter().cloned());
+                // The machine's fonts in the system's font directory, the
+                // user's in each of the user's (an absolute entry stays as
+                // it is); no directory is searched.
                 let listed = system
                     .iter()
                     .flat_map(|dir| {
@@ -168,12 +172,14 @@ impl SystemFonts {
                     }));
                 let mut files: Vec<PathBuf> = Vec::new();
                 for file in listed {
-                    let searched = directories.iter().any(|dir| is_within(os, &file, dir));
-                    if !searched && !files.iter().any(|known| same_path(os, known, &file)) {
+                    if !files.iter().any(|known| same_path(os, known, &file)) {
                         files.push(file);
                     }
                 }
-                Self { directories, files }
+                Self {
+                    directories: Vec::new(),
+                    files,
+                }
             }
         }
     }
@@ -207,9 +213,19 @@ fn comparable(os: Os, path: &Path) -> PathBuf {
     }
 }
 
-/// Whether `file` lies below the directory `dir`.
-fn is_within(os: Os, file: &Path, dir: &Path) -> bool {
-    comparable(os, file).starts_with(comparable(os, dir))
+/// The files of `files` that exist, each once, by its real path (on
+/// Windows as the file system spells it: `C:\Windows\Fonts\arial.ttf` for
+/// the registry's `C:\WINDOWS\Fonts`), as matplotlib's `Path.resolve`
+/// makes them of the registry's entries and `findSystemFonts` keeps those
+/// that exist.
+fn existing_by_real_path(files: &[PathBuf]) -> Vec<PathBuf> {
+    let mut found: Vec<PathBuf> = Vec::new();
+    for real in files.iter().filter_map(|file| os::resolve(file).ok()) {
+        if !found.contains(&real) {
+            found.push(real);
+        }
+    }
+    found
 }
 
 /// Whether `a` and `b` name the same file.
@@ -381,7 +397,7 @@ mod tests {
     }
 
     #[test]
-    fn windows_searches_the_font_folders_and_the_registry() {
+    fn windows_takes_the_fonts_the_registry_lists() {
         let registry = Registry {
             shell_fonts_folder: None,
             machine_fonts: vec![
@@ -393,37 +409,60 @@ mod tests {
             user_fonts: vec!["/elsewhere/mine.otf".to_owned()],
         };
         let fonts = locate(Os::Windows, &[("WINDIR", "/Windows")], &registry);
-        assert_eq!(
-            fonts.directories,
-            paths(&[
-                "/Windows/Fonts",
-                "/home/u/AppData/Local/Microsoft/Windows/Fonts",
-                "/home/u/AppData/Roaming/Microsoft/Windows/Fonts",
-            ])
-        );
+        assert_eq!(fonts.directories, Vec::<PathBuf>::new());
         assert_eq!(
             fonts.files,
-            paths(&["/opt/app/fonts/app.ttf", "/elsewhere/mine.otf"]),
-            "files in the folders searched are left to the search, case aside"
+            paths(&[
+                "/Windows/Fonts/arial.ttf",
+                "/Windows/FONTS/sub/Times.TTF",
+                "/opt/app/fonts/app.ttf",
+                "/elsewhere/mine.otf",
+            ]),
+            "each file once, case aside"
         );
 
         let registry = Registry {
             shell_fonts_folder: Some(PathBuf::from("/D/Fonts")),
-            ..Registry::default()
+            machine_fonts: vec!["arial.ttf".to_owned()],
+            user_fonts: vec!["mine.otf".to_owned()],
         };
         let fonts = locate(Os::Windows, &[("WINDIR", "/Windows")], &registry);
         assert_eq!(
-            fonts.directories[0],
-            PathBuf::from("/D/Fonts"),
-            "the shell's folder"
+            fonts.files,
+            paths(&[
+                "/D/Fonts/arial.ttf",
+                "/home/u/AppData/Local/Microsoft/Windows/Fonts/mine.otf",
+                "/home/u/AppData/Roaming/Microsoft/Windows/Fonts/mine.otf",
+            ]),
+            "the shell's folder, and each user font folder"
         );
         let fonts = SystemFonts::locate(Os::Windows, None, |_| None, &Registry::default());
         assert_eq!(fonts, SystemFonts::default());
     }
 
     #[test]
-    fn this_system_has_font_directories() {
+    fn existing_files_are_kept_once_by_their_real_paths() {
+        let root = env::temp_dir().join(format!("pltrs-font-real-{}", std::process::id()));
+        fs::create_dir_all(root.join("sub")).unwrap();
+        fs::write(root.join("a.ttf"), b"").unwrap();
+        let real = os::resolve(&root.join("a.ttf")).unwrap();
+        let found = existing_by_real_path(&[
+            root.join("sub/../a.ttf"),
+            root.join("missing.ttf"),
+            root.join("a.ttf"),
+        ]);
+        fs::remove_dir_all(&root).unwrap();
+        assert_eq!(found, [real]);
+    }
+
+    #[test]
+    fn this_system_has_fonts_to_find() {
         let fonts = SystemFonts::of_this_system();
+        if Os::CURRENT == Os::Windows {
+            assert!(fonts.files.iter().all(|file| file.is_absolute()));
+            assert_ne!(fonts.files, Vec::<PathBuf>::new());
+            return;
+        }
         assert_ne!(fonts.directories, Vec::<PathBuf>::new());
         if Os::CURRENT == Os::Linux {
             assert!(

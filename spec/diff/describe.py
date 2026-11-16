@@ -77,17 +77,17 @@ class Names:
         """``text`` with the implementation's names and paths made
         matplotlib's, and memory addresses blanked."""
         for directory in self.package_dirs:
-            text = text.replace(directory, "<package>")
+            text = _replace_path(text, directory, "<package>")
         if self.config_dir:
-            text = text.replace(self.config_dir, "<config>")
+            text = _replace_path(text, self.config_dir, "<config>")
         if self.work_dir:
-            text = text.replace(self.work_dir, "<cwd>")
+            text = _replace_path(text, self.work_dir, "<cwd>")
         if self.run_dir:
-            text = text.replace(self.run_dir, "<run>")
+            text = _replace_path(text, self.run_dir, "<run>")
         if self.venv_dir:
-            text = text.replace(self.venv_dir, "<venv>")
+            text = _replace_path(text, self.venv_dir, "<venv>")
         if self.venv_relative:
-            text = text.replace(self.venv_relative, "<venv>")
+            text = _replace_path(text, self.venv_relative, "<venv>")
         for pattern, real in self._word:
             text = pattern.sub(real, text)
         return _ADDRESS.sub("0x?", _TEMPORARY.sub("<tmp>", text))
@@ -95,6 +95,12 @@ class Names:
     def class_name(self, cls: type) -> str:
         """The class' module and qualified name, in matplotlib's names."""
         return f"{self.module(getattr(cls, '__module__', '?') or '?')}.{cls.__qualname__}"
+
+
+def _replace_path(text: str, path: str, placeholder: str) -> str:
+    """``text`` with ``path`` replaced by ``placeholder``, as written and
+    as a ``repr`` writes it (Windows' backslashes doubled)."""
+    return text.replace(path.replace("\\", "\\\\"), placeholder).replace(path, placeholder)
 
 
 def public_mro(cls: type) -> list[str]:

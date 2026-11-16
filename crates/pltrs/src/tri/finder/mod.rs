@@ -265,7 +265,11 @@ mod tests {
             (f64::INFINITY, 1.0),
             (1.0, f64::NEG_INFINITY),
         ];
-        let expected = [None, Some(1), None, None, None];
+        // Where a search for NaN ends depends on the map, built in the order
+        // of the C++ library's `std::shuffle`: MSVC's (matplotlib's Windows
+        // wheel) ends it elsewhere.
+        let ends = if cfg!(windows) { 5 } else { 1 };
+        let expected = [None, Some(ends), None, None, None];
         assert_eq!(found(&finder, &points), expected);
     }
 

@@ -15,10 +15,13 @@ import textwrap
 
 import pytest
 
+import screen
+
 pytestmark = [
     pytest.mark.skipif(sys.platform != "win32", reason="Windows only"),
     pytest.mark.skipif(importlib.util.find_spec("tkinter") is None,
                        reason="no tkinter"),
+    pytest.mark.skipif(screen.REFUSED is not None, reason=str(screen.REFUSED)),
 ]
 
 

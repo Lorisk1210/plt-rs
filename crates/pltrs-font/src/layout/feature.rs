@@ -144,8 +144,12 @@ impl Parser<'_> {
         let magnitude = window[i..i + digits]
             .iter()
             .fold(0i128, |acc, &d| acc * 10 + i128::from(d - b'0'));
-        // `strtol` fails on numbers beyond a `long`.
+        // `strtol` fails on numbers beyond a `long`: 64 bits, but 32 on
+        // Windows (matplotlib's HarfBuzz is built with MSVC there).
         let value = i64::try_from(if negative { -magnitude } else { magnitude }).ok()?;
+        if cfg!(windows) && i32::try_from(value).is_err() {
+            return None;
+        }
         self.pos += i + digits;
         let narrowed = value as i32 as u32;
         Some(narrowed)
@@ -331,11 +335,19 @@ mod tests {
         assert_eq!(parse(" - kern = 3 "), global("kern", 3));
         assert_eq!(parse("kern=+5"), global("kern", 5));
         assert_eq!(parse("kern=-1"), global("kern", u32::MAX));
-        assert_eq!(
-            parse("kern=4294967297"),
-            global("kern", 1),
-            "narrowed to int"
-        );
+        if cfg!(windows) {
+            assert!(
+                "kern=4294967297".parse::<Feature>().is_err(),
+                "beyond a 32-bit long"
+            );
+            assert_eq!(parse("kern=-2147483648"), global("kern", 1 << 31));
+        } else {
+            assert_eq!(
+                parse("kern=4294967297"),
+                global("kern", 1),
+                "narrowed to int"
+            );
+        }
         // HarfBuzz quirks: a value without `=` overrides the prefix, and
         // letters that are neither on nor off are dropped.
         assert_eq!(parse("-kern on"), global("kern", 1));

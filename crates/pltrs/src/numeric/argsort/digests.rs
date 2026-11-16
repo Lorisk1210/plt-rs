@@ -2,7 +2,9 @@
 //! level: `digests.txt` holds a digest of the indices numpy 2.5.4 returns
 //! for each family of arrays and size (written by
 //! `crates/pltrs/tools/argsort_digests.py`, which this file mirrors), with
-//! numpy run without AVX2, with AVX2 and with AVX-512.
+//! numpy run without AVX2, with AVX2 and with AVX-512; `digests-windows.txt`
+//! what its Windows wheel returns, whose x86-simd-sort falls back to MSVC's
+//! `std::sort` and which has no AVX-512 code (`-` in that column).
 
 use pltrs_core::numeric::CpuLevel;
 use pltrs_core::rng::SplitMix64;
@@ -10,8 +12,13 @@ use pltrs_core::rng::SplitMix64;
 use super::argsort_at;
 use super::numpy::{ties, with_nans};
 
-/// numpy's digests: a family, a size and a digest per level on each line.
-const DIGESTS: &str = include_str!("digests.txt");
+/// numpy's digests for this target: a family, a size and a digest per
+/// level (or `-` for a level its wheel has no code for) on each line.
+const DIGESTS: &str = if cfg!(windows) {
+    include_str!("digests-windows.txt")
+} else {
+    include_str!("digests.txt")
+};
 
 /// The lengths chained into the digest of the size `0-600`.
 const CHAINED: std::ops::RangeInclusive<usize> = 0..=600;
@@ -90,8 +97,9 @@ fn family_digest(family: &str, size: &str, level: CpuLevel) -> u64 {
     }
 }
 
-/// The lines of the table: family, size, and numpy's digest per level.
-fn table() -> impl Iterator<Item = (&'static str, &'static str, [u64; 3])> {
+/// The lines of the table: family, size, and numpy's digest per level
+/// (none for a level its wheel has no code for).
+fn table() -> impl Iterator<Item = (&'static str, &'static str, [Option<u64>; 3])> {
     DIGESTS
         .lines()
         .filter(|line| !line.starts_with('#'))
@@ -99,7 +107,10 @@ fn table() -> impl Iterator<Item = (&'static str, &'static str, [u64; 3])> {
             let mut fields = line.split(' ');
             let mut field = || fields.next().expect("five fields a line");
             let (family, size) = (field(), field());
-            let numpy = [(); 3].map(|()| u64::from_str_radix(field(), 16).expect("a digest"));
+            let numpy = [(); 3].map(|()| match field() {
+                "-" => None,
+                digest => Some(u64::from_str_radix(digest, 16).expect("a digest")),
+            });
             (family, size, numpy)
         })
 }
@@ -109,6 +120,9 @@ fn check(wanted: impl Fn(&str) -> bool) {
     let mut checked = 0;
     for (family, size, numpy) in table().filter(|(_, size, _)| wanted(size)) {
         for (level, expected) in CpuLevel::ALL.into_iter().zip(numpy) {
+            let Some(expected) = expected else {
+                continue;
+            };
             assert_eq!(
                 family_digest(family, size, level),
                 expected,

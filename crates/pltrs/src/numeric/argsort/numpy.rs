@@ -212,21 +212,31 @@ mod tests {
     use super::*;
 
     /// The probe arrays' digests of numpy 2.5.4 without AVX2, with AVX2
-    /// and with AVX-512 (`argsort_digests.py --probe`): without NaN, then
-    /// with. numpy 1.26.4 and 2.2.6 give the same, except numpy 1.26.4
+    /// and with AVX-512 (`argsort_digests.py --probe`), for arrays without
+    /// NaN. numpy 1.26.4 and 2.2.6 give the same, except numpy 1.26.4
     /// with AVX2, which gives what it gives without.
-    const NUMPYS_PROBES: [[u64; 3]; 2] = [
-        [
-            0x8cc3_bca8_6fe6_ac99,
-            0x2b2b_5b5c_f45b_065d,
-            0x2b2b_5b5c_f45b_065d,
-        ],
-        [
-            0x3b6b_f2f6_6fc9_a95e,
-            0xf97f_c952_03a4_8b6c,
-            0xf97f_c952_03a4_8b6c,
-        ],
+    const NUMPYS_PROBES: [u64; 3] = [
+        0x8cc3_bca8_6fe6_ac99,
+        0x2b2b_5b5c_f45b_065d,
+        0x2b2b_5b5c_f45b_065d,
     ];
+
+    /// The same for arrays with NaN, which x86-simd-sort leaves to C++'s
+    /// `std::sort`: MSVC's in numpy's Windows wheel, which has no copy
+    /// for AVX-512 either (`None`), and GCC's elsewhere.
+    const NUMPYS_PROBES_WITH_NAN: [Option<u64>; 3] = if cfg!(windows) {
+        [
+            Some(0x3b6b_f2f6_6fc9_a95e),
+            Some(0xefba_646f_021a_d803),
+            None,
+        ]
+    } else {
+        [
+            Some(0x3b6b_f2f6_6fc9_a95e),
+            Some(0xf97f_c952_03a4_8b6c),
+            Some(0xf97f_c952_03a4_8b6c),
+        ]
+    };
 
     /// A stable sort, which is none of numpy's unstable ones.
     fn stable(values: &[f64]) -> Vec<usize> {
@@ -261,8 +271,10 @@ mod tests {
 
     #[test]
     fn the_port_sorts_the_probes_as_numpy_does() {
-        for (with_nan, numpys) in [false, true].into_iter().zip(NUMPYS_PROBES) {
+        let plain = NUMPYS_PROBES.map(Some);
+        for (with_nan, numpys) in [(false, plain), (true, NUMPYS_PROBES_WITH_NAN)] {
             for (level, numpy) in CpuLevel::ALL.into_iter().zip(numpys) {
+                let Some(numpy) = numpy else { continue };
                 let replayed = probes(with_nan).fold(0, |total: u64, values| {
                     let order = argsort_at(&values, level);
                     total.wrapping_mul(GOLDEN).wrapping_add(digest(&order))

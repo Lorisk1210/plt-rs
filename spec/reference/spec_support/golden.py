@@ -57,6 +57,9 @@ def _platform() -> str | None:
     if sys.platform == "linux" and machine == "aarch64":
         # matplotlib's aarch64 Linux wheel is GCC's, which fuses products.
         return "aarch64-unknown-linux-gnu"
+    if sys.platform == "win32" and machine == "x86_64":
+        # matplotlib's win_amd64 wheel, built with MSVC.
+        return "x86_64-pc-windows-msvc"
     return None
 
 
@@ -69,10 +72,15 @@ def _level() -> str | None:
     import numpy
     # numpy 1 (the lowest numpy pltrs' smoke tests run with) calls it `core`.
     core = numpy._core if hasattr(numpy, "_core") else numpy.core
-    features = core._multiarray_umath.__cpu_features__
-    if features.get("X86_V4"):
+    umath = core._multiarray_umath
+    # A level numpy runs is one its wheel holds a copy of its loops for:
+    # the Windows wheel has none for ``X86_V4``, whatever the processor.
+    copies = {*umath.__cpu_baseline__, *umath.__cpu_dispatch__}
+    runs = {name for name, enabled in umath.__cpu_features__.items()
+            if enabled and name in copies}
+    if "X86_V4" in runs:
         return None
-    return "x86_64-v3" if features.get("X86_V3") else "x86_64-v2"
+    return "x86_64-v3" if "X86_V3" in runs else "x86_64-v2"
 
 
 #: The directory name of this machine's platform goldens, if it has any.

@@ -11,6 +11,10 @@ How the extension is linked, for Linux wheels that install widely:
   built without ``crt-static``, and without the startup files and static
   C library ``.cargo/config.toml`` gives musl programs. Zig links it, or
   on a musl host (in a musllinux container) the system's ``cc``.
+* MSVC targets (``*-pc-windows-msvc``): Microsoft's ``link`` makes a
+  deterministic image (``/Brepro``): it would otherwise stamp the time of
+  the link into the headers and a new GUID into the debug directory, so
+  that no two builds of a Windows wheel were the same.
 * Otherwise cargo links it as it is configured to.
 
 The host's own target is never named to cargo (``--target``): cargo then
@@ -42,6 +46,10 @@ ZIG_ARCHITECTURES = {
 
 #: The flags of a musl extension: musl's C library loaded dynamically.
 MUSL_RUSTFLAGS = ("-C", "target-feature=-crt-static", "-C", "link-self-contained=no")
+
+#: The link of an MSVC extension: a deterministic image, whose time stamps
+#: and debug GUID are a hash of its contents.
+MSVC_LINK_ARGS = ("-C", "link-arg=/Brepro")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -106,7 +114,8 @@ def settings(target, host, glibc, directory):
     target = target or host
     cargo_target = None if target == host else target
     if glibc is None and not musl:
-        return Link(cargo_target)
+        msvc = target.endswith("-windows-msvc")
+        return Link(cargo_target, MSVC_LINK_ARGS if msvc else ())
     environment = {"CARGO_ENCODED_RUSTFLAGS": _rustflags_with(MUSL_RUSTFLAGS)} if musl else {}
     zig = zig_program()
     if zig:

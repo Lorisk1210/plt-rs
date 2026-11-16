@@ -1,0 +1,11 @@
+{
+ "area": "mpl_determinism",
+ "matplotlib": "3.11.2",
+ "platform": "x86_64-pc-windows-msvc",
+ "probes": [
+  {"op": "savefig.creation_date", "args": {"format": "pdf", "epoch": -86401}, "error": "OSError"},
+  {"op": "savefig.creation_date", "args": {"format": "ps", "epoch": -86401}, "error": "OSError"},
+  {"op": "savefig.creation_date", "args": {"format": "svg", "epoch": -86401}, "error": "OSError"}
+ ],
+ "absent": []
+}

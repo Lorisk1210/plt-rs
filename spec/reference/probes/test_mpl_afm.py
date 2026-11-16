@@ -35,6 +35,7 @@ AFM font whose weight keyword is unknown weighs ``normal``
 """
 
 import io
+import pathlib
 
 from matplotlib import _afm, font_manager
 
@@ -135,7 +136,8 @@ def test_malformed_header():
 
 
 def test_afm_kerning():
-    assert font_manager.findfont("Helvetica", fontext="afm").endswith("pdfcorefonts/Helvetica.afm")
+    found = pathlib.PurePath(font_manager.findfont("Helvetica", fontext="afm"))
+    assert found.parts[-2:] == ("pdfcorefonts", "Helvetica.afm")
     for name1, name2 in [("A", "V"), ("V", "A")]:
         probes.probe("_afm.AFM.get_kern_dist_from_name", _kern, file="Helvetica.afm",
                      name1=name1, name2=name2)

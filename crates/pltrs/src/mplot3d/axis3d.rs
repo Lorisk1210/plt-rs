@@ -527,6 +527,7 @@ impl Axis3DState {
             view_interval: span.view,
             data_interval: span.data,
             minpos: span.tick_minpos,
+            shared_minpos: None,
             tick_space: (self.owner_tick_space).unwrap_or_else(|| self.tick_space(length_points)),
             major_ticks: Vec::new(),
             scale: self.scale.scale().hint(),

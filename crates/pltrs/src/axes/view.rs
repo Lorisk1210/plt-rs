@@ -7,7 +7,7 @@ use std::rc::Rc;
 use super::PlotError;
 use super::axis::{AxisRole, AxisState, BoundAxis};
 use super::limits::oriented;
-use super::state::{AxesState, AxisSpace, SharedData};
+use super::state::{AxesState, AxisSpace, LocatorMinpos, SharedData};
 use super::tick_compute::axis_length_points;
 use crate::artist::{ArtistId, ArtistLookup, DrawError, DrawErrorKind};
 use crate::figure::FigureState;
@@ -57,6 +57,20 @@ impl FigureState {
                 minpos,
             })
         })
+    }
+
+    /// The smallest positive data the major locator of axis `name` of
+    /// `axes` reads where it is shared (see [`LocatorMinpos`]).
+    pub(crate) fn locator_minpos(&self, axes: ArtistId, name: AxisName) -> LocatorMinpos {
+        let [x, y] = self.bound_axes(axes);
+        let bound = match name {
+            AxisName::X => x,
+            AxisName::Y => y,
+        };
+        LocatorMinpos {
+            bound: bound.map(|b| b.minpos),
+            shared: Some(self.shared_data(axes, name, false).minpos),
+        }
     }
 
     /// The length of axis `name` of `axes` in points, once the axes has a
@@ -130,9 +144,14 @@ impl FigureState {
             return;
         }
         let default_limits = |state: &Self| {
-            state
-                .axes_state(axes)
-                .map(|a| a.nonsingular(name, f64::NEG_INFINITY, f64::INFINITY))
+            state.axes_state(axes).map(|a| {
+                a.nonsingular(
+                    name,
+                    f64::NEG_INFINITY,
+                    f64::INFINITY,
+                    LocatorMinpos::default(),
+                )
+            })
         };
         let before = default_limits(self);
         self.update_shared_axis(axes, name, |axis| axis.set_scale(Rc::clone(scale)));
@@ -236,15 +255,15 @@ impl FigureState {
             v0 > v1
         });
         // Round-number limits depend on how many ticks fit along the axis.
-        let [x_space, y_space] = self
-            .bound_axes(axes)
-            .map(|bound| bound.map(|b| b.tick_space));
+        let [x_bound, y_bound] = self.bound_axes(axes);
+        let bound = match name {
+            AxisName::X => x_bound,
+            AxisName::Y => y_bound,
+        };
         let space = AxisSpace {
             length_points: self.axis_length_points(axes, name).unwrap_or(0.0),
-            tick_space: match name {
-                AxisName::X => x_space,
-                AxisName::Y => y_space,
-            },
+            tick_space: bound.map(|b| b.tick_space),
+            minpos: bound.map(|b| b.minpos),
         };
         let failed_before = failures::failed();
         let bound = if state.axis(name).calls_program() {
@@ -384,19 +403,20 @@ impl FigureState {
         let Some(state) = self.artist_as::<AxesState>(axes) else {
             return;
         };
+        let locator = self.locator_minpos(axes, name);
         let limits = if state.axis(name).major_locator.calls_program() {
             // The program's locator widens singular limits with the figure
             // lent (matplotlib's `_set_lim` calls its `nonsingular`, which
             // may read and change the figure); the axes is held apart
             // from the figure meanwhile.
             let held = self.store.shared_as::<AxesState>(axes);
-            held.and_then(|held| self.lend(|_| held.validated_limits(name, v0, v1)))
+            held.and_then(|held| self.lend(|_| held.validated_limits(name, (v0, v1), locator)))
                 .or_else(|| {
                     (self.artist_as::<AxesState>(axes))
-                        .map(|state| state.validated_limits(name, v0, v1))
+                        .map(|state| state.validated_limits(name, (v0, v1), locator))
                 })
         } else {
-            Some(state.validated_limits(name, v0, v1))
+            Some(state.validated_limits(name, (v0, v1), locator))
         };
         let (Some(limits), Some(state)) = (limits, self.axes_state_mut(axes)) else {
             return;

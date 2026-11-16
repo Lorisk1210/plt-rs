@@ -91,6 +91,7 @@ impl AxisState {
             view_interval: geometry.view,
             data_interval: geometry.data,
             minpos: geometry.minpos,
+            shared_minpos: None,
             tick_space: geometry
                 .tick_space
                 .unwrap_or_else(|| self.tick_space(geometry.length_points)),

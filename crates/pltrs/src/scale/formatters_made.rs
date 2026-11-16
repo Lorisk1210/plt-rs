@@ -29,6 +29,16 @@ pub(crate) fn note_default_formatter(name: ScaleName) {
     }
 }
 
+/// Runs `make`, which makes axes that are none of matplotlib's (the
+/// projection plane of 3-D axes), counting none of the formatters they
+/// take.
+pub(crate) fn uncounted<R>(make: impl FnOnce() -> R) -> R {
+    let before = MADE.get();
+    let result = make();
+    MADE.set(before);
+    result
+}
+
 /// How many default scalar formatters axes took on this thread since the
 /// last call (see the module).
 ///

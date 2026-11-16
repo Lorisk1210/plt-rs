@@ -226,3 +226,56 @@ fn arrows_drawn_before_a_box_place_it_as_drawn() {
     let (placed, drawn) = box_on_arrow(5.0);
     assert!((placed - drawn).length() > 0.1, "{placed:?} {drawn:?}");
 }
+
+#[test]
+fn an_unlisted_box_measures_and_draws_where_its_figure_would() {
+    let fig = Figure::new();
+    let red = PatchProps::default().facecolor("r");
+    let area = DrawingArea::new(10.0, 10.0, 0.0, 0.0)
+        .with_artist(BoxItem::patch(Rectangle::new((0.0, 0.0), 10.0, 10.0), red));
+    let note = fig
+        .add_annotation_bbox(
+            area,
+            (0.5, 0.5),
+            AnnotationBboxOptions {
+                xycoords: "figure fraction".parse().expect("valid coords"),
+                frameon: false,
+                ..AnnotationBboxOptions::default()
+            },
+        )
+        .expect("valid annotation");
+    let listed = note.window_extent().expect("an extent");
+    note.unlist();
+    let red = pltrs_core::Rgba::new(1.0, 0.0, 0.0, 1.0);
+    let is_red = |c: &Call| matches!(c, Call::Path { fill: Some(f), .. } if *f == red);
+    assert!(fig.artists().is_empty() && note.window_extent().is_none());
+    assert!(
+        !draw(&fig).iter().any(is_red),
+        "the figure no longer draws it"
+    );
+    let measured = note
+        .raw()
+        .measured_extent()
+        .expect("measured in its figure");
+    assert!(close_points(measured.p0, listed.p0) && close_points(measured.p1, listed.p1));
+    let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
+    note.raw()
+        .draw_onto(&mut renderer)
+        .expect("drawn by its own draw");
+    let square = renderer
+        .calls
+        .iter()
+        .find_map(|c| match c {
+            Call::Path {
+                points,
+                fill: Some(f),
+                ..
+            } if *f == red => Some(points.clone()),
+            _ => None,
+        })
+        .expect("its square drawn");
+    assert!(
+        square.iter().all(|&p| measured.contains(p)),
+        "drawn where it measures"
+    );
+}

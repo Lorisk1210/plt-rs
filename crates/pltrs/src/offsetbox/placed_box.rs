@@ -16,6 +16,7 @@ use crate::artist::{
 };
 use crate::axes::Axes;
 use crate::figure::Figure;
+use crate::text::font_notes;
 
 /// State of a box placed at a display point: its child tree is made of
 /// artists of the figure owned by the box; the layout pass places them.
@@ -69,6 +70,9 @@ impl Artist for PlacedBoxArtist {
 
     /// Draws the tree's artists in box order, frames first.
     fn draw(&self, ctx: &mut DrawContext<'_>) {
+        // A plain box's draw measures its children itself, as a packer
+        // does (see `text_notes`).
+        super::text_notes::note_drawn(ctx.layout(), &self.child, 0);
         for &id in self.child.artists() {
             ctx.draw_child(id);
         }
@@ -82,8 +86,12 @@ impl Artist for PlacedBoxArtist {
         self.parts.retain(|&id| id != child);
     }
 
+    /// matplotlib's `get_window_extent`, which measures the tree once
+    /// (see [`text_notes`](super::text_notes)).
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        self.child.window_extent(*ctx, self.offset).ok()
+        let extent = font_notes::layouts_counted(0, || self.child.window_extent(*ctx, self.offset));
+        super::text_notes::note_measured(*ctx, &self.child, 1);
+        extent.ok()
     }
 
     /// matplotlib's `OffsetBox.contains`: on an artist of the tree.

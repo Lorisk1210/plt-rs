@@ -368,7 +368,7 @@ impl DrawContext<'_> {
     /// a removed artist (an Axes never added among them) draws all it
     /// owns, an Axes so first bringing its view and ticks up to date, as
     /// matplotlib's `Axes.draw` does. A legend is placed, as matplotlib's
-    /// `Legend.draw` places itself.
+    /// `Legend.draw` places itself, and so is an offset box.
     fn stand_in(&mut self, artist: &RawHandle) -> crate::figure::StandingIn {
         self.free();
         let standing = artist.standing_in();
@@ -384,6 +384,9 @@ impl DrawContext<'_> {
         {
             drop(state);
             self.report_kind(problem.artist, problem.kind, problem.message);
+        }
+        if let Some(mut state) = artist.figure_state().try_borrow_mut() {
+            crate::offsetbox::place_drawn_box(&mut state, artist.id());
         }
         standing
     }

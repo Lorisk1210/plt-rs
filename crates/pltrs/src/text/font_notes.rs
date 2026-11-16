@@ -49,6 +49,12 @@ thread_local! {
     /// Whether the texts laid out now are laid out again where they are
     /// drawn, which notes their layout then.
     static PLACED_BEFORE_DRAWN: Cell<bool> = const { Cell::new(false) };
+    /// How many of matplotlib's `Text._get_layout` each layout made now
+    /// stands for (see [`layouts_counted`]).
+    static LAYOUT_TIMES: Cell<usize> = const { Cell::new(1) };
+    /// Whether the texts laid out now are those of text areas measured
+    /// (see [`text_area_layouts`]).
+    static IN_TEXT_AREA: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Runs `draw`, a draw without rendering (matplotlib's
@@ -182,34 +188,62 @@ pub(crate) fn placed_before_drawn<R>(place: impl FnOnce() -> R) -> R {
     result
 }
 
+/// Runs `lay_out`, each layout of a text in which stands for `times` of
+/// matplotlib's `Text._get_layout` of it: none where the caller notes
+/// them itself (an offset box's tree, which matplotlib measures a number
+/// of times that depends on what it does with the box), two where
+/// matplotlib measures the texts twice and pltrs once (the tight layout
+/// engine's two passes). Nested, the counts multiply. The lines measured
+/// (uncached) are noted as ever.
+pub(crate) fn layouts_counted<R>(times: usize, lay_out: impl FnOnce() -> R) -> R {
+    let before = LAYOUT_TIMES.get();
+    LAYOUT_TIMES.set(before * times);
+    let result = lay_out();
+    LAYOUT_TIMES.set(before);
+    result
+}
+
+/// [`layouts_counted`] for the texts of text areas, which matplotlib lays
+/// out even when they are empty: `TextArea.get_bbox` calls
+/// `Text._get_layout` whatever the text, where a text's own draw and
+/// measures skip an empty one.
+pub(crate) fn text_area_layouts<R>(times: usize, lay_out: impl FnOnce() -> R) -> R {
+    let before = IN_TEXT_AREA.replace(true);
+    let result = layouts_counted(times, lay_out);
+    IN_TEXT_AREA.set(before);
+    result
+}
+
 /// Whether texts measured now note what matplotlib's measures note.
 fn noting() -> bool {
     !UNNOTED.get()
 }
 
 /// Whether laying `text` out now stands for matplotlib's
-/// `Text._get_layout` of it: not for an empty text (which matplotlib never
-/// lays out), nor for layouts matplotlib keeps from an earlier one (see
-/// [`unnoted`]) or makes only where it draws (see [`placed_before_drawn`]).
+/// `Text._get_layout` of it: not for an empty text (which matplotlib lays
+/// out only in a text area, see [`text_area_layouts`]), nor for layouts
+/// matplotlib keeps from an earlier one (see [`unnoted`]) or makes only
+/// where it draws (see [`placed_before_drawn`]).
 fn lays_out_as_matplotlib(text: &str) -> bool {
-    noting() && !PLACED_BEFORE_DRAWN.get() && !text.is_empty()
+    noting() && !PLACED_BEFORE_DRAWN.get() && (!text.is_empty() || IN_TEXT_AREA.get())
 }
 
 /// How many of matplotlib's `Text._get_layout` of `text` laying it out now
 /// stands for: none where matplotlib does not lay it out (see
 /// [`lays_out_as_matplotlib`]), else one per draw (two in the draw of a
-/// print matplotlib draws once before, see [`predrawn`]).
+/// print matplotlib draws once before, see [`predrawn`]), as many times
+/// as [`layouts_counted`] says.
 pub(super) fn layouts_of(text: &str) -> usize {
     if lays_out_as_matplotlib(text) {
-        draws_noted(false)
+        draws_noted(false) * LAYOUT_TIMES.get()
     } else {
         0
     }
 }
 
 /// Notes the lookup matplotlib's `Text._get_layout` makes for the height
-/// of the font of `text`: none for an empty text (which matplotlib never
-/// lays out), for TeX, or for the AFM fonts the PDF and PostScript backends
+/// of the font of `text`: none where it does not lay the text out (see
+/// [`layouts_of`]), for TeX, or for the AFM fonts the PDF and PostScript backends
 /// measure with (`_get_font_height_metrics`).
 ///
 /// # Errors

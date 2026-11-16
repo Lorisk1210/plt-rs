@@ -20,7 +20,8 @@ use crate::ticker::AxisName;
 
 impl FigureCanvas {
     /// Draws `artist` onto the canvas, as its figure's last layout places
-    /// and clips it (a legend of this canvas's figure is placed anew),
+    /// and clips it (a legend or an offset box of this canvas's figure is
+    /// placed anew),
     /// through its painter with `painted`.
     fn draw_one(&self, artist: &RawHandle, painted: bool) -> Result<(), CanvasError> {
         // A removed artist (an Axes never added among them) draws all it
@@ -119,6 +120,8 @@ impl FigureCanvas {
             lay_out_legend(&mut self.figure.state.borrow_mut(), artist.id())
                 .map_err(|err| CanvasError::Draw(DrawErrors(vec![err])))?;
         }
+        // So does matplotlib's draw of an offset box.
+        crate::offsetbox::place_drawn_box(&mut self.figure.state.borrow_mut(), artist.id());
         if crate::mplot3d::is_axes3d(&self.figure.state.borrow().store, artist.id()) {
             // matplotlib's `Axes3D.draw` projects the axes' artists in the
             // view it draws in, which `view_init` may have changed since

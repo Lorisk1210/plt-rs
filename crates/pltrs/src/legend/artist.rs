@@ -252,6 +252,9 @@ impl Artist for LegendArtist {
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         let draws = if self.kept && self.current { 2 } else { 1 };
         for _ in 0..draws {
+            // matplotlib's draw measures the legend's box once, then each
+            // packer measures its children again as it draws them.
+            crate::offsetbox::note_drawn_texts(ctx.layout(), &self.legend_box, 1);
             ctx.renderer()
                 .open_group("legend", self.base.gid.as_deref());
             if let Some(shadow) = self.shadow_id() {
@@ -273,8 +276,12 @@ impl Artist for LegendArtist {
         self.parts.retain(|&id| id != child);
     }
 
+    /// matplotlib's `get_window_extent`, which measures the legend's box
+    /// once, laying each of its texts out (see `offsetbox::text_notes`).
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        self.extent(*ctx).ok()
+        let extent = crate::text::font_notes::layouts_counted(0, || self.extent(*ctx));
+        crate::offsetbox::note_measured_texts(*ctx, &self.legend_box, 1);
+        extent.ok()
     }
 
     /// matplotlib's `Legend.contains`: on the frame.

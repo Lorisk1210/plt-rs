@@ -4,12 +4,13 @@ Bars: `~.Axes.bar`, `~.Axes.barh`, `~.Axes.broken_barh` and
 """
 
 import itertools
+import warnings
 
 import numpy as np
 
 from ... import _docstring, _transform_trees
 from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, lines as mlines
-from ... import patches as mpatches, units as munits
+from ... import patches as mpatches, transforms as mtransforms, units as munits
 from ..._program_classes import takes_any_from_program
 from ..._native import patches as _patches, plotting as _plotting
 from ..._preprocess import _preprocess_data
@@ -507,10 +508,17 @@ class BarsMixin:
         error_kw = {k: v for k, v in error_kw.items() if v is not None}
         error_kw["label"] = error_label
 
+        # (The kinds read without a Python call: most bars are of floats.)
+        kinds = (np.asarray(position).dtype.kind, np.asarray(value).dtype.kind,
+                 np.asarray(thickness).dtype.kind, np.asarray(base).dtype.kind)
+        complex_extents = _complex_extents(kinds, align) if "c" in kinds else 0
+        # matplotlib casts no array of complex numbers to floats: each bar
+        # casts its extents (`_cast_complex_extents`).
+        cast = _floats_quietly if complex_extents else floats
         native, rectangles, errorbar, values = _plotting.bar(
             self._native, orientation == 'horizontal',
-            (floats(position), floats(value)),
-            (floats(thickness), floats(base) if has_base else None),
+            (cast(position), cast(value)),
+            (cast(thickness), cast(base) if has_base else None),
             align, (facecolors, edgecolors, linewidths, hatches),
             # The container's label as text, as `.Container` keeps it.
             ('' if bar_container_label is None else str(bar_container_label),
@@ -520,15 +528,14 @@ class BarsMixin:
         patches = wrap_all(self, rectangles, mpatches.Rectangle)
         # matplotlib cycles the hatches as numpy strings.
         hatch_cycle = itertools.cycle(np.atleast_1d(hatch))
-        # (The kinds read without a Python call: most bars are of floats.)
-        kinds = (np.asarray(position).dtype.kind, np.asarray(value).dtype.kind,
-                 np.asarray(thickness).dtype.kind, np.asarray(base).dtype.kind)
-        complex_extents = _complex_extents(kinds, align) if "c" in kinds else 0
         for patch in patches:
             if hatch is not None:
                 _values.remember(patch, "hatch", next(hatch_cycle))
             patch._made_with(kwargs)
             if complex_extents:
+                # matplotlib's `add_patch` computes the bar's box for the
+                # data limits, and so does each draw.
+                _cast_complex_extents(complex_extents)
                 _unusable.keep(patch, "complex extents", complex_extents,
                                _cast_complex_extents, measured=False)
         if patches:
@@ -1088,6 +1095,15 @@ def _complex_extents(kinds, align):
 
 def _cast_complex_extents(count):
     """numpy's casts of the *count* complex extents of a bar to floats,
-    which matplotlib's `.Rectangle` makes each time it is drawn
-    (``Bbox.from_extents``), each warning that the imaginary part goes."""
-    np.asarray([np.complex128(0)] * count, dtype=float)
+    which matplotlib's `.Rectangle` makes each time it computes its box
+    (``Bbox.from_extents``, as its draw does), each warning that the
+    imaginary part goes."""
+    mtransforms.Bbox.from_extents(*[np.complex128(0)] * count, *[0.0] * (4 - count))
+
+
+def _floats_quietly(values):
+    """`floats` of *values*, complex numbers among them, without numpy's
+    warning that their imaginary parts go."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", np.exceptions.ComplexWarning)
+        return floats(values)

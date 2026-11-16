@@ -40,6 +40,8 @@ impl Axis3DState {
     /// offset text's visibility, the overlapping minor ticks, the
     /// visibility and the gids stay.
     fn cleared(&self, rc: &RcParams) -> Self {
+        // matplotlib's clear sets the scale anew, linear.
+        crate::scale::note_default_formatter(crate::scale::ScaleName::Linear);
         let mut fresh = Self::new(self.dir, rc);
         fresh.keep_tick_styles(self);
         fresh.label.rotate = self.label.rotate;
@@ -70,6 +72,8 @@ impl Axes3DState {
         };
         self.limits = Limits3D::new(zmargin, &rc);
         for axis in &mut self.axes {
+            // matplotlib's `Axis.clear` sets the scale anew, linear.
+            crate::scale::note_default_formatter(crate::scale::ScaleName::Linear);
             let mut fresh = Axis3DState::new(axis.dir, &rc);
             fresh.keep_tick_styles(axis);
             // matplotlib builds an axis' `_axinfo` once, with the axis.
@@ -125,7 +129,8 @@ impl Axes3D {
         // Dropped once the figure is free: a callback may own handles.
         drop(disconnected);
         let plane = self.plane();
-        plane.clear();
+        // The plane is none of matplotlib's axes (see `Axes3DState::clear`).
+        crate::scale::uncounted(|| plane.clear());
         show_view_window(&plane);
         self.with_mut(Axes3DState::clear);
         for axis in Axis3::ALL {

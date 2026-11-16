@@ -20,6 +20,7 @@ use crate::figure::{Figure, FigureState};
 use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides, SubplotParams, SubplotSpec};
 use crate::layout::{LayoutEngine, LayoutEngineError};
 use crate::text::TextDrawError;
+use crate::text::font_notes;
 
 mod fit;
 
@@ -274,14 +275,19 @@ impl FigureState {
         let Some(subplot_params) = self.subplot_params_of(frame) else {
             return Ok(());
         };
-        let measured =
-            crate::text::measuring(|| Measured::new(self, axes, &subplot_params, None))??;
+        // matplotlib measures the axes again to fit them into the
+        // rectangle, laying their texts out once more (their lines are
+        // measured once, then cached).
+        let passes = if params.rect.is_some() { 2 } else { 1 };
+        let measured = font_notes::layouts_counted(passes, || {
+            crate::text::measuring(|| Measured::new(self, axes, &subplot_params, None))
+        })??;
         let evaluated = || axes.iter().any(|&id| self.measurement_evaluated(id));
         if params.rect.is_some() && (self.ticks_by_program() || evaluated()) {
-            // matplotlib measures the axes again to fit them into the
-            // rectangle, which the program's tick helpers see, and which
-            // evaluates its transform graph once more.
-            Measured::new(self, axes, &subplot_params, None)?;
+            // That second measure the program's tick helpers see, and it
+            // evaluates its transform graph once more (its layouts are
+            // counted with the first).
+            font_notes::layouts_counted(0, || Measured::new(self, axes, &subplot_params, None))?;
         }
         if super::failures::failed() {
             // The program's code failed measuring the axes, which ends

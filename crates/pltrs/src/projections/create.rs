@@ -61,6 +61,12 @@ impl Projector {
             Self::Rectilinear => {}
             Self::Polar => {
                 PolarAxes::convert(axes.clone());
+                // matplotlib's `PolarAxes.__init__` clears the axes once
+                // more: each axis is cleared, then set linear again, each
+                // time with a default formatter.
+                for _ in 0..2 * 2 {
+                    crate::scale::note_default_formatter(crate::scale::ScaleName::Linear);
+                }
             }
             Self::Geo(projection) => {
                 GeoAxes::convert(axes.clone(), projection);

@@ -88,12 +88,18 @@ impl PolarAxes {
     pub(crate) fn convert(axes: Axes) -> Self {
         axes.raw().with_mut::<AxesState, _>(|state| {
             state.projection = ProjectionState::Polar(PolarState::default());
-            for (axis, role) in [
-                (&mut state.xaxis, AxisRole::Theta),
-                (&mut state.yaxis, AxisRole::Radius),
+            let (share_x, share_y) = state.shares;
+            for (axis, role, shared) in [
+                (&mut state.xaxis, AxisRole::Theta, share_x.is_some()),
+                (&mut state.yaxis, AxisRole::Radius, share_y.is_some()),
             ] {
                 axis.role = role;
-                axis.set_scale(Rc::new(LinearScale));
+                if !shared {
+                    // matplotlib's polar clear sets the scale of an axis
+                    // it does not share again; a shared one keeps its
+                    // partner's.
+                    axis.set_scale(Rc::new(LinearScale));
+                }
                 axis.restyle_ticks(|style| style.ticks = Sides::default());
                 // matplotlib's `PolarAxes.__init__` clears the axes again
                 // once `Axes.__init__` connected its handler of units

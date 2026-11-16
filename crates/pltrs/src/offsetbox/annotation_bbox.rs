@@ -23,6 +23,7 @@ use crate::patches::{
     PatchShape,
 };
 use crate::rc::RcParams;
+use crate::text::font_notes;
 use crate::text::{AnnotationArrow, ArrowProps, ArrowTarget, FancyArrowProps, StartRegion, Text};
 
 /// The z-order of annotation boxes (matplotlib's `AnnotationBbox.zorder`).
@@ -109,6 +110,10 @@ pub(crate) struct AnnotationBboxArtist {
     /// The axes of data coordinates and of the clipping check; `None` for
     /// a box of a (sub)figure.
     axes: Option<ArtistId>,
+    /// The (sub)figure the box was taken out of the lists of by
+    /// [`AnnotationBbox::unlist`], where its figure coordinates resolve
+    /// while it has no owner.
+    home: Option<ArtistId>,
     /// The frame (matplotlib's `patch`).
     frame: ArtistId,
     /// Every part, for removal with the box.
@@ -130,6 +135,7 @@ pltrs_core::archive_struct!(AnnotationBboxArtist {
     fontsize,
     arrow,
     axes,
+    home,
     frame,
     parts,
     rc,
@@ -145,7 +151,7 @@ impl AnnotationBboxArtist {
         CoordFrame {
             layout,
             axes: self.axes,
-            owner: self.base.parent,
+            owner: self.base.parent.or(self.home),
             offset_origin,
             fontsize: self.fontsize,
         }
@@ -240,7 +246,9 @@ impl AnnotationBboxArtist {
     /// The box and its arrow, if the annotated point is shown.
     fn draw_parts(&self, ctx: &mut DrawContext<'_>) -> Result<(), String> {
         let layout = ctx.layout();
-        let geometry = self.geometry(layout).map_err(|err| err.to_string())?;
+        // Its layouts are noted below, as matplotlib's draw makes them.
+        let geometry = font_notes::layouts_counted(0, || self.geometry(layout))
+            .map_err(|err| err.to_string())?;
         if !annotation_shown(
             layout,
             self.annotation_clip,
@@ -250,6 +258,9 @@ impl AnnotationBboxArtist {
         ) {
             return Ok(());
         }
+        // matplotlib's draw measures the tree to place it, then for the
+        // frame (see `text_notes`).
+        super::text_notes::note_drawn(layout, &self.child, 2);
         ctx.renderer()
             .open_group("AnnotationBbox", self.base.gid.as_deref());
         if let Some(arrow) = &self.arrow {
@@ -352,8 +363,21 @@ impl Artist for AnnotationBboxArtist {
         self.parts.retain(|&id| id != child);
     }
 
+    /// matplotlib's `get_window_extent`, which measures the tree twice
+    /// (`update_positions`, then the box's extent; see
+    /// [`text_notes`](super::text_notes)).
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        self.extent(*ctx)
+        let extent = font_notes::layouts_counted(0, || self.extent(*ctx));
+        super::text_notes::note_measured(*ctx, &self.child, 2);
+        extent
+    }
+
+    /// matplotlib's `get_tightbbox`, which measures the tree once more
+    /// than its window extent.
+    fn tight_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
+        let extent = self.window_extent(ctx);
+        super::text_notes::note_measured(*ctx, &self.child, 1);
+        extent
     }
 
     /// matplotlib's `AnnotationBbox.contains`: on an artist of the child
@@ -465,6 +489,42 @@ impl AnnotationBbox {
         self
     }
 
+    /// Takes the box out of the lists of its (sub)figure or axes, as a box
+    /// matplotlib only gave a figure (`set_figure`, never added) is in
+    /// none: the figure no longer draws it, while its own draw and its
+    /// measures still place it, with figure coordinates in that
+    /// (sub)figure (see [`remove`](crate::artist::ArtistHandle::remove),
+    /// which leaves it none). As for any artist its figure does not draw,
+    /// [`window_extent`](crate::artist::ArtistHandle::window_extent) is
+    /// `None`: [`RawHandle::measured_extent`] measures it, and
+    /// [`RawHandle::draw_onto`] draws it.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::offsetbox::{AnnotationBboxOptions, TextArea};
+    /// use pltrs::prelude::*;
+    /// use pltrs::text::TextProps;
+    /// let fig = Figure::new();
+    /// let note = fig.add_annotation_bbox(
+    ///     TextArea::from_text("note", TextProps::default()),
+    ///     (0.5, 0.5),
+    ///     AnnotationBboxOptions { xycoords: "figure fraction".parse()?, ..Default::default() },
+    /// )?;
+    /// let listed = note.window_extent();
+    /// note.unlist();
+    /// assert!(fig.artists().is_empty() && note.window_extent().is_none());
+    /// assert_eq!(note.raw().measured_extent(), listed);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn unlist(&self) {
+        let home = self
+            .raw
+            .with::<AnnotationBboxArtist, _>(|ab| ab.base.parent);
+        self.remove();
+        self.raw
+            .with_mut::<AnnotationBboxArtist, _>(|ab| ab.home = home);
+    }
+
     /// The font size, in points, that scales the frame and the arrow
     /// (matplotlib's `get_fontsize`).
     pub fn fontsize(&self) -> f64 {
@@ -515,6 +575,7 @@ impl AnnotationBbox {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn update_positions(&self) {
+        let _standing = self.raw.standing_in();
         super::lay_out_box(&mut self.raw.figure_state().borrow_mut(), self.raw.id());
     }
 
@@ -686,6 +747,7 @@ fn add_annotation_bbox(
         fontsize,
         arrow,
         axes,
+        home: None,
         frame,
         parts: parts.clone(),
         rc,

@@ -18,6 +18,7 @@ use crate::events::Dragger;
 use crate::figure::Figure;
 use crate::fonts::FontProperties;
 use crate::patches::{BoxShape, BoxStyle, FancyBboxPatch, Patch, PatchArtist, PatchProps};
+use crate::text::font_notes;
 use crate::text::{Text, TextArtist, TextProps};
 use crate::transforms::Transform;
 
@@ -312,6 +313,9 @@ impl Artist for AnchoredBoxArtist {
 
     /// Draws the frame, then the child's artists in box order.
     fn draw(&self, ctx: &mut DrawContext<'_>) {
+        // matplotlib's draw measures the tree for its extent, then for its
+        // offset (see `text_notes`).
+        super::text_notes::note_drawn(ctx.layout(), &self.child, 2);
         ctx.draw_child(self.frame);
         for &id in self.child.artists() {
             ctx.draw_child(id);
@@ -326,8 +330,12 @@ impl Artist for AnchoredBoxArtist {
         self.parts.retain(|&id| id != child);
     }
 
+    /// matplotlib's `get_window_extent`, which measures the tree once
+    /// (see [`text_notes`](super::text_notes)).
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        self.layout(*ctx).ok().map(|layout| layout.extent)
+        let laid_out = font_notes::layouts_counted(0, || self.layout(*ctx));
+        super::text_notes::note_measured(*ctx, &self.child, 1);
+        laid_out.ok().map(|layout| layout.extent)
     }
 
     /// matplotlib's `OffsetBox.contains`: on an artist of the child box.

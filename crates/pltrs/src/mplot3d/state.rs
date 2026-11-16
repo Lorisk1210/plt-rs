@@ -137,6 +137,12 @@ impl Axes3DState {
         } else {
             0.0
         };
+        // matplotlib makes each axis cleared (`clear=True`), then
+        // `Axes3D.__init__` clears the axes, which clears each axis again:
+        // two linear scales, with their default formatters, per axis.
+        for _ in 0..2 * Axis3::ALL.len() {
+            crate::scale::note_default_formatter(crate::scale::ScaleName::Linear);
+        }
         Self {
             base: ArtistBase::default(),
             position,

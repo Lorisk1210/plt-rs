@@ -836,7 +836,9 @@ class Line2D(Artist):
     _drawstyle = property(get_drawstyle)
     @property
     def _unscaled_dash_pattern(self):
-        native = _get_dash_pattern(self._get("dash_pattern"))
+        offset, dashes = _get_dash_pattern(self._get("dash_pattern"))
+        # A sequence as matplotlib's patterns of named styles are, a tuple.
+        native = offset, None if dashes is None else tuple(dashes)
         given = self.__dict__.get("_given_dash_pattern")
         # The style as given, offset and sequence (a tuple or a list) of
         # the very numbers, while pltrs (Rust) draws it.
@@ -1022,9 +1024,9 @@ class Line2D(Artist):
     def _dash_pattern(self):
         """The ``(offset, dashes)`` the line is drawn with, scaled by its
         width as :rc:`lines.scale_dashes` says."""
-        offset, dashes = _get_dash_pattern(self._get("dash_pattern"))
-        return _scale_dashes(offset, None if dashes is None else tuple(dashes),
-                             self.get_linewidth())
+        # Scaled from the numbers given, as matplotlib scales them.
+        offset, dashes = self._unscaled_dash_pattern
+        return _scale_dashes(offset, dashes, self.get_linewidth())
 
     def set_dashes(self, seq):
         """
@@ -1115,7 +1117,7 @@ class Line2D(Artist):
         # again once the marker or its fill style is set.
         style = self.__dict__.get("_marker_style")
         if style is None:
-            from ._line_markers import LineMarker
+            from ._line_markers import MarkerStyle as LineMarker
             style = self.__dict__["_marker_style"] = LineMarker(self)
         return style
 

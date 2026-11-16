@@ -121,12 +121,15 @@ impl RawHandle {
 
     /// Draws the artist through `renderer`, through its painter with
     /// `painted`; a root figure is laid out and drawn whole (matplotlib's
-    /// `figure.draw(renderer)`).
+    /// `figure.draw(renderer)`). A removed artist draws all it owns, its
+    /// tree standing in (see [`RawHandle::standing_in`]), as matplotlib's
+    /// `draw` of a removed artist does.
     fn draw_apart(&self, renderer: &mut dyn Renderer, painted: bool) -> Result<(), DrawErrors> {
         let figure = self.figure();
         if figure.id() == self.id() {
             return figure.draw(renderer);
         }
+        let _standing = self.standing_in();
         self.prepare_painters(renderer, painted, true);
         let Some(artist) = self.figure_state().borrow().shared_artist(self.id()) else {
             return Ok(());

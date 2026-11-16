@@ -1,10 +1,12 @@
 """
 Building pltrs' native extension with cargo: the optimised build of
 ``pltrs-python`` (``cargo rustc --profile extension -p pltrs-python``,
-the release profile with fat LTO and one codegen unit, which is ``cargo
-build`` with the library's debug information left out, as a wheel ships
-without it), for the host or for the Rust target
-``-C target=...`` (or ``CARGO_BUILD_TARGET``) names, or for both macOS
+the release profile with fat LTO and one codegen unit, without the
+profile's line tables, as a wheel ships without debug information: they
+cost the link-time optimisation most of its memory, which with MSVC
+peaks at 8.5 GiB with them and at 2 GiB without), for the host or for
+the Rust target ``-C target=...`` (or ``CARGO_BUILD_TARGET``) names, or
+for both macOS
 architectures at once (``-C target=universal2``: the two libraries joined
 by ``lipo``), linked as ``_linker`` decides (``-C glibc=...``).
 
@@ -76,6 +78,9 @@ def _build_one(root, link):
         command += ["--target", link.target]
     command += ["--", "-C", "strip=debuginfo", *link.rustc_args]
     environment = {**os.environ, **link.environment}
+    # No debug information is compiled (see the module's description),
+    # unless the environment asks for some.
+    environment.setdefault("CARGO_PROFILE_EXTENSION_DEBUG", "false")
     if sys.platform == "win32":
         environment.setdefault("PLTRS_PYTHON", sys.executable)
     # cargo's progress and diagnostics go to the frontend's error stream.

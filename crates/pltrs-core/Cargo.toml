@@ -9,6 +9,7 @@ license.workspace = true
 repository.workspace = true
 keywords = ["geometry", "affine", "bezier", "path", "matplotlib"]
 categories = ["graphics", "mathematics"]
+build = "build/main.rs"
 
 [dependencies]
 

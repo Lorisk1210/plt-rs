@@ -919,8 +919,18 @@ def major(**scene):
 
 
 def _units(fig, ax):
+    """The name of the x axis' zone. A zone of the Windows registry
+    (dateutil's ``tzwin``, which ``gettz("UTC")`` gives there, as for
+    matplotlib's ``axis_date``) names itself in the system's language
+    ("Coordinated Universal Time", "Koordinierte Weltzeit"): it is named by
+    its key instead, so that goldens do not depend on the language of the
+    machine recording them."""
     units = ax.xaxis.get_units()
-    return None if units is None else units.tzname(datetime.datetime(2020, 1, 1))
+    if units is None:
+        return None
+    if type(units).__name__ == "tzwin":
+        return units._name
+    return units.tzname(datetime.datetime(2020, 1, 1))
 
 
 def units(**scene):

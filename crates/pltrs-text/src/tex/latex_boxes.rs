@@ -121,7 +121,7 @@ impl Session {
         loop {
             if let Some(at) = find(&self.pending, pattern) {
                 let answer: Vec<u8> = self.pending.drain(..at + pattern.len()).collect();
-                return Ok(String::from_utf8_lossy(&answer).into_owned());
+                return Ok(text_of(&answer));
             }
             if let Err(stopped) = self.receive(deadline) {
                 return Err(self.printed(stopped, time));
@@ -140,7 +140,7 @@ impl Session {
     /// What TeX printed that no answer took, once its output `stopped`:
     /// it ended, or TeX took longer than `time` and is stopped.
     fn printed(&mut self, stopped: RecvTimeoutError, time: Duration) -> String {
-        let mut printed = String::from_utf8_lossy(&self.pending).into_owned();
+        let mut printed = text_of(&self.pending);
         if stopped == RecvTimeoutError::Timeout {
             let _ = self.child.kill();
             let _ = write!(
@@ -170,6 +170,15 @@ impl Session {
             && self.child.wait().is_ok_and(|status| status.success());
         (success, printed)
     }
+}
+
+/// TeX's output as text, as matplotlib reads it from a pipe in Python's
+/// text mode: its line ends, `\r\n` (TeX's on Windows) or `\r`, read as
+/// `\n`.
+fn text_of(output: &[u8]) -> String {
+    String::from_utf8_lossy(output)
+        .replace("\r\n", "\n")
+        .replace('\r', "\n")
 }
 
 /// Where `pattern` first occurs in `data`.
@@ -318,6 +327,11 @@ fn parse_answer(answer: &str) -> Option<BoxMetrics> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn output_lines_end_as_python_reads_them() {
+        assert_eq!(text_of(b"! Error.\r\nl.1\rx\n*"), "! Error.\nl.1\nx\n*");
+    }
 
     #[test]
     fn answers_are_read_from_their_third_line_from_the_end() {

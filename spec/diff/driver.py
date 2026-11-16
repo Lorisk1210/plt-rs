@@ -83,6 +83,9 @@ PROCESSOR_LEVEL = ("NPY_DISABLE_CPU_FEATURES", "OPENBLAS_CORETYPE")
 #: cache, which a program may write its own fonts into (ultraplot does),
 #: to reach no other program.
 OWN_CONFIG_FILES = "fontlist-v*.json"
+#: The longest name of a program's run directory on Windows (see
+#: `Program.directory`).
+WINDOWS_NAME = 40
 #: Gallery directories run, under the sdist's ``galleries/``.
 GALLERY_PARTS = ("examples", "plot_types", "tutorials", "users_explain")
 #: The pinned list of the corpora's venvs, on which their reference runs
@@ -105,6 +108,13 @@ HEADLESS = HERE / "headless"
 #: Whether the programs need `HEADLESS`: on every system but Linux, where
 #: the tester runs without a display.
 NEEDS_HEADLESS = not sys.platform.startswith("linux")
+
+
+def _home_variables(home: pathlib.Path) -> dict[str, str]:
+    """The variables making *home* a run's home directory: ``HOME``, and
+    on Windows ``USERPROFILE``, where Python finds ``~`` there."""
+    names = ("HOME", "USERPROFILE") if os.name == "nt" else ("HOME",)
+    return dict.fromkeys(names, str(home))
 
 
 class Setup:
@@ -143,7 +153,7 @@ class Setup:
                and k.lower() not in ("http_proxy", "https_proxy", "all_proxy", "no_proxy")}
         env.update(OFFLINE)
         if program is not None and program.corpus is not None:
-            env["HOME"] = str(self.home(program))
+            env.update(_home_variables(self.home(program)))
             # One thread for the linear algebra, whose sums several threads
             # add in an order of their own from run to run.
             env.update(dict.fromkeys(("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"), "1"))
@@ -198,7 +208,7 @@ class Setup:
             if entry in copied:
                 shutil.copy2(entry, own / entry.name)
             else:
-                (own / entry.name).symlink_to(entry)
+                corpora.link(entry, own / entry.name)
 
     def prepare_configs(self) -> None:
         """Make the shared configuration directories a corpus run seeds
@@ -213,7 +223,7 @@ class Setup:
             shared.mkdir(parents=True, exist_ok=True)
             for cache in shared.glob(OWN_CONFIG_FILES):
                 cache.unlink()
-        env = dict(self.environment("matplotlib"), HOME=str(seed_home))
+        env = dict(self.environment("matplotlib"), **_home_variables(seed_home))
         subprocess.run([self.mpl_python, "-c", "import matplotlib.font_manager"],
                        env=env, check=True, capture_output=True)
 
@@ -265,8 +275,15 @@ class Program:
                               + network).hexdigest()[:16]
 
     def directory(self, setup: Setup) -> pathlib.Path:
-        """Where the runs of the program go."""
-        return setup.out / "runs" / re.sub(r"[^\w.-]", "_", self.name)
+        """Where the runs of the program go: a directory named after the
+        program, on Windows shortened past `WINDOWS_NAME` characters (to
+        its start and a hash of the whole), as a corpus program's tree is
+        copied below it and Windows' paths hold 259 characters at most."""
+        name = re.sub(r"[^\w.-]", "_", self.name)
+        if os.name == "nt" and len(name) > WINDOWS_NAME:
+            digest = hashlib.sha256(name.encode()).hexdigest()[:12]
+            name = f"{name[:WINDOWS_NAME - len(digest) - 1]}-{digest}"
+        return setup.out / "runs" / name
 
 
 def gallery_programs(gallery: pathlib.Path) -> list[Program]:
@@ -274,7 +291,7 @@ def gallery_programs(gallery: pathlib.Path) -> list[Program]:
     programs = []
     for part in GALLERY_PARTS:
         for path in sorted((gallery / part).rglob("*.py")):
-            name = "gallery/" + str(path.relative_to(gallery)).removesuffix(".py")
+            name = "gallery/" + path.relative_to(gallery).as_posix().removesuffix(".py")
             programs.append(Program(name, path, "program"))
     return programs
 
@@ -285,7 +302,7 @@ def generated_programs(setup: Setup) -> list[Program]:
     subprocess.run([setup.mpl_python, str(HERE / "generate.py"), str(target)], check=True,
                    env=setup.environment("matplotlib"))
     return [
-        Program("generated/" + str(path.relative_to(target)).removesuffix(".py"), path, "steps")
+        Program("generated/" + path.relative_to(target).as_posix().removesuffix(".py"), path, "steps")
         for path in sorted(target.rglob("*.py"))
     ]
 
@@ -294,8 +311,13 @@ def corpus_programs(setup: Setup, patterns: list[str]) -> list[Program]:
     """The programs of the corpora: of those a pattern names, or of all."""
     every = corpora.load()
     named = [corpus for corpus in every if any(corpus.name in pattern for pattern in patterns)]
-    return [Program.of_corpus(program) for corpus in named or every
-            for program in corpora.programs(corpus, setup.out)]
+    programs = []
+    for corpus in named or every:
+        try:
+            programs += [Program.of_corpus(program) for program in corpora.programs(corpus, setup.out)]
+        except corpora.CorpusUnfit as err:
+            print(f"left out: {str(err).splitlines()[0]}", file=sys.stderr)
+    return programs
 
 
 def _run(setup: Setup, impl: str, program: Program, out: pathlib.Path) -> dict[str, Any] | None:
@@ -318,17 +340,17 @@ def _run(setup: Setup, impl: str, program: Program, out: pathlib.Path) -> dict[s
     env = setup.environment(impl, program) | {"TMPDIR": str(tmp)}
     try:
         done = subprocess.run(setup.command(impl, program, out), env=env,
-                              capture_output=True, text=True, timeout=TIMEOUT)
+                              capture_output=True, text=True, errors="replace", timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
-        (out / "failure").write_text(f"timed out after {TIMEOUT} s")
+        (out / "failure").write_text(f"timed out after {TIMEOUT} s", encoding="utf-8")
         return None
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    (out / "stderr.txt").write_text(done.stderr[-20000:])
+    (out / "stderr.txt").write_text(done.stderr[-20000:], encoding="utf-8")
     record = out / "record.json"
     if done.returncode != 0 or not record.exists():
         tail = done.stderr.strip().splitlines()[-1:] or [f"exit status {done.returncode}"]
-        (out / "failure").write_text(f"exit status {done.returncode}: {tail[0]}")
+        (out / "failure").write_text(f"exit status {done.returncode}: {tail[0]}", encoding="utf-8")
         return None
     return json.loads(_records_shared_tmp(record.read_text(), tmp))
 
@@ -339,14 +361,22 @@ def _records_shared_tmp(text: str, tmp: pathlib.Path) -> str:
     included: the random names in it read ``<tmp>`` (as ``describe.py``
     has those of the shared one), the rest the shared directory. The
     tracer names pltrs' package matplotlib's in what it records, the run's
-    directory in the path too."""
+    directory in the path too. Paths are found as written and as a
+    ``repr`` writes them (Windows' backslashes doubled, as in a warning
+    naming a ``TemporaryDirectory``)."""
     def escaped(path: str) -> str:
         return json.dumps(path)[1:-1]
-    shared = escaped(tempfile.gettempdir())
+
+    def as_repr(path: str) -> str:
+        return path.replace("\\", "\\\\")
+
     for path in {str(tmp), str(tmp).replace("pltrs", "matplotlib")}:
-        own = re.escape(escaped(path))
-        text = re.sub(own + re.escape(escaped(os.sep)) + r"tmp[\w-]{8}", "<tmp>", text)
-        text = re.sub(own, lambda _: shared, text)
+        for spelled in (str, as_repr):
+            own = re.escape(escaped(spelled(path)))
+            separator = re.escape(escaped(spelled(os.sep)))
+            text = re.sub(own + separator + r"tmp[\w-]{8}", "<tmp>", text)
+            shared = escaped(spelled(tempfile.gettempdir()))
+            text = re.sub(own, lambda _, shared=shared: shared, text)
     return text
 
 
@@ -367,7 +397,7 @@ def run_program(setup: Setup, program: Program) -> dict[str, Any]:
         stamp.write_text(program.digest)
     result: dict[str, Any] = {"program": program.name, "path": str(program.path)}
     if mpl is None:
-        result["skipped"] = (reference / "failure").read_text()
+        result["skipped"] = (reference / "failure").read_text(encoding="utf-8")
         return result
     if program.mode == "program" and mpl.get("uncaught") and _environmental(mpl["uncaught"]):
         result["skipped"] = f"{mpl['uncaught']['type']}: {mpl['uncaught']['message'][:200]}"
@@ -383,7 +413,7 @@ def run_program(setup: Setup, program: Program) -> dict[str, Any]:
                                    "something changed the venv under it")
     pltrs = _run(setup, "pltrs", program, directory / "pltrs")
     if pltrs is None:
-        failure = (directory / "pltrs" / "failure").read_text()
+        failure = (directory / "pltrs" / "failure").read_text(encoding="utf-8")
         result["differences"] = [compare.Difference(
             program.name, "exception", f"crash: harness: {compare._message_key(failure)}", "the run",
             failure).as_json()]
@@ -471,7 +501,7 @@ class Allowlist:
     def __init__(self, path: pathlib.Path) -> None:
         self.entries = []
         if path.exists():
-            for line in path.read_text().splitlines():
+            for line in path.read_text(encoding="utf-8").splitlines():
                 if line.strip() and not line.lstrip().startswith("#"):
                     program, cause, reason = (part.strip() for part in line.split(" | ", 2))
                     cause, _, where = cause.partition(" @ ")
@@ -568,7 +598,7 @@ def write_report(setup: Setup, results: list[dict[str, Any]], baseline: dict[str
         lines += ["", "## Skipped (matplotlib cannot run them here)", ""]
         lines += [f"* {r['program']}: {r['skipped']}" for r in skipped]
     report = "\n".join(lines) + "\n"
-    (setup.out / "report.md").write_text(report)
+    (setup.out / "report.md").write_text(report, encoding="utf-8")
     (setup.out / "report.json").write_text(json.dumps({
         "groups": {cause: len(found) for cause, found in groups.items()},
         "corpora": corpus_counts,

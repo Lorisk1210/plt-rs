@@ -25,6 +25,9 @@ The builds of matplotlib and numpy on this system:
   `DETERMINANT_OF_NAN_WARNS`): numpy 2 does, numpy 1.26's arm64 macOS
   wheel (its loops' comparisons and its OpenBLAS raising no invalid
   exception for a NaN) does not.
+* what matplotlib's document writers raise for a ``SOURCE_DATE_EPOCH``
+  Python's ``datetime`` cannot take here: Windows' clock functions refuse
+  times before 1970 (``OSError``), others reach further.
 
 The versions of the dependencies:
 
@@ -61,8 +64,10 @@ import zoneinfo
 import dateutil.tz
 import numpy as np
 
-#: The line of ``ft2font.cpp`` matplotlib's ``FT_Set_Char_Size`` errors name.
-SET_CHAR_SIZE_LINE = 250 if sys.platform == "darwin" else 248
+#: The line of ``ft2font.cpp`` matplotlib's ``FT_Set_Char_Size`` errors name:
+#: its ``FT_CHECK`` spans lines 248 to 250, and GCC (Linux) names the first,
+#: clang (macOS) and MSVC (Windows) the last.
+SET_CHAR_SIZE_LINE = 250 if sys.platform in ("darwin", "win32") else 248
 
 #: Whether matplotlib's cast of a negative resolution wraps around.
 CASTS_WRAP = platform.machine() in ("x86_64", "AMD64")
@@ -162,3 +167,15 @@ def raised(action):
     except Exception as error:  # noqa: BLE001 - any exception's message
         return str(error)
     raise AssertionError(f"{action!r} raised nothing")
+
+
+def source_date_error(value):
+    """What matplotlib's PDF, PostScript and SVG writers raise for
+    ``SOURCE_DATE_EPOCH=value``, as ``(type, message)``, or None where they
+    take it: they read it as ``datetime.fromtimestamp(int(value),
+    timezone.utc)``, whose range is this system's."""
+    try:
+        datetime.datetime.fromtimestamp(int(value), datetime.timezone.utc)
+    except (ValueError, OSError, OverflowError) as error:
+        return type(error), str(error)
+    return None

@@ -18,6 +18,7 @@
 use super::lexer::{Lexer, Tok};
 use crate::figures::vector::diff::{Item, Token};
 use crate::figures::vector::pdf;
+use crate::ghostscript::invoked_as_gs;
 
 /// The program that wrote a distilled document.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,24 +54,16 @@ fn words(text: &str) -> Vec<Token> {
         .collect()
 }
 
-/// How Ghostscript names itself in `%%Invocation` when it was started by
-/// an absolute path (a host that starts it by name gets `gs`).
-const INVOKED_BY_PATH: &str = "%%Invocation: path/";
-
 /// The header comments but those naming the program, date or file, with
-/// Ghostscript's program named the same however the host installed it.
+/// Ghostscript's program named the same however the host installed it
+/// ([`invoked_as_gs`]).
 fn header_item(header: &str) -> Item {
     let mut item = Item::new("header");
     for line in header.lines().filter(|line| line.starts_with("%%")) {
         if UNSTABLE.iter().any(|unstable| line.starts_with(unstable)) {
             continue;
         }
-        match line.strip_prefix(INVOKED_BY_PATH) {
-            Some(invocation) => item
-                .tokens
-                .extend(words(&format!("%%Invocation: {invocation}"))),
-            None => item.tokens.extend(words(line)),
-        }
+        item.tokens.extend(words(&invoked_as_gs(line)));
     }
     item
 }

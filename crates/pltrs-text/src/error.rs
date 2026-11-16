@@ -6,9 +6,13 @@ use std::path::PathBuf;
 /// The line of matplotlib's `ft2font.cpp` its `FT_Set_Char_Size` errors
 /// name (`__LINE__` in the `FT_CHECK` call spanning lines 248 to 250) on
 /// this system: GCC, which builds matplotlib's Linux wheels, gives the
-/// line the call starts on, clang, which builds its macOS wheels, the
-/// line it ends on.
-pub const SET_CHAR_SIZE_LINE: u32 = if cfg!(target_os = "macos") { 250 } else { 248 };
+/// line the call starts on; clang, which builds its macOS wheels, and
+/// MSVC, which builds its Windows wheels, the line it ends on.
+pub const SET_CHAR_SIZE_LINE: u32 = if cfg!(any(target_os = "macos", windows)) {
+    250
+} else {
+    248
+};
 
 /// Why text could not be laid out.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -78,10 +82,12 @@ impl fmt::Display for TextError {
             ),
             Self::UnknownName { kind, name } => write!(f, "{name:?} is not a valid {kind}"),
             Self::Tex(err) => err.fmt(f),
+            // Python's message names the file by its `repr` (Windows'
+            // separators doubled).
             Self::MissingFontFile(path) => write!(
                 f,
-                "[Errno 2] No such file or directory: '{}'",
-                path.display()
+                "[Errno 2] No such file or directory: {}",
+                pltrs_core::pyfmt::str_repr(&path.to_string_lossy())
             ),
         }
     }

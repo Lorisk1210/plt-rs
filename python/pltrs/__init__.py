@@ -1267,7 +1267,9 @@ def _reach_shipped_data(path):
 
     The data directory is shared by every installation of pltrs, so a link
     may lead to another installation's files, or to one since removed: such
-    a link is pointed at this package's files instead."""
+    a link is pointed at this package's files instead. Several processes
+    may write it at once (the first programs of a new configuration
+    directory): what one finds there is whole."""
     from pathlib import Path
     for entry in Path(__file__).with_name("mpl-data").iterdir():
         target = Path(path, entry.name)
@@ -1284,7 +1286,34 @@ def _reach_shipped_data(path):
             if not target.exists():
                 # Copied instead (also under Wine, which reports links it
                 # does not make).
-                shutil.copytree(entry, target, dirs_exist_ok=True)
+                _copy_into_place(entry, target)
+
+
+def _copy_into_place(entry, target):
+    """Copy the file or directory *entry* to *target* in one step: into a
+    sibling of this process's own, then renamed to *target*, so that other
+    processes find it whole or not at all. A copy another process put there
+    meanwhile is as good as this one, which is then dropped."""
+    partial = target.with_name(f".{target.name}.{os.getpid()}.partial")
+    _remove_copy(partial)
+    if entry.is_dir():
+        shutil.copytree(entry, partial)
+    else:
+        shutil.copy2(entry, partial)
+    try:
+        os.rename(partial, target)
+    except OSError:
+        _remove_copy(partial)
+        if not target.exists():
+            raise
+
+
+def _remove_copy(path):
+    """Remove the file or directory tree *path*, if there is one."""
+    if path.is_dir():
+        shutil.rmtree(path, ignore_errors=True)
+    else:
+        path.unlink(missing_ok=True)
 
 
 def _replace_link(entry, target):

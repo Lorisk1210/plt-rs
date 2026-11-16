@@ -65,6 +65,7 @@ WenQuanYi Zen Hei font is not bundled).
 """
 
 import io
+import itertools
 import re
 from collections import Counter
 
@@ -83,13 +84,32 @@ probe = prober(probes)
 UNSTABLE = ("%%Creator", "%%CreationDate", "%%Title")
 
 
+#: The names of Ghostscript's console program on Windows.
+WINDOWS_PROGRAMS = ("gswin64c", "gswin32c")
+#: The arguments Ghostscript's Windows build puts before those it was given.
+WINDOWS_DISPLAY_ARGUMENTS = ("-dDisplayFormat=", "-dDisplayResolution=")
+
+
+def _invoked_as_gs(line):
+    """The header comment *line* with Ghostscript's program named ``gs``
+    however the host started it: by name, by an absolute path (``path/gs``),
+    or on Windows as ``gswin64c`` with the display's arguments its build
+    adds (``pltrs-spec``'s ``invoked_as_gs``)."""
+    if not line.startswith("%%Invocation: "):
+        return line
+    program, *given = line.removeprefix("%%Invocation: ").removeprefix("path/").split(" ")
+    if program in WINDOWS_PROGRAMS:
+        program = "gs"
+        given = list(itertools.dropwhile(lambda word: word.startswith(WINDOWS_DISPLAY_ARGUMENTS),
+                                         given))
+    return " ".join(["%%Invocation:", program, *given])
+
+
 def _stable_header(head):
     """The header comments of a document but the ``UNSTABLE`` ones, with
     Ghostscript's program named the same however the host's Ghostscript is
-    installed: a distilled document's ``%%Invocation`` names ``path/gs``
-    when gs was started by an absolute path, ``gs`` when by name."""
-    return [line.replace("%%Invocation: path/", "%%Invocation: ", 1)
-            for line in head.splitlines() if not line.startswith(UNSTABLE)]
+    installed (`_invoked_as_gs`)."""
+    return [_invoked_as_gs(line) for line in head.splitlines() if not line.startswith(UNSTABLE)]
 
 
 def _saved(format, orientation, papertype, log):

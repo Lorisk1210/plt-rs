@@ -61,13 +61,13 @@ branches or pull requests, as every run costs Actions minutes.
    about 75 Linux minutes, 35 Windows minutes (billed twice) and 25
    macOS minutes (billed ten times). The extension's build (fat LTO,
    one codegen unit) peaks at about 4.8 GB of memory (4.5 GiB) for
-   x86_64 and 6.0 GB (5.6 GiB) for aarch64, within a standard runner's
-   7 GB. With MSVC it peaks higher: 9.0 GiB committed for the fat LTO
-   (desktop-r1t0nt5, 2026-11-15), because the release profile keeps
-   line tables (`debug = "line-tables-only"`) through the LTO until the
-   link strips them; without them it is about 2.3 GiB. The Windows job
-   needs them left out of the extension's build, or a runner with more
-   memory.
+   x86_64 and 6.0 GB (5.6 GiB) for aarch64 on Linux, within a standard
+   runner's 7 GB. With MSVC it peaked higher, at 8.5 to 9.0 GiB committed
+   for the fat LTO (desktop-r1t0nt5, 2026-11-15), while the release
+   profile's line tables (`debug = "line-tables-only"`) went through the
+   LTO until the link stripped them. The backend leaves them out of the
+   extension's build (a wheel ships without them), which brings MSVC's
+   peak to 2 to 2.3 GiB.
 
 ## Rehearsing
 
@@ -88,12 +88,22 @@ branches or pull requests, as every run costs Actions minutes.
 
   On a Mac, `cargo xtask python wheels` builds `arm64`, `x86_64` and
   `universal2` wheels; check them natively and with an x86_64 Python
-  under Rosetta. On Windows it builds the `win_amd64` wheel, the sdist
-  and the alias, with the toolchain rustup resolves `rust-toolchain.toml`'s
-  channel to: set `RUSTUP_TOOLCHAIN=1.99-x86_64-pc-windows-msvc` where
-  rustup's default host is the GNU one, so that the wheel is linked as
-  the workflow links it, by MSVC. `check_dist.py` takes the path of a
-  `python.exe` as `--python`.
+  under Rosetta.
+
+  On Windows, `cargo xtask python wheels` builds the `win_amd64` wheel,
+  the sdist and the alias with MSVC (Visual Studio's C++ build tools;
+  `aarch64-pc-windows-msvc` given cross-builds `win_arm64`, to try on an
+  arm64 Windows). The toolchain of `rust-toolchain.toml` is the one of
+  rustup's default host: where that is `x86_64-pc-windows-gnu`, set
+  `RUSTUP_TOOLCHAIN=1.99-x86_64-pc-windows-msvc`, so that the wheel is
+  linked as the workflow links it (and the `-gnu` toolchain to try the
+  sdist with gnu, as a user of that host builds it). Every interpreter
+  is `python.exe`, so name each by its path:
+
+  ```sh
+  python python/tools/check_dist.py --install --python C:/.../3.12/python.exe \
+      target/wheels/pltrs-*win_amd64.whl target/wheels/matplotlib-*.whl
+  ```
 * On GitHub: *Actions > wheels > Run workflow*. Everything runs but
   publishing: the archives are the run's artifacts (`pltrs-*` and
   `alias`), to download and try.

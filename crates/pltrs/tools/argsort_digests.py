@@ -8,16 +8,20 @@ the code its wheel runs on the processor: its own introsort without AVX2
 pltrs replays all three as numpy 2.3 to 2.5 sort (earlier releases order
 equal values otherwise in arrays of more than 64 values), and
 ``crates/pltrs/src/numeric/argsort/digests.txt`` holds what numpy 2.5.4
-returns: one line per family of seeded arrays (ties, NaN, infinities,
-signed zeros, sorted, reversed, constant, stalled partitions) and size,
-with a digest of the returned indices per level. A size of ``0-600``
-stands for every length from 0 to 600, chained into one digest.
+returns (``digests-windows.txt`` what its Windows wheel returns, whose
+x86-simd-sort falls back to MSVC's ``std::sort``; that wheel has no AVX-512
+code, so its ``v4`` column is ``-``): one line per family of seeded arrays
+(ties, NaN, infinities, signed zeros, sorted, reversed, constant, stalled
+partitions) and size, with a digest of the returned indices per level. A
+size of ``0-600`` stands for every length from 0 to 600, chained into one
+digest.
 
     argsort_digests.py            the digests of the numpy level in force
                                   (of any numpy: the way to compare two)
     argsort_digests.py --write    rewrite digests.txt, running numpy at each
                                   level this processor has (an AVX-512
-                                  machine records all three)
+                                  machine records all three; on Windows
+                                  digests-windows.txt, from an AVX2 one)
     argsort_digests.py --check    compare the level in force with
                                   digests.txt: the proof on a processor of
                                   that level, with numpy alone
@@ -41,7 +45,9 @@ import sys
 
 import numpy as np
 
-DIGESTS = pathlib.Path(__file__).resolve().parents[1] / "src/numeric/argsort/digests.txt"
+#: The table of this system's numpy wheel.
+DIGESTS = pathlib.Path(__file__).resolve().parents[1] / "src/numeric/argsort" / (
+    "digests-windows.txt" if sys.platform == "win32" else "digests.txt")
 LEVELS = ("v2", "v3", "v4")
 #: What ``NPY_DISABLE_CPU_FEATURES`` takes away to run a numpy that
 #: dispatches by groups (2.4 and later) at a level.
@@ -181,8 +187,21 @@ def level_in_force():
     by its groups (numpy 2.4 and later) or by the features AVX2 and
     AVX-512 an earlier one dispatches by."""
     umath = _umath()
-    copies = {*umath.__cpu_baseline__, *umath.__cpu_dispatch__}
-    runs = {name for name, enabled in umath.__cpu_features__.items() if enabled and name in copies}
+    return _highest({name for name, enabled in umath.__cpu_features__.items() if enabled})
+
+
+def wheel_level():
+    """The highest level this numpy holds a copy of its loops for,
+    whatever the processor: ``v3`` for its Windows wheels, which hold no
+    AVX-512 code."""
+    return _highest(set(_umath().__cpu_features__))
+
+
+def _highest(enabled):
+    """The highest level among the groups (or, in a numpy without them,
+    the features) *enabled* that numpy holds a copy of its loops for."""
+    umath = _umath()
+    runs = enabled & {*umath.__cpu_baseline__, *umath.__cpu_dispatch__}
     if "X86_V3" in umath.__cpu_features__:
         return "v4" if {"X86_V3", "X86_V4"} <= runs else "v3" if "X86_V3" in runs else "v2"
     return "v4" if "AVX512_SKX" in runs else "v3" if "AVX2" in runs else "v2"
@@ -212,18 +231,21 @@ def read():
     for line in DIGESTS.read_text(encoding="utf-8").splitlines():
         if line and not line.startswith("#"):
             family, size, *values = line.split()
-            table[family, size] = {level: int(value, 16) for level, value in zip(LEVELS, values)}
+            table[family, size] = {level: None if value == "-" else int(value, 16)
+                                   for level, value in zip(LEVELS, values)}
     return table
 
 
 def at_each_level(*options):
     """What this tool prints with ``options`` under numpy run at each
-    level, by level; needs a processor of the highest."""
-    highest = level_in_force()
-    if highest != "v4":
-        sys.exit(f"this numpy runs at {highest}: recording all levels needs an AVX-512 processor")
+    level its wheel holds code for, by level; needs a processor of the
+    highest of them."""
+    highest, wheel = level_in_force(), wheel_level()
+    if highest != wheel:
+        sys.exit(f"this numpy runs at {highest}: recording its levels needs a processor "
+                 f"of {wheel}")
     printed = {}
-    for level in LEVELS:
+    for level in LEVELS[:LEVELS.index(wheel) + 1]:
         env = dict(os.environ, NPY_DISABLE_CPU_FEATURES=disabled(level))
         out = subprocess.run([sys.executable, "-W", "ignore", __file__, *options], env=env,
                              check=True, capture_output=True, text=True).stdout.splitlines()
@@ -234,29 +256,33 @@ def at_each_level(*options):
 
 
 def write():
-    """Record digests.txt from numpy run at every level."""
+    """Record the table of this system's numpy wheel from numpy run at
+    every level the wheel holds code for (``-`` for the others)."""
     columns = {level: [line.split() for line in lines]
                for level, lines in at_each_level().items()}
     lines = [
         f"# numpy {np.__version__}'s argsort of seeded arrays: family, size, and a digest of the",
         "# indices at v2, v3 and v4. Written by crates/pltrs/tools/argsort_digests.py --write.",
     ]
-    for rows in zip(*(columns[level] for level in LEVELS)):
+    unrecorded = ["-"] * (len(LEVELS) - len(columns))
+    for rows in zip(*columns.values()):
         family, size = rows[0][:2]
-        lines.append(f"{family} {size} " + " ".join(row[2] for row in rows))
+        lines.append(f"{family} {size} " + " ".join([*(row[2] for row in rows), *unrecorded]))
     DIGESTS.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
 def probe():
-    """Print the probe arrays' digests of this numpy at every level."""
+    """Print the probe arrays' digests of this numpy at every level its
+    wheel holds code for."""
     printed = at_each_level("--probe-here")
-    print(f"numpy {np.__version__}: the probe arrays' digests at v2, v3 and v4")
+    print(f"numpy {np.__version__} for {sys.platform}: the probe arrays' digests at "
+          + ", ".join(printed))
     for row, name in enumerate(("without NaN", "with NaN")):
-        print(f"  {name}: " + ", ".join("0x" + printed[level][row] for level in LEVELS))
+        print(f"  {name}: " + ", ".join("0x" + lines[row] for lines in printed.values()))
 
 
 def check():
-    """Compare numpy here with digests.txt at the level in force."""
+    """Compare numpy here with its table at the level in force."""
     level, recorded, differing = level_in_force(), read(), []
     for key, value in digests().items():
         if recorded[key][level] != value:

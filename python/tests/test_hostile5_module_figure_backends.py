@@ -10,6 +10,7 @@ matplotlib.
 import io
 import logging
 import re
+import sys
 import warnings
 
 import numpy as np
@@ -740,8 +741,11 @@ def test_mathtext_casts_a_negative_resolution_as_the_processor_does():
     def parse():
         return mathtext.MathTextParser('path').parse('$x^2$', dpi=-1)
     if build_facts.CASTS_WRAP:
-        with pytest.raises(RuntimeError,
-                           match=f"^{SET_CHAR_SIZE} failed with error 0x17: invalid pixel size"):
+        # -1 wraps around to 2**32 - 1, which Windows' 32-bit C long reads
+        # as -1 again: no pixel per em.
+        refused = ("0x97: invalid ppem value" if sys.platform == "win32"
+                   else "0x17: invalid pixel size")
+        with pytest.raises(RuntimeError, match=f"^{SET_CHAR_SIZE} failed with error {refused}"):
             parse()
     else:
         parse()

@@ -71,6 +71,7 @@ count-sized array is allocated.
 """
 
 import hashlib
+import pathlib
 import struct
 import tempfile
 from pathlib import Path
@@ -227,9 +228,10 @@ def _pfa(private):
     enc = t1f.Type1Font._encrypt(plaintext, "eexec").hex().encode()
     data = (b"%!PS-AdobeFont-1.0: X 001.000\neexec\n" + enc + b"\n" + b"0" * 512
             + b"\ncleartomark\n")
-    with tempfile.NamedTemporaryFile(suffix=".pfa") as fh:
+    # Closed before it is read: Windows opens no file by name that is open.
+    with tempfile.NamedTemporaryFile(suffix=".pfa", delete_on_close=False) as fh:
         fh.write(data)
-        fh.flush()
+        fh.close()
         return _summary(t1f.Type1Font(fh.name))
 
 
@@ -340,16 +342,19 @@ def test_encrypt_decrypt_roundtrip():
 
 def _ft2font_path(file, effects):
     """The font file FreeType reads: the fixture, or the fixture transformed
-    by ``_type1font`` and written as a PFB file."""
+    by ``_type1font`` and written as a PFB file into a temporary directory,
+    returned for the caller to clean up (a file still open could not be
+    opened again by name on Windows, where the font reading it keeps it
+    from being removed until it is collected: then it stays behind)."""
     if effects is None:
         return _path(file), None
     font = t1f.Type1Font(_path(file)).transform(effects)
     segments = b"".join(struct.pack("<BBi", 0x80, kind, len(data)) + data
                         for kind, data in zip((1, 2, 1), font.parts))
-    tmp = tempfile.NamedTemporaryFile(suffix=".pfb")
-    tmp.write(segments + b"\x80\x03")
-    tmp.flush()
-    return tmp.name, tmp
+    tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+    path = pathlib.Path(tmp.name, "transformed.pfb")
+    path.write_bytes(segments + b"\x80\x03")
+    return str(path), tmp
 
 
 def _attrs(file):
@@ -394,7 +399,7 @@ def _load_glyph(file, effects, glyph):
         }
     finally:
         if tmp is not None:
-            tmp.close()
+            tmp.cleanup()
 
 
 def test_glyph_outlines():
@@ -425,7 +430,7 @@ def _load_sized(file, effects, size, dpi, flags, glyph):
         }
     finally:
         if tmp is not None:
-            tmp.close()
+            tmp.cleanup()
 
 
 SIZES = [(12, 72, "DEFAULT"), (7, 72, "TARGET_LIGHT"), (10, 100, "NO_HINTING"),

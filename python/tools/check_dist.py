@@ -42,12 +42,14 @@ pixels (``same_pixels.py``): its ``arithmetic.png`` draws what follows the
 platform's compiled arithmetic (see ``drop_in.py``). The Linux containers
 of the release workflow check with it (``.github/scripts/container.sh``).
 
+The smoke tests need what `TEST_REQUIREMENTS` names besides pltrs.
 ``--lowest`` installs the lowest versions the requirements allow
 (their ``>=`` bounds), and holds every install of the venvs to them, so
 that the bounds are known to work. The venvs,
 pip's cache and the test output go to ``--work`` (default
 ``target/check-dist``, ``check-dist`` in the working directory outside a
-source tree).
+source tree), in a directory named after the Python
+(``python3.12``) or ``lowest``.
 """
 
 import argparse
@@ -76,6 +78,11 @@ TYPED = ("py.typed", "__init__.pyi", "pyplot.pyi", "figure.pyi", "axes/_axes.pyi
 #: GCC 10.2, too old to build numpy 2.5), so without this the check would
 #: fail building them rather than test pltrs.
 PIP_INSTALL = ("install", "--quiet", "--prefer-binary")
+
+#: What the smoke tests need besides pltrs: pytest, and the time zones of
+#: the IANA database, which Python's ``zoneinfo`` finds on Windows only in
+#: the ``tzdata`` package (other systems have their own).
+TEST_REQUIREMENTS = ("pytest", "tzdata")
 
 #: The first bytes of each figure the drop-in program writes.
 DROP_IN_FIGURES = {
@@ -128,6 +135,14 @@ def activated(environment, venv):
     scripts = venv_python(venv).parent
     path = os.pathsep.join([str(scripts), environment.get("PATH", os.defpath)])
     return {**environment, "VIRTUAL_ENV": str(venv), "PATH": path}
+
+
+def python_name(python):
+    """The name of the Python *python* by its version (``python3.12``),
+    which its file name is not on Windows (every one is ``python.exe``)."""
+    return subprocess.run(
+        [python, "-c", "import sys; print('python%d.%d' % sys.version_info[:2])"],
+        check=True, capture_output=True, text=True).stdout.strip()
 
 
 def check_typed(interpreter, package, work, environment):
@@ -256,7 +271,7 @@ def install_check(dists, python, lowest, work, compare=False):
     interpreter = venv_python(venv)
     environment = activated(environment, venv)
     pip = [interpreter, "-m", "pip", *PIP_INSTALL, *held]
-    run([*pip, *pltrs, "pytest"], work, environment)
+    run([*pip, *pltrs, *TEST_REQUIREMENTS], work, environment)
     run([interpreter, "-c", "import pltrs, sys; "
          "assert pltrs.__file__.startswith(sys.prefix), pltrs.__file__; "
          "print('pltrs', pltrs.__version__, 'from', pltrs.__file__)"], work, environment)
@@ -314,7 +329,7 @@ def main(argv):
     if not all([audit(dist) for dist in dists]):
         return 1
     if options.install:
-        name = "lowest" if options.lowest else pathlib.Path(options.python).name
+        name = "lowest" if options.lowest else python_name(options.python)
         try:
             install_check(dists, options.python, options.lowest, options.work.resolve() / name,
                           options.compare_drawings)

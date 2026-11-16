@@ -127,27 +127,35 @@ fn id_length(text: &str) -> Option<usize> {
 }
 
 /// The length of the directory of installed packages a path `text`
-/// starts with names (`/.../site-packages`), which is another venv's in
-/// each run.
+/// starts with names (`/.../site-packages`, on Windows
+/// `C:\...\site-packages`), which is another venv's in each run.
 fn site_packages_length(text: &str) -> Option<usize> {
-    const SITE_PACKAGES: &str = "/site-packages";
-    if !text.starts_with('/') {
+    const SITE_PACKAGES: &str = "site-packages";
+    if !text.starts_with('/') && !starts_with_drive(text) {
         return None;
     }
     let path = text
         .split(|c: char| c.is_whitespace() || matches!(c, '\'' | '"' | '(' | ')'))
         .next()?;
-    let at = path.find(&format!("{SITE_PACKAGES}/"))?;
-    Some(at + SITE_PACKAGES.len())
+    let at = ["/", "\\"]
+        .iter()
+        .filter_map(|separator| path.find(&format!("{separator}{SITE_PACKAGES}{separator}")))
+        .min()?;
+    Some(at + 1 + SITE_PACKAGES.len())
+}
+
+/// Whether `text` starts with a Windows drive (`C:\`).
+fn starts_with_drive(text: &str) -> bool {
+    matches!(text.as_bytes(), [letter, b':', b'\\', ..] if letter.is_ascii_alphabetic())
 }
 
 /// The length of the cell file `text` starts with:
-/// `ipykernel_<process>/<hash>.py`.
+/// `ipykernel_<process>/<hash>.py` (on Windows `\` apart).
 fn cell_file_length(text: &str) -> Option<usize> {
     let rest = text.strip_prefix(CELL_DIRECTORY)?;
     let digits = |s: &str| s.len() - s.trim_start_matches(|c: char| c.is_ascii_digit()).len();
     let process = digits(rest);
-    let rest = rest[process..].strip_prefix('/')?;
+    let rest = rest[process..].strip_prefix(['/', '\\'])?;
     let hash = digits(rest);
     rest[hash..].strip_prefix(".py")?;
     (process > 0 && hash > 0).then_some(CELL_DIRECTORY.len() + process + 1 + hash + 3)
@@ -193,6 +201,10 @@ mod tests {
             "/tmp/<cell>:3: UserWarning: x"
         );
         assert_eq!(normal("ipykernel_/1.py"), "ipykernel_/1.py");
+        assert_eq!(
+            normal(r"C:\Temp\ipykernel_53508\1210975.py:4: UserWarning: x"),
+            r"C:\Temp\<cell>:4: UserWarning: x"
+        );
     }
 
     #[test]
@@ -204,6 +216,11 @@ mod tests {
             "cannot import x (<site-packages>/IPython/display.py)"
         );
         assert_eq!(normal("/a/site-packages"), "/a/site-packages");
+        assert_eq!(
+            normal(r"cannot import x (C:\h\venv\Lib\site-packages\IPython\display.py)"),
+            r"cannot import x (<site-packages>\IPython\display.py)"
+        );
+        assert_eq!(normal(r"C:\a\site-packages"), r"C:\a\site-packages");
     }
 
     #[test]

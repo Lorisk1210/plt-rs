@@ -241,6 +241,12 @@ jobs:
       run:
         shell: bash
     steps:
+      # Git for Windows checks text files out with CRLF (the runners'
+      # core.autocrlf is true): the extension embeds some (AFM metrics,
+      # style sheets, the web pages' scripts), which must be the tree's
+      # bytes, as on every other platform.
+      - name: Check files out as they are committed
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -269,6 +275,9 @@ jobs:
       run:
         shell: bash
     steps:
+      # The smoke tests read files of the tree as committed (see above).
+      - name: Check files out as they are committed
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:

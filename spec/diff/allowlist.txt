@@ -27,6 +27,7 @@ rcparams/pgf_v[01]$ | ^value\[read_text\]: str$ | the PGF file's comment header 
 style_sheets/style_sheets_reference$ | ^(value\[constant\]: list length|image: other figures open)$ | the example draws one figure per available style, two more with pltrs' own looks
 style_sheets/style_sheets_reference$ | ^(callback|calls)\[[^]]+\]: runs another number of times$ | the example's functions run once more per figure for each of pltrs' two looks (31 styles, not 29; the dark-background branch for pltrs-modern-dark too)
 style_sheets/style_sheets_reference$ | ^warning extra: WARNING: findfont: Failed to find font weight semibold for DejaVu Sans( Mono)?, now using N\.$ | pltrs' two looks set semibold titles (figure.titleweight, axes.titleweight), and the bundled DejaVu fonts have no semibold face, so the font manager logs the substitution as matplotlib's does for that weight
+style_sheets/style_sheets_reference$ | ^warning extra: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown$ | plt.show() warns once per open figure where the Agg canvas cannot show one and a display could be (Windows, macOS; matplotlib keeps quiet on Linux without $DISPLAY): two warnings more, for pltrs' two looks' figures (31, not 29)
 (tutorials/lifecycle|users_explain/customizing)$ | ^stdout$ | the example prints style.available (its only other printed line, lifecycle's file types, is the same)
 
 # matplotlib's C++ extensions define their classes with pybind11, whose
@@ -499,3 +500,10 @@ written/pickle_copy/pickle_pyplot_state$ | ^value\[dumps\]: bytes length$ | a pi
 written/pickle_copy/(pickle_bytes_many_artists|pickle_dates_categories)$ | ^(stdout|calls\[[^]]+\]: (never runs|runs only under pltrs)|image: (RMS > 1|written PNG RMS > 1))$ | pltrs' category UnitData pickles (since 607ebf70), where matplotlib's holds an itertools.count, which Python 3.14 no longer pickles (as generated/pickling/unpicklable): the program's except branch, which remakes or removes the categorical Axes, runs under matplotlib only, so what it prints and draws afterwards follows
 written/combo_export_pipeline/html_export_embed_png_base64$ | ^value\[(decode|to_b64|constant)\]: str$|^value\[write\]: int$ | the base64 text of PNGs written into BytesIO (and the HTML and its length built from it): their decoded pixels are identical (150x100 RGBA, largest difference 0); the PNG bytes differ only in the Software tEXt chunk and in the IDAT's DEFLATE stream of those pixels, each encoder's own (as written/saving/bytesio_buffer)
 written/combo_export_pipeline/pickle_then_modify_and_export$ | ^value\[dumps\]: bytes length$ | a pickled figure holds each implementation's own state (pltrs' native archive), so its length is its own; the two copies the program unpickles and modifies are compared by what they print and draw, which is the same
+
+# The program names matplotlib's own DejaVuSans.ttf (in the reference venv)
+# with its case swapped, which exists only on a file system that ignores
+# case (Windows', macOS'): both implementations open it there, and
+# matplotlib's get_font caches it under its real path, the one its findfont
+# gives the later calls; pltrs' findfont gives its own copy of the font.
+hostile/module_matplotlib_font_manager_1$ | ^identity\[get_font\]: (a new object where matplotlib returns the same|another object than matplotlib's)$ | get_font of matplotlib's font file by a case-swapped name, which a case-insensitive file system resolves; matplotlib's later findfont names the same file, pltrs' its own copy

@@ -4,7 +4,8 @@
 //! packages inside it, as an editable install of matplotlib's source
 //! tree does. `site/matplotlib/` holds a copy of the sdist's
 //! `lib/matplotlib/tests` (with its `baseline_images` and data) and a
-//! symbolic link to every other entry of the package: the reference
+//! symbolic link to every other entry of the package (on Windows without
+//! Developer Mode a junction to a directory, a copy of a file): the reference
 //! venv's installed matplotlib, or `python/pltrs`. Each toolkit in
 //! `site/mpl_toolkits/` is laid out the same way. pytest runs in `site/`
 //! with `site/` on `PYTHONPATH`, so test ids read
@@ -33,6 +34,11 @@ pub(super) const TOOLKITS: [&str; 3] = ["axes_grid1", "axisartist", "mplot3d"];
 
 /// The stamp naming the sdist a test package was copied from.
 const STAMP: &str = ".copied-from";
+
+/// The file naming the copies standing in for links to files in a
+/// directory of a site, where Windows makes no symbolic links (see
+/// [`link`]); none elsewhere.
+const COPIES: &str = ".copied-links";
 
 /// The `__init__.py` of a package the package under test lacks.
 const PLACEHOLDER: &str =
@@ -170,8 +176,8 @@ pub(crate) fn relink(source: &Path, dest: &Path, skip: &[&str]) -> Result<(), St
     Ok(())
 }
 
-/// Removes the symbolic links and placeholder `__init__.py` in the
-/// directory `dir`.
+/// Removes the links (and the copies standing in for links, see
+/// [`link`]) and the placeholder `__init__.py` in the directory `dir`.
 fn remove_links(dir: &Path) -> Result<(), String> {
     for entry in fs::read_dir(dir)
         .map_err(|err| format!("{}: {err}", dir.display()))?
@@ -189,7 +195,19 @@ fn remove_links(dir: &Path) -> Result<(), String> {
             removed.map_err(|err| format!("{}: {err}", entry.path().display()))?;
         }
     }
-    Ok(())
+    let copies = dir.join(COPIES);
+    let Ok(names) = fs::read_to_string(&copies) else {
+        return Ok(());
+    };
+    for copy in names.lines().map(|name| dir.join(name)) {
+        match fs::remove_file(&copy) {
+            Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
+                return Err(format!("{}: {err}", copy.display()));
+            }
+            _ => {}
+        }
+    }
+    fs::remove_file(&copies).map_err(|err| format!("{}: {err}", copies.display()))
 }
 
 /// Whether `kind` is a symbolic link that is removed as a directory:
@@ -207,39 +225,84 @@ fn is_directory_link(_kind: fs::FileType) -> bool {
     false
 }
 
-/// Links `link_path` to `target` with a symbolic link.
+/// Links `link_path` to `target` with a symbolic link, or where Windows
+/// refuses to make one with what stands in for it there: a junction to a
+/// directory, a copy of a file.
 pub(crate) fn link(target: &Path, link_path: &Path) -> Result<(), String> {
-    symlink(target, link_path).map_err(|err| format!("{}: {err}", link_path.display()))
+    make_link(target, link_path).map_err(|err| format!("{}: {err}", link_path.display()))
 }
 
 /// A symbolic link at `link` to `target`.
 #[cfg(unix)]
-fn symlink(target: &Path, link: &Path) -> std::io::Result<()> {
+fn make_link(target: &Path, link: &Path) -> std::io::Result<()> {
     std::os::unix::fs::symlink(target, link)
 }
 
 /// A symbolic link at `link` to the file or directory `target`, which
-/// Windows lets users make in Developer Mode (or administrators).
+/// Windows lets users make in Developer Mode (and administrators), or
+/// else its [`stand_in`].
 #[cfg(windows)]
-fn symlink(target: &Path, link: &Path) -> std::io::Result<()> {
+fn make_link(target: &Path, link: &Path) -> std::io::Result<()> {
     use std::os::windows::fs::{symlink_dir, symlink_file};
+    /// `ERROR_PRIVILEGE_NOT_HELD`: the user may not make symbolic links.
+    const PRIVILEGE_NOT_HELD: i32 = 1314;
     let made = if target.is_dir() {
         symlink_dir(target, link)
     } else {
         symlink_file(target, link)
     };
-    made.map_err(|err| {
-        std::io::Error::new(
-            err.kind(),
-            format!("{err} (symbolic links need Developer Mode on Windows)"),
-        )
-    })
+    match made {
+        Err(err) if err.raw_os_error() == Some(PRIVILEGE_NOT_HELD) => stand_in(target, link),
+        made => made,
+    }
+}
+
+/// What stands in at `link` for a symbolic link to `target` that Windows
+/// refuses to make: a junction to a directory, which every user may make
+/// (`mklink /J`), and a copy of a file, named in its directory's
+/// [`COPIES`] for [`remove_links`].
+#[cfg(windows)]
+fn stand_in(target: &Path, link: &Path) -> std::io::Result<()> {
+    use std::io::Write as _;
+    if target.is_dir() {
+        // Both absolute, with Windows' separators: cmd reads a `/` in an
+        // argument as the start of a switch.
+        let (target, link) = (std::path::absolute(target)?, std::path::absolute(link)?);
+        let made = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(&link)
+            .arg(&target)
+            .output()?;
+        return if made.status.success() {
+            Ok(())
+        } else {
+            Err(std::io::Error::other(format!(
+                "mklink /J: {}{}",
+                String::from_utf8_lossy(&made.stdout).trim(),
+                String::from_utf8_lossy(&made.stderr).trim()
+            )))
+        };
+    }
+    fs::copy(target, link)?;
+    let (Some(dir), Some(name)) = (link.parent(), link.file_name()) else {
+        return Err(std::io::Error::other("a copy needs a directory and a name"));
+    };
+    let mut copies = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dir.join(COPIES))?;
+    writeln!(copies, "{}", name.to_string_lossy())
 }
 
 /// Removes the directory `path` and everything in it (or the link `path`,
-/// not what it links to), if it exists.
+/// not what it links to, or the file `path`), if it exists.
 pub(crate) fn remove(path: &Path) -> Result<(), String> {
-    match fs::remove_dir_all(path) {
+    let removed = if path.is_file() {
+        fs::remove_file(path)
+    } else {
+        fs::remove_dir_all(path)
+    };
+    match removed {
         Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
             Err(format!("{}: {err}", path.display()))
         }
@@ -314,5 +377,33 @@ mod tests {
             "a file the source gained"
         );
         fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn stand_ins_take_forward_slashes_and_are_removed_as_links() {
+        let root = std::env::temp_dir().join(format!("xtask-stand-in-{}", std::process::id()));
+        let (target, site) = (root.join("target"), root.join("site"));
+        fs::create_dir_all(&target).unwrap();
+        fs::create_dir_all(&site).unwrap();
+        fs::write(target.join("module.py"), "x = 1\n").unwrap();
+        let slashed = PathBuf::from(format!("{}/package", site.display()));
+        stand_in(&target, &slashed).unwrap();
+        stand_in(&target.join("module.py"), &site.join("module.py")).unwrap();
+        assert_eq!(
+            fs::read_to_string(site.join("package").join("module.py")).unwrap(),
+            "x = 1\n"
+        );
+        remove_links(&site).unwrap();
+        assert_eq!(
+            fs::read_dir(&site).unwrap().count(),
+            0,
+            "junction and copy gone"
+        );
+        assert!(
+            target.join("module.py").exists(),
+            "what they stood for stays"
+        );
+        fs::remove_dir_all(&root).unwrap();
     }
 }

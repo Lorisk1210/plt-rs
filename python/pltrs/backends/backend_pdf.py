@@ -41,6 +41,7 @@ from ..text import _measuring_with
 from ..transforms import BboxBase
 from ._backend_pdf_ps import RendererPDFPSBase
 from . import _pdf_kept
+from ._source_date import source_date
 from ._native_drawing import DocumentDrawingMixin, affine_matrix, native_gc
 from ._pdf_arguments import PdfArgumentsMixin
 from .backend_mixed import MixedModeRenderer
@@ -147,9 +148,14 @@ def _check_info(info):
 def _native_info(metadata):
     """The document *metadata* of a PDF document for pltrs (Rust), checked
     as matplotlib checks it: the entries it warns about are left out, dates
-    are seconds since the epoch and None removes an entry."""
+    are seconds since the epoch and None removes an entry. Its default
+    creation date is ``SOURCE_DATE_EPOCH``'s, read first as matplotlib's
+    `_create_pdf_info_dict` reads it."""
     if metadata is None:
         return None
+    date = source_date()
+    if date is not None:
+        metadata = {'CreationDate': date, **metadata}
     given = {k: v for k, v in metadata.items() if v is not None}
     native = {k: None for k, v in metadata.items() if v is None}
     for key in _check_info(given):

@@ -149,6 +149,19 @@ impl Os {
             Self::Linux | Self::MacOs => text.into_owned(),
         }
     }
+
+    /// Whether a rename over an existing file that failed with the system
+    /// error `code` (`raw_os_error`) lost a race to another process: Windows
+    /// refuses to replace a file another process is replacing or has open
+    /// (access denied, sharing violation), and that process's file stands;
+    /// elsewhere a rename replaces in one step and fails for other reasons.
+    pub fn renamed_over_meanwhile(self, code: Option<i32>) -> bool {
+        /// `ERROR_ACCESS_DENIED`.
+        const ACCESS_DENIED: i32 = 5;
+        /// `ERROR_SHARING_VIOLATION`.
+        const SHARING_VIOLATION: i32 = 32;
+        self == Self::Windows && matches!(code, Some(ACCESS_DENIED | SHARING_VIOLATION))
+    }
 }
 
 /// Whether `text` starts with a drive and a root, as `C:\` does.
@@ -187,6 +200,13 @@ fn has_execute_permission(meta: &std::fs::Metadata) -> bool {
 #[cfg(not(unix))]
 fn has_execute_permission(_meta: &std::fs::Metadata) -> bool {
     true
+}
+
+/// Whether renaming a file to `to` failed with `error` because another
+/// process put a file there at that moment ([`Os::renamed_over_meanwhile`]
+/// in this process): `to` then holds that process's file.
+pub fn lost_rename_race(error: &io::Error, to: &Path) -> bool {
+    Os::CURRENT.renamed_over_meanwhile(error.raw_os_error()) && to.is_file()
 }
 
 /// `command` set to open no console window on Windows (Python's
@@ -235,6 +255,17 @@ mod tests {
     fn the_current_system_is_the_target() {
         assert_eq!(Os::CURRENT == Os::Windows, cfg!(windows));
         assert_eq!(Os::CURRENT == Os::MacOs, cfg!(target_os = "macos"));
+    }
+
+    #[test]
+    fn only_windows_loses_renames_to_other_processes() {
+        for code in [5, 32] {
+            assert!(Os::Windows.renamed_over_meanwhile(Some(code)));
+            assert!(!Os::Linux.renamed_over_meanwhile(Some(code)));
+            assert!(!Os::MacOs.renamed_over_meanwhile(Some(code)));
+        }
+        assert!(!Os::Windows.renamed_over_meanwhile(Some(2)), "not found");
+        assert!(!Os::Windows.renamed_over_meanwhile(None));
     }
 
     #[test]

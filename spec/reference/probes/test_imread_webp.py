@@ -29,6 +29,7 @@ import struct
 
 import numpy as np
 import PIL
+import pytest
 from PIL import Image
 
 from spec_support import ProbeSet, rng
@@ -120,7 +121,9 @@ class _MemoryWriter(ctypes.Structure):
 
 
 #: Where Pillow's wheels keep the libwebp they bundle: ``pillow.libs`` beside
-#: the package on Linux, ``PIL/.dylibs`` on macOS.
+#: the package on Linux, ``PIL/.dylibs`` on macOS. Its Windows wheels link
+#: libwebp into ``_webp.pyd``, which exports none of it, so the files of
+#: this area cannot be made there.
 _LIBWEBP_GLOBS = (
     os.path.join(os.path.dirname(PIL.__file__), os.pardir, "pillow.libs", "libwebp-*.so*"),
     os.path.join(os.path.dirname(PIL.__file__), ".dylibs", "libwebp.*.dylib"),
@@ -129,6 +132,9 @@ _LIBWEBP_GLOBS = (
 
 def _libwebp_library():
     found = [path for pattern in _LIBWEBP_GLOBS for path in sorted(glob.glob(pattern))]
+    if not found:
+        pytest.skip("Pillow bundles no libwebp library to call here (Windows' links it in)",
+                    allow_module_level=True)
     library = ctypes.CDLL(found[0])
     library.WebPConfigInitInternal.argtypes = [ctypes.POINTER(_Config), ctypes.c_int,
                                                ctypes.c_float, ctypes.c_int]

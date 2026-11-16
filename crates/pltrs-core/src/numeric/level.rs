@@ -110,7 +110,9 @@ impl CpuLevel {
     /// On an Intel Mac with AVX-512 numpy reads the kernel's commpage,
     /// because macOS enables the wide registers per thread on first use;
     /// the standard library asks the processor alone and reports
-    /// `X86_V3` there.
+    /// `X86_V3` there. numpy's Windows wheels hold no copy of their loops
+    /// for `X86_V4` (2.5's dispatch only `X86_V3`), so on Windows numpy
+    /// runs `X86_V3` on a processor with AVX-512 too, and so does this.
     pub fn detect() -> Self {
         #[cfg(target_arch = "x86_64")]
         {
@@ -129,7 +131,7 @@ impl CpuLevel {
                 && has!("avx512bw")
                 && has!("avx512dq")
                 && has!("avx512vl");
-            if v4 {
+            if v4 && !cfg!(windows) {
                 Self::V4
             } else if v3 {
                 Self::V3
@@ -292,6 +294,9 @@ mod tests {
             // Whatever the processor has, a level never lacks AVX2 while
             // claiming AVX-512.
             assert!(CpuLevel::ALL.contains(&level));
+            if cfg!(windows) {
+                assert_ne!(level, CpuLevel::V4, "numpy's Windows wheels have no V4");
+            }
         } else {
             assert_eq!(level, CpuLevel::Baseline);
         }

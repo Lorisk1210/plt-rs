@@ -23,6 +23,7 @@ from ..text import _measuring_with
 from ._backend_pdf_ps import RendererPDFPSBase
 from ._native_drawing import DocumentDrawingMixin
 from ._ps_arguments import CAPS, JOINS, PsArgumentsMixin, check_numbers
+from ._source_date import source_date
 from .backend_mixed import MixedModeRenderer
 
 _log = logging.getLogger(__name__)
@@ -168,8 +169,10 @@ class _Orientation(Enum):
 def _dsc_metadata(outfile, metadata):
     """
     The document metadata of a PostScript file written to *outfile* as
-    matplotlib writes its DSC comments: the file's name as title and the
-    creator of *metadata*, whose other entries are not written.
+    matplotlib writes its DSC comments: the file's name as title, the
+    creator of *metadata*, whose other entries are not written, and the
+    date of ``SOURCE_DATE_EPOCH`` (in whole seconds) whatever *metadata*
+    says.
     """
     dsc_comments = {}
     if isinstance(outfile, (str, os.PathLike)):
@@ -177,6 +180,9 @@ def _dsc_metadata(outfile, metadata):
             "ascii", "replace").decode("ascii")
     if metadata is not None and "Creator" in metadata:
         dsc_comments["Creator"] = metadata["Creator"]
+    date = source_date()
+    if date is not None:
+        dsc_comments["CreationDate"] = int(date.timestamp())
     return dsc_comments
 
 
@@ -398,6 +404,7 @@ class FigureCanvasPS(FigureCanvasBase):
         checks of the paper type and orientation, its texts measured
         through the metrics cache of a renderer of the print's own, as
         matplotlib's ``print_ps`` draws with a new `RendererPS`."""
+        dsc_comments = _dsc_metadata(outfile, metadata)
         if papertype is None:
             papertype = rcParams['ps.papersize']
         papertype = papertype.lower()
@@ -407,7 +414,7 @@ class FigureCanvasPS(FigureCanvasBase):
         width, height = self.figure.get_size_inches()
         with _measuring_with(RendererPS(width, height, None, imagedpi=self.figure.dpi)):
             self._print_native(
-                fmt, outfile, metadata=_dsc_metadata(outfile, metadata),
+                fmt, outfile, metadata=dsc_comments,
                 bbox_inches_restore=bbox_inches_restore,
                 orientation=orientation.name, papertype=papertype)
 

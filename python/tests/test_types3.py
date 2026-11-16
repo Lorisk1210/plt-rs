@@ -113,5 +113,12 @@ def test_copies_of_rcparams_resolve_the_auto_backend(tmp_path):
     environment["MPLCONFIGDIR"] = environment["PLTRSCONFIGDIR"] = str(tmp_path)
     done = subprocess.run([sys.executable, "-c", RC_COPY], env=environment, cwd=tmp_path,
                           capture_output=True, text=True, check=True)
-    backend = "macosx" if sys.platform == "darwin" else "agg"
-    assert done.stdout.split() == ["True", backend, "True", backend, "True"]
+    fields = done.stdout.split()
+    assert fields == ["True", fields[1], "True", fields[1], "True"]
+    # Without a display (Linux without $DISPLAY) the backend resolves to
+    # agg. macOS and Windows always have one: a Mac resolves to its native
+    # backend, Windows to an interactive one too.
+    if sys.platform == "darwin":
+        assert fields[1] == "macosx"
+    elif sys.platform.startswith("linux"):
+        assert fields[1] == "agg"

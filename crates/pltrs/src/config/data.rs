@@ -155,7 +155,14 @@ fn write_files<'a>(dir: &Path, files: impl Iterator<Item = (&'a str, &'a [u8])>)
         if !present {
             let partial = dir.join(format!(".{name}.{}", std::process::id()));
             fs::write(&partial, contents)?;
-            fs::rename(&partial, &path)?;
+            if let Err(err) = fs::rename(&partial, &path) {
+                // Another process wrote the file meanwhile (several
+                // programs using a new cache directory at once).
+                let _ = fs::remove_file(&partial);
+                if !pltrs_core::os::lost_rename_race(&err, &path) {
+                    return Err(err);
+                }
+            }
         }
     }
     Ok(())

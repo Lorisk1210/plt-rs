@@ -3439,6 +3439,39 @@ looked up after a target's own goldens and before the common ones;
 `cargo xtask spec --level v3` and the smoke tests of
 `python/tests/test_cpu1.py` run the lower levels on an AVX-512 machine.
 
+### Windows
+
+matplotlib's `win_amd64` wheel is built with MSVC against the UCRT, and
+pltrs on Windows computes as it does whichever toolchain builds pltrs:
+an MSVC build calls the UCRT's maths library, and a GNU build is linked
+against it too (`pltrs-core`'s build script writes the import library of
+`api-ms-win-crt-math-l1-1-0.dll`, as MinGW's own `sin` or `pow` differ
+from numpy's in the last bit). Where C's `long` reaches matplotlib's
+results it has 32 bits there: FreeType's sizes (`Size::checked`) and
+HarfBuzz's feature values (`Feature::from_str`). Its `_tri` was built
+with MSVC 14.51, whose `std::shuffle` gives the trapezoid map's order
+(`shuffle_msvc`, checked against the wheel itself). numpy's Windows
+wheel has no `X86_V4` copy of its loops, so pltrs computes at `X86_V3`
+at most there (`CpuLevel::detect`; pltrs (Python) asks numpy). Its
+x86-simd-sort falls back to the C++ library's `std::sort` (arrays with
+NaN, partitions that stall), MSVC's STL's there: `numeric::argsort`
+sorts as that one does on Windows (`argsort/msvc.rs`), against numpy's
+Windows wheel's digests (`digests-windows.txt`): pltrs (Rust) alone at
+every length, and beside numpy for the arrays of up to 64 values it
+replays (those with NaN reach `std::sort`; longer arrays are numpy's own
+sort, see "Processor levels").
+
+The spec's goldens of that platform are in
+`spec/goldens/platforms/x86_64-pc-windows-msvc`, recorded on Windows as
+the Mac's are, and read by both builds there: Ghostscript's console
+program and its arguments are compared as `gs` like a host's path to it
+(`pltrs-spec`'s `ghostscript`), and the reference run keeps the C
+locale's dates (`%c`) where matplotlib's test setup finds en_US.UTF-8.
+pltrs (Python) reads `SOURCE_DATE_EPOCH` as matplotlib's writers do,
+with Python's `datetime`, whose range is the platform's (the UCRT's
+`gmtime` refuses a time before 1970: `OSError`); pltrs (Rust), given
+such a date itself, writes it.
+
 ## Adding a function: a worked example
 
 `Text.get_rotation()` and `Text.set_rotation()`:

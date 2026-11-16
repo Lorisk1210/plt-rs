@@ -350,11 +350,9 @@ mod tests {
             };
             let Some(program) = missing else {
                 let document = first.unwrap();
-                // `path/gs` when Ghostscript was started by an absolute
-                // path, `gs` when by name.
                 assert!(
-                    document.starts_with("%!PS-Adobe-3.0\n%%Invocation: path/gs ")
-                        || document.starts_with("%!PS-Adobe-3.0\n%%Invocation: gs ")
+                    distill::invoked_as_gs(&document)
+                        .starts_with("%!PS-Adobe-3.0\n%%Invocation: gs -dBATCH ")
                 );
                 assert!(document.contains(" -sPAPERSIZE=letter "));
                 for orientation in ORIENTATIONS {

@@ -1,0 +1,9 @@
+{
+ "area": "text_shaping",
+ "matplotlib": "3.11.2",
+ "platform": "x86_64-pc-windows-msvc",
+ "probes": [
+  {"op": "ft2font.FT2Font._layout", "args": {"file": "DejaVuSans.ttf", "text": "AVAVA office fi", "features": ["kern=4294967296"]}, "error": "RuntimeError"}
+ ],
+ "absent": []
+}

@@ -8,11 +8,13 @@ import base64
 import csv
 import hashlib
 import io
+import json
 import pathlib
 import shutil
 import sys
 import tarfile
 import tomllib
+import types
 import zipfile
 
 import pytest
@@ -23,7 +25,7 @@ if not (ROOT / "python" / "backend").is_dir():
 sys.path.insert(0, str(ROOT / "python" / "backend"))
 
 import pltrs_backend  # noqa: E402
-from pltrs_backend import _audit, _core_metadata, _linker, _sdist, _zigcc  # noqa: E402
+from pltrs_backend import _audit, _cargo, _core_metadata, _linker, _sdist, _zigcc  # noqa: E402
 from pltrs_backend._project import DISTRIBUTIONS, Project  # noqa: E402
 from pltrs_backend._wheel import WheelWriter, normalise  # noqa: E402
 
@@ -259,6 +261,35 @@ def test_linking_against_an_old_glibc_or_musl_takes_zig(tmp_path, monkeypatch):
         _linker.settings(None, host, "2.17", tmp_path)
     alpine = _linker.settings(None, "aarch64-unknown-linux-musl", None, tmp_path)
     assert alpine.rustc_args == ("-C", "linker=cc") and alpine.target is None
+
+
+def test_the_extension_is_compiled_without_debug_information(tmp_path, monkeypatch):
+    calls = []
+
+    def cargo(command, **kwargs):
+        calls.append(kwargs["env"])
+        library = tmp_path / "pltrs_python.dll"
+        message = {"reason": "compiler-artifact", "filenames": [str(library)],
+                   "target": {"name": "pltrs_python", "kind": ["cdylib"]}}
+        return types.SimpleNamespace(returncode=0, stdout=json.dumps(message))
+
+    monkeypatch.setattr(_cargo.subprocess, "run", cargo)
+    monkeypatch.setenv("CARGO", "cargo")
+    monkeypatch.delenv("CARGO_PROFILE_EXTENSION_DEBUG", raising=False)
+    assert _cargo._build_one(tmp_path, _linker.Link(None)) == tmp_path / "pltrs_python.dll"
+    monkeypatch.setenv("CARGO_PROFILE_EXTENSION_DEBUG", "line-tables-only")
+    _cargo._build_one(tmp_path, _linker.Link(None))
+    assert [env["CARGO_PROFILE_EXTENSION_DEBUG"] for env in calls] == [
+        "false", "line-tables-only"]
+
+
+def test_msvc_links_a_deterministic_extension(tmp_path):
+    for target, host in [(None, "x86_64-pc-windows-msvc"),
+                         ("aarch64-pc-windows-msvc", "x86_64-pc-windows-msvc"),
+                         ("x86_64-pc-windows-msvc", "x86_64-pc-windows-gnu")]:
+        assert _linker.settings(target, host, None, tmp_path) == _linker.Link(
+            target, ("-C", "link-arg=/Brepro"))
+    assert _linker.settings(None, "x86_64-pc-windows-gnu", None, tmp_path).rustc_args == ()
 
 
 def test_the_zig_linker_takes_what_rustc_passes(tmp_path):

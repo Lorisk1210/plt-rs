@@ -4,7 +4,7 @@
 //! (`argpartition_unrolled`).
 
 use super::width::{MAX_LANES, Width};
-use super::{fallback, network};
+use super::{network, std_sort};
 
 /// Registers each partition step takes in (`num_unroll`).
 const UNROLL: usize = 4;
@@ -13,10 +13,10 @@ const UNROLL: usize = 4;
 const MAX_BLOCK: usize = UNROLL * MAX_LANES;
 
 /// Sorts `indices` by their `values`, with `max_iters` more levels of
-/// partitions before `std::sort` ([`fallback`]) takes over.
+/// partitions before `std::sort` ([`std_sort`]) takes over.
 pub(super) fn sort<W: Width>(values: &[f64], indices: &mut [usize], max_iters: usize) {
     if max_iters == 0 {
-        fallback::sort(indices, |a, b| values[a] < values[b]);
+        std_sort(indices, |a, b| values[a] < values[b]);
         return;
     }
     if indices.len() <= network::MAX_KEYS {

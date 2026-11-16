@@ -22,6 +22,7 @@ from ..font_manager import FontManager
 from ..path import Path
 from ..text import _measuring_with
 from ._native_drawing import DocumentDrawingMixin
+from ._source_date import source_date
 from ._svg_arguments import SvgArgumentsMixin, short_float
 from .backend_mixed import MixedModeRenderer
 
@@ -276,14 +277,19 @@ def _date_text(date):
 
 def _svg_metadata(metadata):
     """*metadata* checked as matplotlib's SVG writer checks it, with
-    pltrs (Python) as default creator and the dates written out; the
-    entries left to pltrs (Rust)'s defaults (format, type, date) are not
+    pltrs (Python) as default creator, ``SOURCE_DATE_EPOCH``'s date where
+    no date is given, and the dates written out; the entries left to
+    pltrs (Rust)'s defaults (format, type, the current date) are not
     added."""
     from .._native import backends as _backends
     metadata = {
         'Creator': f'{_backends.default_creator()}, matplotlib {__version__} API',
         **({} if metadata is None else metadata),
     }
+    if 'Date' not in metadata:
+        date = source_date()
+        if date is not None:
+            metadata['Date'] = date.isoformat()
     unknown = [key for key in metadata if key not in _METADATA_KEYS]
     if unknown:
         raise ValueError('Unknown metadata key(s) passed to SVG writer: ' +

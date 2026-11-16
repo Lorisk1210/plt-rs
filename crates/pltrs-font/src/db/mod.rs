@@ -318,8 +318,8 @@ impl FontDatabase {
 
     /// Adds the fonts installed on the system, where matplotlib's
     /// `findSystemFonts` finds them (see
-    /// [`FontDatabase::system_font_directories`]; on Windows also the
-    /// font files the registry lists elsewhere), and the Adobe Font
+    /// [`FontDatabase::system_font_directories`]; on Windows the font
+    /// files the registry lists), and the Adobe Font
     /// Metrics files there to the AFM font list. Returns the number of
     /// faces added.
     pub fn add_system_fonts(&self) -> usize {
@@ -381,9 +381,10 @@ impl FontDatabase {
     /// them: on Linux `/usr/share/fonts`, `/usr/local/share/fonts`,
     /// `$XDG_DATA_HOME/fonts` (`~/.local/share/fonts`), `~/.fonts` and the
     /// old X11 directories; on macOS those and `/Library/Fonts`,
-    /// `/System/Library/Fonts`, `~/Library/Fonts`; on Windows
-    /// `%WINDIR%\Fonts` (the `Fonts` shell folder) and the user's
-    /// `%LOCALAPPDATA%\Microsoft\Windows\Fonts`.
+    /// `/System/Library/Fonts`, `~/Library/Fonts`; on Windows none:
+    /// matplotlib takes the files the registry lists, by their real
+    /// paths, in `%WINDIR%\Fonts` (the `Fonts` shell folder), the user's
+    /// `%LOCALAPPDATA%\Microsoft\Windows\Fonts` or elsewhere.
     pub fn system_font_directories() -> Vec<PathBuf> {
         system::SystemFonts::of_this_system().directories
     }

@@ -12,8 +12,9 @@
 //! * With AVX2 (`X86_V3`) or AVX-512 (`X86_V4`) it sorts them with Intel's
 //!   x86-simd-sort, compiled once for each:
 //!   - an array with NaN goes to C++'s `std::sort` (NaN last), which
-//!     [`fallback`] reproduces as GCC's standard library sorts; an array
-//!     already in order keeps its indices;
+//!     [`std_sort`] reproduces as the standard library of numpy's wheel
+//!     sorts: GCC's ([`fallback`]), or on Windows Microsoft's ([`msvc`]);
+//!     an array already in order keeps its indices;
 //!   - up to 256 values are sorted by bitonic networks ([`network`]);
 //!   - longer arrays are partitioned around a median of one register of
 //!     samples, four registers at a time, down to network-sized ranges
@@ -58,6 +59,7 @@
 mod digests;
 mod fallback;
 mod generic;
+mod msvc;
 mod network;
 mod numpy;
 mod partition;
@@ -101,12 +103,23 @@ fn simd_argsort<W: Width>(values: &[f64]) -> Vec<usize> {
         return indices;
     }
     if values.iter().any(|v| v.is_nan()) {
-        fallback::sort(&mut indices, |a, b| nan_last_less(values[a], values[b]));
+        std_sort(&mut indices, |a, b| nan_last_less(values[a], values[b]));
     } else if !values.is_sorted() {
         let max_iters = 2 * values.len().ilog2() as usize;
         partition::sort::<W>(values, &mut indices, max_iters);
     }
     indices
+}
+
+/// C++'s `std::sort` of `items` by `less`, which x86-simd-sort falls back
+/// to, as the standard library numpy's wheel for this system was built
+/// with sorts: Microsoft's on Windows (MSVC), GCC's elsewhere.
+fn std_sort(items: &mut [usize], less: impl Fn(usize, usize) -> bool) {
+    if cfg!(windows) {
+        msvc::sort(items, less);
+    } else {
+        fallback::sort(items, less);
+    }
 }
 
 /// `a < b` with NaN after every number (x86-simd-sort's comparator for

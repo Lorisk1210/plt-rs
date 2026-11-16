@@ -40,12 +40,23 @@ impl Links {
     fn within(root: &Path, dir: &Path) -> Self {
         let link = |target: &str| match dir.strip_prefix(root) {
             Ok(inside) => relative(inside, Path::new(target)),
-            Err(_) => root.join(target).display().to_string(),
+            Err(_) => forward_slashes(&root.join(target)),
         };
         Self {
             python: link("benchmarks/python"),
             workloads: link("xtask/src/bench/workloads"),
         }
+    }
+}
+
+/// `path` with forward slashes, as links take them (Windows' separators
+/// turned).
+fn forward_slashes(path: &Path) -> String {
+    let text = path.display().to_string();
+    if std::path::MAIN_SEPARATOR == '\\' {
+        text.replace('\\', "/")
+    } else {
+        text
     }
 }
 

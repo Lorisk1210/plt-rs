@@ -246,6 +246,8 @@ def test_addfont_after_miss():
         manager._findfont_cached.cache_clear()
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="Windows' font directories are its own, not XDG's")
 def test_system_afm_fonts(tmp_path):
     """Read from the directories and then from the catalogue."""
     fonts = tmp_path / "data" / "fonts"

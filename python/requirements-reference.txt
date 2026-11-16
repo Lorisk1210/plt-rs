@@ -2,3 +2,6 @@
 # real matplotlib 3.11) for running matplotlib's suite in parallel.
 pytest-xdist==3.8.0
 pytest-timeout==2.4.0
+# What the gallery's programs import (cargo xtask diff --gallery):
+# users_explain/colors/colormaps and user_interfaces/mplcvd.
+colorspacious==1.1.2

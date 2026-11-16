@@ -527,6 +527,27 @@ def _save_figures(plt: Any, out: pathlib.Path, recorder: Recorder, cell: int | N
     return figures
 
 
+def _save_windows(shown: list[Any], out: pathlib.Path, recorder: Recorder,
+                  saved: int) -> list[dict[str, Any]]:
+    """Saves the figures *shown* in a toolkit's windows that pyplot does not
+    keep (`_save_figures` saves those), numbered after the *saved* ones in
+    the order their canvases were made, and describes them."""
+    from matplotlib._pylab_helpers import Gcf
+    kept = {id(manager.canvas.figure) for manager in Gcf.get_all_fig_managers()}
+    windows = []
+    for number, figure in enumerate((figure for figure in shown if id(figure) not in kept), saved + 1):
+        entry: dict[str, Any] = {"number": f"window:{number}"}
+        try:
+            entry["label"] = figure.get_label()
+            path = out / f"window-{number}.png"
+            figure.savefig(path)
+            entry["png"] = path.name
+        except Exception as err:  # noqa: BLE001 - recorded, as the program's
+            entry["error"] = recorder._error(err)
+        windows.append(entry)
+    return windows
+
+
 def _display(*objs: Any, **_options: Any) -> None:
     """Jupyter's ``display`` as a run in cells mode sees it: the plain-text
     representation of each object printed, but of a figure, which the
@@ -555,6 +576,8 @@ def main() -> int:
     parser.add_argument("--mode", choices=["program", "steps", "cells"], default="program")
     parser.add_argument("--in-tree", type=pathlib.Path)
     parser.add_argument("--shell", choices=["ipython"])
+    parser.add_argument("--gui", action="store_true",
+                        help="end the toolkits' main loops once the windows drew (gui_shim.py)")
     parser.add_argument("program", type=pathlib.Path)
     parser.add_argument("out", type=pathlib.Path)
     args = parser.parse_args()
@@ -583,6 +606,10 @@ def main() -> int:
     code = compile(instrument(text, program, args.impl, args.mode), program, "exec")
     plt = __import__("matplotlib.pyplot", fromlist=["pyplot"])
     figures: list[dict[str, Any]] = []
+    windows: list[dict[str, Any]] = []
+    if args.gui:
+        import gui_shim
+        gui_shim.install(lambda shown: windows.extend(_save_windows(shown, out, recorder, len(windows))))
 
     def cell_end(cell: int) -> None:
         """Show the cell's figures as the inline backend does: saved, then
@@ -640,7 +667,9 @@ def main() -> int:
             sys.stdout = real_stdout
         elapsed = time.perf_counter() - started
         recorder.statement = recorder.statement_line = None
-        figures += _save_figures(plt, out, recorder)
+        if args.gui:
+            gui_shim.finish()
+        figures += _save_figures(plt, out, recorder) + windows
     logging.getLogger().removeHandler(log_handler)
 
     record = {

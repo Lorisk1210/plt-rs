@@ -41,8 +41,14 @@ display, and on macOS and Windows, which always have the user's screen,
 ``headless/sitecustomize.py`` makes the GUI toolkits, matplotlib's
 interactive backends and the web browser fail as they fail there.
 
-A program matplotlib itself cannot run here (a GUI toolkit, a network
-download) is listed as skipped, with matplotlib's error. ``--reduce``
+A program opening a toolkit's window (GTK, Qt, Tk or wx: those
+``gui.txt`` lists, ``gui.py``) runs on an Xvfb of its own with the
+toolkits, its main loop ended once its windows drew and went quiet
+(``gui_shim.py``), and compares as any program does, its windows'
+figures included.
+
+A program matplotlib itself cannot run here (a network download, a
+package missing) is listed as skipped, with matplotlib's error. ``--reduce``
 reduces the first difference of each group to the fewest statements that
 still show it (``reduce.py``). PATTERN keeps the programs whose names
 contain it.
@@ -59,6 +65,7 @@ import os
 import pathlib
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -69,6 +76,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import compare  # noqa: E402
 import corpora  # noqa: E402
+import gui  # noqa: E402
 import install  # noqa: E402
 
 #: Seconds a program may run under one implementation.
@@ -130,12 +138,33 @@ class Setup:
         self.mpl_python = args.mpl_python or sys.executable
         #: The variables of each corpus' manifest table (`corpora.environment`).
         self._corpus_environments: dict[str, dict[str, str]] = {}
+        self._toolkits: gui.Toolkits | None = None
+        self._reference_distributions: bytes | None = None
+
+    def reference_distributions(self) -> bytes:
+        """The distributions installed in the venv the reference runs in
+        (`mpl_python`'s): its ``*.dist-info`` directories' names, which
+        hold the versions, sorted; read once."""
+        if self._reference_distributions is None:
+            venv = pathlib.Path(self.mpl_python).absolute().parent.parent
+            sites = [*venv.glob("lib/python*/site-packages"), *venv.glob("Lib/site-packages")]
+            self._reference_distributions = gui.distributions(sites)
+        return self._reference_distributions
+
+    def toolkits(self) -> gui.Toolkits:
+        """What the programs opening a toolkit's window need here (`gui`),
+        found once."""
+        if self._toolkits is None:
+            self._toolkits = gui.Toolkits(self.mpl_python)
+        return self._toolkits
 
     def command(self, impl: str, program: Program, out: pathlib.Path) -> list[str]:
         """The command tracing *program* under *impl* into *out* (a corpus'
         program in the copy of its tree laid out there)."""
         python = self.mpl_python if impl == "matplotlib" else self.pltrs_python
         command = [python, str(HERE / "trace.py"), "--impl", impl, "--mode", program.mode]
+        if program.gui is not None:
+            command.append("--gui")
         if program.corpus is None:
             return [*command, str(program.path), str(out)]
         if program.corpus.corpus.shell:
@@ -249,23 +278,29 @@ class Program:
     """One program of the run."""
 
     def __init__(self, name: str, path: pathlib.Path, mode: str,
-                 corpus: corpora.CorpusProgram | None = None) -> None:
+                 corpus: corpora.CorpusProgram | None = None,
+                 gui_variables: dict[str, str] | None = None) -> None:
         self.name = name
         self.path = path
         self.mode = mode
         self.corpus = corpus
+        #: For a program opening a toolkit's window (`gui.LIST`), the
+        #: variables of its runs; None for the others.
+        self.gui = gui_variables
 
     @classmethod
     def of_corpus(cls, program: corpora.CorpusProgram) -> Program:
         """A program of a corpus."""
         return cls(program.name, program.path, program.mode, program)
 
-    @property
-    def digest(self) -> str:
+    def digest(self, setup: Setup) -> str:
         """What the reference run depends on: the program, its mode, its
-        corpus' tree and venvs, the tester's harness (`HEADLESS` too where
-        the programs get it), the network it is refused (`OFFLINE`) and
-        the processor level numpy is held to (`PROCESSOR_LEVEL`)."""
+        corpus' tree and venvs, what the reference venv holds
+        (`Setup.reference_distributions`: a package installed since makes
+        a program cached as failing run again), the tester's harness
+        (`HEADLESS` too where the programs get it), the network it is
+        refused (`OFFLINE`) and the processor level numpy is held to
+        (`PROCESSOR_LEVEL`)."""
         harness = b"".join((HERE / name).read_bytes()
                            for name in ("trace.py", "describe.py", "corpora.py", "ipython_shell.py"))
         if NEEDS_HEADLESS:
@@ -280,8 +315,12 @@ class Program:
             # What a corpus program starts with, besides its tree.
             network += json.dumps([HOME_DIRECTORIES, OWN_CONFIG_FILES]).encode()
         shell = self.corpus.corpus.shell.encode() if self.corpus else b""
+        if self.gui is not None:
+            # The windows' shim, the display and toolkits each run gets.
+            harness += b"".join((HERE / name).read_bytes() for name in ("gui.py", "gui_shim.py"))
+            harness += json.dumps(self.gui, sort_keys=True).encode() + gui.toolkit_distributions()
         return hashlib.sha256(self.path.read_bytes() + self.mode.encode() + shell + tree + harness
-                              + network).hexdigest()[:16]
+                              + network + setup.reference_distributions()).hexdigest()[:16]
 
     def directory(self, setup: Setup) -> pathlib.Path:
         """Where the runs of the program go: a directory named after the
@@ -303,6 +342,23 @@ def gallery_programs(gallery: pathlib.Path) -> list[Program]:
             name = "gallery/" + path.relative_to(gallery).as_posix().removesuffix(".py")
             programs.append(Program(name, path, "program"))
     return programs
+
+
+def with_windows(programs: list[Program]) -> list[Program]:
+    """*programs*, those `gui.LIST` names marked as opening their
+    toolkit's windows, and each of their variants after them."""
+    listed = gui.listed()
+    marked = []
+    for program in programs:
+        marked.append(program)
+        for name, variables in listed.items():
+            if gui.base_name(name) != program.name:
+                continue
+            if name == program.name:
+                program.gui = variables
+            else:
+                marked.append(Program(name, program.path, program.mode, program.corpus, variables))
+    return marked
 
 
 def generated_programs(setup: Setup) -> list[Program]:
@@ -348,10 +404,16 @@ def _run(setup: Setup, impl: str, program: Program, out: pathlib.Path) -> dict[s
     tmp.mkdir()
     env = setup.environment(impl, program) | {"TMPDIR": str(tmp)}
     try:
-        done = subprocess.run(setup.command(impl, program, out), env=env,
-                              capture_output=True, text=True, errors="replace", timeout=TIMEOUT)
-    except subprocess.TimeoutExpired:
-        (out / "failure").write_text(f"timed out after {TIMEOUT} s", encoding="utf-8")
+        if program.gui is not None:
+            done = _run_windows(setup, program, setup.command(impl, program, out), env)
+        else:
+            done = subprocess.run(setup.command(impl, program, out), env=env,
+                                  capture_output=True, text=True, errors="replace", timeout=TIMEOUT)
+    except subprocess.TimeoutExpired as err:
+        (out / "failure").write_text(f"timed out after {err.timeout:g} s", encoding="utf-8")
+        return None
+    except gui.Lacking as err:
+        (out / "failure").write_text(f"lacking for its windows: {err}", encoding="utf-8")
         return None
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -362,6 +424,28 @@ def _run(setup: Setup, impl: str, program: Program, out: pathlib.Path) -> dict[s
         (out / "failure").write_text(f"exit status {done.returncode}: {tail[0]}", encoding="utf-8")
         return None
     return json.loads(_records_shared_tmp(record.read_text(), tmp))
+
+
+def _run_windows(setup: Setup, program: Program, command: list[str],
+                 env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    """Run *command*, a program opening a toolkit's window, on an X server
+    of its own with the toolkits (`gui`), in a session of its own: when it
+    outlives `gui.TIMEOUT`, every process it started is killed, so that
+    none keeps its output open. `gui.Lacking` when this machine cannot."""
+    toolkits = setup.toolkits()
+    if toolkits.lacking:
+        raise gui.Lacking(toolkits.lacking)
+    with gui.display() as server:
+        env = toolkits.environment(env, program.gui or {}) | server
+        proc = subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, errors="replace", start_new_session=True)
+        try:
+            stdout, stderr = proc.communicate(timeout=gui.TIMEOUT)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.communicate()
+            raise
+    return subprocess.CompletedProcess(command, proc.returncode, stdout, stderr)
 
 
 def _records_shared_tmp(text: str, tmp: pathlib.Path) -> str:
@@ -394,7 +478,8 @@ def run_program(setup: Setup, program: Program) -> dict[str, Any]:
     directory = program.directory(setup)
     reference = directory / "mpl"
     stamp = directory / "mpl.digest"
-    cached = stamp.exists() and stamp.read_text() == program.digest
+    digest = program.digest(setup)
+    cached = stamp.exists() and stamp.read_text() == digest
     if cached and (reference / "record.json").exists():
         mpl = json.loads((reference / "record.json").read_text())
     elif cached and (reference / "failure").exists():
@@ -403,7 +488,7 @@ def run_program(setup: Setup, program: Program) -> dict[str, Any]:
         mpl = None
     else:
         mpl = _run(setup, "matplotlib", program, reference)
-        stamp.write_text(program.digest)
+        stamp.write_text(digest)
     result: dict[str, Any] = {"program": program.name, "path": str(program.path)}
     if mpl is None:
         result["skipped"] = (reference / "failure").read_text(encoding="utf-8")
@@ -732,8 +817,14 @@ def main() -> int:
         setup.installed = install.install(setup.root, setup.pltrs_python)
         setup.prepare_configs()
         setup.prepare_environments(programs)
+    programs = with_windows(programs)
     if args.patterns:
         programs = [p for p in programs if any(pattern in p.name for pattern in args.patterns)]
+    windows = [program for program in programs if program.gui is not None]
+    if windows:
+        lacking = setup.toolkits().lacking
+        print(f"{len(windows)} programs open a toolkit's window: "
+              + (f"skipped, as {lacking}" if lacking else "each on an Xvfb of its own, with the toolkits"))
 
     results: list[dict[str, Any]] = []
     with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:

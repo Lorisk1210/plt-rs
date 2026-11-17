@@ -45,9 +45,14 @@ def say(name, **fields):
 
 
 def cpu_wait():
-    """How long this thread has waited for a CPU so far, in seconds."""
-    with open("/proc/thread-self/schedstat", encoding="ascii") as file:
-        return int(file.read().split()[1]) / 1e9
+    """How long this thread has waited for a CPU so far, in seconds: as
+    Linux counts it, 0 where the system does not tell (macOS, Windows),
+    so that the frames' spacing is then measured raw."""
+    try:
+        with open("/proc/thread-self/schedstat", encoding="ascii") as file:
+            return int(file.read().split()[1]) / 1e9
+    except FileNotFoundError:
+        return 0.0
 
 
 def count_for(seconds):

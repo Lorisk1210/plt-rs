@@ -8,7 +8,7 @@ from numbers import Real
 
 import numpy as np
 
-from ... import _api
+from ... import _api, _values
 from ..._native import plotting as _plotting
 from ..._program_classes import takes_any_from_program
 from ._helpers import takes_properties, wrap
@@ -118,6 +118,9 @@ class LabelsMixin:
                 _ = 1 * padding
             given = [padding]
         labels = [] if labels is None else [str(label) for label in labels]
+        if isinstance(container.datavalues, np.ndarray):
+            # matplotlib hands *fmt* the bars' values, items of their array.
+            fmt = _values.numpy_argument(fmt, container.datavalues.dtype)
         vertical = container.orientation != "horizontal"
         annotations = []
         for native, pad in zip(

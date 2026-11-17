@@ -1046,8 +1046,9 @@ def _program_scale(scale, three_d):
         from ._scale_calls import ScaleCalls
         calls = ScaleCalls(holding, scale.get_transform())
         functions = (calls.forward, calls.inverse)
+    # matplotlib reads *minpos* off its data limits' box: a numpy float.
     return scale.name, functions, lambda vmin, vmax, minpos: tuple(
-        map(float, unheld(holding).limit_range_for_scale(vmin, vmax, minpos)))
+        map(float, unheld(holding).limit_range_for_scale(vmin, vmax, np.float64(minpos))))
 
 
 _register("program_scale", _program_scale)

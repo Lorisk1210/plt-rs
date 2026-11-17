@@ -96,6 +96,13 @@ impl TickSet {
         self.computed = computed;
     }
 
+    /// Counts the major (or `minor`) level as labelled by no update: its
+    /// formatter was replaced, and matplotlib's new formatter has computed
+    /// nothing yet.
+    pub(crate) fn forget_labelling(&mut self, minor: bool) {
+        self.computed[usize::from(minor)] = false;
+    }
+
     /// Counts these ticks as placed by one of matplotlib's tick updates
     /// (`Axis._update_ticks`, which drawing or measuring the axis and
     /// reading its tick labels run; with `whole_minor`, axisartist's

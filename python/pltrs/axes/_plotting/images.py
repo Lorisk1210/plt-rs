@@ -12,7 +12,7 @@ from ..._artist_kwargs import check_known
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from .._aspect import _checked_aspect
-from ._helpers import wrap
+from ._helpers import keep_data, wrap
 from .scatter import _mapping
 
 
@@ -182,12 +182,16 @@ class ImagesMixin:
         if mesh is not None:
             ret = wrap(self, mesh, mcoll.QuadMesh)
             ret._attach_native_mapping(colorizer=made)
-        elif image is not None:
-            ret = wrap(self, image, mimage.AxesImage)
-            ret._set_mapped_data(made, A)
         else:
-            ret = wrap(self, pcolor_image, mimage.PcolorImage)
+            if image is not None:
+                ret = wrap(self, image, mimage.AxesImage)
+            else:
+                ret = wrap(self, pcolor_image, mimage.PcolorImage)
             ret._set_mapped_data(made, A)
+            # matplotlib's extent is made of the ends of the coordinates
+            # as given (their array's items, or the ints of the shape).
+            x, y = ((0, nc), (0, nr)) if len(args) == 1 else map(np.asarray, args[:2])
+            _values.remember(ret, "extent", (x[0], x[-1], y[0], y[-1]))
         ret._made_with(kwargs)
         return ret
 
@@ -337,7 +341,9 @@ class ImagesMixin:
             ret.autoscale_None()
             ret._made_with(kwargs)
             return ret
-        return wrap(self, line, mlines.Line2D)
+        # matplotlib's marks are a line of the indices of the values shown.
+        y, x = np.nonzero(mask)
+        return keep_data(wrap(self, line, mlines.Line2D), x, y)
 
     def matshow(self, Z, **kwargs):
         """

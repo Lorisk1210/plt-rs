@@ -353,20 +353,50 @@ impl Axis {
     /// The number of the tick update that placed the axis' ticks last,
     /// when it labelled their major (or `minor`) level (see
     /// [`TickSet::labelled`]), without computing them; `None` otherwise.
+    ///
+    /// Ticks computed since for another purpose leave the level's
+    /// formatter with what that update gave it, as matplotlib's formatter
+    /// keeps it until its next update.
     pub fn labelled(&self, minor: bool) -> Option<u64> {
-        self.read(|axis| axis.ticks.as_ref().ok()?.labelled(minor))
+        self.labelling(minor).map(|labelling| labelling.serial)
     }
 
     /// What that update gave the formatter of the level (see
     /// [`TickSet::labelling`]), without computing the ticks.
     pub fn labelling(&self, minor: bool) -> Option<Labelling> {
-        self.read(|axis| axis.ticks.as_ref().ok()?.labelling(minor))
+        self.read(|axis| axis.last_labelling(minor))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn formatters_keep_their_last_labelling_until_replaced() {
+        use crate::figure::Figure;
+        use crate::ticker::{AutoMinorLocator, NullFormatter};
+        let ax = Figure::new().subplot();
+        ax.xaxis().place_ticks().unwrap();
+        let labelled = ax
+            .xaxis()
+            .labelled(false)
+            .expect("the major ticks were labelled");
+        // Ticks computed again for another purpose (a new minor locator
+        // asked for its ticks) leave the formatter what it had.
+        ax.xaxis().set_minor_locator(AutoMinorLocator::default());
+        ax.xaxis().ticklocs(true).unwrap();
+        assert_eq!(ax.xaxis().labelled(false), Some(labelled));
+        assert_eq!(
+            ax.xaxis().labelling(false).map(|l| l.locs),
+            Some(ax.xaxis().ticklocs(false).unwrap())
+        );
+        // Another formatter got nothing from it.
+        ax.xaxis().set_major_formatter(NullFormatter);
+        assert_eq!(ax.xaxis().labelled(false), None);
+        ax.xaxis().ticklocs(true).unwrap();
+        assert_eq!(ax.xaxis().labelled(false), None);
+    }
 
     #[test]
     fn gids_are_kept_per_group_until_taken_away() {

@@ -8,7 +8,9 @@ object the program gave (``line.set_zorder(5)`` reads back as the int
 ``5``). The helpers here turn what pltrs (Rust) answers into what
 matplotlib answers:
 
-* `float64s` gives the numpy floats of a box's array;
+* `float64s` gives the numpy floats of a box's array, and
+  `numpy_argument` hands the program's functions numbers as matplotlib
+  hands them, numpy scalars of the data's type;
 * `remember` and `given` keep a property as the program gave it: a setter
   remembers the value matplotlib would keep, and its getter returns that
   value as long as pltrs (Rust) still holds what it was converted to, else
@@ -52,6 +54,33 @@ def float64s(values):
     """*values* as a tuple of numpy floats, as matplotlib reads its limits
     off a box's array (``tuple(self.viewLim.intervalx)``)."""
     return tuple(np.asarray(values, dtype=float))
+
+
+class NumpyArgument:
+    """
+    The program's *function* called with its first argument as the numpy
+    scalar type *kind* (``np.float64``, the dtype of the program's data):
+    pltrs (Rust) calls it with a Python float where matplotlib hands it a
+    number read off an array (a label's level, a bar's value, a wedge's
+    percentage). It pickles as its function does.
+    """
+
+    __slots__ = ("function", "kind")
+
+    def __init__(self, function, kind):
+        self.function = function
+        self.kind = kind
+
+    def __call__(self, value, *rest):
+        return self.function(self.kind(value), *rest)
+
+
+def numpy_argument(function, kind=np.float64):
+    """*function* as `NumpyArgument` hands it numbers, if it is a callable
+    (not a template); else *function* itself."""
+    if isinstance(function, str) or not callable(function):
+        return function
+    return NumpyArgument(function, np.dtype(kind).type)
 
 
 def remember(artist, name, value):

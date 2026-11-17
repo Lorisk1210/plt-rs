@@ -165,6 +165,13 @@ class TickHelper:
         _tick_state.catch_up(self)
         return super().__getstate__()
 
+    def _axis_or_fail(self, name):
+        """The helper's axis; matplotlib's helper without one fails where it
+        reads it, at its method *name* (an `AttributeError` of None)."""
+        if self.axis is None:
+            raise AttributeError(f"'NoneType' object has no attribute {name!r}")
+        return self.axis
+
     def set_axis(self, axis):
         self.axis = axis
 
@@ -557,6 +564,10 @@ class _NativeFormatter(Formatter):
     #: labels its ticks (None: the class has none).
     _matplotlib_call = None
 
+    #: Whether matplotlib's formatter reads its axis' view to label any
+    #: value (`PercentFormatter`), failing without an axis.
+    _labels_by_view = False
+
     def _spec(self):
         """The native description of the formatter (its kind and
         parameters)."""
@@ -620,6 +631,8 @@ class _NativeFormatter(Formatter):
     @_qualnames.named_as("Formatter.format_ticks")
     def format_ticks(self, values):
         # docstring inherited
+        if self._labels_by_view and len(values):
+            self._axis_or_fail("get_view_interval")
         self.set_locs(values)
         if type(self).__call__.__module__ != __name__ or self._as_matplotlib():
             # A subclass of the program's labels each tick itself, as
@@ -636,6 +649,8 @@ class _NativeFormatter(Formatter):
     @_qualnames.named_as("Formatter.format_data")
     def format_data(self, value):
         # docstring inherited
+        if self._labels_by_view:
+            self._axis_or_fail("get_view_interval")
         return _ticker.format_data(self._spec(), float(value), False,
                                    self._axis_info())
 
@@ -1178,6 +1193,8 @@ class LogFormatter(Formatter):
 
         The *locs* parameter is ignored in the present algorithm.
         """
+        if not np.isinf(self.minor_thresholds[0]):
+            self._axis_or_fail("get_view_interval")
         sublabels = _ticker.log_sublabels(self._spec(), self._axis_info())
         # As matplotlib's sets: {1} for the powers of the base alone, else
         # numpy's numbers.
@@ -1194,16 +1211,21 @@ class LogFormatter(Formatter):
         # A mathtext formatter labels as this class does when the program
         # calls this method on it (its exponents label as their class).
         kind = None if self._kind == LogFormatterExponent._kind else LogFormatter._kind
-        return self._log_label(x, LogFormatter._value_steps, kind)
+        return self._log_label(x, LogFormatter._value_steps, kind, reads_view=True)
 
-    def _log_label(self, x, steps, kind=None):
+    def _log_label(self, x, steps, kind=None, reads_view=False):
         """The label of *x*, after matplotlib's first *steps* with it (its
         class' ``__call__``'s, see `_first_steps`), written as the formatters
-        of *kind* write it (by default, as this one's)."""
+        of *kind* write it (by default, as this one's). A call that
+        *reads_view* (`LogFormatter`'s) fails without an axis where
+        matplotlib's reads the view: a finite value other than 0 it labels."""
         _first_steps(x, *steps)
         if isinstance(x, numbers.Real) and math.isinf(x):
             # matplotlib rounds the exponent of an infinite value first.
             _ = round(x)
+        if (reads_view and x != 0 and math.isfinite(x) and not self.labelOnlyBase
+                and self._sublabels is None):
+            self._axis_or_fail("get_view_interval")
         spec = self._spec()
         if kind is not None:
             spec["kind"] = kind
@@ -1626,6 +1648,8 @@ class PercentFormatter(_NativeFormatter):
         If *False*, reserved LaTeX characters in *symbol* will be escaped.
     """
 
+    _labels_by_view = True
+
     def __init__(self, xmax=100, decimals=None, symbol='%', is_latex=False):
         self.xmax = xmax + 0.0
         self.decimals = decimals
@@ -1650,6 +1674,7 @@ class PercentFormatter(_NativeFormatter):
     @_qualnames.named_as("Formatter.format_data_short")
     def format_data_short(self, value):
         # docstring inherited
+        self._axis_or_fail("get_view_interval")
         if self._as_matplotlib(value):
             return self(value)
         # matplotlib's formats it through `__call__`, its first steps the
@@ -1659,6 +1684,7 @@ class PercentFormatter(_NativeFormatter):
 
     def __call__(self, x, pos=None):
         """Format the tick as a percentage with the appropriate scaling."""
+        self._axis_or_fail("get_view_interval")
         if self._as_matplotlib(x):
             return self._matplotlib_call(x, pos)
         if not np.iterable(self._locs) or len(self._locs) == 0:
@@ -2258,6 +2284,9 @@ class MultipleLocator(_NativeLocator):
 
     def __call__(self):
         """Return the locations of the ticks."""
+        # (Without an axis matplotlib's fails reading its view.)
+        self._axis_or_fail("get_view_interval")
+        """Return the locations of the ticks."""
         return super().__call__()
 
     def tick_values(self, vmin, vmax):
@@ -2424,6 +2453,7 @@ class MaxNLocator(_NativeLocator):
 
     def __call__(self):
         # docstring inherited
+        self._axis_or_fail("get_view_interval")
         if self._gives_raw_ticks() or self._gives_tick_values():
             vmin, vmax = self.axis.get_view_interval()
             return self.tick_values(vmin, vmax)
@@ -2552,9 +2582,9 @@ class LogLocator(_NativeLocator):
                 "Data has no positive values, and therefore cannot be "
                 "log-scaled.")
             return 1, 10
+        # Consider shared axises
+        minpos = min(axis.get_minpos() for axis in self.axis._get_shared_axis())
         if vmin <= 0:
-            # Consider shared axises
-            minpos = min(axis.get_minpos() for axis in self.axis._get_shared_axis())
             # This should never take effect.
             vmin = minpos if np.isfinite(minpos) else 1e-300
         if vmin == vmax:
@@ -2563,6 +2593,9 @@ class LogLocator(_NativeLocator):
         return vmin, vmax
 
     def __call__(self):
+        """Return the locations of the ticks."""
+        # (Without an axis matplotlib's fails reading its view.)
+        self._axis_or_fail("get_view_interval")
         """Return the locations of the ticks."""
         return super().__call__()
 
@@ -2713,6 +2746,8 @@ class AsinhLocator(_NativeLocator):
                 "subs": None if self.subs is None else _held_all(self.subs)}
 
     def __call__(self):
+        # (Without an axis matplotlib's fails reading its view.)
+        self._axis_or_fail("get_view_interval")
         return super().__call__()
 
     def tick_values(self, vmin, vmax):
@@ -2883,6 +2918,7 @@ class AutoMinorLocator(_NativeLocator):
 
     def __call__(self):
         # docstring inherited
+        self._axis_or_fail("get_scale")
         info = self._axis_info()
         if self._drawn_axis is not None and self.axis is not None:
             # Ticking from a description of its axis (`_tick_helpers.drawing`),
@@ -2908,9 +2944,9 @@ class AutoMinorLocator(_NativeLocator):
                  else _axis.info_fields(info)[3])
         if len(np.unique(major)) < 2:
             return
-        self.ndivs = _rc('ytick.minor.ndivs'
-                         if getattr(axis, "axis_name", None) == 'y'
-                         else 'xtick.minor.ndivs')  # for x and z axis
+        _tick_state.settle(self, "ndivs", _rc(
+            'ytick.minor.ndivs' if getattr(axis, "axis_name", None) == 'y'
+            else 'xtick.minor.ndivs'))  # for x and z axis
 
     def tick_values(self, vmin, vmax):
         raise NotImplementedError(

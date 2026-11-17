@@ -15,7 +15,7 @@ from types import SimpleNamespace
 import numpy as np
 
 from . import _docstring
-from . import _handles, cbook
+from . import _handles, _values, cbook
 from . import patches  # noqa: F401  (whose Patch the docstrings list)
 from ._native import sankey as _sankey
 
@@ -239,9 +239,13 @@ class Sankey:
         # pltrs (Rust) places diagrams on an Axes; matplotlib keeps any
         # *ax*, and fails where it places a diagram on it (see `add`).
         from .axes import Axes
+        # matplotlib hands a format function each flow, an item of the
+        # diagram's array (`add` sets its type).
+        self._native_format = _values.numpy_argument(
+            format if isinstance(format, str) or callable(format) else '%G')
         self._native = None if not isinstance(ax, Axes) else _sankey.new(
             ax._native, (usable["scale"], None if unit is None else str(unit),
-                         format if isinstance(format, str) or callable(format) else '%G'),
+                         self._native_format),
             tuple(map(float, (gap, radius, usable["shoulder"], usable["offset"],
                               head_angle, usable["margin"], tolerance))))
 
@@ -336,6 +340,7 @@ class Sankey:
         Sankey.finish
         """
         from .patches import PathPatch
+        from . import text as _text_module
         from .text import Text
         # Check and preprocess the arguments.
         flows = np.array([1.0, -1.0]) if flows is None else np.array(flows)
@@ -443,7 +448,9 @@ class Sankey:
         # matplotlib labels the flows after it drew the patch, and measures
         # the labels' extent then: what fails there leaves the patch.
         failure = _labelling_failure(self, flows, labels) or _extent_failure(n)
-        patch, flows, angles, tips, text, texts = _sankey.add(
+        if isinstance(self._native_format, _values.NumpyArgument):
+            self._native_format.kind = flows.dtype.type
+        patch, _, angles, tips, text, texts = _sankey.add(
             # The patch's text, None empty as `Text.set_text` makes it.
             self._native, '' if patchlabel is None else str(patchlabel),
             ([float(f) for f in flows], [int(o) for o in orientations],
@@ -457,10 +464,15 @@ class Sankey:
         patch._internal_update(cbook.normalize_kwargs(kwargs, PathPatch))
         if failure is not None:
             raise failure
+        text = _handles.wrap(text, Text, figure)
+        # matplotlib places the text at the ints (0, 0), or at the offset
+        # from the prior diagram's tip, numpy floats.
+        _text_module._remember_position(
+            text, (0, 0) if prior is None else _values.float64s(text.get_position()))
         self.diagrams.append(SimpleNamespace(
-            patch=patch, flows=np.asarray(flows),
+            patch=patch, flows=flows,
             angles=self._kept_angles(angles, rotation, prior, connect),
-            tips=tips, text=_handles.wrap(text, Text, figure),
+            tips=tips, text=text,
             texts=_handles.wrap_all(texts, Text, figure)))
         return self
 

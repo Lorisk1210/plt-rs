@@ -43,14 +43,15 @@ pub(crate) struct PythonNorm {
 /// The callables `native_norm` gives for a norm.
 #[derive(Clone, Debug)]
 struct Hooks {
-    /// `normalize(values, mask, clip, shape) -> (values, mask,
+    /// `normalize(values, mask, clip, shape, single) -> (values, mask,
     /// integers)`, the values handed to the norm as an array of `shape`
-    /// (`None`: as they are).
+    /// (`None`: as they are), of `float32` if `single`.
     normalize: Callback,
     /// `normalize_scalar(value) -> (values, mask, integers)`.
     normalize_scalar: Callback,
     /// `autoscale_none(values, mask, shape) -> (vmin, vmax)`, the values
-    /// handed to the norm as a masked array of `shape` (`None`: flat).
+    /// handed to the norm as a masked array of `shape` (`None`: flat), a
+    /// plain one for no `mask`.
     autoscale_none: Callback,
     /// `inverse(values) -> (values, mask)`.
     inverse: Callback,
@@ -102,11 +103,17 @@ impl PythonNorm {
         &self.object
     }
 
-    /// Autoscales the Python norm to `data`, handed over as an array of
-    /// `shape` (flat for `None`), and takes the limits it found.
+    /// Autoscales the Python norm to `data`, handed over as a masked array
+    /// of `shape` (flat for `None`), and takes the limits it found.
     fn autoscale_none_as(&mut self, data: &[Option<f64>], shape: Option<Vec<usize>>) {
         let (values, mask) = split(data);
-        if let Some((vmin, vmax)) = self.hooks.autoscale_none.call((values, mask, shape)) {
+        self.autoscale_with((values, Some(mask), shape));
+    }
+
+    /// Autoscales the Python norm with the arguments of its
+    /// `autoscale_none` hook, and takes the limits it found.
+    fn autoscale_with(&mut self, arguments: (NdArray, Option<NdArray<bool>>, Option<Vec<usize>>)) {
+        if let Some((vmin, vmax)) = self.hooks.autoscale_none.call(arguments) {
             self.vmin = vmin;
             self.vmax = vmax;
         }
@@ -200,6 +207,10 @@ impl Norm for PythonNorm {
         self.autoscale_none_as(data, Some(shape.to_vec()));
     }
 
+    fn autoscale_none_plain(&mut self, values: &[f64]) {
+        self.autoscale_with((NdArray::from_vec(values.to_vec()), None, None));
+    }
+
     /// A norm deriving from `BoundaryNorm` is shown by its bins, one
     /// deriving from `NoNorm` by its colour indices; one made
     /// from a scale of pltrs (Rust)'s kind on that scale (matplotlib's
@@ -225,10 +236,10 @@ impl Norm for PythonNorm {
         clip: Option<bool>,
     ) -> Result<Vec<Normalized>, NormError> {
         let (values, mask) = split(data);
-        let given = self
-            .hooks
-            .normalize
-            .call((values, Some(mask), clip, None::<Vec<usize>>));
+        let given =
+            self.hooks
+                .normalize
+                .call((values, Some(mask), clip, None::<Vec<usize>>, false));
         Ok(normalized(given, data.len()))
     }
 
@@ -240,10 +251,10 @@ impl Norm for PythonNorm {
         form: ArrayForm<'_>,
     ) -> Result<Vec<Normalized>, NormError> {
         let (values, mask) = split_as(data, form.masked);
-        let given = self
-            .hooks
-            .normalize
-            .call((values, mask, clip, form.shape.to_vec()));
+        let given =
+            self.hooks
+                .normalize
+                .call((values, mask, clip, form.shape.to_vec(), form.single));
         Ok(normalized(given, data.len()))
     }
 

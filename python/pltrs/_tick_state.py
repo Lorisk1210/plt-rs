@@ -134,11 +134,25 @@ def _replay(helper, axis, minor, locs, info):
 def _catching_up(helper):
     """While *helper* catches up: it neither catches up again nor counts
     its attributes set as changes to install."""
+    already = catching_up(helper)
     object.__setattr__(helper, "_catching_up", True)
     try:
         yield
     finally:
-        object.__delattr__(helper, "_catching_up")
+        if not already:
+            object.__delattr__(helper, "_catching_up")
+
+
+def settle(helper, name, value):
+    """Set the attribute *name* of *helper* to *value*, which it settled
+    itself as matplotlib's helper does when called (an `.AutoMinorLocator`'s
+    ``ndivs``): what pltrs (Rust) ticks with does not change, so the ticks
+    its axis last computed, which its other helpers catch up with, stay."""
+    from ._tick_helpers import settled
+    catch_up(helper)
+    with _catching_up(helper):
+        setattr(helper, name, value)
+    settled(helper)
 
 
 def catching_up(helper):

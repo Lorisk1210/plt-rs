@@ -1377,6 +1377,11 @@ def table(ax,
         (_loc_name(loc), _extents(bbox), _edges_of(edges),
          None if fontsize is None else float(fontsize)))
     table = _handles.wrap(native, Table, ax.figure)
+    if colWidths is not None:
+        # matplotlib adds the cells of each column with its width as given.
+        for (_, col), cell in table._cells.items():
+            if col >= 0:
+                _values.remember(cell, "width", colWidths[col])
     table._loc = Table.codes[_loc_name(loc)]
     table._cell_locs = (cellLoc, None if colLabels is None else colLoc,
                         None if rowLabels is None else rowLoc)

@@ -398,6 +398,15 @@ class Tick(Artist):
          self._labelrotation) = _axis.sync_tick(
             axis.axes._native, axis.axis_name, not self._major, self._index,
             tuple(part._native for part in parts))
+        given = axis._tick_kw[not self._major]
+        for key, field in (("size", "_size"), ("width", "_width"), ("pad", "_base_pad")):
+            if key in given and given[key] == getattr(self, field):
+                # As `tick_params` gave it (an int), which matplotlib's
+                # tick keeps.
+                setattr(self, field, given[key])
+        if "width" in given:
+            for line in (self.tick1line, self.tick2line):
+                _values.remember(line, "markeredgewidth", self._width)
         if kept is not None and tuple(kept) == self._labelrotation:
             # The angle as given, as matplotlib keeps it.
             self._labelrotation = kept
@@ -405,21 +414,35 @@ class Tick(Artist):
             # matplotlib's tick is made with the int ``0``.
             self._labelrotation = (self._labelrotation[0], 0)
         # matplotlib's update_position gives the tick and its labels its
-        # location as the numpy float of the locator's array; a tick never
+        # location as the numpy scalar of the locator's array; a tick never
         # placed sits at the int 0 it was made at.
-        self._loc = 0 if loc is None else np.float64(loc)
+        self._loc = 0 if loc is None else self._typed_loc(loc)
         coordinate = "y" if self.__name__ == "ytick" else "x"
         for label in (self.label1, self.label2):
             _values.remember(label, coordinate, self._loc)
         if axis.axes.name != "3d":
             self._place_lines(None if loc is None else self._loc)
-        given = axis._tick_kw[not self._major]
         for name, part in zip(("label1On", "label2On", "tick1On", "tick2On", "gridOn"), parts):
             if name in given:
                 # The switch as `tick_params` was given it ("off", 1), which
                 # matplotlib's tick passes to the part's `set_visible`.
                 _values.remember(part, "visible", given[name])
         self._drawn = _artist.draw_count(axis.axes._native)
+
+    def _typed_loc(self, loc):
+        """The location *loc* pltrs (Rust) placed the tick at, as the item
+        of its locator's array matplotlib places it at: a numpy float, or
+        the integer of a `.FixedLocator` given integers."""
+        if float(loc).is_integer():
+            axis = self._tick_axis
+            locator = (axis.get_major_locator() if self._major
+                       else axis.get_minor_locator())
+            given = getattr(locator, "locs", None)
+            if isinstance(given, np.ndarray) and given.dtype.kind in "iu":
+                found = given[given == loc]
+                if len(found):
+                    return found[0]
+        return np.float64(loc)
 
     def _place_lines(self, loc):
         """
@@ -468,7 +491,7 @@ class Tick(Artist):
             self._sync()
             return
         loc, text = located
-        self._loc = 0 if loc is None else np.float64(loc)
+        self._loc = 0 if loc is None else self._typed_loc(loc)
         coordinate = "y" if self.__name__ == "ytick" else "x"
         for label in (self.label1, self.label2):
             with _mirrors.detached(label):

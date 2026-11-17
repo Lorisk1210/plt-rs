@@ -156,6 +156,11 @@ def _filtered_by(reference, notes_failure, image, dpi):
     artist = reference()
     if artist is None:
         return image, 0, 0
+    # matplotlib's renderer hands the resolution as its figure holds it
+    # (the int a program gave).
+    figure = artist.get_figure(root=True)
+    if figure is not None and figure.dpi == dpi:
+        dpi = figure.dpi
     return filtered(artist.__dict__.get("_agg_filter"), image, dpi,
                     artist=reference if notes_failure else None)
 

@@ -179,14 +179,27 @@ class CopyingMixin:
         pair = self.__dict__.get("_sticky_edges")
         if pair is None or pair._native is not self._native:
             # Made anew when the artist joins a figure under a new handle.
-            pair = self._sticky_edges = _XYPair._of(self._native)
+            x, y = _artist.get_sticky_edges(self._native)
+            pair = self._sticky_edges = _XYPair._holding(
+                self._native, self._typed_sticky_edges(0, x), self._typed_sticky_edges(1, y))
         else:
             # The values the lists were given stay while pltrs (Rust) has
             # them (an integer stays one).
-            for edges, native in zip(pair, _artist.get_sticky_edges(self._native)):
+            for index, (edges, native) in enumerate(
+                    zip(pair, _artist.get_sticky_edges(self._native))):
                 if [float(v) for v in edges] != native:
-                    edges._refill(native)
+                    edges._refill(self._typed_sticky_edges(index, native))
         return pair
+
+    def _typed_sticky_edges(self, index, edges):
+        """The sticky *edges* pltrs (Rust) holds along x (*index* 0) or y,
+        as matplotlib's code that put them there typed them: as the values
+        a plotting method gave (``_sticky_given``: ``(x, y)``) while they
+        are pltrs (Rust)'s."""
+        given = self.__dict__.get("_sticky_given")
+        if given is not None and [float(v) for v in given[index]] == edges:
+            return list(given[index])
+        return edges
 
     def update_from(self, other):
         """Copy properties from *other* to *self*."""

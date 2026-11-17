@@ -179,8 +179,12 @@ def _check_native_units(converter, units):
 def _keeps_limit_types(locator):
     """Whether the limits an axis sets keep the types they were given in
     under *locator*: matplotlib's date, log and logit locators make them
-    nonsingular without making them floats, as the others do."""
+    nonsingular without making them floats, as the others do, and so does
+    a polar axis' radial locator around one of them."""
     from . import dates, ticker
+    from .projections.polar import RadialLocator
+    if isinstance(locator, RadialLocator):
+        locator = locator.base
     return isinstance(locator, (dates.DateLocator, ticker.LogLocator,
                                 ticker.LogitLocator))
 
@@ -1597,8 +1601,11 @@ class Axis(DrawnWith, Artist):
                 type(self), "get_view_interval"):
             # matplotlib's locator asks the program's class for the view.
             return self.major.locator()
-        locs = _axis.get_ticklocs(*self._args(), bool(minor))
         locator = self.get_minor_locator() if minor else self.get_major_locator()
+        if not minor and _program_classes.takes_from_program(type(locator), "__call__"):
+            # matplotlib's answer is what the program's locator returns.
+            return locator()
+        locs = _axis.get_ticklocs(*self._args(), bool(minor))
         return _typed_locs(locator, locs, minor,
                            _axis.get_view_interval(*self._args()))
 

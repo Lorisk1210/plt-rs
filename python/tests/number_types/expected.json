@@ -1,0 +1,57 @@
+{
+ "C norm | Normalize.__call__ array layout": {
+  "matplotlib": "layout [[\"-w\"], [\"Cw\"]]",
+  "pltrs": "layout [[\"Cw\"]]",
+  "reason": "contiguity: matplotlib hands column views (strides) where pltrs hands contiguous copies; writability is the same"
+ },
+ "C path effects and filters | draw_path tpath.vertices, affine matrix, rgbFace argument types": {
+  "matplotlib": "[[\"ndarray[float64,(2, 2)]\", \"ndarray[float64,(3, 3)]\", \"None\"], [\"ndarray[float64,(24, 2)]\", \"ndarray[float64,(3, 3)]\", \"tuple[4](float, float, float, float)\"], [\"ndarray[float64,(5, 2)]\", \"ndarray[float64,(3, 3)]\", \"tuple[4](float, float, float, int)\"]]",
+  "pltrs": "[[\"ndarray[float64,(2, 2)]\", \"ndarray[float64,(3, 3)]\", \"None\"], [\"ndarray[float64,(24, 2)]\", \"ndarray[float64,(3, 3)]\", \"tuple[4](float, float, float, float)\"], [\"ndarray[float64,(5, 2)]\", \"ndarray[float64,(3, 3)]\", \"tuple[4](float, float, float, float)\"]]",
+  "reason": "a path effect of the program's gets the fill as pltrs (Rust) draws it (four floats), not the patch's colour as given"
+ },
+ "C path effects and filters | draw_path tpath.vertices, affine matrix, rgbFace first call": {
+  "matplotlib": "[\"ndarray[float64,(5, 2)]=[0.0, 0.0, 1.0]\", \"ndarray[float64,(3, 3)]=[56.3636, 0.0, 12.8182]\", \"tuple[4](float=1.0, float=0.0, float=0.0, int=1)\"]",
+  "pltrs": "[\"ndarray[float64,(5, 2)]=[0.0, 0.0, 1.0]\", \"ndarray[float64,(3, 3)]=[56.3636, 0.0, 12.8182]\", \"tuple[4](float=1.0, float=0.0, float=0.0, float=1.0)\"]",
+  "reason": "a path effect of the program's gets the fill as pltrs (Rust) draws it (four floats), not the patch's colour as given"
+ },
+ "C scale and transform | FuncScale forward array layout": {
+  "matplotlib": "layout [[\"-w\"], [\"Cw\"]]",
+  "pltrs": "layout [[\"Cw\"]]",
+  "reason": "contiguity: matplotlib hands column views (strides) where pltrs hands contiguous copies; writability is the same"
+ },
+ "C scale and transform | Transform.transform_non_affine array layout": {
+  "matplotlib": "layout [[\"-w\"], [\"Cw\"]]",
+  "pltrs": "layout [[\"Cw\"]]",
+  "reason": "contiguity: matplotlib hands column views (strides) where pltrs hands contiguous copies; writability is the same"
+ },
+ "C scale and transform | secondary inverse array layout": {
+  "matplotlib": "layout [[\"-w\"], [\"Cw\"]]",
+  "pltrs": "layout [[\"Cw\"]]",
+  "reason": "contiguity: matplotlib hands column views (strides) where pltrs hands contiguous copies; writability is the same"
+ },
+ "C transform of points | transform_non_affine argument types": {
+  "matplotlib": "[[\"MaskedArray[float64,(2, 2)]\"], [\"ndarray[float64,(1, 2)]\"], [\"ndarray[float64,(10, 2)]\"], [\"ndarray[float64,(2, 2)]\"], [\"ndarray[float64,(3, 2)]\"], [\"ndarray[float64,(5, 2)]\"]]",
+  "pltrs": "[[\"ndarray[float64,(1, 2)]\"], [\"ndarray[float64,(2, 2)]\"], [\"ndarray[float64,(3, 2)]\"], [\"ndarray[float64,(5, 2)]\"], [\"ndarray[float64,(9, 2)]\"]]",
+  "reason": "how often and in which pieces a program's transform is called (GEN11's): matplotlib maps a scatter's masked offsets and a text in other calls"
+ },
+ "G Bar Rectangle | sticky_edges.y": {
+  "matplotlib": "list[1](np.int64=0.0)",
+  "pltrs": "_StickyEdgeList[1](np.int64=0.0)",
+  "reason": "the lists of sticky edges are pltrs' list subclass, which tells pltrs (Rust) of each change in place before it autoscales: no sync point precedes every native autoscale"
+ },
+ "G FillBetween | sticky_edges.y": {
+  "matplotlib": "list[0]()",
+  "pltrs": "_StickyEdgeList[0]()",
+  "reason": "the lists of sticky edges are pltrs' list subclass, which tells pltrs (Rust) of each change in place before it autoscales: no sync point precedes every native autoscale"
+ },
+ "R clabel manual rotation | get_rotation()": {
+  "matplotlib": "float=349.4473",
+  "pltrs": "float=-10.5527",
+  "reason": "a manual or inline label's rotation, a value (COLL1's)"
+ },
+ "R clabel | get_rotation()": {
+  "matplotlib": "float=349.4473",
+  "pltrs": "float=-10.5527",
+  "reason": "a manual or inline label's rotation, a value (COLL1's)"
+ }
+}

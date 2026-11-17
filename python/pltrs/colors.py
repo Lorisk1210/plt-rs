@@ -2601,12 +2601,42 @@ def _alive(target):
     return target
 
 
+def _mapped_array(norm, values):
+    """
+    The array of a mappable sharing *norm* that holds *values* (a masked
+    array), which matplotlib hands the norm itself (``self._A``, typed as
+    the program gave it) where pltrs (Rust) hands its own float copy: a
+    collection's colours, an image's limits. *values* when none does.
+    """
+    for colorizer in _listeners(norm.callbacks):
+        for mappable in _listeners(getattr(colorizer, "callbacks", None)):
+            array = getattr(mappable, "_A", None)
+            if (isinstance(array, np.ndarray) and array.shape == values.shape
+                    and array.dtype.kind in "biuf"
+                    and np.array_equal(np.ma.getmaskarray(array), np.ma.getmaskarray(values))
+                    and np.array_equal(np.ma.filled(array.astype(float), 0),
+                                       np.ma.filled(values, 0))):
+                return array
+    return values
+
+
+def _listeners(callbacks):
+    """The objects whose methods listen to the ``changed`` signal of the
+    callback registry *callbacks* (None: no registry)."""
+    if callbacks is None:
+        return []
+    found = (proxy() for proxy in callbacks.callbacks.get("changed", {}).values())
+    return [listener.__self__ for listener in found if hasattr(listener, "__self__")]
+
+
 def _native_norm(norm, weak=True):
     """
     The callables through which pltrs (Rust) maps data with *norm*, a norm
     of a class it has no copy of, by name: ``normalize(values, mask, clip,
-    shape)`` (the values handed over as a masked array, unless *mask* is
-    None, of *shape*, unless it is None), ``normalize_scalar(value)`` (a
+    shape, single)`` (the values handed over as a masked array, unless
+    *mask* is None, of *shape*, unless it is None, of float32 if *single*;
+    a mappable's own array where it holds them, `_mapped_array`),
+    ``normalize_scalar(value)`` (a
     value handed over alone), both giving the values, their mask and
     whether they are integers, which index the colours,
     ``autoscale_none(values, mask, shape)``, ``inverse(values)``,
@@ -2645,12 +2675,17 @@ def _native_norm(norm, weak=True):
         integers = np.ma.asarray(result).dtype.kind in "biu"
         return (*plain(result), integers)
 
-    def normalize(values, mask, clip, shape):
+    def normalize(values, mask, clip, shape, single=False):
         norm = _alive(reference())
+        if single:
+            # An image's data, which matplotlib resampled in float32.
+            values = values.astype(np.float32)
         if mask is not None:
             values = masked(values, mask)
         if shape is not None:
             values = values.reshape(shape)
+            if mask is not None and not single:
+                values = _mapped_array(norm, values)
         # matplotlib calls a norm with its values alone, unless it clips.
         return normalized(norm(values) if clip is None else norm(values, clip=clip))
 
@@ -2659,9 +2694,10 @@ def _native_norm(norm, weak=True):
 
     def autoscale_none(values, mask, shape=None):
         norm = _alive(reference())
-        values = masked(values, mask)
+        if mask is not None:
+            values = masked(values, mask)
         if shape is not None:
-            values = values.reshape(shape)
+            values = _mapped_array(norm, values.reshape(shape))
         with norm.callbacks.blocked():
             norm.autoscale_None(values)
         return norm.vmin, norm.vmax

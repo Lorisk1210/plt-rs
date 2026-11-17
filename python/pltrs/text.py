@@ -913,6 +913,11 @@ class Text(Artist):
         with _measuring_with(renderer):
             extents, lines, frame = _text.get_layout(self._native)
         x0, y0, x1, y1 = extents
+        if self.get_rotation() == 0 and self.get_horizontalalignment() == "left":
+            # matplotlib's box starts at its int 0, which the corner of an
+            # unrotated text aligned on its left keeps.
+            (_, y), size = frame
+            frame = ((0, y), size)
         return Bbox([[x0, y0], [x1, y1]]), lines, frame
 
     def get_color(self):

@@ -66,8 +66,8 @@ pub(crate) fn map_colors(
     if let Some(vmax) = colorizer.vmax {
         norm.set_vmax(Some(vmax));
     }
-    let levels: Vec<Option<f64>> = coloring.levels.iter().copied().map(Some).collect();
-    norm.autoscale_none(&levels);
+    // matplotlib scales the norm to the array of the levels.
+    norm.autoscale_none_plain(coloring.levels);
     let layers = super::set::mapped_values(coloring.layers);
     let colors = norm
         .normalize_masked(&layers, None)?

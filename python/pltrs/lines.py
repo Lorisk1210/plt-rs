@@ -345,7 +345,7 @@ def _native_kwargs(kwargs, holder=None):
 _GIVEN_COLORS = ("color", "gapcolor", "markeredgecolor", "markerfacecolor",
                  "markerfacecoloralt")
 #: The numbers a line reads back as given.
-_GIVEN_NUMBERS = ("markeredgewidth", "pickradius")
+_GIVEN_NUMBERS = ("markeredgewidth", "pickradius", "alpha")
 
 
 def _same_number(value, native):

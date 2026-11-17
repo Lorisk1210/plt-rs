@@ -444,6 +444,9 @@ class FillsMixin:
             label = next(labels, None)
             if label is not None:
                 collection.set_label(label)
+        if collections:
+            # matplotlib's ``coll.sticky_edges.y[:] = [0]`` on the first layer.
+            collections[0]._sticky_given = ((), (0,))
         return collections
 
     def step(self, x, y, *args, where='pre', data=None, **kwargs):

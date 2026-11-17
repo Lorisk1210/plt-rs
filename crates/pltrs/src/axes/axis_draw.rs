@@ -23,7 +23,10 @@ use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol, marker_sketch};
 use crate::patheffects::with_path_effects;
 use crate::polar;
 use crate::rc::{ColorOrAuto, RcParams};
-use crate::text::{BoxPlacement, TextBoxPatch, TextDrawError, draw_laid_out, has_line_measurer};
+use crate::text::{
+    AxisTextPart, BoxPlacement, TextBoxPatch, TextDrawError, TextOwner, draw_laid_out,
+    has_line_measurer,
+};
 use crate::ticker::AxisName;
 use crate::transforms::program_calls;
 
@@ -76,8 +79,16 @@ impl AxisPainter<'_> {
             let key = ticks
                 .drawn_key(index)
                 .expect("the styled ticks are the ticks in view");
-            let tick_labels = std::iter::from_fn(|| labels.next_if(|l| l.tick == index));
             let (minor, at) = key;
+            let tick_labels =
+                std::iter::from_fn(|| labels.next_if(|l| l.tick == index)).map(|label| {
+                    let part = AxisTextPart::TickLabel {
+                        minor,
+                        index: at,
+                        second: !label.first_side,
+                    };
+                    (label, self.text_owner(part))
+                });
             if !self.axis.tick_visible(minor, at) {
                 // matplotlib's `Tick.draw` of a hidden tick draws nothing
                 // and opens no group.
@@ -95,12 +106,12 @@ impl AxisPainter<'_> {
         if let Some(label) = &texts.label {
             gids.part_grouped(ctx, "text", AxisGroup::Label, |ctx| {
                 self.draw_label_box(ctx, label, rc);
-                self.draw_text_with_effects(ctx, label, rc);
+                self.draw_text_with_effects(ctx, label, rc, AxisTextPart::Label);
             });
         }
         if let Some(offset) = &texts.offset {
             gids.part_grouped(ctx, "text", AxisGroup::OffsetText, |ctx| {
-                self.draw_text_with_effects(ctx, offset, rc);
+                self.draw_text_with_effects(ctx, offset, rc, AxisTextPart::OffsetText);
             });
         }
     }
@@ -115,7 +126,7 @@ impl AxisPainter<'_> {
         groups: TickGroups<'_>,
         tick: &Tick,
         mut style: Cow<'_, TickStyle>,
-        labels: impl Iterator<Item = &'t TickLabel>,
+        labels: impl Iterator<Item = (&'t TickLabel, TextOwner)>,
         rc: &RcParams,
     ) {
         // A custom projection may hide a side of the tick while drawing.
@@ -138,7 +149,7 @@ impl AxisPainter<'_> {
             ),
             None => self.draw_tick_lines(ctx, tick.loc, &style, rc, groups),
         }
-        for label in labels {
+        for (label, owner) in labels {
             let shown = if label.first_side {
                 sides.first
             } else {
@@ -159,6 +170,7 @@ impl AxisPainter<'_> {
                         &label.text,
                         rc,
                         AxisTextDraw::AfterMeasuring,
+                        owner,
                     );
                 });
             });
@@ -172,13 +184,30 @@ impl AxisPainter<'_> {
 
     /// Draws the axis label or offset text `text` with its path effects:
     /// its own, else those of `path.effects`.
-    fn draw_text_with_effects(&self, ctx: &mut DrawContext<'_>, text: &PlacedText, rc: &RcParams) {
+    fn draw_text_with_effects(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        text: &PlacedText,
+        rc: &RcParams,
+        part: AxisTextPart,
+    ) {
         let rc = &*rc_with_effects(rc, text.path_effects.as_deref());
+        let owner = self.text_owner(part);
         let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
-            draw_text(ctx, self.axes_id, text, rc, AxisTextDraw::AsPlaced);
+            draw_text(ctx, self.axes_id, text, rc, AxisTextDraw::AsPlaced, owner);
         });
         if let Err(err) = drawn {
             ctx.report(self.axes_id, err);
+        }
+    }
+
+    /// The text `part` of the axis, as a renderer drawing texts whole is
+    /// told it.
+    fn text_owner(&self, part: AxisTextPart) -> TextOwner {
+        TextOwner::Axis {
+            axes: self.axes_id,
+            axis: self.name,
+            part,
         }
     }
 
@@ -535,6 +564,7 @@ pub(crate) fn draw_text(
     text: &PlacedText,
     rc: &crate::rc::RcParams,
     drawn_as: AxisTextDraw,
+    which: TextOwner,
 ) {
     // matplotlib's draw raises at the first text that fails: it lays no
     // later one out.
@@ -555,7 +585,7 @@ pub(crate) fn draw_text(
     let drawn = text
         .as_drawn(dpi, rc, drawn_as)
         .map_err(TextDrawError::from)
-        .and_then(|laid_out| draw_laid_out(ctx, &gc, &laid_out, text.anchor, text.rotation));
+        .and_then(|laid_out| draw_laid_out(ctx, &gc, &laid_out, text.anchor, text.rotation, which));
     if let Err(err) = drawn {
         ctx.report_kind(owner, err.kind(), err);
     }

@@ -25,6 +25,8 @@ from ._program_classes import takes_from_program
 from ._native import patches as _native_patches, transforms as _transforms
 
 _axes_base = _lazy_imports.module(globals(), ".axes._base", "_axes_base")
+_program_locators = _lazy_imports.module(globals(), ".axes._program_locators",
+                                         "_program_locators")
 _artist = _lazy_imports.module(globals(), ".artist", "_artist")
 _patches = _lazy_imports.module(globals(), ".patches", "_patches")
 _own_state = _lazy_imports.module(globals(), "._own_state")
@@ -93,6 +95,7 @@ def _evaluate(figure):
     *figure* from the program's; fail on the objects its Axes hold that
     are no artists."""
     from .axes._foreign_children import check_drawable
+    _program_locators.locate_laid_out(figure)
     for artist in list(_tracked.get(figure, ())):
         # (An axis knows its figure through its Axes.)
         in_figure = artist._figure is figure or artist.get_figure(root=True) is figure

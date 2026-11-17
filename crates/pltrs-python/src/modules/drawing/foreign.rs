@@ -8,22 +8,28 @@
 //! arguments into matplotlib's (a graphics context from
 //! `renderer.new_gc()`, `Path`, `Affine2D`) and calls the renderer's
 //! method; the renderer's own methods answer what pltrs asks (its canvas
-//! size, `points_to_pixels`, its options). Text reaches the renderer as
-//! one path per line, through `draw_path`, as `RendererBase.draw_text`
-//! draws it.
+//! size, `points_to_pixels`, its options). Texts reach the renderer as
+//! matplotlib's `Text.draw` hands them over: each line through
+//! `draw_text` (or `draw_tex`) with its string, font, angle and text
+//! artist (`forward_drawing.draw_text_lines`).
 
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use pltrs::artist::{RawHandle, Renderer};
+use pltrs::artist::{Drawing, RawHandle, Renderer};
+use pltrs::text::{AxisTextPart, DrawnText, LineKind, TextOwner};
 use pltrs_core::{Affine2D, Path, Point, Rgba};
 use pltrs_render::{
-    GraphicsContext, PathCollection, QuadMesh, RgbaImage, SharedFilter, draw_text_as_path,
+    GraphicsContext, PathCollection, QuadMesh, RgbaImage, SharedFilter, TextLines,
+    draw_text_as_path,
 };
-use pltrs_text::TextRun;
+use pltrs_text::{TextRun, TextSource};
 
 use super::super::artist::{filter_image, image_array as filter_array};
 use super::super::backends::PyGc;
+use super::super::font_manager::FontProps;
 use super::super::path::path_arrays;
+use super::super::text_overrides::IsMath;
 use super::super::transforms::{matrix, points_array};
 use crate::binding::prelude::*;
 use crate::binding::{lookup, report};
@@ -31,6 +37,22 @@ use crate::binding::{lookup, report};
 /// A renderer of the program's, which pltrs (Rust) draws through.
 pub(in crate::modules) struct PythonRenderer {
     object: Owned,
+    /// An artist of the figure drawn, through which the texts drawn are
+    /// found (`mtext`); None where pltrs draws a part alone.
+    artist: Option<RawHandle>,
+    /// The size of the figure drawn in pixels, which matplotlib's drawing
+    /// reads from the figure where pltrs asks the canvas' size (None
+    /// where a part is drawn alone: the renderer is asked).
+    canvas: Option<(f64, f64)>,
+    /// Whether a method of the renderer raised: matplotlib's draw stops
+    /// there, so the renderer is called no more (its exception raises
+    /// from the native call drawing).
+    failed: Cell<bool>,
+    /// What the renderer's drawing methods drew into a recording since
+    /// [`recording`](Self::recording) began, if it did.
+    recorded: RefCell<Option<Drawing>>,
+    /// Whether the drawing calls record (`forward_drawing.recorded`).
+    recording: Cell<bool>,
 }
 
 /// `color` as an `(r, g, b, a)` tuple.
@@ -68,35 +90,110 @@ fn image_array(image: &RgbaImage) -> PyResult<NdArray<u8>> {
 }
 
 impl PythonRenderer {
-    /// The renderer of the program's `object`.
-    pub(in crate::modules) fn new(object: Owned) -> Self {
-        Self { object }
+    /// The renderer of the program's `object`, drawing `artist`'s figure
+    /// (None: a part drawn alone).
+    pub(in crate::modules) fn new(object: Owned, artist: Option<RawHandle>) -> Self {
+        let canvas = artist.as_ref().map(RawHandle::figure_size_pixels);
+        Self {
+            object,
+            artist,
+            canvas,
+            failed: Cell::new(false),
+            recorded: RefCell::new(None),
+            recording: Cell::new(false),
+        }
+    }
+
+    /// The text artist `owner` is, as `forward_drawing.draw_text_lines`
+    /// finds it: `("artist" | "cell", handle)`, `("axis", axes handle,
+    /// axis name, part...)`, or None.
+    fn owner<'py>(&self, py: Python<'py>, owner: TextOwner) -> PyResult<Bound<'py>> {
+        let Some(artist) = &self.artist else {
+            return ().into_py(py);
+        };
+        match owner {
+            TextOwner::Artist(id) => ("artist", artist.sibling(id)).into_py(py),
+            TextOwner::Cell { table, row, column } => {
+                ("cell", artist.sibling(table), (row, column)).into_py(py)
+            }
+            TextOwner::Axis { axes, axis, part } => {
+                let (part, minor, index, second) = match part {
+                    AxisTextPart::Label => ("label", false, 0, false),
+                    AxisTextPart::OffsetText => ("offset", false, 0, false),
+                    AxisTextPart::TickLabel {
+                        minor,
+                        index,
+                        second,
+                    } => ("tick", minor, index, second),
+                };
+                (
+                    "axis",
+                    artist.sibling(axes),
+                    axis.name(),
+                    (part, minor, index, second),
+                )
+                    .into_py(py)
+            }
+            TextOwner::Unnamed => ().into_py(py),
+        }
     }
 
     /// Runs `call` with the renderer; what it gives, or `None` when it
-    /// raised (its exception raises from the native call drawing).
+    /// raised (its exception raises from the native call drawing) or a
+    /// call raised before.
     fn call<R>(&self, call: impl FnOnce(&Bound<'_>) -> PyResult<R>) -> Option<R> {
+        if self.failed.get() {
+            return None;
+        }
         Python::with_gil(|py| match call(&self.object.bind(py)) {
             Ok(value) => Some(value),
             Err(err) => {
+                self.failed.set(true);
                 report(err);
                 None
             }
         })
     }
 
+    /// What `call` makes the renderer's methods draw, recorded
+    /// (`forward_drawing.recorded`): the drawing the renderer's own
+    /// methods, the program's code calls, drew into.
+    pub(in crate::modules) fn recording(
+        &mut self,
+        call: impl FnOnce(&mut Self),
+    ) -> Option<Drawing> {
+        self.recording.set(true);
+        call(self);
+        self.recording.set(false);
+        self.recorded.take()
+    }
+
     /// Calls `forward_drawing.<method>(renderer, *args)`, `args` made with
-    /// the GIL held.
+    /// the GIL held (recording, `forward_drawing.recorded(renderer,
+    /// method, *args)`).
     fn forward(&self, method: &str, args: impl FnOnce(Python<'_>) -> PyResult<Vec<Bound<'_>>>) {
-        self.call(|renderer| {
+        let recording = self.recording.get();
+        let recorded = self.call(|renderer| {
             let py = renderer.py();
             let mut all = vec![renderer.clone()];
+            if recording {
+                all.push(method.into_py(py)?);
+            }
             all.extend(args(py)?);
-            lookup(py, "forward_drawing")?
-                .getattr(method)?
-                .call(&all, &[])
-                .map(drop)
+            let forwarding = lookup(py, "forward_drawing")?;
+            if recording {
+                let drawing = forwarding.getattr("recorded")?.call(&all, &[])?;
+                Ok(Some(drawing.extract::<Native<Drawing>>()?.borrow().clone()))
+            } else {
+                forwarding.getattr(method)?.call(&all, &[]).map(|_| None)
+            }
         });
+        if let Some(Some(drawing)) = recorded {
+            self.recorded
+                .borrow_mut()
+                .get_or_insert_default()
+                .extend(drawing);
+        }
     }
 
     /// The graphics context `gc` for Python.
@@ -117,6 +214,9 @@ impl PythonRenderer {
 
 impl Renderer for PythonRenderer {
     fn canvas_size(&self) -> (f64, f64) {
+        if let Some(canvas) = self.canvas {
+            return canvas;
+        }
         self.call(|r| r.call_method("get_canvas_width_height", &[])?.extract())
             .unwrap_or((1.0, 1.0))
     }
@@ -263,10 +363,59 @@ impl Renderer for PythonRenderer {
         });
     }
 
-    /// Text reaches the renderer as one path per line, as matplotlib's
-    /// `RendererBase.draw_text` draws it (`_draw_text_as_path`).
+    /// A line not handed over whole reaches the renderer as one path, as
+    /// matplotlib's `RendererBase.draw_text` draws it
+    /// (`_draw_text_as_path`).
     fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
         draw_text_as_path(self, gc, run, origin, angle);
+    }
+
+    fn takes_texts_whole(&self) -> bool {
+        true
+    }
+
+    /// The text through `forward_drawing.draw_text_lines(renderer, gc,
+    /// lines, angle, prop, owner)`, each line `(s, ismath, x, y)`, as
+    /// matplotlib's `Text.draw` hands it to `draw_text` and `draw_tex`.
+    /// A text with a line pltrs did not lay out from its source (a text
+    /// drawn as paths) is drawn line by line.
+    fn draw_text_lines(&mut self, gc: &GraphicsContext, text: &TextLines<'_>) -> bool {
+        let Some(drawn) = text.source.downcast_ref::<DrawnText>() else {
+            return false;
+        };
+        let lines: Option<Vec<_>> = text
+            .lines
+            .iter()
+            .map(|line| {
+                let source = line.run.source.as_ref()?;
+                let kind = match source {
+                    TextSource::Plain { .. } => LineKind::Plain,
+                    TextSource::Math { .. } => LineKind::Math,
+                    TextSource::Tex(_) => LineKind::Tex,
+                };
+                Some((source.text().to_owned(), kind, line.origin))
+            })
+            .collect();
+        let Some(lines) = lines else {
+            return false;
+        };
+        let owner = drawn.owner;
+        let font = drawn.font.clone();
+        let angle = text.angle;
+        self.forward("draw_text_lines", |py| {
+            let lines = lines
+                .into_iter()
+                .map(|(s, kind, origin)| (s, IsMath(kind), origin.x, origin.y).into_py(py))
+                .collect::<PyResult<Vec<_>>>()?;
+            Ok(vec![
+                Self::gc(py, gc)?,
+                lines.into_py(py)?,
+                angle.into_py(py)?,
+                FontProps(font).into_py(py)?,
+                self.owner(py, owner)?,
+            ])
+        });
+        true
     }
 
     fn open_group(&mut self, name: &str, gid: Option<&str>) {
@@ -360,7 +509,8 @@ fn apply_filter(
 /// `artist.draw(renderer)`): as pltrs draws it, its painter left out; a
 /// root figure is laid out and drawn whole (`figure.draw(renderer)`).
 fn draw_through(renderer: Owned, artist: RawHandle) -> PyResult<()> {
-    Ok(artist.draw_unpainted_onto(&mut PythonRenderer::new(renderer))?)
+    let mut through = PythonRenderer::new(renderer, Some(artist.clone()));
+    Ok(artist.draw_unpainted_onto(&mut through)?)
 }
 
 /// Registers the module's functions.

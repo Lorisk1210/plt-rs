@@ -1700,6 +1700,8 @@ class Figure(FigureLayout, FigureImagesMixin, RootFigureMixin, FigureBase):
 
     def draw(self, renderer):
         # docstring inherited
+        # A print method run dry stops here (matplotlib's `_get_renderer`).
+        _figure_draws.stop_dry_run(renderer)
         native = _figure_draws.take(self)
         if native is not None:
             # A canvas drawing the figure through its class' own draw

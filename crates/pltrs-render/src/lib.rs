@@ -67,7 +67,7 @@ pub use raster::{
     GlyphBitmap, GlyphShape, RasterBackendError, RasterRenderer, glyph_axis_aligned, render_glyph,
     set_texts_as_paths,
 };
-pub use renderer::{Renderer, draw_text_as_path};
+pub use renderer::{Renderer, TextLine, TextLines, draw_text_as_path};
 pub use svg::{
     Attribute, ImageFile, PROLOG as SVG_PROLOG, SvgFontType, SvgOptions, SvgRenderer,
     UnknownSvgFontType, XmlWriter,

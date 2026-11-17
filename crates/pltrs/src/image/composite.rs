@@ -296,9 +296,15 @@ impl Compositor {
             Some(suppress) => suppress,
             None => ctx.renderer().option_image_nocomposite(),
         };
+        let enabled = has_images && !suppressed;
         Self {
-            enabled: has_images && !suppressed,
-            magnification: ctx.renderer().image_magnification(),
+            enabled,
+            // Asked only where images are composited, as matplotlib asks.
+            magnification: if enabled {
+                ctx.renderer().image_magnification()
+            } else {
+                1.0
+            },
             clip,
             group: Vec::new(),
         }

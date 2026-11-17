@@ -3,12 +3,13 @@
 //! blitting through saved regions; and the raster canvas of a
 //! `RendererAgg` the program makes, behind no figure's canvas.
 
-use pltrs::artist::RawHandle;
+use pltrs::artist::{ArtistHandle, RawHandle};
 use pltrs::axes::Axes;
 use pltrs::figure::{BufferRegion, CanvasError, Figure, PixelBox};
 use pltrs::transforms::{Bbox, Point};
 use pltrs_render::RasterRenderer;
 
+use super::super::drawing::{PythonRenderer, Replaced, ReplacingRenderer};
 use super::super::lines::markevery_error;
 use crate::binding::prelude::*;
 use crate::binding::wrap_native;
@@ -43,11 +44,39 @@ fn rgba_array(width: usize, height: usize, data: Vec<u8>) -> PyResult<NdArray<u8
 /// (`FigureCanvasAgg.draw`); a line whose `markevery` does not fit it
 /// raises matplotlib's `ValueError`.
 fn draw(figure: Figure) -> PyResult<()> {
-    match figure.canvas().draw() {
-        Err(CanvasError::Draw(problems)) => Err(markevery_error(&figure, &problems)
+    let drawn = figure.canvas().draw();
+    raised(&figure, drawn)
+}
+
+/// What a draw of `figure`'s canvas that gave `drawn` raises: a line
+/// whose `markevery` does not fit the figure raises matplotlib's
+/// `ValueError`.
+fn raised(figure: &Figure, drawn: Result<(), CanvasError>) -> PyResult<()> {
+    match drawn {
+        Err(CanvasError::Draw(problems)) => Err(markevery_error(figure, &problems)
             .unwrap_or_else(|| CanvasError::Draw(problems).into())),
         drawn => Ok(drawn?),
     }
+}
+
+/// [`draw`] with the drawing methods `replaced` (matplotlib's names)
+/// going through the program's code, which replaced them on `renderer`,
+/// the canvas' `RendererAgg`, or on its class (a program logging what is
+/// drawn): the others draw onto the canvas.
+fn draw_replacing(figure: Figure, renderer: Owned, replaced: Vec<String>) -> PyResult<()> {
+    let replaced: Vec<Replaced> = replaced
+        .iter()
+        .filter_map(|name| Replaced::named(name))
+        .collect();
+    let handle = figure.raw().clone();
+    let drawn = figure.canvas().draw_through(|canvas| {
+        Box::new(ReplacingRenderer::new(
+            canvas,
+            PythonRenderer::new(renderer, Some(handle)),
+            replaced,
+        ))
+    });
+    raised(&figure, drawn)
 }
 
 /// The canvas's pixels: straight-alpha RGBA rows from the top, as a
@@ -159,6 +188,7 @@ fn width_height(figure: Figure) -> PyResult<(u32, u32)> {
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("draw", draw)?;
+    module.add("draw_replacing", draw_replacing)?;
     module.add("buffer_rgba", buffer_rgba)?;
     module.add("copy_from_bbox", copy_from_bbox)?;
     module.add("restore_region", restore_region)?;

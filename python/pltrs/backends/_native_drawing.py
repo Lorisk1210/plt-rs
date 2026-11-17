@@ -58,10 +58,12 @@ def native_gc(gc):
         (gc.get_snap(), gc.get_sketch_params(), gc.get_url(), gc.get_gid()))
 
 
-def gc_from_native(spec, gc):
+def gc_from_native(spec, gc, with_gid=True):
     """Set the graphics context *gc* as pltrs (Rust) describes one
     (*spec*, the form `native_gc` gives, its clip path as the
-    ``(vertices, codes)`` of a path); return *gc*."""
+    ``(vertices, codes)`` of a path), its gid only *with_gid* (matplotlib's
+    artists hand a renderer their gid in the context only for images);
+    return *gc*."""
     stroke, (offset, dashes), (clip, clip_path), hatch, extras = spec
     rgba, alpha, antialiased, capstyle, joinstyle, linewidth = stroke
     gc.set_alpha(alpha)
@@ -85,7 +87,8 @@ def gc_from_native(spec, gc):
     gc.set_snap(snap)
     gc.set_sketch_params(*(sketch or ()))
     gc.set_url(url)
-    gc.set_gid(gid)
+    if with_gid:
+        gc.set_gid(gid)
     return gc
 
 

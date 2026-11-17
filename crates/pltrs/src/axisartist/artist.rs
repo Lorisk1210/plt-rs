@@ -25,7 +25,7 @@ use crate::fonts::FontProperties;
 use crate::patches::{DisplayPath, paint_paths};
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
-use crate::text::TextProblem;
+use crate::text::{TextOwner, TextProblem};
 use crate::ticker::AxisName;
 use crate::transforms::{ResolvedTransform, Transform};
 
@@ -568,7 +568,14 @@ impl AxisArtistState {
             // matrices multiplies zeros by the infinite pad.
             crate::warnings::warn_runtime("invalid value encountered in dot");
         }
-        draw_text(ctx, id, text, &self.rc, AxisTextDraw::AfterMeasuring);
+        draw_text(
+            ctx,
+            id,
+            text,
+            &self.rc,
+            AxisTextDraw::AfterMeasuring,
+            TextOwner::Unnamed,
+        );
         if !ended && ctx.ended() {
             labels.note_failed_draw(offset);
         }
@@ -668,7 +675,14 @@ impl Artist for AxisArtistState {
             }
         }
         if let Some(offset) = &drawing.offset {
-            draw_text(ctx, id, offset, &self.rc, AxisTextDraw::AfterMeasuring);
+            draw_text(
+                ctx,
+                id,
+                offset,
+                &self.rc,
+                AxisTextDraw::AfterMeasuring,
+                TextOwner::Unnamed,
+            );
         }
         let (style, edge_default) = self.line.patch_style(&self.rc);
         if let Err(err) = paint_paths(

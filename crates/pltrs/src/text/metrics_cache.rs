@@ -41,12 +41,28 @@ pub struct MetricsCacheInfo {
     pub size: usize,
 }
 
+/// How a renderer of the program's measures a line: `(line, font, kind,
+/// dpi)` to its metrics (matplotlib's `get_text_width_height_descent`).
+pub type ProgramMeasure =
+    Box<dyn Fn(&str, &FontProperties, LineKind, f64) -> Result<LineMetrics, TextError>>;
+
 /// The metrics of the lines measured with one renderer, which measures
-/// them as its kind of renderer does.
-#[derive(Debug, Default)]
+/// them as its kind of renderer does, or by its own measure.
+#[derive(Default)]
 pub struct MetricsCache {
     lines: RefCell<Lines>,
     metrics: RendererMetrics,
+    program: Option<ProgramMeasure>,
+}
+
+impl std::fmt::Debug for MetricsCache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MetricsCache")
+            .field("lines", &self.lines)
+            .field("metrics", &self.metrics)
+            .field("program", &self.program.is_some())
+            .finish()
+    }
 }
 
 impl MetricsCache {
@@ -64,8 +80,20 @@ impl MetricsCache {
         }
     }
 
+    /// An empty cache of a renderer of the program's, whose `measure`
+    /// measures every line the cache lacks (matplotlib's lines laid out
+    /// with that renderer are measured by its
+    /// `get_text_width_height_descent`).
+    pub fn measured_by(measure: ProgramMeasure) -> Self {
+        Self {
+            program: Some(measure),
+            ..Self::default()
+        }
+    }
+
     /// The metrics of `line` in `font` typeset as `kind` at `dpi`: the
-    /// cached ones (a hit), else those `measure` gives, which are cached
+    /// cached ones (a hit), else those `measure` gives (or the measure of
+    /// the program's renderer, if the cache has one), which are cached
     /// (a miss; failures are not).
     ///
     /// # Errors
@@ -83,7 +111,10 @@ impl MetricsCache {
         if let Some(metrics) = self.lines.borrow_mut().find(line, font, kind, dpi) {
             return Ok(metrics);
         }
-        let metrics = measure()?;
+        let metrics = match &self.program {
+            Some(program) => program(line, font, kind, f64::from_bits(dpi))?,
+            None => measure()?,
+        };
         self.lines
             .borrow_mut()
             .insert(line, font, kind, dpi, metrics);
@@ -111,6 +142,16 @@ thread_local! {
 /// this thread measures; returns the cache installed before.
 pub fn set_metrics_cache(cache: Option<Rc<MetricsCache>>) -> Option<Rc<MetricsCache>> {
     CURRENT.replace(cache)
+}
+
+/// Whether the cache installed on the thread is that of a renderer of the
+/// program's, which measures the lines it lacks with Python code.
+pub(crate) fn measured_by_program() -> bool {
+    CURRENT.with_borrow(|current| {
+        current
+            .as_ref()
+            .is_some_and(|cache| cache.program.is_some())
+    })
 }
 
 /// Whether a cache is installed on the thread.

@@ -278,8 +278,9 @@ impl Artist for AxesImageArtist {
     /// scale images themselves, when their map is affine (matplotlib's
     /// `_check_unsampled_image`).
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        if self.core.resampling.interpolation == Interpolation::None
-            && ctx.renderer().option_scale_image()
+        // matplotlib asks the renderer first.
+        if ctx.renderer().option_scale_image()
+            && self.core.resampling.interpolation == Interpolation::None
             && let Some(unsampled) = self.unsampled(ctx)
         {
             // Unsampled, the image made ahead is not drawn.

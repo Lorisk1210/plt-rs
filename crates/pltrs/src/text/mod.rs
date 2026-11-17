@@ -32,6 +32,7 @@
 mod annotation;
 pub(crate) use annotation::reconnect_drag;
 mod copy;
+mod drawn;
 mod error;
 pub(crate) mod font_notes;
 mod handle;
@@ -50,10 +51,12 @@ mod tex;
 mod text_box;
 mod wrap;
 
+use std::borrow::Cow;
 use std::cell::Cell;
 use std::rc::Rc;
 
 use pltrs_core::{Bbox, Point};
+use pltrs_render::{TextLine, TextLines};
 use pltrs_text::{BlockStyle, Shaping, TextAnchor, TextRun, TextSource};
 
 use crate::artist::{Artist, ArtistBase, ArtistStore, DrawContext, LayoutContext, ProgramShaping};
@@ -71,6 +74,7 @@ pub use annotation::{
     AnnotateOptions, Annotation, ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps,
 };
 pub(crate) use annotation::{AnnotationArrow, AnnotationState, ArrowTarget, StartRegion};
+pub use drawn::{AxisTextPart, DrawnText, TextOwner};
 pub use error::TextDrawError;
 pub(crate) use error::{TextProblem, fmt_layout_error, layout_error_kind};
 pub use handle::{Text, TextProps};
@@ -88,7 +92,9 @@ pub(crate) use metrics::{
     hinting, with_afm_metrics, with_line_measure, with_text_path_metrics, without_hinting,
 };
 pub(crate) use metrics_cache::installed as metrics_cache_installed;
-pub use metrics_cache::{METRICS_CACHE_SIZE, MetricsCache, MetricsCacheInfo, set_metrics_cache};
+pub use metrics_cache::{
+    METRICS_CACHE_SIZE, MetricsCache, MetricsCacheInfo, ProgramMeasure, set_metrics_cache,
+};
 pub(crate) use overrides::has_line_measurer;
 pub use overrides::{
     DrawnPath, LineKind, LineMeasurer, TexPainter, TextPainter, measure_line, measure_line_pdf,
@@ -602,7 +608,14 @@ impl TextArtist {
         let rotation = inputs.style.rotation;
         let mut drawn = Ok(());
         with_path_effects(ctx, &self.base.path_effects, |ctx| {
-            drawn = draw_laid_out(ctx, &gc, &laid_out, anchor, rotation);
+            drawn = draw_laid_out(
+                ctx,
+                &gc,
+                &laid_out,
+                anchor,
+                rotation,
+                TextOwner::Artist(self.base.id()),
+            );
         })?;
         drawn
     }
@@ -744,7 +757,9 @@ impl Artist for TextArtist {
 /// has one, draws the block instead. A block anchored at a point that is
 /// not finite is not drawn, as matplotlib's `Text.draw` returns there,
 /// and neither is a block of a draw that has ended (an earlier text of the
-/// artist drawing it failed, say: matplotlib's draw raised there).
+/// artist drawing it failed, say: matplotlib's draw raised there). A
+/// renderer taking texts whole (a renderer of the program's) is handed the
+/// block first, with its `owner`.
 ///
 /// # Errors
 ///
@@ -757,6 +772,7 @@ pub(crate) fn draw_laid_out(
     laid_out: &LaidOutText,
     anchor: Point,
     angle: f64,
+    owner: TextOwner,
 ) -> Result<(), TextDrawError> {
     if !anchor.is_finite() || ctx.ended() {
         return Ok(());
@@ -765,25 +781,12 @@ pub(crate) fn draw_laid_out(
         overrides::paint(&*painter, ctx, laid_out, anchor, gc.foreground);
         return Ok(());
     }
-    let single = laid_out.runs.len() == 1;
+    if ctx.renderer().takes_texts_whole() && draw_whole(ctx, gc, laid_out, anchor, angle, owner) {
+        return Ok(());
+    }
     let mut result = Ok(());
-    for (line, run) in laid_out.block.lines.iter().zip(&laid_out.runs) {
-        let anchored;
-        let run = if single {
-            anchored = TextRun {
-                anchor: Some(TextAnchor {
-                    point: anchor,
-                    halign: laid_out.style.halign,
-                    valign: laid_out.style.valign,
-                    rotation_mode: laid_out.style.rotation_mode,
-                }),
-                ..run.clone()
-            };
-            &anchored
-        } else {
-            run
-        };
-        let origin = anchor + line.origin;
+    for (run, origin) in anchored_lines(laid_out, anchor) {
+        let run = &*run;
         let rounds = ctx.renderer().rounds_glyph_positions();
         if let Some(TextSource::Tex(tex)) = &run.source {
             if let Some(painter) = overrides::tex_painter() {
@@ -819,6 +822,71 @@ pub(crate) fn draw_laid_out(
         }
     }
     result
+}
+
+/// The lines of `laid_out` anchored at `anchor`, each with the left end
+/// of its baseline: a single line tells where and how the text is
+/// anchored, as matplotlib passes the text artist along with single-line
+/// texts.
+fn anchored_lines(
+    laid_out: &LaidOutText,
+    anchor: Point,
+) -> impl Iterator<Item = (Cow<'_, TextRun>, Point)> {
+    let single = laid_out.runs.len() == 1;
+    laid_out
+        .block
+        .lines
+        .iter()
+        .zip(&laid_out.runs)
+        .map(move |(line, run)| {
+            let run = if single {
+                Cow::Owned(TextRun {
+                    anchor: Some(TextAnchor {
+                        point: anchor,
+                        halign: laid_out.style.halign,
+                        valign: laid_out.style.valign,
+                        rotation_mode: laid_out.style.rotation_mode,
+                    }),
+                    ..run.clone()
+                })
+            } else {
+                Cow::Borrowed(run)
+            };
+            (run, anchor + line.origin)
+        })
+}
+
+/// Hands the renderer `laid_out` whole (see
+/// [`Renderer::draw_text_lines`](pltrs_render::Renderer::draw_text_lines));
+/// whether it drew it.
+fn draw_whole(
+    ctx: &mut DrawContext<'_>,
+    gc: &pltrs_render::GraphicsContext,
+    laid_out: &LaidOutText,
+    anchor: Point,
+    angle: f64,
+    owner: TextOwner,
+) -> bool {
+    let runs: Vec<_> = anchored_lines(laid_out, anchor).collect();
+    let lines: Vec<TextLine<'_>> = runs
+        .iter()
+        .map(|(run, origin)| TextLine {
+            run,
+            origin: *origin,
+        })
+        .collect();
+    let source = DrawnText {
+        owner,
+        font: laid_out.font.clone(),
+    };
+    ctx.renderer().draw_text_lines(
+        gc,
+        &TextLines {
+            lines: &lines,
+            angle,
+            source: &source,
+        },
+    )
 }
 
 /// What laying a text out reads from its figure: the box of the figure it

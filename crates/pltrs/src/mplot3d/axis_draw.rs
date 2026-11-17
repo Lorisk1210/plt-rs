@@ -23,7 +23,7 @@ use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::patches::{PatchStyle, draw_patch_paths};
 use crate::patheffects::with_path_effects;
-use crate::text::{draw_laid_out, lay_out};
+use crate::text::{TextOwner, draw_laid_out, lay_out};
 use crate::transforms::{ResolvedTransform, Transform};
 
 mod lines;
@@ -665,7 +665,15 @@ impl<'a> Painter<'a> {
             antialiased: rc.text_antialiased,
             ..GraphicsContext::default()
         };
-        if let Err(err) = draw_laid_out(ctx, &gc, &laid_out, anchor, text.block.rotation) {
+        let drawn = draw_laid_out(
+            ctx,
+            &gc,
+            &laid_out,
+            anchor,
+            text.block.rotation,
+            TextOwner::Unnamed,
+        );
+        if let Err(err) = drawn {
             ctx.report_kind(self.axes.base_id(), err.kind(), err);
         }
     }

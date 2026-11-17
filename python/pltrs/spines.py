@@ -402,6 +402,12 @@ class Spine(Patch):
         # A linear spine is measured through its class too (its
         # `get_window_extent` adjusts it first, as matplotlib's).
         _python_drawing.draw_through_python(self, measures=self._is_linear)
+        figure = self.get_figure(root=True)
+        if self._is_linear and figure is not None:
+            # Asked by the axis label in each draw, also of an Axes showing
+            # no frame, which draws no spine (`_when_figure_drawn`).
+            from ._computed_transforms import follow
+            follow(figure).add(self)
 
     def _push_layout(self):
         """Have pltrs (Rust) lay the linear spine out as its class does,
@@ -430,6 +436,26 @@ class Spine(Patch):
                        None)
         return (isinstance(axis, Artist) and axis.get_visible() and axis._autolabelpos
                 and axis.get_label_position() == self.spine_type)
+
+    def _pushes_own_path(self):
+        """Whether the spine's class lays it out itself (`_push_layout`),
+        which reads its transform as matplotlib's draw reads it: the
+        figure's draws then ask no transform of it besides."""
+        return bool(self.__dict__.get("_adjusts_itself")) and self._is_linear
+
+    def _when_figure_drawn(self):
+        """In each draw of its figure, have a spine laid out by its class
+        measured where matplotlib's axis label measures it as it places
+        itself (`_asked_by_label`) though the spine is not drawn: in an
+        Axes showing no frame (`draw` asks it otherwise). A print that
+        matplotlib draws once before (``predrawn``) asks it twice."""
+        axes = self.axes
+        if (self._pushes_own_path() and axes is not None and axes.get_visible()
+                and not axes.get_frame_on() and self._asked_by_label()):
+            canvas = self.get_figure(root=True).canvas
+            predrawn = getattr(canvas, "_print_options", {}).get("predrawn")
+            for _ in range(1 + bool(predrawn)):
+                self.get_window_extent()
 
     def _readies_before_measured(self):
         # A linear spine laid out by its class (see `_before_measured`).

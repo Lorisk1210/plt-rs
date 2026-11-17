@@ -17,6 +17,7 @@ from ._helpers import _make_axes_method
 from .scatter import _mapping
 
 _contour_arguments = _lazy_imports.module(globals(), "..._contour_arguments")
+_contour_setters = _lazy_imports.module(globals(), "..._contour_setters")
 
 
 def _linestyles(styles):
@@ -166,7 +167,11 @@ def _style(contours, look, kwargs):
         _contour_arguments.check_linestyles(contours, contours._orig_linestyles)
     _contour_arguments.keep_unheld(contours, contours.__dict__.get("_given_transform"),
                                    widths)
+    # A class of the program's sees the setters matplotlib's constructor
+    # calls, before and after the keywords it sets last.
+    _contour_setters.replay_making(contours)
     contours._made_with(kwargs)
+    _contour_setters.replay_adding(contours)
     return contours
 
 

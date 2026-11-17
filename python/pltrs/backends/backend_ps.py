@@ -19,7 +19,7 @@ from .._native import (
 from ..backend_bases import (
     _Backend, FigureCanvasBase, FigureManagerBase, GraphicsContextBase)
 from ..font_manager import FontManager
-from ..text import _measuring_with
+from ..text import _drawing_with
 from ._backend_pdf_ps import RendererPDFPSBase
 from ._native_drawing import DocumentDrawingMixin
 from ._ps_arguments import CAPS, JOINS, PsArgumentsMixin, check_numbers
@@ -412,7 +412,8 @@ class FigureCanvasPS(FigureCanvasBase):
         orientation = _api.getitem_checked(
             _Orientation, orientation=orientation.lower())
         width, height = self.figure.get_size_inches()
-        with _measuring_with(RendererPS(width, height, None, imagedpi=self.figure.dpi)):
+        with _drawing_with(self.figure, RendererPS(width, height, None,
+                                                   imagedpi=self.figure.dpi)):
             self._print_native(
                 fmt, outfile, metadata=dsc_comments,
                 bbox_inches_restore=bbox_inches_restore,

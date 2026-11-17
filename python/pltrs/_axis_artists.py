@@ -118,7 +118,9 @@ class _AxisPart(_mirrors.Mirroring):
         figure = artist.get_figure(root=True)
         if figure is None or not artist.get_visible():
             return self.owner._extent(artist)
-        renderer = artist._measuring_renderer(renderer, figure, weakly=False)
+        # Drawn with the axis: its Axes' draws count the text's.
+        draws = _artist.draw_count(_axis_of(self.owner).axes._native)
+        renderer = artist._measuring_renderer(renderer, figure, weakly=False, draws=draws)
         with _measured_by(renderer, figure.dpi):
             return self.owner._extent(artist)
 

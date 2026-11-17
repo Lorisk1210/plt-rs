@@ -12,7 +12,6 @@ functions of its shape.
 import functools
 import inspect
 import math
-import warnings
 import weakref
 from numbers import Number, Real
 
@@ -33,6 +32,7 @@ _own_state = _lazy_imports.module(globals(), "._own_state")
 _state = _lazy_imports.module(globals(), "._patch_state", "_state")
 _patch_arguments = _lazy_imports.module(globals(), "._patch_arguments")
 _unit_values = _lazy_imports.module(globals(), "._unit_values")
+_quiet_warnings = _lazy_imports.module(globals(), "._quiet_warnings")
 
 cbook._set_module(__name__, ArrowStyle, BoxStyle, ConnectionStyle, _Style)
 from ._program_classes import takes_from_program
@@ -3409,8 +3409,7 @@ def _float_ends(positions):
     cast without the warning matplotlib gives where it maps them
     (`_cast_as_drawn`); `TypeError` or `ValueError` for values that are
     no numbers."""
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", np.exceptions.ComplexWarning)
+    with _quiet_warnings.ignored(np.exceptions.ComplexWarning):
         return [tuple(map(float, pos)) for pos in positions]
 
 

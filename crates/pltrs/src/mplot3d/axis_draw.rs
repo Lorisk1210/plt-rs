@@ -23,7 +23,7 @@ use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::patches::{PatchStyle, draw_patch_paths};
 use crate::patheffects::with_path_effects;
-use crate::text::{TextOwner, draw_laid_out, lay_out};
+use crate::text::{BoxPlacement, TextBoxPatch, TextOwner, draw_laid_out, lay_out};
 use crate::transforms::{ResolvedTransform, Transform};
 
 mod lines;
@@ -173,6 +173,8 @@ pub struct AxisText3D {
     /// Its extent in display pixels, a box of no size at its anchor when
     /// it is empty.
     pub extent: Bbox,
+    /// The angle it is drawn at, in degrees, in `[0, 360)`.
+    pub rotation: f64,
 }
 
 /// What the parts of an axis go to: a renderer drawing them, or
@@ -290,6 +292,7 @@ impl Sink for Texts<'_> {
                 part: text.part,
                 position: text.position,
                 extent,
+                rotation: text.block.rotation,
             });
         }
     }
@@ -337,6 +340,8 @@ struct PlacedText<'t> {
     color: &'t Color,
     block: BlockStyle,
     position: Point,
+    /// The box drawn behind it.
+    bbox: Option<&'t TextBoxPatch>,
 }
 
 impl<'a> Painter<'a> {
@@ -410,6 +415,7 @@ impl<'a> Painter<'a> {
     fn draw_pane(&self, ctx: &mut DrawContext<'_>, dir: Axis3) {
         let axis = self.axes.axis(dir);
         let (style, alpha) = match &axis.pane_style {
+            Some(pane) if !pane.visible => return,
             Some(pane) => (pane.style.clone(), pane.alpha),
             None => match axis.pane_color.resolve() {
                 Ok(rgba) => (
@@ -510,7 +516,7 @@ impl<'a> Painter<'a> {
             let rotation = if axis.label.rotated() {
                 edge.angle()
             } else {
-                0.0
+                axis.label.rotation
             };
             self.text_in_group(
                 sink,
@@ -528,6 +534,7 @@ impl<'a> Painter<'a> {
                         ..anchored(rotation, HAlign::Center)
                     },
                     position: self.project(at),
+                    bbox: axis.label.bbox.as_ref(),
                 },
             );
         }
@@ -660,6 +667,22 @@ impl<'a> Painter<'a> {
             Ok(color) => color,
             Err(err) => return self.report(ctx, err),
         };
+        if let Some(bbox) = text.bbox {
+            let (corner, size) = laid_out.block.frame;
+            let placement = BoxPlacement {
+                anchor,
+                corner,
+                size,
+                rotation: text.block.rotation,
+                fontsize_px: ctx.layout().points_to_pixels(text.font.size),
+            };
+            // The texts of an axis are not clipped.
+            let mut owner = ArtistBase::default();
+            owner.clip_on = false;
+            if let Err(err) = bbox.draw(ctx, &owner, rc, &placement) {
+                self.report(ctx, err);
+            }
+        }
         let gc = GraphicsContext {
             foreground,
             antialiased: rc.text_antialiased,

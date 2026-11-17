@@ -34,12 +34,13 @@ import pltrs.text as mtext
 from pltrs.collections import LineCollection
 from pltrs.font_manager import FontManager
 from pltrs.lines import Line2D
+from pltrs.patches import PathPatch
 from pltrs.path import Path
 from pltrs.transforms import Affine2D, Bbox, IdentityTransform, ScaledTranslation
 from pltrs._native import (
     artist as _artist, axisartist as _axisartist, text as _text)
 
-from . import _unchecked_parts
+from . import _axis_line, _unchecked_parts
 
 
 class AttributeCopier:
@@ -1379,34 +1380,6 @@ class TickLabels(AxisLabel):  # mtext.Text
         return extent.translated(dx, dy)
 
 
-class _AxisLine:
-    """The line of an axis artist (matplotlib's ``axis.line``)."""
-
-    def __init__(self, axis_artist):
-        self._axis_artist = axis_artist
-
-    @property
-    def _native(self):
-        return self._axis_artist._native
-
-    def set_color(self, color):
-        """Set the color of the line."""
-        _axisartist.set_line(self._native, "color", color)
-
-    def set_linewidth(self, w):
-        """Set the width of the line in points."""
-        _axisartist.set_line(self._native, "linewidth", w)
-
-    def set_visible(self, b):
-        """Set whether the line is drawn."""
-        _axisartist.set_line(self._native, "visible", bool(b))
-
-    def get_visible(self):
-        """Return whether the line is drawn."""
-        return _axisartist.get_line_visible(self._native)
-
-    set_lw = set_linewidth
-
 
 def _gridlines_choice(value, names):
     """A setting of the gridlines as pltrs (Rust) takes it: the name of
@@ -1612,11 +1585,33 @@ class AxisArtist(martist.Artist):
         self.axis = axes.yaxis if axis_direction in ["left", "right"] else axes.xaxis
         self._axisline_style = None
         self._axis_direction = axis_direction
-        self.line = _AxisLine(self)
         self._visible_parts = _axisartist.parts_visible(self._native)
         self._init_ticks()
         self._init_label()
         self.set_axis_direction(axis_direction)
+
+    @property
+    def line(self):
+        """The axis line: a `.PathPatch` along the axis, or the artist the
+        axis line style made (`set_axisline_style`), as matplotlib's
+        ``_init_line`` makes it (made when first read)."""
+        line = self.__dict__.get("_line")
+        if line is None:
+            transform = (self._axis_artist_helper.get_line_transform(self.axes)
+                         + self.offset_transform)
+            line = PathPatch(
+                self._axis_artist_helper.get_line(self.axes),
+                color=mpl.rcParams['axes.edgecolor'], fill=False,
+                linewidth=mpl.rcParams['axes.linewidth'],
+                capstyle=mpl.rcParams['lines.solid_capstyle'],
+                joinstyle=mpl.rcParams['lines.solid_joinstyle'],
+                transform=transform)
+            line = self._line = _axis_line.follow(line, self)
+        return line
+
+    @line.setter
+    def line(self, line):
+        self._line = line
 
     @property
     def offset_transform(self):
@@ -1896,6 +1891,11 @@ class AxisArtist(martist.Artist):
         _axisartist.set_axisline_style(self._native,
                                        axisline_style._native_text())
         self._axisline_style = axisline_style
+        # The style's line, as matplotlib's `_init_line` makes it; pltrs
+        # (Rust) draws it, the line's setters telling it.
+        transform = (self._axis_artist_helper.get_line_transform(self.axes)
+                     + self.offset_transform)
+        self.line = _axis_line.follow(axisline_style(self, transform=transform), self)
 
     def get_axisline_style(self):
         """Return the current axisline style."""

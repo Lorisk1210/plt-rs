@@ -122,10 +122,15 @@ pub(crate) fn on_curvilinear_grid(store: &ArtistStore, axes: ArtistId) -> bool {
 /// hidden as they are: matplotlib's rectilinear grid helper asks their
 /// locators where its axis artists place their ticks.
 pub(crate) fn reads_hidden_axes(store: &ArtistStore, axes: ArtistId) -> bool {
-    let has_axis_artists = store.get_as::<AxesState>(axes).is_some_and(|state| {
+    holds_axis_artists(store, axes) && !on_curvilinear_grid(store, axes)
+}
+
+/// Whether `axes` holds axis artists, whose measure lays their labels
+/// out by the gap the last one left (see [`AxisArtistState`]).
+pub(crate) fn holds_axis_artists(store: &ArtistStore, axes: ArtistId) -> bool {
+    store.get_as::<AxesState>(axes).is_some_and(|state| {
         (state.children.iter()).any(|&id| store.get_as::<AxisArtistState>(id).is_some())
-    });
-    has_axis_artists && !on_curvilinear_grid(store, axes)
+    })
 }
 
 impl Gridlines {

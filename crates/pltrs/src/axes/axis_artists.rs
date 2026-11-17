@@ -311,6 +311,8 @@ impl Axis {
     pub fn place_ticks(&self) -> Result<&Self, TickerError> {
         self.read(|axis| axis.ticks_placed.set(true));
         let (raw, name) = (&self.axes().raw, self.name());
+        // A removed axes is ticked where it stood, as matplotlib's is.
+        let _standing = raw.standing_in();
         (raw.figure_state()).work_on(|state| state.place_ticks_as_is(raw.id(), name));
         self.read(|axis| {
             axis.place_ticks();
@@ -329,6 +331,8 @@ impl Axis {
     pub fn place_level_ticks(&self, minor: bool) -> Result<&Self, TickerError> {
         self.read(|axis| axis.ticks_placed.set(true));
         let (raw, name) = (&self.axes().raw, self.name());
+        // A removed axes is ticked where it stood, as matplotlib's is.
+        let _standing = raw.standing_in();
         (raw.figure_state()).work_on(|state| state.place_level_as_is(raw.id(), name, minor));
         self.read(|axis| {
             axis.place_ticks();

@@ -685,9 +685,13 @@ class PolarAxes(PolarTrees, Axes):
     def _gen_axes_spines(self):
         # docstring inherited; pltrs (Rust) draws the outer and inner arcs
         # and the sector's edges as matplotlib places them.
+        from .. import _spine_arcs
         from ..spines import Spine
-        return {name: Spine._of_axes(self, name)
-                for name in ['polar', 'start', 'end', 'inner']}
+        spines = {name: Spine._of_axes(self, name)
+                  for name in ['polar', 'start', 'end', 'inner']}
+        for name, spine in spines.items():
+            _spine_arcs.mark(spine, name, self)
+        return spines
 
     def _init_axis(self):
         # docstring inherited

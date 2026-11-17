@@ -163,6 +163,10 @@ class _Pane(mpatches.Polygon):
         super().set_alpha(alpha)
         self._restyled()
 
+    def set_visible(self, b):
+        super().set_visible(b)
+        self._restyled()
+
 
 # Named as the class matplotlib's pane is.
 _Pane.__name__ = _Pane.__qualname__ = "Polygon"

@@ -256,7 +256,7 @@ impl Figure {
             if super::failures::failed() {
                 return Ok(None);
             }
-            adjusted_params(state, &measured, params)
+            adjusted_params(state, &measured, None, params)
         })
     }
 }
@@ -283,18 +283,27 @@ impl FigureState {
             crate::text::measuring(|| Measured::new(self, axes, &subplot_params, None))
         })??;
         let evaluated = || axes.iter().any(|&id| self.measurement_evaluated(id));
-        if params.rect.is_some() && (self.ticks_by_program() || evaluated()) {
+        let measures_anew =
+            || (axes.iter()).any(|&id| crate::axisartist::holds_axis_artists(&self.store, id));
+        let second = if params.rect.is_some()
+            && (self.ticks_by_program() || evaluated() || measures_anew())
+        {
             // That second measure the program's tick helpers see, and it
             // evaluates its transform graph once more (its layouts are
-            // counted with the first).
-            font_notes::layouts_counted(0, || Measured::new(self, axes, &subplot_params, None))?;
-        }
+            // counted with the first); axis artists measure larger the
+            // second time, their labels placed by the gap the first left.
+            Some(font_notes::layouts_counted(0, || {
+                Measured::new(self, axes, &subplot_params, None)
+            })?)
+        } else {
+            None
+        };
         if super::failures::failed() {
             // The program's code failed measuring the axes, which ends
             // matplotlib's pass there.
             return Ok(());
         }
-        if let Some(overrides) = adjusted_params(self, &measured, params)? {
+        if let Some(overrides) = adjusted_params(self, &measured, second.as_ref(), params)? {
             self.set_subplot_params(subplot_params.updated(overrides)?)?;
         }
         Ok(())

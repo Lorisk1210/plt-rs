@@ -13,8 +13,8 @@ import inspect
 import numpy as np
 
 from . import _docstring
-from . import (_api, _axis_artists, _handles, _python_drawing, _unusable, _values,
-               rcParams)
+from . import (_api, _axis_artists, _handles, _lazy_imports, _python_drawing, _unusable,
+               _values, rcParams)
 from .colors import to_rgba
 from ._native import artist as _artist, axis as _axis, spines as _spines
 from ._program_classes import takes_from_program
@@ -34,6 +34,19 @@ _LINEAR_PATHS = {
     "bottom": [(0.999, 0.0), (0.999, 0.0)],
     "top": [(0.999, 1.0), (0.999, 1.0)],
 }
+
+
+_spine_arcs = _lazy_imports.module(globals(), "._spine_arcs")
+
+
+def _framing(natives, spine_type):
+    """Of the native spines *natives* of an Axes (by name), the one named
+    *spine_type*, else the one framing its outline: the top one, a polar
+    Axes' outer arc, a geographic Axes' circle."""
+    for name in (spine_type, "top", "polar", "geo"):
+        if name in natives:
+            return natives[name]
+    return None
 
 
 #: Whether the spines' transforms are read rather than asked for
@@ -171,7 +184,7 @@ class Spine(Patch):
         # The figure first, as matplotlib's constructor asks *axes* for it.
         figure = axes.get_figure(root=False)
         natives = dict(_spines.axes_spines(axes._native))
-        framing = natives.get(spine_type, natives.get("top", natives.get("polar")))
+        framing = _framing(natives, spine_type)
         _handles.adopt(self, _spines.new_spine(axes._native, _spines.side(framing)),
                        figure)
         # Known without asking pltrs (Rust), which the projection of a
@@ -210,7 +223,7 @@ class Spine(Patch):
         polar axes), else the spine framing its outline, as an object of
         *cls*."""
         natives = dict(_spines.axes_spines(axes._native))
-        native = natives.get(spine_type, natives.get("top", natives.get("polar")))
+        native = _framing(natives, spine_type)
         spine = _handles.wrap(native, cls, axes.figure)
         # Known without asking pltrs (Rust), which the projection of a
         # program's class cannot while it draws.
@@ -267,6 +280,9 @@ class Spine(Patch):
         (`_locate`).
         """
         self._shape = (center, size)
+        # Placed in its Axes' coordinates, as matplotlib's
+        # `set_patch_arc` and `set_patch_circle` place it.
+        self.set_transform(self.axes.transAxes)
         try:
             center = (float(center[0]), float(center[1]))
         except (TypeError, ValueError, LookupError):
@@ -489,7 +505,12 @@ class Spine(Patch):
 
     @property
     def _patch_type(self):
-        """The shape of the spine: 'line', 'arc' or 'circle'."""
+        """The shape of the spine: 'line', 'arc' or 'circle' (a polar Axes'
+        outer and inner spines are arcs, which pltrs (Rust) draws as lines
+        of their angle)."""
+        outline = self.__dict__.get("_outline_kind")
+        if outline is not None:
+            return outline
         return _spines.patch_type(self._native)
 
     #: Whether the position of the spine is set, as it is once the Axes is
@@ -613,7 +634,8 @@ class Spine(Patch):
         through its transform as matplotlib's linear spines are (not an
         arc, a circle or a spine of polar or geographic Axes, which pltrs
         (Rust) lays out in display space)."""
-        return self._patch_type == 'line' and self.spine_type in _LINEAR_PATHS
+        return (_spines.patch_type(self._native) == 'line'
+                and self.spine_type in _LINEAR_PATHS)
 
     @property
     def _path(self):
@@ -622,6 +644,8 @@ class Spine(Patch):
         # (as it stands, while pltrs (Rust) lays the figure out and runs a
         # projection's code reading it).
         try:
+            if _spine_arcs.reads_back(self):
+                return _spine_arcs.path(self)
             linear = self._is_linear
         except RuntimeError:
             return self.__dict__.get("_kept_path")
@@ -819,7 +843,7 @@ class Spine(Patch):
         if self._is_linear and self.__dict__.get("_adjusts_itself"):
             # As matplotlib's, laid out by the class' own hooks.
             self._push_layout()
-        elif self._is_linear:
+        elif self._is_linear and not self.__dict__.get("_outline_kind"):
             # Measuring spans the path over the view, as drawing does.
             self._linear_path()
             self._span_path()
@@ -838,6 +862,8 @@ class Spine(Patch):
             return line if self.axis is None else self._padded_as_type(line, assigned)
         extent = _spines.window_extent(self._native)
         if extent is None:
+            if self.__dict__.get("_outline_kind"):
+                return _spine_arcs.window_extent(self)
             return Bbox.null()
         x0, y0, x1, y1 = extent
         return Bbox([[x0, y0], [x1, y1]])
@@ -888,6 +914,8 @@ class Spine(Patch):
 
     def get_patch_transform(self):
         # docstring inherited
+        if _spine_arcs.reads_back(self):
+            return _spine_arcs.patch_transform(self)
         return super().get_patch_transform()
 
     def _keeps_given_path(self):
@@ -901,8 +929,10 @@ class Spine(Patch):
         # Return the path of the spine: that of a linear spine in data along
         # its axis and axes fractions across it (spanning the view where it
         # was last drawn or measured), the one given a spine drawn as it,
-        # the others in display coordinates, where pltrs (Rust) lays them
-        # out.
+        # an arc or a circle in its own unit coordinates, the others in
+        # display coordinates, where pltrs (Rust) lays them out.
+        if _spine_arcs.reads_back(self):
+            return _spine_arcs.path(self)
         if self._is_linear:
             return self._linear_path()
         if self._keeps_given_path():
@@ -922,6 +952,9 @@ class Spine(Patch):
     def get_transform(self):
         """Return the transform of the spine's path: the identity for the
         spines whose `get_path` is in display coordinates."""
+        if _spine_arcs.reads_back(self):
+            return self.get_patch_transform() + _spine_arcs.artist_transform(
+                self, self.__dict__.get("_given_transform"))
         if self._is_linear or self._keeps_given_path():
             if ("_given_transform" not in self.__dict__ and self.axes is not None
                     and _spines.unplaced(self._native)):

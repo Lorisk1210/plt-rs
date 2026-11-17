@@ -87,14 +87,13 @@ def report_font_open(name, path, parsing):
     """
     import sys
     import warnings
-    from . import cbook
+    from . import _quiet_warnings, cbook
     from .font_manager import get_font
     font = path if path is not None else cbook._get_data_path("fonts/ttf", name)
     if not parsing:
         get_font(font)
         return
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
+    with _quiet_warnings.recorded() as caught:
         get_font(font)
     # matplotlib's mathtext parses inside pyparsing, whose frame, outside
     # matplotlib, the warnings point at: here, this one.

@@ -17,6 +17,7 @@ use crate::artist::{ArtistHandle, ArtistLookup, LayoutContext};
 use crate::axes::{TickHelperKind, TickStyle, TickerDefaults};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
+use crate::text::TextBoxPatch;
 use crate::ticker::{Formatter, Locator, TickerError};
 use crate::transforms::TransformContext;
 
@@ -243,6 +244,47 @@ impl Axis3D {
         let dir = self.dir;
         self.axes
             .with_mut(|axes| axes.axis_mut(dir).label.color = color);
+        self
+    }
+
+    /// The angle the axis label is drawn at when it does not follow the
+    /// axis direction, in degrees (matplotlib's `label.get_rotation()`
+    /// until a draw turns it along the axis).
+    pub fn label_rotation(&self) -> f64 {
+        self.read(|axes| axes.axis(self.dir).label.rotation)
+    }
+
+    /// Turns the axis label by `degrees` where it does not follow the axis
+    /// direction (matplotlib's `label.set_rotation` with the axis'
+    /// `set_rotate_label(False)`, or a label of four characters or fewer).
+    ///
+    /// ```
+    /// use pltrs::mplot3d::Axis3;
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot_3d();
+    /// let z = ax.axis(Axis3::Z);
+    /// z.set_label_rotation(90.0);
+    /// assert_eq!(z.label_rotation(), 90.0);
+    /// ```
+    pub fn set_label_rotation(&self, degrees: f64) -> &Self {
+        let dir = self.dir;
+        self.axes
+            .with_mut(|axes| axes.axis_mut(dir).label.rotation = degrees.rem_euclid(360.0));
+        self
+    }
+
+    /// The box drawn behind the axis label, if any.
+    pub fn label_bbox(&self) -> Option<TextBoxPatch> {
+        self.read(|axes| axes.axis(self.dir).label.bbox.clone())
+    }
+
+    /// Draws `bbox` behind the axis label, or none (matplotlib's
+    /// `label.set_bbox`).
+    pub fn set_label_bbox(&self, bbox: Option<TextBoxPatch>) -> &Self {
+        let dir = self.dir;
+        self.axes
+            .with_mut(|axes| axes.axis_mut(dir).label.bbox = bbox);
         self
     }
 

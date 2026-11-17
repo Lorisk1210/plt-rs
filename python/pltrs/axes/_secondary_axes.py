@@ -253,8 +253,18 @@ class SecondaryAxis(Axes):
         scale of the inverted functions ('functionlog' over a log axis)."""
         if axis is self.__dict__.get("_axis") and name in ("function", "functionlog"):
             scale = mscale.FuncScaleLog if name == "functionlog" else mscale.FuncScale
-            return scale(axis, self._functions[::-1])
+            return scale(axis, self._scale_functions()[::-1])
         return super()._default_axis_scale(axis, name)
+
+    def _scale_functions(self):
+        """The functions the axis' scale was made with: matplotlib's
+        ``_set_scale`` makes it anew only when the parent's scale changed,
+        so `set_functions` leaves it the ones before."""
+        parent = getattr(self._parent, f"{self._orientation}axis").get_scale()
+        if self.__dict__.get("_scale_parent") != parent:
+            self._scale_parent = parent
+            self._scaled_by = self._functions
+        return self._scaled_by
 
     def _native_functions(self):
         """The functions, which pltrs (Rust) calls with arrays, as

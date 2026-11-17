@@ -187,7 +187,12 @@ fn mesh_on(
 /// as `get_facecolor` and `get_edgecolor` report them then (the update
 /// decides the default edges anew).
 fn faces_and_edges(collection: &Collection) -> Result<Json, ProbeError> {
-    let resolved = made(collection.update_scalarmappable().reported_colors())?;
+    let resolved = made(
+        collection
+            .update_scalarmappable()
+            .map_err(ProbeError::BadArgs)?
+            .reported_colors(),
+    )?;
     Ok(object([
         ("faces", colors(resolved.faces)),
         ("edges", colors(resolved.edges)),

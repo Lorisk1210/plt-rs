@@ -213,15 +213,19 @@ impl Axes {
         // Measured with the figure free where that runs the program's code
         // (a patch style or a transform of its own, which may read and
         // change the figure: matplotlib's `_update_patch_limits`).
+        let autoscaled = matches!(add_as, AddAs::Collection { autolim: true });
+        if autoscaled {
+            // matplotlib's `add_collection` brings the view up to date
+            // first: the limits of offsets in data coordinates are
+            // measured through it.
+            self.unstale_view();
+        }
         let shared = adopted.and_then(|()| figure.borrow().store.shared(artist.id()));
         let limits = shared.and_then(|adopted| self.limit_points_of(&*adopted));
         match add_as {
-            AddAs::Artist | AddAs::Text | AddAs::Image | AddAs::Collection { autolim: false } => {}
             AddAs::Line | AddAs::Patch => self.update_data(&DataUpdate::extending(limits)),
-            AddAs::Collection { autolim: true } => {
-                self.unstale_view();
-                self.update_data(&DataUpdate::autoscaled(limits));
-            }
+            _ if autoscaled => self.update_data(&DataUpdate::autoscaled(limits)),
+            _ => {}
         }
         Ok(artist)
     }

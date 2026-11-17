@@ -1206,6 +1206,22 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     get_linewidth.__doc__ = mcoll.Collection.get_linewidth.__doc__
     set_linewidth.__doc__ = mcoll.Collection.set_linewidth.__doc__
 
+    @property
+    def hatches(self):
+        """The hatch patterns cycled over the bands of a filled set, as
+        given (matplotlib's attribute, which its draws read)."""
+        return self.__dict__["_hatches_given"]
+
+    @hatches.setter
+    def hatches(self, hatches):
+        made = "_hatches_given" in self.__dict__
+        self._hatches_given = hatches
+        if made and np.iterable(hatches) and not isinstance(hatches, str):
+            # Assigned once the set is made: its draws hatch so.
+            _contour.set_hatches(self._contour,
+                                 [None if h is None else str(h) for h in hatches])
+            self.stale = True
+
     def get_hatch(self):
         # The hatching pattern of the set as a collection: none until one is
         # set (the bands' are `hatches`).
@@ -1214,9 +1230,19 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     get_hatch.__doc__ = mcoll.Collection.get_hatch.__doc__
 
     def set_hatch(self, hatch):
-        # The hatching pattern of the set as a collection.
-        super().set_hatch(hatch)
+        # The hatching pattern of the set as a collection, which the bands
+        # of a hatched filled set replace with theirs as they are drawn.
+        if self._bands_hatched():
+            from . import hatch as mhatch
+            mhatch._validate_hatch_pattern(hatch)
+            self.stale = True
+        else:
+            super().set_hatch(hatch)
         self._collection_hatch = hatch
+
+    def _bands_hatched(self):
+        """Whether the set is drawn band by band, each with its hatch."""
+        return self.filled and any(hatch is not None for hatch in self.hatches)
 
     set_hatch.__doc__ = mcoll.Collection.set_hatch.__doc__
 
@@ -1230,7 +1256,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         """
         faces = super().get_facecolor()
         values = mcolorizer._array_of(self)
-        hatched = self.filled and any(hatch is not None for hatch in self.hatches)
+        hatched = self._bands_hatched()
         if (not hatched or values is None or len(values) < 2 or len(faces) != 1
                 or not np.allclose(faces, self.to_rgba(values[:1], self.get_alpha()))):
             return faces
@@ -1531,17 +1557,31 @@ class QuadContourSet(ContourSet):
         # keywords are given back.
         if args and isinstance(args[0], QuadContourSet):
             self._generator = args[0]._generator
+            self._algorithm = args[0]._algorithm
+            self._corner_mask = args[0]._corner_mask
             return kwargs
-        from . import rcParams
-        rcParams.validate['contour.algorithm'](
-            rcParams['contour.algorithm'] if algorithm is None else algorithm)
+        self._algorithm, self._corner_mask = _generation_settings(algorithm, corner_mask)
         fn = 'contourf' if self.filled else 'contour'
         z, mask, x, y, _ = _contour_args(fn, args, kwargs)
         extent = None if self.extent is None else tuple(map(float, self.extent))
         chunks = _contour_arguments.held_chunks(self.nchunk) or 0
         self._generator = _ContourGenerator(
-            (z, mask, x, y, (self.origin, extent)), (corner_mask, chunks, algorithm))
+            (z, mask, x, y, (self.origin, extent)), (self._corner_mask, chunks, self._algorithm))
         return kwargs
+
+
+def _generation_settings(algorithm, corner_mask):
+    """The algorithm and corner masking a contour set keeps (its
+    ``_algorithm`` and ``_corner_mask``) for those given, None for the
+    defaults: :rc:`contour.algorithm` (validated), and
+    :rc:`contour.corner_mask` unless the algorithm is mpl2005, which has no
+    corner masking."""
+    from . import rcParams
+    algorithm = rcParams['contour.algorithm'] if algorithm is None else algorithm
+    rcParams.validate['contour.algorithm'](algorithm)
+    if corner_mask is None:
+        corner_mask = False if algorithm == "mpl2005" else rcParams['contour.corner_mask']
+    return algorithm, corner_mask
 
 
 def _contour_args(fn, args, kwargs):

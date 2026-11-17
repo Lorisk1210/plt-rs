@@ -209,16 +209,18 @@ class ContoursMixin:
         _contour_arguments.check_extent(extent)
         nchunk = kwargs.pop("nchunk", 0)
         chunks = _contour_arguments.held_chunks(nchunk)
-        generation = (kwargs.pop("corner_mask", None), chunks or 0,
-                      kwargs.pop("algorithm", None))
+        corner_mask, algorithm = kwargs.pop("corner_mask", None), kwargs.pop("algorithm", None)
         if args and isinstance(args[0], mcontour.QuadContourSet):
             # The field of that contour set is contoured again, at its
             # levels unless others are given (matplotlib's _process_args).
             generator = args[0]._generator
+            settings = args[0]._algorithm, args[0]._corner_mask
             levels = kwargs.pop("levels", None)
             if levels is None:
                 levels = args[0].levels
         else:
+            settings = mcontour._generation_settings(algorithm, corner_mask)
+            generation = (settings[1], chunks or 0, settings[0])
             if 2 < len(args) <= 4:
                 x, y, *rest = args
                 args = (*self._process_unit_info([("x", x), ("y", y)], kwargs), *rest)
@@ -236,6 +238,7 @@ class ContoursMixin:
                                   _levels(levels), *look[:2])
         contours = _finish(mcontour.QuadContourSet, native, self, look, kwargs, made, levels)
         contours._generator = generator
+        contours._algorithm, contours._corner_mask = settings
         if origin == 'image':
             from ... import rcParams
             origin = rcParams['image.origin']

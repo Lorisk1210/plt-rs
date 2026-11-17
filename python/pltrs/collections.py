@@ -211,9 +211,11 @@ def _limit_as_scaled(limit, values):
 
 
 def _set_identity_transform(collection):
-    """Call the ``set_transform`` the class of *collection* takes from the
-    program as matplotlib's constructors of the collections drawn in
-    display units call it (pltrs (Rust) made them so)."""
+    """Give *collection* the identity transform as matplotlib's
+    constructors of the collections drawn in display units do, after the
+    keyword arguments: a ``transform`` given there is replaced, and a
+    ``set_transform`` the class takes from the program is called (pltrs
+    (Rust) made them so)."""
     from .transforms import IdentityTransform
     collection.set_transform(IdentityTransform())
 
@@ -1332,11 +1334,14 @@ class Collection(mcolorizer.ColorizingArtist):
         if isinstance(c, str) and c.lower() in ("none", "face"):
             c = c.lower()
         self._original_facecolor = c
-        _refused_colors.take(self, "facecolor", c, lambda: _collections.set_facecolors(
+        unfit = _refused_colors.take(self, "facecolor", c, lambda: _collections.give_facecolors(
             self._native, None if c is None else _rgba(c)))
         self._face_fill = not cbook._str_lower_equal(c, "none")
         if _OWN in self.__dict__:
             _own_state.drop(self, "facecolors")
+        if unfit is not None:
+            # Alphas that do not fit the colours: set, but not resolved.
+            raise ValueError(unfit)
 
     def get_edgecolor(self):
         if cbook._str_equal(self._get("edgecolor_setting"), "face"):
@@ -1399,7 +1404,7 @@ class Collection(mcolorizer.ColorizingArtist):
         """
         if isinstance(c, str) and c.lower() in ("none", "face"):
             c = c.lower()
-        _refused_colors.take(self, "edgecolor", c, lambda: _collections.set_edgecolors(
+        unfit = _refused_colors.take(self, "edgecolor", c, lambda: _collections.give_edgecolors(
             self._native, _edge_spec(c)))
         if _OWN in self.__dict__:
             _own_state.drop(self, "edgecolors")
@@ -1408,6 +1413,8 @@ class Collection(mcolorizer.ColorizingArtist):
             # colour it refused still is.
             _collections.decide_default_edges_as(
                 self._native, cbook._str_equal(self._original_facecolor, "none"))
+        if unfit is not None:
+            raise ValueError(unfit)
 
     def set_color(self, c):
         """
@@ -1433,6 +1440,12 @@ class Collection(mcolorizer.ColorizingArtist):
         _check_array_alpha(alpha)
         if _OWN in self.__dict__:
             self._forget_colors()
+        array = self.__dict__.get("_array_alpha")
+        if array is not None and not np.iterable(alpha) and not bool(alpha != array):
+            # matplotlib's `Artist.set_alpha` compares the alpha with the
+            # array it had (`alpha != self._alpha`): an array of one value
+            # equal to it is kept, and the colours are set again with it.
+            alpha = array
         if np.iterable(alpha):
             alpha = np.asarray(alpha, dtype=float)
             # The array itself comes back, as matplotlib keeps it, even
@@ -1441,12 +1454,6 @@ class Collection(mcolorizer.ColorizingArtist):
             _collections.set_alphas(self._native, alpha.ravel().tolist(),
                                     list(alpha.shape))
         else:
-            array = self.__dict__.get("_array_alpha")
-            if array is not None:
-                # matplotlib's `Artist.set_alpha` compares the alpha with
-                # the array it had (`alpha != self._alpha`), whose truth
-                # numpy refuses unless it holds exactly one value.
-                bool(alpha != array)
             self._array_alpha = None
             super().set_alpha(alpha)
             # The colours read back as set again, until the next draw.
@@ -2091,7 +2098,7 @@ class RegularPolyCollection(_CollectionWithSizes):
             3, float(rotation) if usable else 0., np.zeros(0))
         super().__init__(**kwargs)
         self.set_sizes(sizes)
-        if "set_transform" in self._program_setters:
+        if "transform" in kwargs or "set_transform" in self._program_setters:
             _set_identity_transform(self)
         self._numsides = numsides
         _collections.set_paths(self._native, [self._path_generator(numsides)])
@@ -2503,7 +2510,7 @@ class CircleCollection(_CollectionWithSizes):
         self._native = _collections.new_circle_collection(np.zeros(0))
         super().__init__(**kwargs)
         self.set_sizes(sizes)
-        if "set_transform" in self._program_setters:
+        if "transform" in kwargs or "set_transform" in self._program_setters:
             _set_identity_transform(self)
 
 
@@ -2548,7 +2555,7 @@ class EllipseCollection(Collection):
         self.set_widths(widths)
         self.set_heights(heights)
         self.set_angles(angles)
-        if "set_transform" in self._program_setters:
+        if "transform" in kwargs or "set_transform" in self._program_setters:
             _set_identity_transform(self)
         self._units = units
         # The unit circle itself, as matplotlib's collection keeps it,
@@ -2604,6 +2611,19 @@ class EllipseCollection(Collection):
     def get_angles(self):
         """Get the angles of the first axes, degrees CCW from the x-axis."""
         return _collections.ellipse_sizes(self._native)[2]
+
+    def get_transform(self):
+        # docstring inherited
+        transform = super().get_transform()
+        if (self._units == 'xy' and isinstance(transform, mtransforms.IdentityTransform)
+                and self.axes is not None and _artist.draw_count(self._native)):
+            # matplotlib's draws give ellipses sized in data units the data
+            # scale as their transform (`_set_transforms`), the offsets
+            # left out.
+            matrix = self.axes.transData.get_affine().get_matrix().copy()
+            matrix[:2, 2:] = 0
+            return mtransforms.Affine2D(matrix)
+        return transform
 
     def _drawn_transforms(self):
         # None before the first draw, then the ellipses' as the draws

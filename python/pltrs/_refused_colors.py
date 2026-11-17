@@ -28,11 +28,12 @@ def take(collection, side, c, give):
     Give *collection* the colour *c* of *side* (``"facecolor"`` or
     ``"edgecolor"``) through *give*, which raises for a colour it refuses:
     then the collection keeps *c* (see `._unusable`) to fail the draws
-    that set it again with, and the error propagates.
+    that set it again with, and the error propagates. Returns what *give*
+    returns.
     """
     key = f"refused {side}"
     try:
-        give()
+        given = give()
     except (TypeError, ValueError):
         drawn = _flags_set(collection)
         if drawn:
@@ -42,6 +43,7 @@ def take(collection, side, c, give):
                            measured=False)
         raise
     _unusable.drop(collection, key)
+    return given
 
 
 def _flags_set(collection):

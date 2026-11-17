@@ -4,6 +4,7 @@
 
 use std::rc::Rc;
 
+use pltrs_core::numeric::remainder;
 use pltrs_core::{Path, Point};
 use pltrs_text::{HAlign, VAlign};
 
@@ -240,12 +241,14 @@ impl<'s> Placer<'s> {
             .unwrap_or_else(|| label.text.clone());
         let mut artist = TextArtist::new(data, written.clone(), Rc::clone(&style.rc));
         artist.font = style.font.clone();
-        if style.rotates_with_data {
-            artist.rotation = self.display_to_data.transform_angle(rotation, at);
+        // matplotlib's `Text(rotation=...)` keeps it as `set_rotation` does
+        // (`float(s) % 360`: a rotation just below zero reads 360).
+        artist.rotation = if style.rotates_with_data {
             artist.transform_rotates_text = true;
+            remainder(self.display_to_data.transform_angle(rotation, at), 360.0)
         } else {
-            artist.rotation = rotation;
-        }
+            remainder(rotation, 360.0)
+        };
         artist.halign = HAlign::Center;
         artist.valign = VAlign::Center;
         artist.color = Color::from(label.color);
@@ -261,7 +264,7 @@ impl<'s> Placer<'s> {
                 level: label.level,
                 text: written,
                 position: at,
-                rotation: pltrs_core::numeric::remainder(rotation, 360.0),
+                rotation: remainder(rotation, 360.0),
                 color: label.color,
                 artist: id,
                 index: Some(label.index),

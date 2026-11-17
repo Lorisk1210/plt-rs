@@ -80,8 +80,8 @@ impl Table {
     pub fn scale(&self, xscale: f64, yscale: f64) -> &Self {
         self.update(|t| {
             for (_, cell) in &mut t.cells {
-                cell.width *= xscale;
-                cell.height *= yscale;
+                cell.width.set(cell.width.get() * xscale);
+                cell.height.set(cell.height.get() * yscale);
             }
         })
     }
@@ -371,22 +371,41 @@ impl TableCell {
 
     /// The width in axes fractions.
     pub fn width(&self) -> f64 {
-        self.read(|cell| cell.width)
+        self.read(|cell| cell.width.get())
+    }
+
+    /// Whether the width is one the table set since it was given (see
+    /// [`Table::auto_set_column_width`]): when it fitted the column to its
+    /// texts, or stretched the table over its box.
+    pub fn width_fitted(&self) -> bool {
+        self.read(|cell| cell.width_fitted.get())
+    }
+
+    /// Whether the height is one the table set since it was given: when
+    /// it stretched the table over its box.
+    pub fn height_fitted(&self) -> bool {
+        self.read(|cell| cell.height_fitted.get())
     }
 
     /// The height in axes fractions.
     pub fn height(&self) -> f64 {
-        self.read(|cell| cell.height)
+        self.read(|cell| cell.height.get())
     }
 
     /// Sets the width in axes fractions.
     pub fn set_width(&self, width: f64) -> &Self {
-        self.update(|cell| cell.width = width)
+        self.update(|cell| {
+            cell.width.set(width);
+            cell.width_fitted.set(false);
+        })
     }
 
     /// Sets the height in axes fractions.
     pub fn set_height(&self, height: f64) -> &Self {
-        self.update(|cell| cell.height = height)
+        self.update(|cell| {
+            cell.height.set(height);
+            cell.height_fitted.set(false);
+        })
     }
 }
 
@@ -425,7 +444,7 @@ mod tests {
                 (cell.style.linewidth, cell.base.alpha),
                 (Some(2.0), Some(0.5))
             );
-            assert_eq!((cell.edges, cell.height), (CellEdges::OPEN, 0.2));
+            assert_eq!((cell.edges, cell.height.get()), (CellEdges::OPEN, 0.2));
         });
     }
 
@@ -464,7 +483,7 @@ mod tests {
         let added = table.add_cell(-3, 5, 0.25, 0.0);
         assert_eq!(added.key(), (-3, 5));
         added.read(|cell| {
-            assert_eq!((cell.width, cell.height), (0.25, 0.0));
+            assert_eq!((cell.width.get(), cell.height.get()), (0.25, 0.0));
             assert_eq!((cell.text.as_str(), cell.loc), ("", HAlign::Right));
             assert_eq!(cell.edges, CellEdges::CLOSED, "not the table's edges");
             assert_eq!(cell.style.facecolor, Some(Color::from("w")));

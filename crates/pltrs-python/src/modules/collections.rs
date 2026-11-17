@@ -78,7 +78,8 @@ fn hatch_colors(value: &Bound<'_>) -> PyResult<HatchColors> {
     Ok(HatchColors::Colors(rgba_rows(&value.extract()?)?))
 }
 
-/// Sets the face colours (`None`: the kind's default again).
+/// Sets the face colours (`None`: the kind's default again), as the
+/// field `_facecolors` is assigned.
 fn set_facecolors(collection: Collection, colors: Option<NdArray>) -> PyResult<()> {
     match colors {
         Some(colors) => collection.set_facecolors(rgba_rows(&colors)?),
@@ -87,11 +88,32 @@ fn set_facecolors(collection: Collection, colors: Option<NdArray>) -> PyResult<(
     Ok(())
 }
 
-/// Sets the edge colours (`None`: the default rule; `"face"`; colours).
+/// Sets the edge colours (`None`: the default rule; `"face"`; colours),
+/// as the field `_edgecolors` is assigned.
 fn set_edgecolors(collection: Collection, colors: Owned) -> PyResult<()> {
     let edges = Python::with_gil(|py| edge_colors(&colors.bind(py)))?;
     collection.set_edgecolors(edges);
     Ok(())
+}
+
+/// Gives the face colours as `set_facecolor` does (`None`: the kind's
+/// default again); returns numpy's `ValueError` message when per-item
+/// alphas cannot be broadcast onto them, for the setter to raise once it
+/// has noted them (matplotlib keeps the colour given before it fails to
+/// resolve it, and the colours it had).
+fn give_facecolors(collection: Collection, colors: Option<NdArray>) -> PyResult<Option<String>> {
+    if let Some(colors) = colors {
+        return Ok(collection.try_set_facecolors(rgba_rows(&colors)?).err());
+    }
+    collection.reset_facecolor();
+    Ok(None)
+}
+
+/// Gives the edge colours as `set_edgecolor` does; returns the message of
+/// alphas that do not fit them, as [`give_facecolors`] does.
+fn give_edgecolors(collection: Collection, colors: Owned) -> PyResult<Option<String>> {
+    let edges = Python::with_gil(|py| edge_colors(&colors.bind(py)))?;
+    Ok(collection.try_set_edgecolors(edges).err())
 }
 
 /// Has the default edge rule decide as if the faces were `unfilled` or
@@ -158,8 +180,10 @@ fn set_alpha(artist: RawHandle, alpha: Option<f64>) -> PyResult<()> {
 /// Maps the values onto the colours the getters report, as a draw does
 /// (matplotlib's `update_scalarmappable`).
 fn update_scalarmappable(collection: Collection) -> PyResult<()> {
-    collection.update_scalarmappable();
-    Ok(())
+    collection
+        .update_scalarmappable()
+        .map(drop)
+        .map_err(PyErr::value_error)
 }
 
 /// Sets the hatch pattern.
@@ -630,6 +654,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_ellipse_sizes", set_ellipse_sizes)?;
     module.add("get", get)?;
     module.add("set_facecolors", set_facecolors)?;
+    module.add("give_facecolors", give_facecolors)?;
+    module.add("give_edgecolors", give_edgecolors)?;
     module.add("set_edgecolors", set_edgecolors)?;
     module.add("decide_default_edges_as", decide_default_edges_as)?;
     module.add("set_hatchcolors", set_hatchcolors)?;

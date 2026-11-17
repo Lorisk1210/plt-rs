@@ -151,6 +151,15 @@ def _numpy_number(value):
     return kind is float or kind is bool or kind is np.float64 or kind is np.int64
 
 
+def _masked_as_nan(values):
+    """*values* (a bar's width or height as ``_convert_dx`` gives it) with
+    numpy's masked constant, which a list of the elements of a masked
+    array holds, as NaN: converting it to a float warns."""
+    if isinstance(values, list) and any(value is np.ma.masked for value in values):
+        return [np.nan if value is np.ma.masked else value for value in values]
+    return values
+
+
 def _check_bar_geometry(x, height, width, y, align, orientation):
     """
     Fail as matplotlib's ``bar`` fails with geometry that is no numbers:
@@ -445,6 +454,7 @@ class BarsMixin:
                 [("x", x), ("x", width), ("y", y)], kwargs, convert=False)
         # Convert now, since some types cannot be subtracted uniformly.
         x0, y0 = x, y
+        masked = np.ma.isMaskedArray(width) or np.ma.isMaskedArray(height)
         x = np.asarray(self.convert_xunits(x))
         width = self._convert_dx(width, x0, x, self.convert_xunits)
         if xerr is not None:
@@ -453,6 +463,13 @@ class BarsMixin:
         height = self._convert_dx(height, y0, y, self.convert_yunits)
         if yerr is not None:
             yerr = self._convert_dx(yerr, y0, y, self.convert_yunits)
+
+        # Masked elements of what ``_convert_dx`` lists are converted (and
+        # warned of) where matplotlib broadcasts the bars' arguments, below,
+        # and quietly everywhere else.
+        listed = width, height
+        if masked:
+            width, height = map(_masked_as_nan, listed)
 
         position, value = (x, height) if orientation == 'vertical' else (y, width)
         thickness, base = (width, y) if orientation == 'vertical' else (height, x)
@@ -469,7 +486,7 @@ class BarsMixin:
                                       "'linewidth'", "'hatch'"]):
                 message = message.replace(f"arg {i}", name)
             raise ValueError(message) from e
-        _check_bar_geometry(x, height, width, y, align, orientation)
+        _check_bar_geometry(x, listed[1], listed[0], y, align, orientation)
         n = int(np.prod(n)) if n else 1
 
         if not isinstance(label, str) and np.iterable(label):

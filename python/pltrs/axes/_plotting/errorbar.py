@@ -78,6 +78,8 @@ def _upcast_err(err):
 
 def _in_units(err):
     """Whether the errors *err* are values in units rather than numbers."""
+    if np.asarray(err).dtype.kind in "biufc":
+        return False  # (numbers, masked ones included, read without a warning)
     flat = np.ravel(err)
     return flat.size > 0 and not isinstance(cbook._safe_first_finite(flat), Number)
 

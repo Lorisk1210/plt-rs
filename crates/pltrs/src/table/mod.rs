@@ -29,7 +29,7 @@ use std::fmt;
 use std::rc::Rc;
 use std::str::FromStr;
 
-use pltrs_core::Bbox;
+use pltrs_core::{Bbox, Point};
 use pltrs_text::HAlign;
 
 pub use cell::CellEdges;
@@ -502,7 +502,7 @@ impl Artist for TableArtist {
         let Some((maps, placed)) = self.placed_for_drawing(ctx) else {
             return;
         };
-        self.remember_fitted(&placed);
+        self.remember_placed(&placed);
         let mut order: Vec<usize> = (0..self.cells.len()).collect();
         order.sort_by_key(|&i| self.cells[i].0);
         ctx.renderer().open_group("table", self.base.gid.as_deref());
@@ -512,12 +512,33 @@ impl Artist for TableArtist {
         ctx.renderer().close_group("table");
     }
 
+    /// matplotlib's `Table.contains`: whether `at` falls in the union of
+    /// the display boxes of the cells (row and column labels left out)
+    /// where they are now, without placing them.
+    fn contains(&self, ctx: &LayoutContext<'_>, at: Point) -> bool {
+        let Some(maps) = self.axes_box(*ctx).and_then(|bbox| AxesMaps::of(&bbox)) else {
+            return false;
+        };
+        let cell_maps = self.cell_maps(*ctx, &maps);
+        let Ok(placed) = self.place_as_is(*ctx, &maps) else {
+            return false;
+        };
+        placed
+            .iter()
+            .zip(&self.cells)
+            .zip(&cell_maps)
+            .filter(|((_, ((row, column), _)), _)| *row >= 0 && *column >= 0)
+            .map(|((placed, (_, cell)), maps)| cell.display_box(&placed.bbox, &maps.to_display))
+            .reduce(|a, b| a.union(&b))
+            .is_some_and(|cells| cells.contains(at))
+    }
+
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         self.positioned.set(true);
         let maps = AxesMaps::of(&self.axes_box(*ctx)?)?;
         let cell_maps = self.cell_maps(*ctx, &maps);
         let placed = self.place(*ctx, &maps).ok()?;
-        self.remember_fitted(&placed);
+        self.remember_placed(&placed);
         placed
             .iter()
             .zip(&self.cells)

@@ -32,6 +32,7 @@ _empty_conversions = _lazy_imports.module(globals(), "._empty_conversions")
 _held_axis = _lazy_imports.module(globals(), "._held_axis")
 _sharing = _lazy_imports.module(globals(), ".axes._sharing")
 _numpy_values = _lazy_imports.module(globals(), "._numpy_values")
+_unit_values = _lazy_imports.module(globals(), "._unit_values")
 
 #: The number of segments of a gridline curved by its projection (polar
 #: axes' circles), as matplotlib interpolates them.
@@ -142,12 +143,13 @@ def _is_native_converter(converter):
     :rc:`date.converter` says, and category names), which None, no
     converter, stands for too. Another date converter (a
     `.ConciseDateConverter` a program registered) converts as any
-    converter of the program's."""
+    converter of the program's, and so does a subclass of the category
+    converter (pandas' of UUIDs converts them to bytes first)."""
     from . import category, dates
     if type(converter) is dates.DateConverter:
         return converter._interval_multiples
-    return converter is None or isinstance(
-        converter, (dates._SwitchableDateConverter, category.StrCategoryConverter))
+    return converter is None or type(converter) in (
+        dates._SwitchableDateConverter, category.StrCategoryConverter)
 
 
 def _warn_if_incompatible(current, converter):
@@ -1478,6 +1480,7 @@ class Axis(DrawnWith, Artist):
         self._units = None
         self._category_units = None
         self.__dict__.pop("_category_keys", None)
+        self.__dict__.pop("_category_names_seen", None)
         self.__dict__.pop("_units_given", None)
 
     def set_default_intervals(self):
@@ -2586,6 +2589,7 @@ class Axis(DrawnWith, Artist):
         if vars(self).get("_units_given") or not _axis.has_categories(*self._args()):
             return self._units
         units = self._shared_category_units()
+        self._follow_category_units(units)
         keys = self._shared_category_keys()
         names = _axis.category_names(*self._args())
         units._mapping.clear()
@@ -2593,7 +2597,19 @@ class Axis(DrawnWith, Artist):
                               for index, name in enumerate(names))
         # The next category the program adds gets the next id.
         units._counter = itertools.count(len(names))
+        self._category_names_seen = tuple(units._mapping)
         return units
+
+    def _follow_category_units(self, units):
+        """Hand pltrs (Rust) the names of the axis' category data *units*
+        if the program changed them in place since the axis last saw them
+        (``axis.units.update(names)``, a `.UnitData` it gave `set_units`),
+        as matplotlib's converter converts with the object itself."""
+        seen = vars(self).get("_category_names_seen")
+        if seen is None or tuple(units._mapping) == seen:
+            return
+        names = sorted(units._mapping, key=units._mapping.get)
+        _axis.set_categories(*self._args(), self._kept_category_names(names))
 
     @units.setter
     def units(self, units):
@@ -2652,13 +2668,23 @@ class Axis(DrawnWith, Artist):
             return
         from .category import UnitData
         if isinstance(u, UnitData):
-            # pltrs (Rust) keeps the names of a categorical axis.
-            self._update_native_units(list(u._mapping))
+            # The names of *u*, in its order, replace those pltrs (Rust)
+            # placed on the axes sharing the axis, which share *u* as
+            # their units.
+            _axis.set_categories(*self._args(), self._kept_category_names(list(u._mapping)))
+            for axis in self._get_shared_axis():
+                axis._category_units = u
+                axis._category_names_seen = tuple(u._mapping)
         elif isinstance(u, datetime.tzinfo):
             _set_native_zone(self, u)
         for axis in self._get_shared_axis():
             axis.units = u
             axis._update_axisinfo()
+            # The artists keeping values in units convert them with the new
+            # units first, as matplotlib's convert them when the Axes'
+            # handler measures them for the data limits.
+            if "_unit_artists" in axis.__dict__:
+                _unit_values.units_changed(axis)
             axis.callbacks.process('units')
 
     def _get_shared_axis(self):
@@ -2754,12 +2780,22 @@ class Axis(DrawnWith, Artist):
         from .axes._plotting._helpers import axis_values
         values = axis_values(data)
         if isinstance(values, list):
-            # Category names keep the type they were given in.
-            keys = self._shared_category_keys()
-            for value in np.atleast_1d(np.array(data, dtype=object)).ravel():
-                if isinstance(value, bytes):
-                    keys.setdefault(value.decode(), value)
+            self._kept_category_names(data)
+            if self._category_units is not None:
+                self._follow_category_units(self._category_units)
         return _axis.update_units(*self._args(), values)
+
+    def _kept_category_names(self, names):
+        """The category names *names* as pltrs (Rust) takes them, those
+        given as bytes decoded: they keep the type they were given in."""
+        keys = self._shared_category_keys()
+        taken = []
+        for name in np.atleast_1d(np.array(names, dtype=object)).ravel():
+            if isinstance(name, bytes):
+                keys.setdefault(name.decode(), name)
+                name = name.decode()
+            taken.append(name)
+        return taken
 
     def _update_axisinfo(self):
         """Give the axis the tick helpers, label and default limits its
@@ -2892,6 +2928,9 @@ class Axis(DrawnWith, Artist):
         """
         self._set_converter(converter)
         self._converter_is_explicit = True
+        # matplotlib's patches and texts convert with it where they draw.
+        if "_unit_artists" in self.__dict__:
+            _unit_values.units_changed(self)
 
     def _set_converter(self, converter):
         current = self.get_converter()

@@ -328,6 +328,22 @@ pub(crate) trait UnitHandle: Sized {
         self.read_state(|state| state.units().converter.is_some() || state.units().unit.is_some())
     }
 
+    /// Makes `categories` the category names of the axis and of the axes
+    /// sharing it, in place of those placed so far (matplotlib's
+    /// `set_units` with a `UnitData`, which every axis sharing the axis
+    /// takes): names converted later take their positions from them, and
+    /// an axis converting category names ticks at them. The artists on
+    /// the axes follow when the caller has them convert their values
+    /// again (matplotlib's `_unit_change_handler`).
+    fn replace_categories(&self, categories: &Categories) {
+        self.update_shared_states(|state| {
+            *state.categories_mut() = Some(categories.clone());
+            if matches!(state.units().converter, Some(UnitConverter::Categories)) {
+                state.use_category_tickers();
+            }
+        });
+    }
+
     /// Lets the axis pick its converter and unit from `values`
     /// (matplotlib's `update_units`); returns whether the values have
     /// units, numbers having none.

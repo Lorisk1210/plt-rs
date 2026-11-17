@@ -13,7 +13,7 @@ mod zones;
 pub(super) use locators::{Zone, date_locator};
 use pltrs::dates::{
     DateError, Datetime64, MICROSECONDS_PER_DAY, TimeZone, datetime64_to_num, get_epoch, num2date,
-    num2timedelta, reset_epoch, set_epoch, wrap_in_tex,
+    num2timedelta, ordinal_message_written, reset_epoch, set_epoch, wrap_in_tex,
 };
 pub(super) use zones::PyZone;
 
@@ -68,8 +68,10 @@ type UtcParts = ((i32, u32, u32), (u32, u32, u32, u32));
 /// date of the years 1–9999 has: as it rounds the number of microseconds
 /// to a Python integer (`ValueError` for NaN, `OverflowError` for an
 /// infinity), makes it a numpy `timedelta64` (`OverflowError` beyond 64
-/// bits), and checks the year (`ValueError`).
-fn ordinal_error(x: f64) -> PyErr {
+/// bits), and checks the year (`ValueError`, with the number as Python
+/// writes it: an integer's digits when the numbers were given as
+/// `integers`).
+fn ordinal_error(x: f64, integers: bool) -> PyErr {
     let micros = (x * MICROSECONDS_PER_DAY).round_ties_even();
     if x.is_nan() {
         PyErr::value_error("cannot convert float NaN to integer")
@@ -81,22 +83,24 @@ fn ordinal_error(x: f64) -> PyErr {
     } else if micros.abs() >= 2f64.powi(63) {
         PyErr::new(ExceptionKind::OverflowError, "int too big to convert")
     } else {
-        PyErr::value_error(format!(
-            "Date ordinal {x} converts to a date (using epoch {}), but Matplotlib \
-             dates must be between year 0001 and 9999.",
-            get_epoch()
-        ))
+        let written = if integers {
+            format!("{x:.0}")
+        } else {
+            pltrs_core::pyfmt::repr(x)
+        };
+        PyErr::value_error(ordinal_message_written(&written, x, &get_epoch()))
     }
 }
 
-/// The UTC dates of date numbers, as calendar parts; for numbers outside
-/// the years 1–9999 matplotlib's error ([`ordinal_error`]).
-fn num_to_utc(numbers: NdArray) -> PyResult<Vec<UtcParts>> {
+/// The UTC dates of date numbers, as calendar parts (given as `integers`,
+/// or as floats); for numbers outside the years 1–9999 matplotlib's error
+/// ([`ordinal_error`]).
+fn num_to_utc(numbers: NdArray, integers: bool) -> PyResult<Vec<UtcParts>> {
     numbers
         .data
         .iter()
         .map(|&x| {
-            let utc = num2date(x, &TimeZone::Utc).map_err(|_| ordinal_error(x))?;
+            let utc = num2date(x, &TimeZone::Utc).map_err(|_| ordinal_error(x, integers))?;
             let local = utc.local();
             let (date, time) = (local.date(), local.time());
             Ok((
@@ -171,9 +175,9 @@ mod tests {
         assert_eq!(days[0], 0.5);
         assert_eq!(days[1], (-86_401.0 + 0.999_999_999) / 86_400.0);
         assert!(days[2].is_nan());
-        let parts = num_to_utc(NdArray::from_vec(vec![0.5])).unwrap();
+        let parts = num_to_utc(NdArray::from_vec(vec![0.5]), false).unwrap();
         assert_eq!(parts, [((1970, 1, 1), (12, 0, 0, 0))]);
-        assert!(num_to_utc(NdArray::from_vec(vec![1e9])).is_err());
+        assert!(num_to_utc(NdArray::from_vec(vec![1e9]), true).is_err());
         let micros = num_to_timedelta(NdArray::from_vec(vec![1.5])).unwrap();
         assert_eq!(micros.data, [129_600_000_000]);
     }

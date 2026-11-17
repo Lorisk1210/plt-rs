@@ -322,6 +322,16 @@ impl Axis3D {
         self
     }
 
+    /// Makes `categories` the category names of the axis and of the axes
+    /// sharing it, in place of those placed so far (matplotlib's
+    /// `set_units` with a `UnitData`), as [`Axis::set_categories`] does.
+    ///
+    /// [`Axis::set_categories`]: crate::axes::Axis::set_categories
+    pub fn set_categories(&self, categories: &Categories) -> &Self {
+        self.replace_categories(categories);
+        self
+    }
+
     /// The category names placed on the axis, in position order, if any
     /// were (matplotlib's `axis.units` on a categorical axis).
     pub fn categories(&self) -> Option<Categories> {

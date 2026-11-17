@@ -10,10 +10,11 @@ matplotlib's does wherever matplotlib's would place the point.
 
 import numpy as np
 
-from . import _api, _lazy_imports, _unusable, _values, units
+from . import _api, _kept_geometry, _lazy_imports, _unusable, _values, units
 from ._native import annotation as _annotation
 
 _text_module = _lazy_imports.module(globals(), ".text", "_text_module")
+_unit_values = _lazy_imports.module(globals(), "._unit_values")
 
 
 def native_point(xy, figure):
@@ -182,6 +183,19 @@ class KeptMixin:
         for name, coords in (("xycoords", self._xycoords), ("anncoords", self._textcoords)):
             if native_coords(coords, figure) is None:
                 self._keep_coords(name, coords)
+
+    def _convert_units_for(self, axes):
+        # The text position as a text's, then the annotated point in units,
+        # which matplotlib converts where it places it (``_get_xy``).
+        super()._convert_units_for(axes)
+        xy = self.xy
+        try:
+            in_units = _kept_geometry.in_units(xy[0]) or _kept_geometry.in_units(xy[1])
+        except (TypeError, LookupError):
+            in_units = False
+        if in_units:
+            self._hold_xy(xy)
+            _unit_values.follow(self, axes)
 
     def _hold_xy(self, xy):
         """Make *xy* the annotated point, as given: handed to pltrs (Rust)

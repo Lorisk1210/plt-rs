@@ -392,8 +392,9 @@ class FillsMixin:
             # The checks of matplotlib's `StepPatch`, which takes any
             # orientation other than 'vertical' for 'horizontal'.
             mpatches.StepPatch._check_data(edges, values, baseline)
+            # `StepPatch` takes masked values and edges as their data.
             native = _plotting.stairs(
-                self._native, floats(values), floats(edges),
+                self._native, *(np.asarray(data, dtype=float).ravel() for data in (values, edges)),
                 None if baseline is None else np.asarray(baseline, dtype=float),
                 ('vertical' if orientation == 'vertical' else 'horizontal', bool(fill)), color)
         except Exception:

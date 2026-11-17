@@ -21,7 +21,9 @@ pub enum DateError {
     /// A computation produced a date outside the representable years
     /// `0001..=9999` (Python's `OverflowError` for datetime arithmetic).
     Overflow,
-    /// A Matplotlib date number converts to a date outside `0001..=9999`.
+    /// A Matplotlib date number converts to a date outside `0001..=9999`
+    /// (matplotlib's `ValueError`, whose message names the instant from
+    /// the current epoch: [`ordinal_message`](super::ordinal_message)).
     DateNumberOutOfRange(f64),
     /// A date number is NaN or infinite where a finite value is required.
     NonFinite(f64),
@@ -73,10 +75,9 @@ impl fmt::Display for DateError {
                 write!(f, "{field} {value} is out of range")
             }
             Self::Overflow => f.write_str("date value out of range (years 1..=9999)"),
-            Self::DateNumberOutOfRange(x) => write!(
-                f,
-                "date number {x} converts to a date outside years 0001..=9999"
-            ),
+            Self::DateNumberOutOfRange(x) => {
+                f.write_str(&super::ordinal_message(*x, &super::get_epoch()))
+            }
             Self::NonFinite(x) => write!(f, "cannot convert non-finite date number {x}"),
             Self::Parse { input, reason } => write!(f, "cannot parse date {input:?}: {reason}"),
             Self::EpochAlreadySet => f.write_str("set_epoch must be called before dates plotted."),

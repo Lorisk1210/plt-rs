@@ -60,16 +60,19 @@ def axis_values(values):
         for name in names:
             _api.check_isinstance((str, bytes), value=name)
         return [name.decode() if isinstance(name, bytes) else name for name in names]
-    if np.ma.isMaskedArray(values):
+    if np.ma.isMaskedArray(values) and not _is_dates(np.ma.getdata(values)):
         return np.ma.filled(values.astype(float), np.nan).ravel()
-    array = np.asarray(values)
+    array = values if np.ma.isMaskedArray(values) else np.asarray(values)
     if array.dtype.kind in "US" or (
             array.dtype == object and array.size
             and all(isinstance(v, str) for v in array.ravel())):
         return [str(v) for v in array.ravel()]
     if _is_dates(array):
         from ... import dates
-        return ("dates", np.atleast_1d(np.asarray(dates.date2num(array), float)).ravel(),
+        # Masked dates convert to the numbers matplotlib's `date2num` leaves
+        # under the mask, which `convert_units` masks again.
+        numbers = np.ma.getdata(dates.date2num(array))
+        return ("dates", np.atleast_1d(np.asarray(numbers, float)).ravel(),
                 dates._axis_zone(array))
     return np.atleast_1d(array.astype(float)).ravel()
 
@@ -96,7 +99,12 @@ def convert_units(axes, name, values):
         # A scalar converts to a scalar, as matplotlib's date and category
         # converters give it.
         return converted[0]
-    return converted.reshape(array.shape)
+    converted = converted.reshape(array.shape)
+    if isinstance(native, tuple) and np.ma.isMaskedArray(values):
+        # Masked dates stay masked, as matplotlib's `date2num` gives them
+        # (category names convert as their array's data).
+        return np.ma.masked_array(converted, mask=np.ma.getmaskarray(values))
+    return converted
 
 
 def line_data(axes, x, y):

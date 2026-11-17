@@ -49,6 +49,9 @@ pub enum TickerError {
     /// A date-time computed beyond the years 1-9999, for which Python's
     /// date arithmetic raises `OverflowError`.
     DateOverflow,
+    /// A date number whose instant lies beyond the years 1-9999, which
+    /// matplotlib's `num2date` refuses with a `ValueError`.
+    DateNumberOutOfRange(f64),
 }
 
 pltrs_core::archive_enum!(TickerError {
@@ -64,6 +67,7 @@ pltrs_core::archive_enum!(TickerError {
     Format(v0),
     Arange(v0),
     DateOverflow,
+    DateNumberOutOfRange(v0),
 });
 
 impl TickerError {
@@ -71,9 +75,10 @@ impl TickerError {
     /// error when a figure is drawn.
     pub fn draw_kind(&self) -> DrawErrorKind {
         match self {
-            Self::NonPositiveLogData | Self::NotAnInteger { infinite: false } | Self::Arange(_) => {
-                DrawErrorKind::InvalidValue
-            }
+            Self::NonPositiveLogData
+            | Self::NotAnInteger { infinite: false }
+            | Self::Arange(_)
+            | Self::DateNumberOutOfRange(_) => DrawErrorKind::InvalidValue,
             Self::NotAnInteger { infinite: true } | Self::DateOverflow => DrawErrorKind::Overflow,
             Self::PolarLogit => DrawErrorKind::Unsupported,
             Self::TickKeywordTwice(_) => DrawErrorKind::InvalidType,
@@ -117,6 +122,10 @@ impl fmt::Display for TickerError {
             Self::Format(err) => err.fmt(f),
             Self::Arange(message) => f.write_str(message),
             Self::DateOverflow => f.write_str("date value out of range"),
+            Self::DateNumberOutOfRange(x) => f.write_str(&crate::dates::ordinal_message(
+                *x,
+                &crate::dates::get_epoch(),
+            )),
         }
     }
 }

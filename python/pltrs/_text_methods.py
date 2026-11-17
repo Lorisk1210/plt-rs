@@ -10,7 +10,7 @@ from numbers import Real
 import numpy as np
 
 from . import _docstring
-from . import _handles, _lazy_imports, units as munits
+from . import _handles, _kept_geometry, _lazy_imports, units as munits
 from ._native import annotation as _annotation, text as _text
 from ._annotation_kept import annotate_arguments, warn_textcoords
 from ._artist_clipping import clipped_as_added
@@ -18,6 +18,7 @@ from ._program_classes import takes_from_program
 from .text import Annotation, Text, _is_offset, _place
 
 _program_adds = _lazy_imports.module(globals(), ".axes._program_adds")
+_unit_values = _lazy_imports.module(globals(), "._unit_values")
 
 
 def _text_kwargs(fontdict, kwargs):
@@ -209,6 +210,9 @@ class AxesText:
         annotation = _handles.wrap(native, Annotation, self._figure)
         annotation._init_annotation((x, y), (tx, ty), xycoords, textcoords, arrowprops,
                                     kwargs)
+        if not {type(value) for value in (x, y, tx, ty)} <= _kept_geometry.PLAIN_TYPES:
+            # Converted again when the units change (see `._unit_values`).
+            _unit_values.follow(annotation, self)
         _program_adds.announce(self, annotation)
         return annotation
     annotate.__doc__ = Annotation.__init__.__doc__

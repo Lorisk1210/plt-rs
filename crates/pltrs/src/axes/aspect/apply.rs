@@ -2,7 +2,7 @@
 //! active position of an axes, or the view interval widened for
 //! [`Adjustable::Datalim`], from its data ratio.
 
-use pltrs_core::Bbox;
+use pltrs_core::{Affine2D, Bbox};
 
 use super::{Adjustable, AspectError, AxesLocatorFn};
 use crate::artist::{Artist, ArtistId, DrawError, DrawErrorKind};
@@ -239,6 +239,47 @@ impl FigureState {
         self.apply_aspect_at(axes, placement)
     }
 
+    /// The host an axes owned by `parent` is placed in for its aspect, if
+    /// it is placed in one: insets and secondary axes are placed in their
+    /// host axes, in the fractions of the host's figure, as matplotlib's
+    /// locator places them there before it applies the aspect (axes
+    /// covering their host, at `original` the unit box, stay in its
+    /// fractions unless placed `in_figure`). The host's box and its
+    /// figure's, in pixels, and the map from the host's fractions to the
+    /// figure's.
+    fn aspect_host(
+        &self,
+        parent: Option<ArtistId>,
+        original: Bbox,
+        in_figure: bool,
+    ) -> Option<((Bbox, Bbox), Affine2D)> {
+        parent
+            .filter(|&p| {
+                (original != Bbox::UNIT || in_figure) && self.store.get_as::<AxesState>(p).is_some()
+            })
+            .and_then(|p| {
+                let (host, figure) = (self.axes_bbox(p)?, self.figure_bbox_of(p)?);
+                Some(((host, figure), host_to_figure(&host, &figure)?))
+            })
+    }
+
+    /// Whether the axes of `state`, owned by none, stays where it was last
+    /// placed rather than having its aspect applied in the figure frame
+    /// it was made for: one a host places (an inset, a divider's cell, an
+    /// axes locator, its home an axes), which matplotlib places by its
+    /// locator only as its host draws, and one without a fixed aspect
+    /// (`box_aspect` its box aspect), whose position applying the aspect
+    /// would only set anew, as the program's locator of an inset taken
+    /// out of its host did not place it.
+    fn keeps_parentless_place(&self, state: &AxesState, box_aspect: Option<f64>) -> bool {
+        let settings = state.aspect;
+        (settings.ratio.is_none() && box_aspect.is_none())
+            || settings.inset.is_some()
+            || settings.divider.is_some()
+            || state.axes_locator.is_some()
+            || (state.home).is_some_and(|home| self.frame_bbox(home).is_none())
+    }
+
     /// [`apply_aspect`](Self::apply_aspect) with the axes placed by
     /// `placement`. The active position is set before the data limits are
     /// adjusted, which fails when they would not be finite (as
@@ -277,27 +318,27 @@ impl FigureState {
         // be the program's) only to shrink the box to a fixed aspect.
         let asks = settings.adjustable == Adjustable::Box
             && (settings.ratio.is_some() || box_aspect.is_some());
-        let parent = state.base().parent;
+        // An axes owned by none (removed, or made for the figure but never
+        // added) is placed in the figure frame it was in or was made for,
+        // as its transforms place it (see `axes_bbox`), matplotlib's axes
+        // keeping its figure.
+        let owner = state.base().parent;
+        if owner.is_none() && self.keeps_parentless_place(state, box_aspect) {
+            return Ok(());
+        }
+        let parent = owner.or(state.home);
         let data_ratio = asks.then(|| self.data_ratio_of(axes));
-        // Insets and secondary axes are placed in their host axes, in the
-        // fractions of the host's figure, as matplotlib's locator places
-        // them there before it applies the aspect; axes covering their host
-        // stay in its fractions.
-        let hosted = parent
-            .filter(|&p| {
-                (original != Bbox::UNIT || in_figure) && self.store.get_as::<AxesState>(p).is_some()
-            })
-            .and_then(|p| {
-                let (host, figure) = (self.axes_bbox(p)?, self.figure_bbox_of(p)?);
-                Some(((host, figure), host_to_figure(&host, &figure)?))
-            });
+        let hosted = self.aspect_host(parent, original, in_figure);
         let (located, frame) = match hosted {
             Some(((_, figure), _)) if in_figure => (located, Some(figure)),
             Some(((_, figure), to_figure)) => (located.transformed(&to_figure), Some(figure)),
-            None => (
-                located,
-                parent.and_then(|f| self.frame_bbox(f).or_else(|| self.axes_bbox(f))),
-            ),
+            None => {
+                let frame = parent.unwrap_or(self.root);
+                (
+                    located,
+                    self.frame_bbox(frame).or_else(|| self.axes_bbox(frame)),
+                )
+            }
         };
         let mut adjusted = Ok(());
         let active = if settings.ratio.is_none() && box_aspect.is_none() {

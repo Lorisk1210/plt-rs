@@ -145,6 +145,11 @@ pub struct DrawnArtist {
     /// Whether the artist's own image filter applies to it (not when the
     /// drawing around it filters it already).
     own_filter: bool,
+    /// The tick of the clock of draws its draw ended at (see
+    /// `figure::draw_tick`): matplotlib's `artist.draw(renderer)` ends when
+    /// the call returns, before what the program's code does after it,
+    /// though pltrs paints it later.
+    ended_at: u64,
 }
 
 impl DrawnArtist {
@@ -156,6 +161,7 @@ impl DrawnArtist {
             handle,
             as_drawn,
             own_filter: true,
+            ended_at: crate::figure::next_draw_tick(),
         }
     }
 
@@ -351,13 +357,24 @@ impl DrawContext<'_> {
     pub fn draw_as_drawn(&mut self, drawn: &DrawnArtist) {
         match &drawn.as_drawn {
             Some(artist) if self.draws(drawn.handle.figure_state()) => {
-                let _standing = self.stand_in(&drawn.handle);
-                if drawn.handle.is::<LegendArtist>() {
-                    // Placed by its draw: drawn as it stands now.
+                let id = drawn.handle.id();
+                let stale = self.layout().figure_state().is_stale(id);
+                let standing = self.stand_in(&drawn.handle);
+                let prepared = standing.moved()
+                    && (crate::axes::Axes::from_raw_handle(&drawn.handle).is_some()
+                        || drawn.handle.is::<crate::mplot3d::Axes3DState>());
+                if drawn.handle.is::<LegendArtist>() || prepared {
+                    // Placed by its draw (a legend), or brought up to date
+                    // by it (an axes the figure does not list, its aspect
+                    // applied): drawn as it stands now.
                     self.draw_unpainted(drawn.handle.id());
                 } else {
                     self.draw_own_filtered(&**artist, Some(drawn.handle.id()), drawn.own_filter);
                 }
+                // A change the program asked for after its draw (an axes'
+                // `get_position`, which applies the aspect anew) leaves
+                // the artist stale, as matplotlib's draw had ended then.
+                (self.layout().figure_state()).drawn_for_call(id, drawn.ended_at, stale);
             }
             _ => self.draw_handle(&drawn.handle),
         }
@@ -366,17 +383,28 @@ impl DrawContext<'_> {
     /// Has the removed tree of `artist`, of the figure drawn, stand in
     /// while the program's `draw` draws it (see [`RawHandle::standing_in`]):
     /// a removed artist (an Axes never added among them) draws all it
-    /// owns, an Axes so first bringing its view and ticks up to date, as
-    /// matplotlib's `Axes.draw` does. A legend is placed, as matplotlib's
+    /// owns, an Axes so first bringing its view, aspect and ticks up to
+    /// date (a 3-D one squared and projected), as matplotlib's `Axes.draw`
+    /// does. A legend is placed, as matplotlib's
     /// `Legend.draw` places itself, and so is an offset box.
     fn stand_in(&mut self, artist: &RawHandle) -> crate::figure::StandingIn {
         self.free();
         let standing = artist.standing_in();
-        if standing.moved()
-            && let Some(axes) = crate::axes::Axes::from_raw_handle(artist)
-            && axes.visible()
-        {
-            axes.prepare_to_draw_alone();
+        if standing.moved() {
+            if let Some(axes) = crate::axes::Axes::from_raw_handle(artist) {
+                if axes.visible() {
+                    axes.prepare_to_draw_alone();
+                }
+            } else if artist.is::<crate::mplot3d::Axes3DState>() {
+                // matplotlib's `Axes3D.draw` makes the box square (its
+                // `apply_aspect`) and projects the axes as it draws it.
+                let id = artist.id();
+                artist.figure_state().work_on(|state| {
+                    if state.store.get(id).is_some_and(|axes| axes.base().visible) {
+                        crate::mplot3d::prepare_drawn(state, id, crate::figure::Painting::Painted);
+                    }
+                });
+            }
         }
         if artist.is::<LegendArtist>()
             && let Some(mut state) = artist.figure_state().try_borrow_mut()

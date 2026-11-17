@@ -286,11 +286,13 @@ impl Axes3D {
         self.active_position()
     }
 
-    /// The active position in the fractions of the axes' frame.
+    /// The active position in the fractions of the axes' frame (the
+    /// figure for an axes owned by none, removed or never added, as
+    /// [`axes3d_bbox`](super::state::axes3d_bbox) places it).
     fn active_position(&self) -> Bbox {
         let state = self.raw.figure_state().borrow();
         self.with(|axes| {
-            let frame = axes.base().parent.and_then(|f| state.frame_bbox(f));
+            let frame = state.frame_bbox(axes.base().parent.unwrap_or(state.root));
             frame.map_or(axes.position, |frame| axes.active_position(&frame))
         })
     }

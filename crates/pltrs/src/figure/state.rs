@@ -495,10 +495,16 @@ impl FigureState {
     }
 
     /// Brings `axes` up to date to be drawn alone, as matplotlib's
-    /// `Axes.draw` does: its view autoscaled, its ticks placed over its
-    /// box as it is now, by the program's helpers too; neither the layout
-    /// engine nor the aspect runs.
+    /// `Axes.draw` does: its view autoscaled, then its aspect applied
+    /// where its locator places it (`apply_aspect(locator(self,
+    /// renderer))`, also for an axes the figure does not list), then its
+    /// ticks placed over that box, by the program's helpers too; the
+    /// layout engine does not run.
     pub(crate) fn prepare_axes_alone(&mut self, axes: ArtistId) {
+        self.unstale_axes(axes);
+        self.aspect_applied(axes);
+        self.apply_aspect(axes);
+        self.span_program_spines(axes);
         self.prepare_axes(axes, Preparation::AsIs, false);
     }
 

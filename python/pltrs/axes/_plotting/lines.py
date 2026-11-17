@@ -527,8 +527,10 @@ class LinesMixin:
                 # took parts of it by their matrix.
                 line._given_transform = props["transform"]
                 _live_transforms.watch_given(line, props["transform"])
-            if isinstance(props.get("markevery"), (list, np.ndarray)):
-                # The line's own from now on, as matplotlib keeps it.
+            if props.get("markevery") is not None:
+                # The object given is what the getter answers with, as
+                # matplotlib keeps it (a list or an array is the line's
+                # own from now on).
                 line._keep_markevery(props["markevery"])
             whole = _format_color(fmt)
             mlines._remember_given(

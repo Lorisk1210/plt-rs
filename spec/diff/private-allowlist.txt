@@ -58,7 +58,6 @@ GridSpecBase:_n(rows|cols)$|^\(receiver unknown\):_format$ | ^write: unpickled v
 :_axes$ | ^type (Axes -> NoneType|NoneType -> Axes) | which artists of an offset box know their Axes: a legend's packed children are told none, a frame patch its box's
 # Objects of pltrs's own classes answering the same protocol.
 :_cells$ | ^type dict -> _Cells$ | a mapping answering dict's protocol over the cells pltrs (Rust) keeps; use `get_celld()` for a plain dict
-^\(receiver unknown\):_facecolor3d$ | ^value$ | a mapped surface's face colours before its first projection: matplotlib maps the values when it first projects the polygons (its one colour until then), pltrs (Rust) when the surface is made; equal from the first draw or `get_facecolor()` on
 :_renderer$ | ^type | the renderer a text was last measured or drawn with: pltrs's vector backends draw texts themselves (no MixedModeRenderer), an unpickled figure's texts are measured with Agg, an axis' offset text is drawn natively; pass the renderer to measures (`get_window_extent(renderer)`) rather than reading the one kept
 ^\(receiver unknown\):_clippath$ | ^type TransformedPatchPath -> NoneType$ | an axis' clip path is the Axes' patch, which pltrs (Rust) holds; read it with `get_clip_path()`
 ^\(receiver unknown\):_locs$ | ^type list -> ndarray$ | the locations pltrs (Rust) gave the formatter as it placed ticks, where matplotlib's formatter has none yet
@@ -69,9 +68,9 @@ XAxis:_update_label_position$ | ^signature$ | a 3-D axis keeps the 2-D axes' `_u
 # topic: not-built
 # Not ported: matplotlib's private helpers and fields with no state in
 # pltrs (Rust): a fill-between collection's box, a polar spine's circle,
-# a 3-D collection's faces and a 3-D patch's segment, a contour set's
+# a contour set's
 # argument processing, an axis artist's tick update.
-^\(receiver unknown\):_(bbox|center|width|faces|update_ticks)$|QuadContourSet:_process_args$|Patch3D:_segment3d$ | ^missing \(AttributeError\)$ | matplotlib's field or helper that pltrs (Rust) has no state for (a fill-between box, a polar spine's circle, 3-D faces and segments, contour argument processing, an axis artist's tick update)
+^\(receiver unknown\):_(bbox|center|width|update_ticks)$|QuadContourSet:_process_args$ | ^missing \(AttributeError\)$ | matplotlib's field or helper that pltrs (Rust) has no state for (a fill-between box, a polar spine's circle, contour argument processing, an axis artist's tick update)
 # topic: private-attributes
 # Staleness of the objects pltrs (Python) makes when they are read
 # (mirrors, a legend's packers, an Axes' parts): a figure's and an Axes'

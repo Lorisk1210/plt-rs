@@ -123,14 +123,20 @@ class State:
     compared with pltrs (Rust)'s own copy instead of with what it held
     before. That takes a state nothing writes natively but its *take* and
     setters that forget the record (`drop`): pltrs (Rust) holding
-    something else then means that the program changed the object. A
-    class defines its states once, beside the getters handing them out.
+    something else then means that the program changed the object.
+    *until_drawn* marks an object matplotlib reads at the artist's first
+    draw and never again (the path an artist is clipped by, the colours a
+    collection was given as an array): its record is dropped once the
+    artist was drawn. A class defines its states once, beside the getters
+    handing them out.
     """
 
-    __slots__ = ("name", "read", "take", "key", "version", "own", "same", "compares")
+    __slots__ = ("name", "read", "take", "key", "version", "own", "same", "compares",
+                 "until_drawn")
 
     def __init__(self, name, read, take, key=content, version=None, own=None, same=None,
-                 compares=None):
+                 compares=None, until_drawn=False):
+        self.until_drawn = until_drawn
         self.name = name
         self.read = read
         self.take = take
@@ -483,6 +489,11 @@ def sync(artist):
         watcher.take_changed_in_place()
     taken = False
     for record in list(artist.__dict__.get(RECORDS, {}).values()):
+        if record.state.until_drawn and _artist.draw_count(artist._native):
+            # matplotlib read the object at the first draw, and reads it
+            # no more.
+            artist.__dict__[RECORDS].pop(record.state.name, None)
+            continue
         if record.settled and _only_recorded(record):
             continue
         seen = _changed(artist, record)
@@ -553,6 +564,13 @@ ARRAY = State("array", lambda mappable: mappable._mapped,
 CLIP_BOX = State("clip_box", lambda artist: artist._clipbox,
                  lambda artist, box: artist._take_clip_box(box),
                  lambda box: box.get_points().tobytes())
+
+
+#: The path an artist was given to clip by, with a transform: matplotlib
+#: transforms it when the artist is first drawn, so a program's changes
+#: in it until then clip.
+CLIP_PATH = State("clip_path", lambda artist: None,
+                  lambda artist, path: artist._take_clip_path(path), until_drawn=True)
 
 
 def pickling(artist, state, figure):

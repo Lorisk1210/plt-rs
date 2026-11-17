@@ -15,7 +15,7 @@ import pltrs
 from pltrs import legend, patches
 from pltrs.path import Path
 
-from . import given, handed, scenes, setters, surface
+from . import given, handed, scenes, setters, surface, threed
 from .measure import outcome
 
 #: matplotlib's outcomes, recorded by ``python -m mutability --record``.
@@ -24,7 +24,10 @@ RECORDED = pathlib.Path(__file__).with_name("reference.json")
 #: The kinds of difference, in the order a row is counted under the first
 #: that applies, with the keys of an outcome that decide each.
 KINDS = (
-    ("error", ("read", "mutate")),
+    ("error", ("read", "mutate", "error")),
+    ("state", ("made", "drawn", "unpickled", "made_fields", "drawn_fields")),
+    ("program", ("projections", "draws", "seen_first_projection", "seen_first_draw",
+                 "seen_last_draw", "class", "seen", "path2d", "shaft_drawn", "head_drawn")),
     ("lost", ("reread",)),
     ("undrawn", ("draw",)),
     ("identity", ("same", "kept", "after")),
@@ -48,6 +51,14 @@ def recorded():
     return json.loads(RECORDED.read_text("utf-8"))
 
 
+def found_in(reference):
+    """What matplotlib's subjects have, as the reference *reference*
+    recorded it: the members of the surface's subjects (``surface``) and
+    the fields of the 3-D artists (``art3d``), which `all_rows` makes the
+    rows of."""
+    return {"surface": reference["surface"], "art3d": reference.get("art3d", {})}
+
+
 def expected():
     """The rows pltrs is known to differ on: ``{name: [keys]}``."""
     return json.loads(EXPECTED.read_text("utf-8"))
@@ -55,12 +66,17 @@ def expected():
 
 def groups(found):
     """The names of every row by group, in order: the surface's rows by
-    subject, then ``handed``, ``given`` and ``setters``."""
+    subject, then ``handed``, ``given`` and ``setters``, then the 3-D
+    artists' rows by subject (``3d/<subject>``) and those of the
+    program's subclasses (``3d/programs``)."""
     by_group = {subject: [row.name for row in surface.rows({subject: kinds})]
-                for subject, kinds in found.items()}
+                for subject, kinds in found["surface"].items()}
     by_group["handed"] = [row.name for row in handed.ROWS]
     by_group["given"] = [row.name for row in given.ROWS]
-    by_group["setters"] = [row.name for row in setters.rows(found)]
+    by_group["setters"] = [row.name for row in setters.rows(found["surface"])]
+    for row in threed.rows(found["art3d"]):
+        subject, dot, _ = row.name.partition(".")
+        by_group.setdefault(subject if dot else "3d/programs", []).append(row.name)
     return by_group
 
 
@@ -80,11 +96,12 @@ def differing(ours, theirs):
 
 
 def all_rows(found):
-    """Every row: the surface's rows of the names *found*, then the
-    idioms and helper objects, the objects given to artists, and the
+    """Every row: the surface's rows of the names *found* (`found_in`),
+    then the idioms and helper objects, the objects given to artists, the
     surface's rows of some subjects with a setter called after the
-    change."""
-    return [*surface.rows(found), *handed.ROWS, *given.ROWS, *setters.rows(found)]
+    change, and the rows of the 3-D artists' state."""
+    return [*surface.rows(found["surface"]), *handed.ROWS, *given.ROWS,
+            *setters.rows(found["surface"]), *threed.rows(found["art3d"])]
 
 
 #: The rows of a worker process, by name.
@@ -118,7 +135,8 @@ def _note_shared():
     if isinstance(path, Path):
         _shared["arrow"] = (path, path.vertices.copy(), path.codes.copy())
     _shared["handlers"] = dict(legend.Legend.get_default_handler_map())
-    _shared["data"] = {name: getattr(scenes, name).copy() for name in scenes.DATA}
+    _shared["data"] = {(module, name): getattr(module, name).copy()
+                       for module in (scenes, threed) for name in module.DATA}
 
 
 def _restore_shared():
@@ -135,8 +153,8 @@ def _restore_shared():
     if handlers != _shared["handlers"]:
         handlers.clear()
         handlers.update(_shared["handlers"])
-    for name, values in _shared["data"].items():
-        getattr(scenes, name)[...] = values
+    for (module, name), values in _shared["data"].items():
+        getattr(module, name)[...] = values
 
 
 def _measure(name):
@@ -144,7 +162,8 @@ def _measure(name):
     try:
         with pltrs.rc_context():
             pltrs.rcdefaults()
-            return name, outcome(_rows[name])
+            row = _rows[name]
+            return name, row.measure() if isinstance(row, threed.Probe) else outcome(row)
     finally:
         _restore_shared()
 

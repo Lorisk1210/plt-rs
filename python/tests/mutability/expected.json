@@ -1,4 +1,38 @@
 {
+ "3d/Line3D subclassed": [
+  "seen_first_draw"
+ ],
+ "3d/contour._axlim_clip assigned": [
+  "draw",
+  "first_draw",
+  "first_kept",
+  "first_value"
+ ],
+ "3d/contourf._axlim_clip assigned": [
+  "draw",
+  "first_draw",
+  "first_kept",
+  "first_value"
+ ],
+ "3d/patch3d_made.do_3d_projection()": [
+  "made_fields"
+ ],
+ "3d/path3d_collection_made.get_facecolor()": [
+  "first_value",
+  "value"
+ ],
+ "3d/pathpatch3d_made.do_3d_projection()": [
+  "made_fields"
+ ],
+ "3d/poly_collection_2d_to_3d._codes3d[0]": [
+  "draw"
+ ],
+ "3d/poly_collection_2d_to_3d.set_verts(...)": [
+  "draw",
+  "first_draw",
+  "first_kept",
+  "first_value"
+ ],
  "affine_matrix": [
   "draw",
   "first_draw",
@@ -38,26 +72,16 @@
  "axes.viewLim.get_points()": [
   "measure"
  ],
- "axes3d._children": [
-  "relim"
- ],
  "axes3d.dataLim.get_points()": [
   "first_value",
   "pickle"
  ],
  "axes3d.get_box_aspect()": [
-  "measure",
-  "relim"
+  "measure"
  ],
  "axes3d.viewLim.get_points()": [
   "first_value",
   "pickle"
- ],
- "axes3d.xy_viewLim.get_points()": [
-  "relim"
- ],
- "axes3d.zz_viewLim.get_points()": [
-  "relim"
  ],
  "axes_bbox_points": [
   "first_draw"
@@ -85,6 +109,45 @@
  ],
  "axline.get_ydata()": [
   "first_draw"
+ ],
+ "back_axes_aspect_float": [
+  "same"
+ ],
+ "back_axes_title_str": [
+  "same"
+ ],
+ "back_axes_xlabel_str": [
+  "same"
+ ],
+ "back_line_label": [
+  "same"
+ ],
+ "back_line_linewidth_float": [
+  "same"
+ ],
+ "back_line_markersize_float": [
+  "same"
+ ],
+ "back_patch_label": [
+  "same"
+ ],
+ "back_patch_linewidth_float": [
+  "same"
+ ],
+ "back_plot_linewidth_float": [
+  "same"
+ ],
+ "back_plot_markersize_float": [
+  "same"
+ ],
+ "back_scatter_label": [
+  "same"
+ ],
+ "back_text_label": [
+  "same"
+ ],
+ "back_text_text_str": [
+  "same"
  ],
  "bar_container_datavalues": [
   "first_value",
@@ -203,9 +266,6 @@
   "draw",
   "first_draw"
  ],
- "given_clip_path_vertices": [
-  "first_draw"
- ],
  "given_line_collection_segment": [
   "draw",
   "first_draw",
@@ -214,10 +274,6 @@
   "reread",
   "same",
   "value"
- ],
- "given_set_facecolor": [
-  "first_draw",
-  "first_value"
  ],
  "given_set_segments": [
   "draw",
@@ -262,16 +318,6 @@
   "first_kept",
   "first_value"
  ],
- "line3d._verts3d[0]": [
-  "relim"
- ],
- "line3d._verts3d[1]": [
-  "relim"
- ],
- "line3d._x": [
-  "first_kept",
-  "first_value"
- ],
  "line3d._xorig": [
   "first_draw",
   "first_kept",
@@ -280,10 +326,6 @@
   "value"
  ],
  "line3d._xy": [
-  "first_kept",
-  "first_value"
- ],
- "line3d._y": [
   "first_kept",
   "first_value"
  ],
@@ -303,12 +345,6 @@
   "first_draw",
   "first_value",
   "value"
- ],
- "line3d.get_data_3d()[0]": [
-  "relim"
- ],
- "line3d.get_data_3d()[1]": [
-  "relim"
  ],
  "line3d.get_path().vertices": [
   "first_kept",
@@ -518,30 +554,6 @@
   "first_kept",
   "first_value"
  ],
- "scatter3d._offsets3d[0]": [
-  "relim"
- ],
- "scatter3d._offsets3d[1]": [
-  "relim"
- ],
- "scatter3d._offsets3d[2]": [
-  "relim"
- ],
- "scatter3d.get_edgecolor()": [
-  "pickle",
-  "same",
-  "value"
- ],
- "scatter3d.get_facecolor()": [
-  "pickle",
-  "same",
-  "value"
- ],
- "scatter3d.get_hatchcolor()": [
-  "pickle",
-  "same",
-  "value"
- ],
  "scatter3d.get_offsets()": [
   "first_draw",
   "first_kept",
@@ -701,9 +713,6 @@
   "first_kept",
   "first_value"
  ],
- "surface3d.get_facecolor()": [
-  "kept"
- ],
  "tri_mesh._facecolors": [
   "pickle"
  ],
@@ -754,36 +763,6 @@
  ],
  "tripcolor.get_facecolor()": [
   "pickle"
- ],
- "wireframe3d._segments3d": [
-  "datalim",
-  "draw",
-  "first_draw",
-  "first_kept",
-  "first_value",
-  "kept",
-  "measure",
-  "pickle",
-  "read",
-  "relim",
-  "reread",
-  "same",
-  "value"
- ],
- "wireframe3d._segments3d[0]": [
-  "datalim",
-  "draw",
-  "first_draw",
-  "first_kept",
-  "first_value",
-  "kept",
-  "measure",
-  "pickle",
-  "read",
-  "relim",
-  "reread",
-  "same",
-  "value"
  ],
  "xaxis._major_tick_kw": [
   "first_kept",

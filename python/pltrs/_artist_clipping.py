@@ -259,6 +259,7 @@ class ClippingMixin:
 
         """
         _api.check_isinstance((BboxBase, None), clipbox=clipbox)
+        self.__dict__.pop("_clipbox_of", None)
         if clipbox is self.get_clip_box():
             # matplotlib changes nothing for the box the artist has.
             return
@@ -306,6 +307,14 @@ class ClippingMixin:
         """Return the clipbox."""
         if "_clipbox" in self.__dict__:
             return self._clipbox
+        source = self.__dict__.get("_clipbox_of")
+        if source is not None:
+            # The clip box copied from another artist (``update_from``):
+            # the very object of that artist, while it lives.
+            source = source()
+            if source is not None and "_native" in source.__dict__:
+                return source.get_clip_box()
+            del self.__dict__["_clipbox_of"]
         mirrored = _mirrors.ask(self, "clip_box")
         if mirrored is not _mirrors.OWN:
             return mirrored
@@ -382,6 +391,7 @@ class ClippingMixin:
 
         .. ACCEPTS: Patch or (Path, Transform) or None
         """
+        self.__dict__.pop("_clipbox_of", None)
         from .patches import Patch, Rectangle
 
         spec = clip_path_spec(path, transform)
@@ -402,6 +412,10 @@ class ClippingMixin:
             self._clippath = path
         elif isinstance(path, Path):
             self._clippath = TransformedPath(path, transform)
+            if "_native" in self.__dict__ and self._figure is not None:
+                # matplotlib transforms the path when the artist is first
+                # drawn: what a program changes in it until then clips.
+                _own_state.keep(self, _own_state.CLIP_PATH, path)
         else:
             self._clippath = path
         if spec is not None and spec[0] == "bbox":
@@ -413,6 +427,13 @@ class ClippingMixin:
             # A transform the program may change afterwards.
             _live_transforms.watch_clip_path(self, self._clippath)
         self.pchanged()
+
+    def _take_clip_path(self, path):
+        """Hand pltrs (Rust) the path *path* the artist is clipped by, which
+        the program changed in place before the artist's first draw."""
+        clip = self.__dict__.get("_clippath")
+        if isinstance(clip, TransformedPath) and clip._path is path:
+            _artist.set_clip_path(self._native, clip_path_spec(path, clip._transform))
 
     def _patch_spec(self, patch, outline):
         """The clip path description of *patch*: followed when the patch is

@@ -207,8 +207,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         state = self.__dict__.copy()
         state.pop(_live_transforms.KEPT, None)
         state.pop(_own_state.LISTS, None)
-        # (A line's views of its numbers, held weakly: `._line_state.columns`.)
+        # (A line's views of its numbers, held weakly: `._line_state.columns`;
+        # the artist a clip box was copied from: `._artist_copying`.)
         state.pop("_xy_views", None)
+        state.pop("_clipbox_of", None)
         if "_leaf_watchers" in state:
             # The boxes of its trees the program changed in their arrays.
             _own_state.take_leaves(self)

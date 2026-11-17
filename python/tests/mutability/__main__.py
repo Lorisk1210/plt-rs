@@ -22,7 +22,7 @@ import sys
 
 import pltrs
 
-from . import runner, surface
+from . import runner, surface, threed
 
 #: Where the sweep writes its reports.
 WORK = pathlib.Path(__file__).resolve().parents[3] / "target" / "mutability"
@@ -33,9 +33,9 @@ def _record(jobs):
     if pltrs.__name__ != "matplotlib":
         sys.exit("--record runs under matplotlib (see the module's docstring)")
     pltrs.use("agg")
-    found = surface.discover()
-    reference = {"matplotlib": pltrs.__version__, "surface": found,
-                 "outcomes": runner.outcomes(found, jobs=jobs)}
+    reference = {"matplotlib": pltrs.__version__, "surface": surface.discover(),
+                 "art3d": threed.discover()}
+    reference["outcomes"] = runner.outcomes(runner.found_in(reference), jobs=jobs)
     runner.RECORDED.write_text(json.dumps(reference, indent=1, sort_keys=True) + "\n", "utf-8")
     print(f"recorded {len(reference['outcomes'])} rows in {runner.RECORDED}")
 
@@ -67,7 +67,7 @@ def main():
         _record(arguments.jobs)
         return 0
     reference = runner.recorded()
-    ours = runner.outcomes(reference["surface"], arguments.patterns, arguments.jobs)
+    ours = runner.outcomes(runner.found_in(reference), arguments.patterns, arguments.jobs)
     differences = runner.differences(ours, reference["outcomes"])
     work = arguments.work.resolve()
     work.mkdir(parents=True, exist_ok=True)

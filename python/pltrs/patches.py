@@ -179,6 +179,7 @@ class Patch(Artist):
         """
         if "_native" not in self.__dict__:
             self._native = _patches.new_path_patch(Path(np.empty((0, 2))))
+            self._edgeless = True
         super().__init__()
         if linestyle is None:
             linestyle = "solid"
@@ -451,8 +452,21 @@ class Patch(Artist):
         """
         if color is not None:
             mcolors.to_rgba(color)
-        self._set_native(edgecolor=color)
+        self._set_native(edgecolor=self._edge_drawn(color))
         _values.remember(self, "edgecolor", color)
+
+    def _edge_drawn(self, color):
+        """
+        The edge colour pltrs (Rust) is given for *color*. A patch of a
+        class without an edge by default whose native patch is a path
+        patch's, which has one (a bare `Patch`, a `.PathPatch3D` made
+        directly: ``_edgeless``), is given no edge for None while it is
+        filled, as matplotlib's ``_set_edgecolor`` decides.
+        """
+        if (color is None and self.__dict__.get("_edgeless") and self.get_fill()
+                and not _rcParams()['patch.force_edgecolor']):
+            return "none"
+        return color
 
     def get_facecolor(self):
         """Return the face color."""
@@ -701,6 +715,11 @@ class Patch(Artist):
         b : bool
         """
         self._set_native(fill=bool(b))
+        if self.__dict__.get("_edgeless") and self.__dict__.get(
+                "_given_values", {}).get("edgecolor") is None:
+            # matplotlib sets the edge colour given (none) again: an
+            # unfilled patch has the default edge.
+            self._set_native(edgecolor=self._edge_drawn(None))
 
     fill = property(get_fill, set_fill)
 

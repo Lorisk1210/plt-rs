@@ -83,6 +83,7 @@ mod fill_between;
 mod flat_share;
 mod geometry;
 mod handle;
+mod kept;
 mod layout;
 mod lift;
 mod limits;
@@ -141,6 +142,7 @@ pub use fill_between::{Curve3D, FillBetween3DOptions, FillMode, all_points_on_pl
 pub use flat_share::SharedAxes;
 pub use geometry::AxisPosition;
 pub use handle::Axes3D;
+pub use kept::{Kept3D, Kept3DKind};
 pub use lift::Poly3DOptions;
 pub use math::Vec3;
 pub(crate) use mouse::MouseAction;

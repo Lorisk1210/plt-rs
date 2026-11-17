@@ -532,3 +532,114 @@ row("gridspec_width_ratios", _ratios, setitem(0, 6), back=lambda s: s.obj.get_wi
 row("fill_between_y", _fill_between, scaled, read=lambda s: s.obj.get_paths()[0].vertices)
 row("bar_heights", _bar, scaled, read=lambda s: [patch.get_height() for patch in s.obj])
 row("contourf_field", _contour, scaled, read=lambda s: s.obj.get_paths()[1].vertices)
+
+
+# Values handed back. matplotlib stores what many setters are given as it
+# is, and the getter returns that very object: a tuple, a slice, a float
+# or a string as much as an array or a list. Nothing can be changed in
+# them; the rows only ask whether the getter answers with the object.
+
+
+def back(name, make, getter):
+    """Add the row ``back_<name>``: *make* builds the subject in an Axes
+    with a value and returns ``(subject, value)``; ``same`` says whether
+    *getter* then answers with the very value."""
+    def build():
+        fig, ax = scenes.figure_and_axes()
+        made, given = make(ax)
+        return Scene(fig, made, ax=ax, given=given)
+    ROWS.append(Row(f"back_{name}", build, getter,
+                    same=lambda scene: getter(scene) is scene.given))
+
+
+def _back_value(kind):
+    """A new object of *kind*, no constant of the interpreter's."""
+    return {
+        "float": lambda: float("0.125"),
+        "int": lambda: int("12345"),
+        "tuple": lambda: tuple([3, 7]),
+        "floats": lambda: tuple([0.05, 0.2]),
+        "slice": lambda: slice(2, 60, 9),
+        "rgb": lambda: tuple([0.25, 0.5, 0.75]),
+        "str": lambda: "".join(["na", "me"]),
+        "point": lambda: tuple([1.5, 2.5]),
+        "colour": lambda: "".join(["#12", "3456"]),
+    }[kind]()
+
+
+def _back_plotted(keyword, kind):
+    """A line plotted with *keyword* a new value of *kind*."""
+    def make(ax):
+        value = _back_value(kind)
+        line, = ax.plot(np.arange(101.0), marker="o", **{keyword: value})
+        return line, value
+    return make
+
+
+def _back_set(make_artist, setter, kind):
+    """An artist *make_artist* makes in an Axes, its *setter* called with
+    a new value of *kind*."""
+    def make(ax):
+        artist, value = make_artist(ax), _back_value(kind)
+        getattr(artist, setter)(value)
+        return artist, value
+    return make
+
+
+def _back_line(ax):
+    return ax.plot(np.arange(101.0), marker="o")[0]
+
+
+def _back_rectangle(ax):
+    return ax.add_patch(patches.Rectangle((0.5, 0.5), 2.0, 1.0))
+
+
+def _back_label(ax):
+    return ax.text(1.0, 1.0, "text")
+
+
+def _back_scatter(ax):
+    return ax.scatter(_xs(), _ys())
+
+
+for _kind in ("tuple", "slice", "float", "floats", "int"):
+    back(f"plot_markevery_{_kind}", _back_plotted("markevery", _kind),
+         lambda scene: scene.obj.get_markevery())
+    back(f"set_markevery_{_kind}", _back_set(_back_line, "set_markevery", _kind),
+         lambda scene: scene.obj.get_markevery())
+for _maker, _artist in ((_back_line, "line"), (_back_rectangle, "patch"), (_back_label, "text"),
+                        (_back_scatter, "scatter")):
+    for _property, _kind in (("zorder", "float"), ("alpha", "float"), ("gid", "str"),
+                             ("url", "str"), ("label", "str"), ("picker", "float")):
+        back(f"{_artist}_{_property}", _back_set(_maker, f"set_{_property}", _kind),
+             lambda scene, _property=_property: getattr(scene.obj, f"get_{_property}")())
+for _property, _kind in (("color", "rgb"), ("markerfacecolor", "rgb"), ("markeredgecolor", "rgb"),
+                         ("linewidth", "float"), ("markersize", "float"),
+                         ("pickradius", "float"), ("color", "colour")):
+    back(f"line_{_property}_{_kind}", _back_set(_back_line, f"set_{_property}", _kind),
+         lambda scene, _property=_property: getattr(scene.obj, f"get_{_property}")())
+    back(f"plot_{_property}_{_kind}", _back_plotted(_property, _kind),
+         lambda scene, _property=_property: getattr(scene.obj, f"get_{_property}")())
+for _property, _kind in (("color", "rgb"), ("text", "str"), ("linespacing", "float"),
+                         ("backgroundcolor", "rgb"), ("fontfamily", "str")):
+    back(f"text_{_property}_{_kind}", _back_set(_back_label, f"set_{_property}", _kind),
+         lambda scene, _property=_property: getattr(scene.obj, f"get_{_property}")())
+for _property, _kind in (("hatch", "str"), ("linewidth", "float")):
+    back(f"patch_{_property}_{_kind}", _back_set(_back_rectangle, f"set_{_property}", _kind),
+         lambda scene, _property=_property: getattr(scene.obj, f"get_{_property}")())
+back("circle_center_point",
+     lambda ax: (lambda point: (ax.add_patch(patches.Circle(point, 0.5)), point))(_back_value("point")),
+     lambda scene: scene.obj.center)
+back("ellipse_center_point",
+     lambda ax: (lambda point: (ax.add_patch(patches.Ellipse(point, 1.0, 0.5)), point))(
+         _back_value("point")),
+     lambda scene: scene.obj.center)
+back("annotation_xy_point",
+     lambda ax: (lambda point: (ax.annotate("note", point), point))(_back_value("point")),
+     lambda scene: scene.obj.xy)
+back("axes_aspect_float", lambda ax: (lambda value: (ax.set_aspect(value), ax)[1:] + (value,))(
+    _back_value("float")), lambda scene: scene.obj.get_aspect())
+back("axes_title_str", lambda ax: (lambda value: (ax.set_title(value), ax)[1:] + (value,))(
+    _back_value("str")), lambda scene: scene.obj.get_title())
+back("axes_xlabel_str", lambda ax: (lambda value: (ax.set_xlabel(value), ax)[1:] + (value,))(
+    _back_value("str")), lambda scene: scene.obj.get_xlabel())

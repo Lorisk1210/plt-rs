@@ -1347,18 +1347,95 @@ objects until that next use; pltrs' are new at once.)
 
 **Before the first draw** matplotlib has computed less than after it, and
 some of what it then computes it reads from objects a program gave or
-may have changed. The sweep's rows changed before the first draw differ
-from matplotlib's in these cases, where pltrs took the content when the
-artist was made or set: the vertices of a clip path given with its
-transform, colours given to `set_facecolor` as an array, the `colors` of
-a `ListedColormap` (its table is made at first use), the unit data of an
-`axline`; matrices and boxes changed in their arrays before any cache of
-matplotlib's exists (`dpi_scale_trans`, an Axes' `bbox`); the array of a
-`NonUniformImage`, which pltrs draws changed and matplotlib does not; and
-the identity of a 3-D line's and scatter's arrays, which matplotlib's
-projection binds anew at every draw and pltrs' record keeps over the
-first. They are listed in `expected.json` with the keys `first_draw`,
-`first_kept` and `first_value`.
+may have changed. Two of them are records that live until the artist's
+first draw and are dropped at the next hand-over after it
+(`State(until_drawn=True)`): the path an artist is clipped by, given
+with its transform (matplotlib transforms it when the artist is first
+drawn), and the array `Collection.set_facecolor` was given (its first
+draw resolves the colours again). The sweep's rows changed before the
+first draw still differ from matplotlib's where pltrs took the content
+when the artist was made: the `colors` of a `ListedColormap` (its table
+is made at first use; following it would compare every program colormap
+at every draw), the unit data of an `axline` (matplotlib's first draw
+makes the line's path of them, which shortens the line: an accident);
+matrices and boxes changed in their arrays before any cache of
+matplotlib's exists (`dpi_scale_trans`, which would take a figure scale
+of two factors; an Axes' `bbox`, which would take an Axes drawn where
+its position is not); and the array of a `NonUniformImage`, which pltrs
+draws changed and matplotlib does not. They are listed in
+`expected.json` with the keys `first_draw`, `first_kept` and
+`first_value`.
+
+**The 3-D artists** (`mpl_toolkits/mplot3d/art3d.py`) keep the third
+dimension in attributes of their own in matplotlib, and project them at
+every draw. pltrs (Rust) keeps and projects the geometry; the classes
+answer for matplotlib's attributes through two descriptors
+(`mplot3d/_properties.py`), whichever way an artist was made (the class
+itself, a 2-D artist converted, a method of `Axes3D`):
+
+* `Field`, an attribute of the geometry: `_segments3d`, `_segment3d` and
+  `_code3d`, `_faces` with `_invalid_vertices` and `_codes3d`,
+  `_3dverts_codes`, a text's `_dir_vec` (`_verts3d` and `_offsets3d` were
+  records already). An artist the program made keeps the object it was
+  given; one a 3-D Axes made reads what pltrs (Rust) holds
+  (`_native.mplot3d.kept`) into the container matplotlib's method builds
+  (`mplot3d/_fields3d.py`, loaded at the first such read: a list of
+  arrays for `quiver` and `plot_wireframe`, one array for `errorbar`,
+  lists of tuples for `stem`). Either becomes a record at the first
+  read, so it is the same object at every read and is handed back when a
+  program changed it in place; assigned, the attribute keeps what was
+  assigned and hands it over at once.
+* `Left`, what a projection leaves behind: `_vzs`, `_z_markers_idx`,
+  `_offset_zordered`, `_data_scale`, `_facecolors2d`, `_edgecolors2d`
+  (and `_path2d` of a patch). It is computed with matplotlib's formulas
+  from the fields and the projection matrix of the last draw
+  (`Axes3D.M`) when first read after a projection, and is one object
+  until the next (a projection is told by the draws of the artist's
+  Axes, which projects its visible collections and patches before it
+  draws any, an animated one too, and by the projections the program
+  asked for). Assigned, it reads back until
+  the next projection, as matplotlib overwrites it then.
+
+The plain values are properties: `_axlim_clip` on every class,
+`_depthshade` and `_depthshade_minalpha`, `_closed`, `_zsortfunc` (one
+of matplotlib's three functions; pltrs (Rust) sorts by no other, and
+assigning one says so: nothing in the census or the corpora does).
+
+*Subclasses of the program's.* matplotlib's `Axes3D.draw` asks every
+visible collection and patch for its depth (`do_3d_projection`) before
+it draws them. A class of the program's that overrides the method on a
+class of `art3d` has it called before each draw
+(`mplot3d/_program_projection.py`, behind `takes_from_program`): it
+reads and changes the fields, calls the method it overrides, which has
+pltrs (Rust) project the artist, and the depth it returns orders the
+artist (`_native.mplot3d.set_program_depth`). A 3-D patch that another
+patch class draws (qiskit's `Arrow3D` is a `Patch3D` and a
+`FancyArrowPatch`, drawn by the latter's `draw` with its ends where its
+`_segment3d` projects) is not lifted into pltrs (Rust)'s 3-D geometry at
+all, which would replace the arrow by the outline of its two points: it
+keeps `_segment3d` in Python and `Patch3D.do_3d_projection` projects it
+as matplotlib's code does (`art3d._draws_itself`).
+
+A 2-D collection converted (`line_collection_2d_to_3d`,
+`poly_collection_2d_to_3d`, `patch_collection_2d_to_3d`) after a 3-D
+Axes added it is taken out and added again (`art3d._lift_added`): pltrs
+(Rust) lifts a collection as the Axes takes it. It is then the last of
+the Axes' children, where matplotlib leaves it in its place.
+
+`Axes3D.relim` is matplotlib's 2-D one, inherited: it leaves in
+`dataLim`, a box the 3-D axes draw nothing from, the extent of the lines
+as last drawn, which is their projection, and nothing of the collections
+and patches.
+
+**Values handed back.** Where matplotlib stores what a setter is given
+and the getter returns it, the object is the same: `get_markevery()`
+answers with the tuple, slice or float given, also through `plot`; after
+`update_from` two artists answer with one clip box (the second holds the
+first weakly and asks it); `tick_params(reset=True)` makes new `Tick`
+objects. Strings and floats that pltrs (Rust) holds (a label, a text, a
+line width) come back equal and not identical: keeping them in Python
+would put a write on the plain path of every artist for a difference
+only `is` shows.
 
 **What stays a copy, and why.** An axis' `get_view_interval()` and
 `get_data_interval()` are views of the Axes' boxes in matplotlib; handing

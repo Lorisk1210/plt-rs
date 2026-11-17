@@ -1,6 +1,13 @@
-//! The fuzzing harness: deterministic inputs from [`SplitMix64`], panics
-//! caught and recorded with the seed that reproduces them, and a watchdog
-//! for inputs that hang.
+//! The fuzzing harness of pltrs' robustness tests (`crates/pltrs/tests/fuzz`
+//! and the `fuzz_tests` unit tests of `pltrs`, `pltrs-text`,
+//! `pltrs-platform` and `pltrs-ui`): deterministic inputs from
+//! [`SplitMix64`], panics caught and recorded with the seed that reproduces
+//! them, and a watchdog for inputs that hang.
+//!
+//! Only the feature `fuzzing` builds it, which those crates turn on for
+//! their tests alone: it lives here, in the crate below them all, so that
+//! each crate's package carries what its tests need. It is a test tool of
+//! the workspace, not part of pltrs' stable interface.
 //!
 //! Every target runs [`fuzz`] with a generator and a body. Iteration `i`
 //! of target `name` draws its input from a generator seeded with a mix of
@@ -27,7 +34,7 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::sync::{Arc, Mutex, Once};
 use std::time::{Duration, Instant};
 
-use pltrs_core::rng::SplitMix64;
+use crate::rng::SplitMix64;
 
 /// The base seed when `PLTRS_FUZZ_SEED` is not set.
 const DEFAULT_SEED: u64 = 0x504C_5446_555A_5A31;
@@ -38,36 +45,37 @@ const REPORTED: usize = 12;
 /// A source of pseudo-random inputs: numbers biased towards the values
 /// that break numeric code, strings built from a grammar's pieces and
 /// mutations of valid examples.
-pub(crate) struct Gen(SplitMix64);
+#[derive(Debug)]
+pub struct Gen(SplitMix64);
 
 impl Gen {
     /// A generator seeded with `seed`.
-    pub(crate) fn new(seed: u64) -> Self {
+    pub fn new(seed: u64) -> Self {
         Self(SplitMix64::new(seed))
     }
 
     /// A number in `0..n` (`0` when `n` is zero).
-    pub(crate) fn below(&mut self, n: usize) -> usize {
+    pub fn below(&mut self, n: usize) -> usize {
         if n == 0 { 0 } else { self.0.below(n) }
     }
 
     /// A uniform number in `[low, high)`.
-    pub(crate) fn between(&mut self, low: f64, high: f64) -> f64 {
+    pub fn between(&mut self, low: f64, high: f64) -> f64 {
         low + (high - low) * self.0.next_f64()
     }
 
     /// `true` with probability `p`.
-    pub(crate) fn chance(&mut self, p: f64) -> bool {
+    pub fn chance(&mut self, p: f64) -> bool {
         self.0.next_f64() < p
     }
 
     /// One of `items`, which must not be empty.
-    pub(crate) fn pick<T: Clone>(&mut self, items: &[T]) -> T {
+    pub fn pick<T: Clone>(&mut self, items: &[T]) -> T {
         items[self.below(items.len())].clone()
     }
 
     /// A length up to `max`, small lengths being the most likely.
-    pub(crate) fn len(&mut self, max: usize) -> usize {
+    pub fn len(&mut self, max: usize) -> usize {
         let cap = match self.below(4) {
             0 => 2,
             1 => 8,
@@ -79,7 +87,7 @@ impl Gen {
     /// A number: ordinary most of the time, otherwise one of the values
     /// that break numeric code (NaN, infinities, signed zeros,
     /// subnormals, the extremes of `f64`).
-    pub(crate) fn number(&mut self) -> f64 {
+    pub fn number(&mut self) -> f64 {
         match self.below(10) {
             0 => self.pick(&SPECIAL_NUMBERS),
             1 => self.between(-1.0, 1.0) * 10f64.powi(self.below(600) as i32 - 300),
@@ -90,7 +98,7 @@ impl Gen {
 
     /// A number in `[low, high]` most of the time, otherwise any
     /// [`number`](Self::number).
-    pub(crate) fn number_in(&mut self, low: f64, high: f64) -> f64 {
+    pub fn number_in(&mut self, low: f64, high: f64) -> f64 {
         if self.chance(0.8) {
             self.between(low, high)
         } else {
@@ -100,7 +108,7 @@ impl Gen {
 
     /// `len` numbers: half the time an evenly spaced series with the odd
     /// [`number`](Self::number) in it, otherwise any numbers.
-    pub(crate) fn numbers(&mut self, len: usize) -> Vec<f64> {
+    pub fn numbers(&mut self, len: usize) -> Vec<f64> {
         let shape = self.below(4);
         let start = self.number_in(-5.0, 5.0);
         (0..len)
@@ -113,7 +121,7 @@ impl Gen {
     }
 
     /// The text of a number as a user might type it, valid or not.
-    pub(crate) fn number_text(&mut self) -> String {
+    pub fn number_text(&mut self) -> String {
         match self.below(4) {
             0 => self.pick(&NUMBER_TEXTS).to_owned(),
             1 => format!("{}", self.number()),
@@ -125,7 +133,7 @@ impl Gen {
     /// A string of up to `max` pieces drawn from `pieces`, with random
     /// characters (control characters, combining marks, astral
     /// codepoints) mixed in.
-    pub(crate) fn soup(&mut self, pieces: &[&str], max: usize) -> String {
+    pub fn soup(&mut self, pieces: &[&str], max: usize) -> String {
         let len = self.len(max);
         let mut out = String::new();
         for _ in 0..len {
@@ -139,7 +147,7 @@ impl Gen {
     }
 
     /// A random character: ASCII mostly, sometimes anything.
-    pub(crate) fn character(&mut self) -> char {
+    pub fn character(&mut self) -> char {
         match self.below(6) {
             0 => self.pick(&ODD_CHARS),
             1 => char::from_u32(self.below(0x11_0000) as u32).unwrap_or('\u{FFFD}'),
@@ -149,7 +157,7 @@ impl Gen {
 
     /// `text` after a few random edits: pieces inserted, characters
     /// deleted or replaced, a span repeated, numbers made extreme.
-    pub(crate) fn mutate(&mut self, text: &str, pieces: &[&str]) -> String {
+    pub fn mutate(&mut self, text: &str, pieces: &[&str]) -> String {
         let mut chars: Vec<char> = text.chars().collect();
         for _ in 0..=self.below(4) {
             let at = self.below(chars.len() + 1);
@@ -180,7 +188,7 @@ impl Gen {
 
     /// A string for a parser: one of the valid `examples`, a mutation of
     /// one, or a soup of `pieces`.
-    pub(crate) fn text(&mut self, examples: &[&str], pieces: &[&str]) -> String {
+    pub fn text(&mut self, examples: &[&str], pieces: &[&str]) -> String {
         match self.below(5) {
             0 => self.pick(examples).to_owned(),
             1 => self.soup(pieces, 12),
@@ -193,7 +201,7 @@ impl Gen {
 
     /// `bytes` after random corruption: bits flipped, bytes overwritten
     /// with extreme values, spans repeated or deleted, the end cut off.
-    pub(crate) fn corrupt(&mut self, bytes: &[u8]) -> Corruption {
+    pub fn corrupt(&mut self, bytes: &[u8]) -> Corruption {
         let mut edits = Vec::new();
         let len = bytes.len().max(1);
         for _ in 0..=self.len(5) {
@@ -228,7 +236,7 @@ impl Gen {
 
 /// The edits of a [`Corruption`].
 #[derive(Clone, Debug)]
-pub(crate) enum Edit {
+pub enum Edit {
     /// XOR the byte at an offset with a mask.
     Flip(usize, u8),
     /// Overwrite the bytes at an offset: `(offset, length, value)`; runs
@@ -243,17 +251,17 @@ pub(crate) enum Edit {
 /// A recorded corruption of a byte buffer, small enough to print and
 /// replay.
 #[derive(Clone, Debug)]
-pub(crate) struct Corruption {
+pub struct Corruption {
     /// The edits, applied in order.
-    pub(crate) edits: Vec<Edit>,
+    pub edits: Vec<Edit>,
     /// Where the corrupted buffer is cut off, if anywhere.
-    pub(crate) truncate: Option<usize>,
+    pub truncate: Option<usize>,
 }
 
 impl Corruption {
     /// Moves every edit `offset` bytes further, so that a corruption of a
     /// part of a buffer applies to the whole (the cut is dropped).
-    pub(crate) fn shift(&mut self, offset: usize) {
+    pub fn shift(&mut self, offset: usize) {
         for edit in &mut self.edits {
             match edit {
                 Edit::Flip(at, _)
@@ -268,7 +276,7 @@ impl Corruption {
     }
 
     /// `bytes` with the corruption applied.
-    pub(crate) fn apply(&self, bytes: &[u8]) -> Vec<u8> {
+    pub fn apply(&self, bytes: &[u8]) -> Vec<u8> {
         let mut out = bytes.to_vec();
         for edit in &self.edits {
             match *edit {
@@ -512,7 +520,7 @@ fn print_stats(name: &str, total: Duration, slowest: &(Duration, u64)) {
 /// `PLTRS_FUZZ_SCALE`): each draws an input with `generate` and runs `run`
 /// on it. Fails listing every distinct panic location with the seed and
 /// the shortest input that reached it.
-pub(crate) fn fuzz<I: Debug>(
+pub fn fuzz<I: Debug>(
     name: &str,
     budget: usize,
     generate: impl Fn(&mut Gen) -> I,

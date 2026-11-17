@@ -6,20 +6,23 @@ members = ["crates/*", "examples/rust", "xtask"]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.99"
-publish = false
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Lorisk1210/plt-rs"
 
+# The crates are released together, at the version above, and each needs
+# the others at exactly that version (`=`): what they offer each other is
+# no interface of its own, and a newer one may change it in any release.
+# A new version changes these requirements with the one above.
 [workspace.dependencies]
-pltrs-core = { path = "crates/pltrs-core" }
-pltrs-codec = { path = "crates/pltrs-codec" }
-pltrs-font = { path = "crates/pltrs-font" }
-pltrs-raster = { path = "crates/pltrs-raster" }
-pltrs-text = { path = "crates/pltrs-text" }
-pltrs-render = { path = "crates/pltrs-render" }
-pltrs-platform = { path = "crates/pltrs-platform" }
-pltrs-ui = { path = "crates/pltrs-ui" }
-pltrs = { path = "crates/pltrs" }
+pltrs-core = { path = "crates/pltrs-core", version = "=0.1.0" }
+pltrs-codec = { path = "crates/pltrs-codec", version = "=0.1.0" }
+pltrs-font = { path = "crates/pltrs-font", version = "=0.1.0" }
+pltrs-raster = { path = "crates/pltrs-raster", version = "=0.1.0" }
+pltrs-text = { path = "crates/pltrs-text", version = "=0.1.0" }
+pltrs-render = { path = "crates/pltrs-render", version = "=0.1.0" }
+pltrs-platform = { path = "crates/pltrs-platform", version = "=0.1.0" }
+pltrs-ui = { path = "crates/pltrs-ui", version = "=0.1.0" }
+pltrs = { path = "crates/pltrs", version = "=0.1.0" }
 pltrs-spec = { path = "crates/pltrs-spec" }
 
 [workspace.lints.rust]

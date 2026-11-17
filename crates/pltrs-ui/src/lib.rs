@@ -90,15 +90,10 @@ mod widget;
 mod widgets;
 mod window;
 
-/// The harness of pltrs's fuzz tests (`crates/pltrs/tests/fuzz`), driving the
+/// The harness of pltrs's fuzz tests (`pltrs_core::fuzz`), driving the
 /// unit tests that fuzz the widgets with random input.
 #[cfg(test)]
-#[allow(
-    dead_code,
-    reason = "pltrs's fuzz tests use every generator, these unit tests only some"
-)]
-#[path = "../../pltrs/tests/fuzz/harness.rs"]
-mod fuzz;
+use pltrs_core::fuzz;
 
 pub use canvas::Canvas;
 pub use color_icon::{ColorIcon, LinearGradient, Paint, Shadow};

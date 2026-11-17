@@ -20,6 +20,12 @@
 
 use pltrs_core::rng::SplitMix64;
 
+/// The repository's README, whose Rust examples are checked as doctests
+/// here: the crate `pltrs` is packaged without the files above it.
+#[cfg(doctest)]
+#[doc = include_str!("../../../README.md")]
+struct Readme;
+
 /// Uniform and normal draws from a seeded `SplitMix64` stream.
 ///
 /// The Python examples draw from the same generator

@@ -5,10 +5,12 @@
 //! back — and nothing may panic or hang.
 //! Errors are fine; they are how invalid input is meant to be reported.
 //!
-//! [`harness`] runs each target for a small budget by default, so that
-//! `cargo test` stays quick; `PLTRS_FUZZ_SCALE=100` makes a long run, and a
-//! failure names the seed that reproduces it.
+//! [`harness`] (`pltrs_core::fuzz`) runs each target for a small budget
+//! by default, so that `cargo test` stays quick; `PLTRS_FUZZ_SCALE=100`
+//! makes a long run, and a failure names the seed that reproduces it.
 
+#[path = "../support/font_fixtures.rs"]
+mod font_fixtures;
 #[path = "../support/scratch.rs"]
 mod scratch;
 
@@ -16,8 +18,8 @@ mod animations;
 mod archives;
 mod config;
 mod dates;
+use pltrs_core::fuzz as harness;
 mod fonts;
-mod harness;
 mod images;
 mod interaction;
 mod mathtext;

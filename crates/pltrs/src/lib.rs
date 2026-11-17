@@ -189,23 +189,17 @@ pub mod warnings;
 pub mod web;
 pub mod widgets;
 
-/// The harness of the fuzz tests (`tests/fuzz`), also driving the unit
+/// The harness of the fuzz tests (`pltrs_core::fuzz`), also driving the unit
 /// tests that fuzz what the crate keeps private: the web server's
 /// parsers, the configuration lookup and the dialogs of figure windows.
 #[cfg(test)]
-#[allow(
-    dead_code,
-    reason = "the fuzz tests use every generator, these unit tests only some"
-)]
-#[path = "../tests/fuzz/harness.rs"]
-mod fuzz;
+use pltrs_core::fuzz;
+/// `pltrs-font`'s test fixtures, for the unit tests that read them.
+#[cfg(test)]
+#[path = "../tests/support/font_fixtures.rs"]
+mod font_fixtures;
 mod process;
 /// Scratch directories for the unit tests that write files.
 #[cfg(test)]
 #[path = "../tests/support/scratch.rs"]
 mod scratch;
-
-/// The README, whose Rust examples are checked as doctests.
-#[cfg(doctest)]
-#[doc = include_str!("../../../README.md")]
-struct Readme;

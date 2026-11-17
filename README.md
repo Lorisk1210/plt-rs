@@ -239,9 +239,11 @@ ax.legend()
 fig.savefig("figure.png")
 ```
 
-It draws in pltrs' modern look by default, as the crate does;
+Imported as `pltrs`, it draws in pltrs' modern look by default, as the
+crate does; imported as `matplotlib` (below), in matplotlib's look. The
+first import of a process decides, and `PLTRS_LOOK` chooses over it:
 `PLTRS_LOOK=matplotlib` gives matplotlib's look, and with it matplotlib's
-output:
+output, `PLTRS_LOOK=modern` the modern look.
 
 ```sh
 python your_script.py                       # pltrs' modern look
@@ -324,7 +326,10 @@ that name, `mpl_toolkits` (its three toolkits) and `pylab`:
 `import matplotlib.pyplot` then gives pltrs's pyplot, whose objects name
 matplotlib's modules as matplotlib's do (`type(fig).__module__` is
 `'matplotlib.figure'`, in reprs and pickles too), and `pltrs.pyplot` is
-the same module.
+the same module. Imported as `matplotlib` first, pltrs draws in
+matplotlib's look, figures and windows, so that code written for
+matplotlib looks as it did; `PLTRS_LOOK=modern` gives it pltrs' modern
+look. An `import pltrs` later in the same program changes nothing.
 
 ```sh
 pip install .                               # pltrs
@@ -425,6 +430,12 @@ How it is built, and how to extend it, is in
 | `pltrs-spec`     | the conformance harness                                           |
 | `pltrs-python`   | pltrs (Python)'s CPython extension (stable ABI, hand-written FFI) |
 | `xtask`          | developer automation                                              |
+
+The nine crates from `pltrs-core` to `pltrs` are published on crates.io
+together, at one version, each requiring the others at exactly that
+version: what they offer each other is no interface of its own, so a
+program depends on `pltrs`. `pltrs-spec`, `pltrs-python` and `xtask`
+are not published.
 
 ## Building and testing
 

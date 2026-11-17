@@ -89,11 +89,20 @@ mod web;
 use crate::binding::{Module, PyResult};
 
 /// Fills the extension module: the current thread's parameters start from
-/// the look in force (pltrs' modern look unless `PLTRS_LOOK` or
-/// `PLTRS_FIGURE_LOOK` chooses another, as in pltrs (Rust)), then each
-/// matplotlib module gets its submodule.
+/// the look in force, then each matplotlib module gets its submodule.
+///
+/// The look follows the name pltrs (Python) was first imported under,
+/// which its extension carries: imported as `matplotlib`
+/// (`matplotlib._native`, through the alias or matplotlib's suite),
+/// matplotlib's look, imported as `pltrs`, pltrs' modern look. The
+/// variables `PLTRS_LOOK`, `PLTRS_FIGURE_LOOK` and `PLTRS_CHROME_LOOK`
+/// choose over either, as in pltrs (Rust). The extension loads once per
+/// process, so a later import under the other name changes nothing.
 pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     pltrs::config::honour_matplotlib_config_dir();
+    if module.name().starts_with("matplotlib.") {
+        pltrs::look::set_default(pltrs::look::Appearance::MATPLOTLIB);
+    }
     pltrs::rc::restore_startup();
     crate::binding::install_after_call(vec![
         text_helpers::warn_missing_glyphs,

@@ -1,8 +1,9 @@
 # pltrs (Python)'s wheels and sdist: built for Linux (x86_64 and aarch64,
 # manylinux2014 and musllinux_1_2, linked by Zig against glibc 2.17 and musl
-# and tested inside the official containers), macOS
-# (universal2) and Windows (win_amd64; win_arm64 when asked), each installed
-# in a fresh venv on a runner of its platform and smoke-tested there
+# and tested inside the official containers), macOS (universal2, tested
+# on an arm64 and an Intel runner) and Windows (win_amd64; win_arm64 when
+# asked), each installed in a fresh venv on a runner of its platform and
+# smoke-tested there
 # (python/tools/check_dist.py --install), then, for a version tag,
 # published to PyPI through trusted publishing. RELEASING.md says how.
 #
@@ -193,11 +194,6 @@ jobs:
         with:
           python-version: "3.12"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        id: intel
-        with:
-          python-version: "3.12"
-          architecture: x64
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         id: newest
         with:
           python-version: "3.14"
@@ -215,18 +211,42 @@ jobs:
         with:
           name: alias
           path: alias
-      # Both halves of the wheel: arm64 natively, x86_64 under Rosetta. The
-      # job builds and tests at once, as macOS minutes cost ten times.
+      # The wheel's arm64 half, here. The job builds and tests at once, as
+      # macOS minutes cost ten times; the x86_64 half is the next job's.
       - name: Install and check, arm64, Python 3.12 and 3.14
         run: |
           for python in "${{ steps.oldest.outputs.python-path }}" "${{ steps.newest.outputs.python-path }}"; do
             python python/tools/check_dist.py --install --python "$python" --work "$RUNNER_TEMP/check" dist/*.whl alias/*.whl
           done
-      - name: Install and check, x86_64 under Rosetta, Python 3.12
+
+  # The wheel's x86_64 half, natively on an Intel Mac: nowhere else does
+  # that code run before the release (Rosetta on an arm64 runner depends
+  # on the image, and emulates).
+  macos-intel:
+    name: macOS universal2 tested on Intel
+    needs: [sdist, macos]
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        id: oldest
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pltrs-macos-universal2
+          path: dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: alias
+          path: alias
+      - name: Install and check, x86_64, Python 3.12
         run: |
-          python="${{ steps.intel.outputs.python-path }}"
+          python="${{ steps.oldest.outputs.python-path }}"
           "$python" -c "import platform; assert platform.machine() == 'x86_64', platform.machine()"
-          "$python" python/tools/check_dist.py --install --python "$python" --work "$RUNNER_TEMP/check-x86_64" dist/*.whl alias/*.whl
+          "$python" python/tools/check_dist.py --install --python "$python" --work "$RUNNER_TEMP/check" dist/*.whl alias/*.whl
 
   windows:
     name: Windows ${{ matrix.arch }}
@@ -296,7 +316,7 @@ jobs:
   publish:
     name: Publish to PyPI
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [sdist-test, linux-test, macos, windows-test]
+    needs: [sdist-test, linux-test, macos, macos-intel, windows-test]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     # Protected in the repository's settings (RELEASING.md): PyPI trusts

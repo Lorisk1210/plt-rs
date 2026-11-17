@@ -11,12 +11,14 @@ behaviour; the work (validation, layout, drawing, saving) is done by
 pltrs (Rust), a reimplementation of matplotlib, through the native module
 ``pltrs._native``. See ``python/DESIGN.md`` for how the two fit together.
 
-Figures take pltrs' modern look by default, as in pltrs (Rust): the
-``pltrs-modern`` style sheet, Inter type and constrained layout. Setting
-the environment variable ``PLTRS_LOOK=matplotlib`` before the import
-selects matplotlib's look, in which the output is matplotlib's.
-``rcParamsDefault``, `rcdefaults` and ``style.use("default")`` give
-matplotlib's defaults in either look.
+Imported as ``pltrs``, figures take pltrs' modern look by default, as in
+pltrs (Rust): the ``pltrs-modern`` style sheet, Inter type and
+constrained layout. Imported as ``matplotlib`` (the ``matplotlib``
+distribution of pltrs), they take matplotlib's look, in which the output
+is matplotlib's. The first import of a process decides; the environment
+variable ``PLTRS_LOOK`` (``matplotlib`` or ``modern``, set before the
+import) chooses over it. ``rcParamsDefault``, `rcdefaults` and
+``style.use("default")`` give matplotlib's defaults in either look.
 
 This module holds what matplotlib's top level holds: ``rcParams`` and its
 helpers (``rc``, ``rc_context``, ``rcdefaults``), backend selection

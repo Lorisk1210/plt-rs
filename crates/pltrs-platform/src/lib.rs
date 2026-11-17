@@ -142,15 +142,10 @@ mod windows;
 #[cfg(unix)]
 mod x11;
 
-/// The harness of pltrs's fuzz tests (`crates/pltrs/tests/fuzz`), driving the
+/// The harness of pltrs's fuzz tests (`pltrs_core::fuzz`), driving the
 /// unit tests that fuzz what an X server sends.
 #[cfg(test)]
-#[allow(
-    dead_code,
-    reason = "pltrs's fuzz tests use every generator, these unit tests only some"
-)]
-#[path = "../../pltrs/tests/fuzz/harness.rs"]
-mod fuzz;
+use pltrs_core::fuzz;
 
 pub use backend::BackendKind;
 pub use blocking::WaitHook;

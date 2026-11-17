@@ -34,7 +34,10 @@
 //! The specific variables win over `PLTRS_LOOK`: `PLTRS_LOOK=matplotlib
 //! PLTRS_CHROME_LOOK=modern` gives matplotlib's figures in modern windows.
 //! Unknown values are ignored when pltrs starts; [`Appearance::from_env`]
-//! reports them.
+//! reports them. A program serving another library's name may put another
+//! appearance under the variables in place of the modern one
+//! ([`set_default`]): pltrs (Python) imported as `matplotlib` takes
+//! matplotlib's.
 //!
 //! The figure look decides the parameters threads start from
 //! ([`RcParams::startup`]), and the user's rc file (`pltrsrc`, found in the
@@ -311,13 +314,27 @@ pub fn appearance() -> Appearance {
     if let Some(chosen) = *CHOSEN.read().unwrap_or_else(PoisonError::into_inner) {
         return chosen;
     }
-    let resolved = UNCHOSEN
-        .with_vars(|name| std::env::var(name).ok())
-        .unwrap_or(UNCHOSEN);
+    let resolved = from_environment(UNCHOSEN, |name| std::env::var(name).ok());
     *CHOSEN
         .write()
         .unwrap_or_else(PoisonError::into_inner)
         .get_or_insert(resolved)
+}
+
+/// Puts `default` in place of the modern appearance for the whole
+/// program, under the environment's choices (`PLTRS_LOOK=modern` still
+/// gives the modern look), and makes the result the appearance in force,
+/// as [`set_appearance`] does. For a program that serves another
+/// library's name before its own code runs: pltrs (Python) imported as
+/// `matplotlib` takes [`Appearance::MATPLOTLIB`].
+pub fn set_default(default: Appearance) {
+    set_appearance(from_environment(default, |name| std::env::var(name).ok()));
+}
+
+/// `default` with the choices of the variables `var` returns, unknown
+/// values ignored.
+fn from_environment(default: Appearance, var: impl Fn(&str) -> Option<String>) -> Appearance {
+    default.with_vars(var).unwrap_or(default)
 }
 
 /// Chooses the appearance for the whole program. When the figure look
@@ -386,6 +403,28 @@ mod tests {
         );
         let dark = modern.with_vars(vars(&[("PLTRS_FIGURE_LOOK", "modern-dark")]));
         assert_eq!(dark.unwrap().figures, FigureLook::ModernDark);
+    }
+
+    #[test]
+    fn the_environment_chooses_over_another_default() {
+        let matplotlib = Appearance::MATPLOTLIB;
+        assert_eq!(from_environment(matplotlib, vars(&[])), matplotlib);
+        assert_eq!(
+            from_environment(matplotlib, vars(&[("PLTRS_LOOK", "modern")])),
+            Appearance::MODERN
+        );
+        assert_eq!(
+            from_environment(matplotlib, vars(&[("PLTRS_FIGURE_LOOK", "modern-dark")])),
+            Appearance {
+                figures: FigureLook::ModernDark,
+                chrome: ChromeLook::Matplotlib,
+            }
+        );
+        // An unknown value leaves the default, as when pltrs starts.
+        assert_eq!(
+            from_environment(matplotlib, vars(&[("PLTRS_LOOK", "classic")])),
+            matplotlib
+        );
     }
 
     #[test]

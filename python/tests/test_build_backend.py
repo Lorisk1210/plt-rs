@@ -180,9 +180,9 @@ def test_the_alias_wheel_and_the_sdist_are_built_and_checked(tmp_path, monkeypat
                      "crates/pltrs-python/build.rs", "crates/pltrs-font/fonts/DejaVuSans.ttf",
                      "python/backend/pltrs_backend/_zigcc.py", "python/tests/test_smoke.py"):
             assert f"{stem}/{kept}" in names
-        # The licence, and each crate's links to it as plain files.
+        # The licence, and each published crate's copies of it.
         for licence in ("LICENSE-MIT", "LICENSE-APACHE"):
-            for at in ("", "crates/pltrs/", "crates/pltrs-python/"):
+            for at in ("", "crates/pltrs/", "crates/pltrs-core/"):
                 member = archive.getmember(f"{stem}/{at}{licence}")
                 assert member.isfile()
                 assert archive.extractfile(member).read() == (ROOT / licence).read_bytes()

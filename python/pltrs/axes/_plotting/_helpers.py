@@ -6,7 +6,6 @@ return, the native form of plotting values and of keyword arguments.
 import copy
 import datetime
 import inspect
-import warnings
 
 import numpy as np
 
@@ -14,6 +13,7 @@ from ... import _api, _handles, _lazy_imports, cbook, lines as mlines
 from ..._native import plotting as _plotting
 
 _program_adds = _lazy_imports.module(globals(), ".._program_adds")
+_quiet_warnings = _lazy_imports.module(globals(), "..._quiet_warnings")
 
 
 def wrap(axes, native, cls):
@@ -209,8 +209,7 @@ def takes_properties(artist, props):
     """Whether *artist*, made for the test, takes the properties *props*:
     those pltrs (Rust) gives artists once it made all of them, which
     matplotlib's code gives each artist as it makes it (failing then)."""
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
+    with _quiet_warnings.ignored():
         try:
             artist.set(**props)
         except Exception:

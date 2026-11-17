@@ -17,6 +17,7 @@ use crate::lines::LineStyle;
 use crate::patches::PatchStyle;
 use crate::rc::RcParams;
 use crate::scale::{AxisTickers, Scale};
+use crate::text::TextBoxPatch;
 use crate::ticker::{
     AxisInfo, AxisName, Formatter, Locator, NullLocator, OverlapTolerance, TickContext, TickSpace,
     TickerError, TickerSettings, drawable_ticks,
@@ -82,6 +83,12 @@ pub(crate) struct AxisLabel3D {
     /// Whether the label follows the axis direction; `None` rotates
     /// labels longer than four characters.
     pub(crate) rotate: Option<bool>,
+    /// The angle the label is drawn at when it does not follow the axis
+    /// direction, in degrees (matplotlib's `label.get_rotation()`, which
+    /// its draw leaves then).
+    pub(crate) rotation: f64,
+    /// The box drawn behind the label (matplotlib's `label.set_bbox`).
+    pub(crate) bbox: Option<TextBoxPatch>,
     /// Whether the label was never set, so that a unit converter may
     /// give it (matplotlib's `isDefault_label`).
     pub(crate) is_default: bool,
@@ -93,6 +100,8 @@ pltrs_core::archive_struct!(AxisLabel3D {
     color,
     pad,
     rotate,
+    rotation,
+    bbox,
     is_default
 });
 
@@ -410,9 +419,15 @@ pub struct PaneStyle {
     pub style: PatchStyle,
     /// The polygon's alpha.
     pub alpha: Option<f64>,
+    /// Whether the polygon is drawn.
+    pub visible: bool,
 }
 
-pltrs_core::archive_struct!(PaneStyle { style, alpha });
+pltrs_core::archive_struct!(PaneStyle {
+    style,
+    alpha,
+    visible
+});
 
 impl Axis3DState {
     /// A linear axis configured from `rc`.
@@ -437,6 +452,8 @@ impl Axis3DState {
                 color: rc.axes_labelcolor.clone(),
                 pad: rc.axes_labelpad,
                 rotate: None,
+                rotation: 0.0,
+                bbox: None,
                 is_default: true,
             },
             pane_color: pane_color.clone(),

@@ -41,11 +41,13 @@ import weakref
 
 import numpy as np
 
-from . import _live_transforms, _transform_trees, transforms as mtransforms
+from . import _lazy_imports, _live_transforms, _transform_trees, transforms as mtransforms
 from ._native import drawing as _drawing, figure as _figure, register as _register
 from ._native import transforms as _transforms
 from ._program_classes import class_cache, takes_from_program
 from .path import Path
+
+_quiet_warnings = _lazy_imports.module(globals(), "._quiet_warnings")
 
 
 class _Drawing(threading.local):
@@ -328,9 +330,8 @@ def _warnings_held(artist, live):
         return
     held = []
     try:
-        with warnings.catch_warnings(record=True) as held:
-            # Each as it comes: the filters in force decide when it is given.
-            warnings.simplefilter("always")
+        # Each as it comes: the filters in force decide when it is given.
+        with _quiet_warnings.recorded() as held:
             yield
     finally:
         artist.__dict__["_held_warnings"] = held

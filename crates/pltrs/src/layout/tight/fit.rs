@@ -103,10 +103,13 @@ fn figure_fraction(bbox: Bbox, (width, height): (f64, f64)) -> Bbox {
 
 /// matplotlib's `get_tight_layout_figure` from the margins on: the
 /// subplot parameters (`None` without grid-placed axes), fitted into
-/// `params.rect` by a second pass if given.
+/// `params.rect` by a second pass if given, over the axes as measured
+/// `again` when they measure otherwise the second time (as `measured`
+/// else).
 pub(in crate::layout) fn adjusted_params(
     fig: &FigureState,
     measured: &Measured,
+    again: Option<&Measured>,
     params: &TightLayout,
 ) -> Result<Option<SubplotOverrides>, TightLayoutError> {
     let Some(shape) = measured.shape else {
@@ -122,6 +125,13 @@ pub(in crate::layout) fn adjusted_params(
         return Ok(Some(first));
     };
     let set = |value: Option<f64>| value.unwrap_or_default();
+    let grid = match again {
+        Some(again) => Grid {
+            spaces: Spaces::new(shape, &again.cells, fig.size_pixels()),
+            ..grid
+        },
+        None => grid,
+    };
     let rect = [
         left.map(|left| left + set(first.left)),
         bottom.map(|bottom| bottom + set(first.bottom)),

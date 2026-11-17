@@ -292,6 +292,7 @@ fn set_pane_patch(axes: Axes3D, name: String, pane: Option<RawHandle>) -> PyResu
             Some(PaneStyle {
                 style: polygon.style(),
                 alpha: polygon.alpha(),
+                visible: polygon.visible(),
             })
         }
         None => None,

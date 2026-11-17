@@ -2047,7 +2047,9 @@ class Axis(DrawnWith, Artist):
                 native['grid_clip_path'])
         if reset:
             # matplotlib makes the ticks anew from the parameters left: a
-            # tick's own defaults, and the grid of the rcParams.
+            # tick's own defaults, and the grid of the rcParams. The ticks
+            # it held keep what they had (`reset_ticks`).
+            self.reset_ticks()
             for minor in levels:
                 grid = (self._rc('axes.grid') and self._rc('axes.grid.which')
                         in ('both', 'minor' if minor else 'major'))
@@ -2056,6 +2058,7 @@ class Axis(DrawnWith, Artist):
                     {**_TICK_DEFAULTS, 'gridOn': grid, **native})
         else:
             _axis.set_tick_params(*self._args(), which, False, native)
+            self._apply_to_held_ticks(levels, kwtrans)
         if not reset:
             # labelOn and labelcolor also apply to the offset text.
             if 'label1On' in kwtrans or 'label2On' in kwtrans:
@@ -2264,7 +2267,27 @@ class Axis(DrawnWith, Artist):
     def _set_ticks_position(self, position):
         """Put the ticks where *position* says (natively checked)."""
         _axis.set_ticks_position(*self._args(), position)
+        self._apply_to_held_ticks((False, True))
         self.stale = True
+
+    def _tick_to(self, side):
+        """Put the ticks and their labels (if shown) on *side*."""
+        _axis.tick_to(*self._args(), side)
+        self._apply_to_held_ticks((False, True))
+
+    def _apply_to_held_ticks(self, levels, params=()):
+        """
+        Have the ticks handed out of the *levels* (True for the minor
+        ticks) read back the parameters just given, *params* among them,
+        as matplotlib applies them to the ticks it holds
+        (`.Tick._apply_params`).
+        """
+        for minor in levels:
+            for tick in self._ticks[minor]:
+                if "labelrotation_mode" in params:
+                    # As given, not as its class makes it.
+                    tick.__dict__["_rotation_mode_given"] = True
+                tick._sync()
 
     # --- Label and offset text -----------------------------------------------
 
@@ -3100,13 +3123,13 @@ class XAxis(_AxisOfAxes):
         """
         Move ticks and ticklabels (if present) to the top of the Axes.
         """
-        _axis.tick_to(*self._args(), "top")
+        self._tick_to("top")
 
     def tick_bottom(self):
         """
         Move ticks and ticklabels (if present) to the bottom of the Axes.
         """
-        _axis.tick_to(*self._args(), "bottom")
+        self._tick_to("bottom")
 
     def get_ticks_position(self):
         """
@@ -3191,13 +3214,13 @@ class YAxis(_AxisOfAxes):
         """
         Move ticks and ticklabels (if present) to the right of the Axes.
         """
-        _axis.tick_to(*self._args(), "right")
+        self._tick_to("right")
 
     def tick_left(self):
         """
         Move ticks and ticklabels (if present) to the left of the Axes.
         """
-        _axis.tick_to(*self._args(), "left")
+        self._tick_to("left")
 
     def get_ticks_position(self):
         """

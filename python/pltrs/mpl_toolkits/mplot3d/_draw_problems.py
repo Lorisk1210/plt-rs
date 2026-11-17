@@ -18,10 +18,10 @@ matplotlib raises there (before the first draw, numpy's error for a
 product with None).
 """
 
-import warnings
 
 import numpy as np
 
+from pltrs import _quiet_warnings
 from pltrs._native import mplot3d as _mplot3d
 
 #: The projection the computations run through when they look for the
@@ -89,8 +89,7 @@ def _problem(compute, M=ANY_PROJECTION):
     draw projects them."""
     if M is not ANY_PROJECTION:
         return _raised(compute)
-    with warnings.catch_warnings(), np.errstate(all="ignore"):
-        warnings.simplefilter("ignore")
+    with _quiet_warnings.ignored(), np.errstate(all="ignore"):
         return _raised(compute)
 
 

@@ -15,7 +15,7 @@ use pltrs::artist::ArtistHandle;
 use pltrs::lines::{Line2D, LineStyle};
 use pltrs::markers::{Marker, MarkerSymbol, NoMarker};
 use pltrs::mplot3d::{Axis3D, AxisText3D, AxisTextPart};
-use pltrs::text::{HAlign, Text, VAlign};
+use pltrs::text::{HAlign, RotationMode, Text, VAlign};
 use pltrs::transforms::Bbox;
 use pltrs_core::Point;
 
@@ -210,11 +210,28 @@ pub(super) fn tick_label_extent(
 
 /// Fills the mirror `text` of the label of `axis`.
 pub(super) fn sync_axis_label(axis: &Axis3D, text: &Text) -> PyResult<()> {
-    let position = drawn(axis, AxisTextPart::Label).map_or(Point::new(0.5, 0.0), |t| t.position);
+    let drawn = drawn(axis, AxisTextPart::Label);
+    let position = drawn.map_or(Point::new(0.5, 0.0), |t| t.position);
+    // What matplotlib's draw of the axis gives its label, once drawn.
+    let drawn = drawn.filter(|_| text.visible() && axis.axes().raw().draw_count() > 0);
     text.set_text(axis.axes().label(axis.dir()))
         .set_position(position)
         .set_color(axis.label_color())
-        .set_font(axis.label_font());
+        .set_font(axis.label_font())
+        .set_halign(HAlign::Center)
+        .set_bbox_patch(axis.label_bbox());
+    // matplotlib's draw centres the label, anchored, at the angle it
+    // drew it; until then it is the axis' label as made.
+    match drawn {
+        Some(drawn) => text
+            .set_rotation(drawn.rotation)
+            .set_valign(VAlign::Center)
+            .set_rotation_mode(RotationMode::Anchor),
+        None => text
+            .set_rotation(axis.label_rotation())
+            .set_valign(VAlign::Top)
+            .set_rotation_mode(RotationMode::Default),
+    };
     Ok(())
 }
 
@@ -233,6 +250,12 @@ pub(super) fn push_axis_label(axis: &Axis3D, text: &Text) -> PyResult<()> {
     }
     if text.font() != synced.font() {
         axis.set_label_font(text.font());
+    }
+    if text.rotation().to_bits() != synced.rotation().to_bits() {
+        axis.set_label_rotation(text.rotation());
+    }
+    if text.bbox_patch() != synced.bbox_patch() {
+        axis.set_label_bbox(text.bbox_patch());
     }
     Ok(())
 }

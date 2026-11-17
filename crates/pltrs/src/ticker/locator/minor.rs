@@ -1,5 +1,7 @@
 //! `AutoMinorLocator`: evenly subdivides the intervals between major ticks.
 
+use std::cell::Cell;
+
 use pltrs_core::numeric::remainder;
 
 use super::Locator;
@@ -17,9 +19,12 @@ const MAX_MINOR_TICKS: i64 = 10_000_000;
 /// It reads the major ticks from the context's axis
 /// ([`crate::ticker::AxisInfo::major_ticks`]), so only
 /// [`Locator::locate`] is meaningful.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AutoMinorLocator {
-    ndivs: Option<MinorDivisions>,
+    /// The subdivisions given, else those of the rcParams the first time
+    /// the locator placed ticks (matplotlib's ``ndivs``, which its first
+    /// call settles): `None` until then.
+    ndivs: Cell<Option<MinorDivisions>>,
 }
 
 pltrs_core::archive_struct!(AutoMinorLocator { ndivs });
@@ -28,20 +33,36 @@ impl AutoMinorLocator {
     /// Subdivides major intervals into `ndivs` parts; `None` reads
     /// `xtick.minor.ndivs`/`ytick.minor.ndivs` when ticks are located.
     pub fn new(ndivs: Option<MinorDivisions>) -> Self {
-        Self { ndivs }
+        Self {
+            ndivs: Cell::new(ndivs),
+        }
     }
 
-    /// The configured subdivisions (`None`: from the rcParams).
+    /// The subdivisions given or settled (`None`: from the rcParams the
+    /// next time ticks are located).
+    ///
+    /// ```
+    /// use pltrs::ticker::{AutoMinorLocator, AxisInfo, Locator, MinorDivisions, TickContext, TickerSettings};
+    /// let locator = AutoMinorLocator::new(None);
+    /// let axis = AxisInfo { view_interval: (0.0, 10.0), major_ticks: vec![0.0, 5.0, 10.0], ..AxisInfo::DUMMY };
+    /// let settings = TickerSettings { xtick_minor_ndivs: MinorDivisions::Count(3), ..TickerSettings::default() };
+    /// locator.locate(&TickContext::new(&axis, &settings))?;
+    /// // Settled once, as matplotlib's first call settles it.
+    /// assert_eq!(locator.ndivs(), Some(MinorDivisions::Count(3)));
+    /// # Ok::<(), pltrs::ticker::TickerError>(())
+    /// ```
     pub fn ndivs(&self) -> Option<MinorDivisions> {
-        self.ndivs
+        self.ndivs.get()
     }
 
-    /// The number of subdivisions of a major interval `majorstep`.
-    fn divisions(self, majorstep: f64, axis: AxisName, settings: &TickerSettings) -> u32 {
-        let ndivs = self.ndivs.unwrap_or(match axis {
+    /// The number of subdivisions of a major interval `majorstep`, those
+    /// of the rcParams settled the first time.
+    fn divisions(&self, majorstep: f64, axis: AxisName, settings: &TickerSettings) -> u32 {
+        let ndivs = self.ndivs.get().unwrap_or(match axis {
             AxisName::Y => settings.ytick_minor_ndivs,
             AxisName::X => settings.xtick_minor_ndivs,
         });
+        self.ndivs.set(Some(ndivs));
         match ndivs {
             MinorDivisions::Count(n) => n,
             MinorDivisions::Auto => {
@@ -94,7 +115,7 @@ mod tests {
     use super::*;
     use crate::ticker::AxisInfo;
 
-    fn minor(locator: AutoMinorLocator, majors: &[f64], view: (f64, f64)) -> Vec<f64> {
+    fn minor(locator: &AutoMinorLocator, majors: &[f64], view: (f64, f64)) -> Vec<f64> {
         let axis = AxisInfo {
             view_interval: view,
             major_ticks: majors.to_vec(),
@@ -108,17 +129,17 @@ mod tests {
     fn subdivides_major_intervals() {
         let auto = AutoMinorLocator::default();
         assert_eq!(
-            minor(auto, &[0.0, 5.0, 10.0], (0.0, 10.0)),
+            minor(&auto, &[0.0, 5.0, 10.0], (0.0, 10.0)),
             [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
         );
         assert_eq!(
-            minor(auto, &[0.0, 3.0, 6.0], (0.0, 3.0)),
+            minor(&auto, &[0.0, 3.0, 6.0], (0.0, 3.0)),
             [0.0, 0.75, 1.5, 2.25, 3.0]
         );
         let two = AutoMinorLocator::new(Some(MinorDivisions::Count(2)));
-        assert_eq!(minor(two, &[0.0, 1.0], (1.0, 0.0)), [0.0, 0.5, 1.0]);
-        assert_eq!(minor(auto, &[5.0], (0.0, 10.0)), Vec::<f64>::new());
-        assert_eq!(minor(auto, &[], (0.0, 10.0)), Vec::<f64>::new());
+        assert_eq!(minor(&two, &[0.0, 1.0], (1.0, 0.0)), [0.0, 0.5, 1.0]);
+        assert_eq!(minor(&auto, &[5.0], (0.0, 10.0)), Vec::<f64>::new());
+        assert_eq!(minor(&auto, &[], (0.0, 10.0)), Vec::<f64>::new());
         assert!(auto.tick_values(0.0, 1.0, &TickContext::default()).is_err());
     }
 }

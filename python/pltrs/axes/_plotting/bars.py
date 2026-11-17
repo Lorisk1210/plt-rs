@@ -4,7 +4,6 @@ Bars: `~.Axes.bar`, `~.Axes.barh`, `~.Axes.broken_barh` and
 """
 
 import itertools
-import warnings
 
 import numpy as np
 
@@ -21,6 +20,7 @@ from ._helpers import floats, record_container, wrap, wrap_all
 from .errorbar import _error_bounds
 
 _bars_reference = _lazy_imports.module(globals(), "._bars_reference")
+_quiet_warnings = _lazy_imports.module(globals(), "..._quiet_warnings")
 
 
 def _rcParams():
@@ -1104,6 +1104,5 @@ def _cast_complex_extents(count):
 def _floats_quietly(values):
     """`floats` of *values*, complex numbers among them, without numpy's
     warning that their imaginary parts go."""
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", np.exceptions.ComplexWarning)
+    with _quiet_warnings.ignored(np.exceptions.ComplexWarning):
         return floats(values)

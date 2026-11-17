@@ -254,10 +254,20 @@ class _FinderPart:
 
 
 class _Extremes(_FinderPart):
-    """The range of the curvilinear coordinates covering a box."""
+    """The range of the curvilinear coordinates covering a box: the view
+    of the Axes pltrs (Rust) lays the grid of *helper* out over, which the
+    helper records as matplotlib's ``update_lim`` does (``_old_limits``)."""
+
+    def __init__(self, finder, helper):
+        super().__init__(finder)
+        self.helper = helper
 
     def __call__(self, x0, y0, x1, y1):
         finder = self.finder
+        helper = self.helper
+        helper._old_limits = tuple(map(np.float64, (x0, x1, y0, y1)))
+        # Computed for those limits when the program reads it.
+        helper._grid_info = None
         return tuple(map(float, finder.extreme_finder._find_transformed_bbox(
             finder.get_transform().inverted(),
             Bbox.from_extents(x0, y0, x1, y1)).extents))
@@ -335,7 +345,7 @@ class GridHelperCurveLinear(GridHelperBase):
         """The parts of the grid finder as pltrs (Rust) calls them; they
         read the grid finder anew at each call."""
         finder = self.grid_finder
-        return (_Extremes(finder), (_Levels(finder, 1), _Levels(finder, 2)),
+        return (_Extremes(finder, self), (_Levels(finder, 1), _Levels(finder, 2)),
                 (_Labels(finder, 1), _Labels(finder, 2)))
 
     def _install(self, axes, zero):
@@ -350,6 +360,10 @@ class GridHelperCurveLinear(GridHelperBase):
 
     def get_gridlines(self, which="major", axis="both"):
         self._update_for_served_axes()
+        if self._grid_info is None and self._old_limits is not None:
+            # The limits pltrs (Rust) laid the grid out for.
+            x1, x2, y1, y2 = self._old_limits
+            self._update_grid(Bbox.from_extents(x1, y1, x2, y2))
         grid_lines = []
         if axis in ["both", "x"]:
             grid_lines.extend([gl.T for gl in self._grid_info["lon"]["lines"]])

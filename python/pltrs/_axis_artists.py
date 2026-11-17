@@ -422,6 +422,15 @@ class Tick(Artist):
             _values.remember(label, coordinate, self._loc)
         if axis.axes.name != "3d":
             self._place_lines(None if loc is None else self._loc)
+        for line in (self.tick1line, self.tick2line):
+            # matplotlib's tick makes its marks at the tick's zorder (the
+            # axis draws them as a unit: only read back).
+            _artist.set_zorder(line._native, given.get("zorder", self._zorder))
+        if axis.axes.name == "polar" and not self.__dict__.get("_rotation_mode_given"):
+            # matplotlib's polar ticks anchor their labels once made
+            # (`ThetaTick`, `RadialTick`), as pltrs (Rust) draws them.
+            for label in (self.label1, self.label2):
+                _text.set_rotation_mode(label._native, "anchor")
         for name, part in zip(("label1On", "label2On", "tick1On", "tick2On", "gridOn"), parts):
             if name in given:
                 # The switch as `tick_params` was given it ("off", 1), which

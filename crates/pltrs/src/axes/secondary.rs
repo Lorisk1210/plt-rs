@@ -103,7 +103,10 @@ impl Axes {
     /// Converts the host's range with `functions` from now on (`None` is
     /// the identity), keeping the axis' side (matplotlib's
     /// `SecondaryAxis.set_functions`); does nothing to an axes that is no
-    /// secondary axis.
+    /// secondary axis. The axis' scale keeps the functions it was made
+    /// with until the host's scale changes, as matplotlib's `_set_scale`
+    /// remakes it only then: the limits follow the new functions, the
+    /// ticks are placed through the old ones.
     ///
     /// ```
     /// use pltrs::prelude::*;
@@ -123,7 +126,6 @@ impl Axes {
     pub fn set_secondary_functions(&self, functions: Option<FuncTransform>) -> &Self {
         self.update_secondary(|link| {
             link.functions = functions.unwrap_or_else(FuncTransform::identity);
-            link.host_scale = None;
         })
     }
 

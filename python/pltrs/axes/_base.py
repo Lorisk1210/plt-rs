@@ -228,6 +228,10 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         else:
             spines = {name: _handles.wrap(native, Spine, self._figure)
                       for name, native in _spines.axes_spines(self._native)}
+            if self.name != "rectilinear":
+                from .. import _spine_arcs
+                for name, spine in spines.items():
+                    _spine_arcs.mark(spine, name, self)
         colorbar = self.__dict__.get("_colorbar")
         if colorbar is not None:
             # A colorbar's outline is a spine of its Axes, as matplotlib's

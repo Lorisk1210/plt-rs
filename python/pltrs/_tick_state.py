@@ -24,9 +24,11 @@ a locator), once per computation.
 """
 
 import contextlib
-import warnings
 
+from . import _lazy_imports
 from ._native import axis as _axis
+
+_quiet_warnings = _lazy_imports.module(globals(), "._quiet_warnings")
 
 
 class ticked:
@@ -115,8 +117,7 @@ def _replay(helper, axis, minor, locs, info):
     from ._tick_helpers import drawing, settled
     from .axis import _typed_locs
     from .ticker import Locator
-    with _catching_up(helper), drawing(helper, info), warnings.catch_warnings():
-        warnings.simplefilter("ignore")
+    with _catching_up(helper), drawing(helper, info), _quiet_warnings.ignored():
         try:
             if isinstance(helper, Locator):
                 helper()

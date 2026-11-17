@@ -27,6 +27,14 @@ impl FigureCanvas {
         // A removed artist (an Axes never added among them) draws all it
         // owns, as matplotlib's `draw` does.
         let _standing = artist.standing_in();
+        if artist.id() == self.figure.id()
+            && self.holds(artist)
+            && self.figure.prepare_layout().is_break()
+        {
+            // matplotlib's `Figure.draw` lays the figure out first, its
+            // axes ticked (what the axes' Python objects read afterwards).
+            return Ok(());
+        }
         if let Some(axes) = Axes::from_raw_handle(artist)
             && axes.visible()
         {

@@ -2944,9 +2944,27 @@ class AutoMinorLocator(_NativeLocator):
                  else _axis.info_fields(info)[3])
         if len(np.unique(major)) < 2:
             return
-        _tick_state.settle(self, "ndivs", _rc(
-            'ytick.minor.ndivs' if getattr(axis, "axis_name", None) == 'y'
-            else 'xtick.minor.ndivs'))  # for x and z axis
+        settled = self._natively_settled()
+        if settled is None:
+            settled = _rc(
+                'ytick.minor.ndivs' if getattr(axis, "axis_name", None) == 'y'
+                else 'xtick.minor.ndivs')  # for x and z axis
+        _tick_state.settle(self, "ndivs", settled)
+
+    def _natively_settled(self):
+        """The divisions pltrs (Rust)'s locator ticking the axis for this
+        one settled when it first placed ticks (under the rcParams of
+        then), None for a locator ticking in Python."""
+        ticked_on = self.__dict__.get("_ticked_on")
+        if ticked_on is None:
+            return None
+        axis, helper_id = ticked_on
+        try:
+            token = _tick_helpers._axis_registry(axis)[helper_id][0]
+            spec = _axis.describe_helper(token)
+        except (KeyError, RuntimeError):
+            return None
+        return spec.get("n") if spec and spec.get("kind") == "autominor" else None
 
     def tick_values(self, vmin, vmax):
         raise NotImplementedError(

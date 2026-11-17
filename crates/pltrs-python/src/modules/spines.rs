@@ -1,7 +1,7 @@
 //! `_native.spines`: the spines framing an axes (matplotlib's `spines`).
 
 use pltrs::artist::ArtistHandle;
-use pltrs::axes::Axes;
+use pltrs::axes::{Axes, ProjectionKind};
 use pltrs::colors::Color;
 use pltrs::spines::{Spine, SpinePosition, SpineSide};
 
@@ -26,16 +26,27 @@ pub(super) fn side_name(side: SpineSide) -> &'static str {
 /// The spines of an axes with their names, in matplotlib's order: left,
 /// right, bottom, top; for polar axes the outer arc (`polar`), the start
 /// and the end of the sector, and the inner arc, which pltrs (Rust) keeps
-/// as the top, left, right and bottom spines.
+/// as the top, left, right and bottom spines; for geographic axes the one
+/// circle around the map (`geo`), which pltrs (Rust) draws as the top
+/// spine.
 fn axes_spines(axes: Axes) -> PyResult<Vec<(&'static str, Spine)>> {
     let spines = axes.spines();
-    let named: [(&'static str, SpineSide); 4] = if axes.as_polar().is_some() {
-        [
+    let geographic = matches!(
+        axes.projection(),
+        ProjectionKind::Aitoff
+            | ProjectionKind::Hammer
+            | ProjectionKind::Lambert
+            | ProjectionKind::Mollweide
+    );
+    let named: Vec<(&'static str, SpineSide)> = if axes.as_polar().is_some() {
+        vec![
             ("polar", SpineSide::Top),
             ("start", SpineSide::Left),
             ("end", SpineSide::Right),
             ("inner", SpineSide::Bottom),
         ]
+    } else if geographic {
+        vec![("geo", SpineSide::Top)]
     } else {
         [
             SpineSide::Left,
@@ -44,6 +55,7 @@ fn axes_spines(axes: Axes) -> PyResult<Vec<(&'static str, Spine)>> {
             SpineSide::Top,
         ]
         .map(|side| (side_name(side), side))
+        .to_vec()
     };
     Ok(named
         .into_iter()

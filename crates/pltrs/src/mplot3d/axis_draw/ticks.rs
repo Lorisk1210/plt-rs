@@ -194,6 +194,7 @@ impl Painter<'_> {
                     ..BlockStyle::default()
                 },
                 position: label_at,
+                bbox: None,
             },
         );
     }
@@ -253,6 +254,7 @@ impl Painter<'_> {
                 color: &axis.offset_color,
                 block: anchored(edge.angle(), halign),
                 position: self.project(at),
+                bbox: None,
             },
         );
     }

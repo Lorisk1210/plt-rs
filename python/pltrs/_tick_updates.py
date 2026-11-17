@@ -28,12 +28,14 @@ and the ticks it returns are those drawn.
 
 import collections
 import contextlib
-import warnings
 import weakref
 
 import numpy as np
 
+from . import _lazy_imports
 from ._native import axis as _axis
+
+_quiet_warnings = _lazy_imports.module(globals(), "._quiet_warnings")
 
 
 #: The root figures whose updater is installed (pltrs (Rust) holds it).
@@ -223,8 +225,7 @@ def _quietly(quiet):
     if not quiet:
         yield
         return
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
+    with _quiet_warnings.ignored(RuntimeWarning):
         yield
 
 

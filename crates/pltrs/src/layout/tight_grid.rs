@@ -58,7 +58,7 @@ impl GridSpec {
                 let measured = crate::text::measuring(|| {
                     Measured::new(state, &axes, &subplot_params, Some(self))
                 })??;
-                if let Some(overrides) = adjusted_params(state, &measured, &params)? {
+                if let Some(overrides) = adjusted_params(state, &measured, None, &params)? {
                     self.merge_overrides(&overrides);
                     state.set_subplot_params(subplot_params)?;
                 }

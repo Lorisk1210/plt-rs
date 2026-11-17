@@ -140,6 +140,15 @@ fn set_path_effects(artist: RawHandle, effects: Owned) -> PyResult<()> {
     Ok(())
 }
 
+/// Whether the paths of `artist` are drawn through the effects
+/// `descriptions` describe, in order: those of the `path.effects`
+/// rcParam it was made under, unless it was given its own (matplotlib's
+/// artist keeps that rcParam's list as its effects).
+fn draws_path_effects(artist: RawHandle, descriptions: Owned) -> PyResult<bool> {
+    let effects = Python::with_gil(|py| path_effects(&descriptions.bind(py)))?;
+    Ok(artist.path_effects() == effects)
+}
+
 /// Sets the `path.effects` rcParam of `store` (the current parameters for
 /// `None`) to the effects `descriptions` describe: matplotlib's holds the
 /// effect objects, which rc text cannot spell.
@@ -176,6 +185,7 @@ fn ticks(
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_path_effects", set_path_effects)?;
     module.add("set_rc_path_effects", set_rc_path_effects)?;
+    module.add("draws_path_effects", draws_path_effects)?;
     module.add("ticks", ticks)
 }
 

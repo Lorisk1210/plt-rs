@@ -834,6 +834,15 @@ impl Artist for CollectionArtist {
             return Some(Bbox::NULL);
         }
         let resolved = ctx.resolve(&self.transform())?;
+        if self.mesh.is_some() {
+            // matplotlib's `QuadMesh.get_datalim` maps the corners of the
+            // box of the vertices (`transform_bbox(self._bbox)`), not each
+            // cell: a map of the program's is called once, for two points.
+            return Some(
+                self.mesh_box()
+                    .map_or(Bbox::NULL, |bbox| resolved.transform_bbox(&bbox)),
+            );
+        }
         let offsets = match &self.offset_transform {
             Some(t) => {
                 // All at once: a map of the program's is called once, as

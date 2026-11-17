@@ -506,8 +506,6 @@ corpus/librosa/docs/tutorials/03-advanced/plot_dynamic_beat$ | ^warning missing:
 # topic: the-look-of-figures
 # Corpus round 11 (CORP11): pltrs' looks and backend, listed with matplotlib's.
 corpus/dataviz-course/2\. Style sheets$ | ^value\[sorted\]: list length$ | the notebook sorts style.available, which lists pltrs' two looks (pltrs-modern, pltrs-modern-dark) with matplotlib's sheets
-# topic: your-subclasses-and-callbacks
-corpus/matplotlib-docs/doc/release/prev_whats_new/whats_new_3\.4\.0$ | ^callback\[x\]: runs another number of times$ | the FuncNorm's forward runs 185 times under matplotlib, 184 under pltrs: the one more is matplotlib's transform tree recomputing a TransformedBbox through the colorbar's FuncNorm scale in one draw of the tight print (get_points < bounds < get_matrix < get_affine, as its caches were invalidated), where pltrs (Rust) computes the box natively; the values, the norm's results and the images are matplotlib's (task CORP14)
 # topic: windows-and-backends
 corpus/matplotlib-docs/doc/release/prev_whats_new/whats_new_3\.9\.0$ | ^value\[list_all\]: list length$ | backend_registry.list_all() lists pltrs' own backend, 'pltrs', after matplotlib's built-in ones
 

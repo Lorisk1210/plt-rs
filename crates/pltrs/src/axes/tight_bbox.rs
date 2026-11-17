@@ -11,6 +11,7 @@ use crate::artist::{
     measured_extent_of, tight_extent_of,
 };
 use crate::axes_grid1::parasites_of;
+use crate::collections::CollectionArtist;
 use crate::figure::FigureState;
 use crate::spines::SpineArtist;
 use crate::text::TextArtist;
@@ -273,10 +274,12 @@ impl FigureState {
         Some((extent?, tight?))
     }
 
-    /// The texts among the children of `axes` placed through a transform
-    /// of the program's, their positions mapped with the figure lent, as
-    /// matplotlib's `Text.get_window_extent` maps them where a tight box
-    /// measures the axes: pltrs measures them from what the program
+    /// The texts and the quad meshes among the children of `axes` placed
+    /// through a transform of the program's, mapped with the figure lent
+    /// where a tight box measures the axes, as matplotlib's
+    /// `Text.get_window_extent` maps a text's position and
+    /// `QuadMesh.get_datalim` the corners of a mesh's box (a mesh its
+    /// tight box takes in): pltrs measures them from what the program
     /// answered.
     fn program_texts_measured(&mut self, axes: ArtistId) {
         let Some(children) = self
@@ -287,11 +290,19 @@ impl FigureState {
             return;
         };
         for child in children {
-            let Some(text) = self.store.shared_as::<TextArtist>(child) else {
-                continue;
-            };
-            if let Some(mapping) = text.program_anchor(LayoutContext::new(self)) {
-                self.lend(|_| program_calls::observed(mapping));
+            if let Some(text) = self.store.shared_as::<TextArtist>(child) {
+                if let Some(mapping) = text.program_anchor(LayoutContext::new(self)) {
+                    self.lend(|_| program_calls::observed(mapping));
+                }
+            } else if let Some(mesh) = self.store.shared_as::<CollectionArtist>(child) {
+                let layout = LayoutContext::new(self);
+                let base = mesh.base();
+                let measured = base.visible
+                    && base.in_layout
+                    && !fully_clipped(base, axes, layout.axes_extent(axes));
+                if let Some(mapping) = measured.then(|| mesh.program_mesh_box(layout)).flatten() {
+                    self.lend(|_| program_calls::observed(mapping));
+                }
             }
         }
     }

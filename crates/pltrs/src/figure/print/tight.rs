@@ -4,11 +4,12 @@
 use pltrs_core::{Affine2D, Bbox};
 
 use super::PadInches;
-use crate::artist::{ArtistHandle, ArtistId, LayoutContext, tight_extent_of};
-use crate::axes::{AxesState, clipped_extent};
+use crate::artist::{Artist, ArtistHandle, ArtistId, LayoutContext, tight_extent_of};
+use crate::axes::{AxesState, clipped_extent, fully_clipped};
 use crate::figure::frame::FigureFrame;
 use crate::figure::{Figure, FigureState};
 use crate::layout::LayoutEngine;
+use crate::text::{TextArtist, font_notes};
 use crate::transforms::TransformContext;
 
 impl FigureState {
@@ -81,7 +82,55 @@ impl FigureState {
     }
 }
 
+impl FigureState {
+    /// Measures the texts of the visible axes that the axes' tight boxes
+    /// leave out (clipped to exactly their axes, out of layout, or placed
+    /// outside the scales' domain), noting only the lines measured anew:
+    /// matplotlib's draw before a tight print lays them out with the
+    /// renderer it then measures the tight box with, whose cache of line
+    /// metrics they fill (`Text._get_layout`'s other lookup is noted with
+    /// the print's draw, see [`font_notes::predrawn`]).
+    fn measure_texts_left_out(&self) {
+        let layout = LayoutContext::new(self);
+        let store = layout.store();
+        for axes in self.all_axes() {
+            let Some(state) = store.get_as::<AxesState>(axes) else {
+                continue;
+            };
+            if !state.base().visible {
+                continue;
+            }
+            let extent = layout.axes_extent(axes);
+            for &child in &state.children {
+                let Some(text) = store.get_as::<TextArtist>(child) else {
+                    continue;
+                };
+                let base = text.base();
+                let left_out = !base.in_layout
+                    || fully_clipped(base, axes, extent)
+                    || !text.in_data_domain(store);
+                // An annotation lays itself out only where its point is
+                // shown (`Annotation.draw`).
+                let drawn = base.visible
+                    && !text.text.is_empty()
+                    && (text.annotation.as_ref()).is_none_or(|a| a.is_shown(text, layout));
+                if drawn && left_out {
+                    font_notes::layouts_counted(0, || text.window_extent(&layout));
+                }
+            }
+        }
+    }
+}
+
 impl Figure {
+    /// Measures what the draw before a tight print lays out and the
+    /// figure's tight box leaves out (see
+    /// [`FigureState::measure_texts_left_out`]).
+    pub(super) fn measure_texts_left_out(&self) {
+        self.state_cell()
+            .work_on(|state| state.measure_texts_left_out());
+    }
+
     /// The area everything visible is drawn in, in inches from the
     /// figure's bottom-left corner (matplotlib's `get_tightbbox`, which
     /// maps its pixels through the inverse of `dpi_scale_trans`: by the

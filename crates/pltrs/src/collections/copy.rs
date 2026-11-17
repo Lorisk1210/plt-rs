@@ -56,6 +56,18 @@ impl Look {
 }
 
 impl CollectionArtist {
+    /// Takes the look of `other` (matplotlib's `Collection.update_from`
+    /// but for the common artist properties): its colours as given, with
+    /// its colour mapping, which the collection maps when it is drawn, and
+    /// the colours its getters report until then, those `other` reports
+    /// (matplotlib copies its last mapped `_facecolors`).
+    pub(crate) fn take_look(&mut self, other: &Self) {
+        Look::of(other).give(self);
+        self.mapped_shown.set(other.mapped_shown.get());
+        let shown = other.mapping_shown.borrow().clone();
+        *self.mapping_shown.get_mut() = shown.or_else(|| other.mapping.clone());
+    }
+
     /// Takes what the collections drawing the bands of a hatched contour
     /// set share with the first (matplotlib's set is one collection,
     /// drawing its bands one by one): its artist properties but its label,

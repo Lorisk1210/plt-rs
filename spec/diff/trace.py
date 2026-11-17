@@ -56,6 +56,7 @@ import sys
 import sysconfig
 import time
 import traceback
+import types
 import warnings
 from typing import Any
 
@@ -643,8 +644,14 @@ def main() -> int:
         figures.extend(_save_figures(plt, out, recorder, cell))
         plt.close("all")
 
-    namespace = {
-        "__name__": "__main__",
+    # The program runs as a module of its own installed as `__main__`, as
+    # `python program.py` (runpy) runs it: pickle finds the classes and
+    # functions it defines (`__main__.X`), and a process spawned by it
+    # (multiprocessing's spawn, loky) imports `__main__` from the
+    # program's file. The tracer's module is put back once it ran.
+    main_module = types.ModuleType("__main__")
+    namespace = main_module.__dict__
+    namespace.update({
         "__file__": program,
         "__builtins__": __builtins__,
         REC: _record,
@@ -652,9 +659,14 @@ def main() -> int:
         SITE: _statement,
         CELL_END: cell_end,
         CALENDAR: _read_calendar,
-    }
+    })
     if args.mode == "cells":
         namespace["display"] = _display
+        # A notebook's `__main__` is the kernel's user module, which a
+        # spawned or forkserver child neither imports nor runs (its spec
+        # names `__main__`, so multiprocessing and loky leave the child's
+        # main as it is): the program's file is not run again there.
+        main_module.__spec__ = importlib.machinery.ModuleSpec("__main__", None)
     if args.shell:
         ipython_shell.start(namespace)
     sys.argv = [program]
@@ -685,12 +697,15 @@ def main() -> int:
         warnings.showwarning = lambda message, category, filename, lineno, file=None, line=None: (
             recorder.warning(category, str(message), filename, lineno))
         sys.stdout = stdout
+        tracer_module = sys.modules["__main__"]
+        sys.modules["__main__"] = main_module
         try:
             exec(code, namespace)
         except BaseException as err:  # noqa: BLE001 - the program's exception is a result
             uncaught = recorder._error(err)
         finally:
             sys.stdout = real_stdout
+            sys.modules["__main__"] = tracer_module
         elapsed = time.perf_counter() - started
         recorder.statement = recorder.statement_line = None
         if args.gui:

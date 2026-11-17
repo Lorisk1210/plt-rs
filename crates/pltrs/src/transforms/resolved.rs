@@ -706,9 +706,12 @@ impl ResolvedTransform {
     /// The box spanned by the images of the two corners of `bbox`
     /// (matplotlib's `transform_bbox`): neither ordered nor grown to
     /// enclose the image of the whole box, which a rotation or a
-    /// non-affine step may bend beyond them.
+    /// non-affine step may bend beyond them. The corners are mapped
+    /// together, each map of the program's called once for both.
     pub fn transform_bbox(&self, bbox: &Bbox) -> Bbox {
-        Bbox::new(self.transform_point(bbox.p0), self.transform_point(bbox.p1))
+        let mut corners = [bbox.p0, bbox.p1];
+        self.transform_points(&mut corners);
+        Bbox::new(corners[0], corners[1])
     }
 
     /// Splits a path for drawing: the non-affine steps are applied to the

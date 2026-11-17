@@ -23,6 +23,12 @@ fn set_sort_zpos(axes: Axes3D, collection: Collection, position: Option<f64>) ->
     Ok(())
 }
 
+/// The position a collection of the axes is ordered by, `None` where it
+/// is ordered by its own depth (matplotlib's `_sort_zpos`).
+fn sort_zpos(axes: Axes3D, collection: Collection) -> PyResult<Option<f64>> {
+    Ok(axes.sort_zpos(&collection)?)
+}
+
 /// How the polygons of a polygon collection of the axes are ordered:
 /// `"average"`, `"min"` or `"max"` (`Poly3DCollection.set_zsort`).
 fn set_zsort(axes: Axes3D, collection: Collection, name: String) -> PyResult<()> {
@@ -150,6 +156,7 @@ fn lift_contour_paths(
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("lift_contour_paths", lift_contour_paths)?;
     module.add("set_sort_zpos", set_sort_zpos)?;
+    module.add("sort_zpos", sort_zpos)?;
     module.add("set_zsort", set_zsort)?;
     module.add("set_poly_verts", set_poly_verts)?;
     module.add("set_segments3d", set_segments3d)?;

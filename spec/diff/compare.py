@@ -203,7 +203,10 @@ class _Walk:
                     yield "value", "array values", where, f"summary {', '.join(bad)} differ"
             elif isinstance(av, list) and isinstance(bv, list) and av and isinstance(av[0], dict):
                 for index, (x, y) in enumerate(zip(av, bv)):
-                    yield from self.walk(x, y, f"{where}[{index}]")
+                    # A masked element reads as None (`_unmasked`); where
+                    # one side alone masks it, the mask differs above.
+                    if x is not None and y is not None:
+                        yield from self.walk(x, y, f"{where}[{index}]")
             elif not _arrays_close(av, bv):
                 yield "value", "array values", where, _array_detail(av, bv)
 

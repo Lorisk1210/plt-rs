@@ -17,6 +17,7 @@ not offset boxes and annotation boxes, fancy arrows and subfigures
 (`_UNFILTERED`).
 """
 
+import collections
 import contextlib
 import functools
 import weakref
@@ -47,8 +48,15 @@ class EffectsMixin:
     def get_path_effects(self):
         if "_path_effects" in self.__dict__:
             return self._path_effects
-        from . import rcParams
-        return rcParams['path.effects']
+        if self._kept_only:
+            return rc_effects()
+        # matplotlib's artist keeps the list of the rcParam it was made
+        # under, which pltrs (Rust) draws with.
+        made_under = next((effects for effects in _rc_effects_known()
+                           if _draws(self, effects)), None)
+        if made_under is not None:
+            return made_under
+        return [] if _draws(self, []) else rc_effects()
 
     def set_agg_filter(self, filter_func):
         """
@@ -73,6 +81,55 @@ class EffectsMixin:
     def get_agg_filter(self):
         """Return filter function to be used for agg filter."""
         return self.__dict__.get("_agg_filter")
+
+
+#: The lists the ``path.effects`` rcParam was set to, the last last: an
+#: artist made under one of them gives it as its effects
+#: (`EffectsMixin.get_path_effects`).
+_rc_effects_set = collections.deque(maxlen=16)
+
+
+def rc_effects_set(effects):
+    """Note that the ``path.effects`` rcParam is the list *effects* now."""
+    _rc_effects_set.append(effects)
+
+
+def _rc_effects_known():
+    """The lists of path effects the ``path.effects`` rcParam was: the one
+    rcParams handed the program (`.RcParams._lists`), then those it was
+    set to, the last first."""
+    from . import rcParams
+    kept = rcParams._lists.get('path.effects')
+    if kept is not None:
+        yield kept[0]
+    yield from reversed(_rc_effects_set)
+
+
+def rc_effects():
+    """The ``path.effects`` rcParam: the very list the program holds as
+    it, or set it to, as matplotlib's holds one list, while that is its
+    value."""
+    from . import rcParams
+    current = rcParams._get('path.effects')
+    specs = _specs(current)
+    return next((effects for effects in _rc_effects_known()
+                 if _specs(effects) == specs), current)
+
+
+def _specs(effects):
+    """The descriptions of the path effects *effects*, None for objects
+    that cannot describe themselves."""
+    try:
+        return [effect._native_spec() for effect in effects]
+    except (AttributeError, TypeError):
+        return None
+
+
+def _draws(artist, effects):
+    """Whether pltrs (Rust) draws *artist* through *effects*, a list of
+    path effects."""
+    specs = _specs(effects)
+    return specs is not None and _patheffects.draws_path_effects(artist._native, specs)
 
 
 #: The classes whose matplotlib ``draw`` applies no agg filter.

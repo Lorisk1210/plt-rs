@@ -24,6 +24,7 @@ from .backend_bases import MouseButton
 from .path import Path
 
 _contour_arguments = _lazy_imports.module(globals(), "._contour_arguments")
+_contour_setters = _lazy_imports.module(globals(), "._contour_setters")
 _contour_chunks = _lazy_imports.module(globals(), "._contour_chunks")
 _contour_reference = _lazy_imports.module(globals(), "._contour_reference")
 _own_state = _lazy_imports.module(globals(), "._own_state")
@@ -985,6 +986,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         segments = [[Path(seg, kind) for seg, kind in zip(segs, kinds)]
                     for segs, kinds in zip(allsegs, allkinds)]
         _contour_arguments.check_axes(ax, quad=False)
+        _contour_setters.given(self, kwargs, filled)
         with _failed_calls.leaving_nothing(ax):
             look = _contour_look(ax, kwargs)
             native = _contour.contour_segments(
@@ -1512,6 +1514,7 @@ class QuadContourSet(ContourSet):
             kwargs["levels"] = levels
         from .axes import _failed_calls
         _contour_arguments.check_axes(ax, quad=True)
+        _contour_setters.given(self, kwargs, filled)
         with _failed_calls.leaving_nothing(ax):
             ax._contour(filled, args, kwargs, made=self)
 

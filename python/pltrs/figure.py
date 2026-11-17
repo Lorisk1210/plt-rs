@@ -2535,6 +2535,9 @@ None}, default: None
         # What pltrs (Rust) holds weakly for the figure, which the native
         # state's pickle holds itself.
         state.pop("_held_for_native", None)
+        # The renderer of its last draw (`.text._drawing_with`), as
+        # matplotlib's texts pickle none.
+        state.pop("_drawn_with", None)
 
         # The tick helpers, by axis: the tokens of their registry do not
         # pickle.

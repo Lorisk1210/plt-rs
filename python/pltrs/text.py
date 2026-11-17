@@ -207,6 +207,32 @@ def _measuring_with(renderer):
 
 
 @contextlib.contextmanager
+def _drawing_with(figure, renderer):
+    """`_measuring_with` *renderer* for a draw of *figure*: once it drew,
+    its texts measured without a renderer are measured with *renderer*
+    until the figure is drawn again (`_last_draw_renderer`), as
+    matplotlib's texts keep the renderer of their last draw
+    (``Text._renderer``)."""
+    root = None if figure is None else figure.get_figure(root=True)
+    before = None if root is None else _artist.draw_count(root._native)
+    with _measuring_with(renderer):
+        yield
+    if root is not None:
+        draws = _artist.draw_count(root._native)
+        if draws != before:
+            root.__dict__["_drawn_with"] = (renderer, draws)
+
+
+def _last_draw_renderer(figure):
+    """The renderer the root *figure*'s last draw drew with
+    (`_drawing_with`), None when it was drawn otherwise since."""
+    kept = figure.__dict__.get("_drawn_with")
+    if kept is not None and kept[1] == _artist.draw_count(figure._native):
+        return kept[0]
+    return None
+
+
+@contextlib.contextmanager
 def _measuring_with_unreferable(renderer):
     """`_measuring_with` a *renderer* that cannot be referred to weakly
     (what is no renderer, as an int): the lines measured meanwhile go
@@ -723,7 +749,10 @@ class Text(Artist):
         kept = self.__dict__.get("_measured_with")
         if kept is not None:
             return kept[0]
-        return _layout_renderer(self.get_figure(root=True)) if self._has_renderer() else None
+        if not self._has_renderer():
+            return None
+        figure = self.get_figure(root=True)
+        return _last_draw_renderer(figure) or _layout_renderer(figure)
 
     @_renderer.setter
     def _renderer(self, renderer):
@@ -1061,13 +1090,15 @@ class Text(Artist):
             with _measured_by(renderer, laid_out_at), self._as_class_reads(measuring=True):
                 return self._native_extent(self._text_extent)
 
-    def _measuring_renderer(self, renderer, figure, weakly=True):
+    def _measuring_renderer(self, renderer, figure, weakly=True, draws=None):
         """The renderer the text is measured with: *renderer* when given,
-        else the one it was last measured with unless it was drawn since,
-        else its figure's, which it keeps (matplotlib's ``Text._renderer``,
-        which ``draw`` sets too); checked to be weakly referable unless not
-        *weakly*."""
-        draws = None if self._figure is None else _artist.draw_count(self._native)
+        else the one it was last measured with unless it was drawn since
+        (*draws*, by default its own draws, counts them), else the one its
+        figure's last draw drew it with, else its figure's, which it keeps
+        (matplotlib's ``Text._renderer``, which ``draw`` sets too); checked
+        to be weakly referable unless not *weakly*."""
+        if draws is None and self._figure is not None:
+            draws = _artist.draw_count(self._native)
         if renderer is None:
             kept = self.__dict__.get("_measured_with")
             if kept is not None and kept[1] == draws:
@@ -1075,7 +1106,8 @@ class Text(Artist):
             elif figure is None:
                 return None
             else:
-                renderer = _layout_renderer(figure)
+                drawn = _last_draw_renderer(figure) if draws else None
+                renderer = drawn or _layout_renderer(figure)
         self._measured_with = (renderer, draws)
         if weakly:
             # matplotlib looks the renderer's metrics up in a weak cache

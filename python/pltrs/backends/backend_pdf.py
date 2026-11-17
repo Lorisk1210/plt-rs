@@ -37,7 +37,7 @@ from ..figure import Figure
 from ..font_manager import (
     _data_font_path, FontManager, FontPath, fontManager as _fontManager)
 from ..path import Path
-from ..text import _measuring_with
+from ..text import _drawing_with
 from ..transforms import BboxBase
 from ._backend_pdf_ps import RendererPDFPSBase
 from . import _pdf_kept
@@ -1556,7 +1556,7 @@ class FigureCanvasPdf(FigureCanvasBase):
 
     def print_pdf(self, filename, *, bbox_inches_restore=None, metadata=None):
         settings = dict(bbox_inches_restore=bbox_inches_restore)
-        with _measuring_with(self._print_renderer()):
+        with _drawing_with(self.figure, self._print_renderer()):
             if isinstance(filename, PdfPages):
                 with self._program_drawing(bbox_inches_restore):
                     _backends.pdf_pages_savefig(

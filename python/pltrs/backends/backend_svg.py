@@ -20,7 +20,7 @@ from ..backend_bases import (_Backend, FigureCanvasBase, FigureManagerBase, Rend
                              _write_bytes)
 from ..font_manager import FontManager
 from ..path import Path
-from ..text import _measuring_with
+from ..text import _drawing_with
 from ._native_drawing import DocumentDrawingMixin
 from ._source_date import source_date
 from ._svg_arguments import SvgArgumentsMixin, short_float
@@ -513,7 +513,7 @@ class FigureCanvasSVG(FigureCanvasBase):
         so in the errors of its calls, as ``print_svgz`` calls it)."""
         width, height = self.figure.get_size_inches()
         renderer = RendererSVG._of_save(width * 72, height * 72, self.figure.dpi)
-        with _measuring_with(renderer):
+        with _drawing_with(self.figure, renderer):
             if fmt == "svg" and not rcParams["svg.image_inline"]:
                 self._print_svg_with_files(filename, metadata=_svg_metadata(metadata),
                                            bbox_inches_restore=bbox_inches_restore)

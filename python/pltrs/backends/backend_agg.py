@@ -21,8 +21,8 @@ import numpy as np
 
 from .. import _api, _python_drawing, rc_context
 from .._native import (
-    backends as _backends, drawing as _drawing, ft2font as _ft2font, table as _table,
-    text_overrides as _text_overrides)
+    artist as _artist, backends as _backends, drawing as _drawing, ft2font as _ft2font,
+    table as _table, text_overrides as _text_overrides)
 from .._program_classes import from_program
 from .._python_drawing import drawing_with, printed_window
 from ..backend_bases import (
@@ -255,6 +255,7 @@ class RendererAgg(AggArgumentsMixin, NativeDrawingMixin, RendererBase):
         replaced = getattr(self.draw_tex, "__func__", None) is not _OWN_DRAW_TEX
         program_gc = from_program(inspect.getattr_static(type(self), "new_gc"))
         figure = getattr(self, "_figure", None)
+        draws = None if figure is None else _artist.draw_count(figure._native)
         with _measuring_with(self), drawing_with(self._for_window, figure):
             if replaced:
                 _backends.set_tex_painter(self._paint_tex)
@@ -267,6 +268,10 @@ class RendererAgg(AggArgumentsMixin, NativeDrawingMixin, RendererBase):
                     _backends.set_tex_painter(None)
                 if program_gc:
                     _backends.set_program_gc(None)
+        if figure is not None and _artist.draw_count(figure._native) != draws:
+            # The renderer of the figure's last draw (see
+            # `.text._drawing_with`, here inline, as the canvas draws often).
+            figure.__dict__["_drawn_with"] = (self, _artist.draw_count(figure._native))
 
     def _for_window(self):
         """What the program's drawing receives while this renderer draws:

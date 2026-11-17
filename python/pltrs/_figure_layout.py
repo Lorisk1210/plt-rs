@@ -13,7 +13,7 @@ from ._native import figure as _figure, figure_layout as _figure_layout
 from ._native import rcsetup as _rcsetup
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
-from .text import (Text, _layout_renderer, _measured_by, _measuring_with,
+from .text import (Text, _drawing_with, _layout_renderer, _measured_by, _measuring_with,
                    _rotation_degrees)
 from .transforms import Bbox, TransformedBbox
 
@@ -612,7 +612,7 @@ class FigureLayout:
             # the canvas, which sets the figure to the canvas' fixed
             # resolution (72 dpi for SVG, PDF and PostScript) and leaves it.
             dpi, self.dpi = self.dpi, canvas.fixed_dpi
-        with _measuring_with(_layout_renderer(self)):
+        with _drawing_with(self, _layout_renderer(self)):
             _figure.draw_without_rendering(self._native)
         if self.get_visible() and canvas.callbacks.callbacks.get("draw_event"):
             # matplotlib's draw, rendering or not, ends with its event,

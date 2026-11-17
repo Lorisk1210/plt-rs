@@ -6,6 +6,7 @@ from .. import _docstring, _lazy_imports, _values
 from ..contour import ContourSet, _ContourGenerator
 
 _contour_arguments = _lazy_imports.module(globals(), ".._contour_arguments")
+_contour_setters = _lazy_imports.module(globals(), ".._contour_setters")
 
 
 @_docstring.interpd
@@ -34,6 +35,7 @@ class TriContourSet(ContourSet):
         from ..axes import _failed_calls
         filled = kwargs.pop("filled", False)
         _contour_arguments.check_axes(ax, quad=False)
+        _contour_setters.given(self, kwargs, filled)
         with _failed_calls.leaving_nothing(ax):
             ax._tricontour(filled, args, kwargs, made=self)
 

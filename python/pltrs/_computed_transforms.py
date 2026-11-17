@@ -77,9 +77,13 @@ def tracked(figure):
 def _computes_transform(artist):
     """Whether the class of *artist* overrides ``get_transform``, but for
     an Axes, which matplotlib's draw never asks for its own transform
-    (astropy's ``WCSAxes.get_transform(frame)`` is another method)."""
+    (astropy's ``WCSAxes.get_transform(frame)`` is another method), and
+    for an artist laying itself out through it when drawn (a spine of the
+    program's, ``_pushes_own_path``)."""
+    pushes = getattr(artist, "_pushes_own_path", None)
     return (takes_from_program(type(artist), "get_transform")
-            and not isinstance(artist, _axes_base._AxesBase))
+            and not isinstance(artist, _axes_base._AxesBase)
+            and not (pushes is not None and pushes()))
 
 
 def _places_by_patch_transform(artist):
@@ -101,6 +105,10 @@ def _evaluate(figure):
         in_figure = artist._figure is figure or artist.get_figure(root=True) is figure
         if not in_figure or artist.__dict__.get("_decoupled"):
             continue
+        drawn = getattr(artist, "_when_figure_drawn", None)
+        if drawn is not None:
+            # What the artist's class is asked in each draw of the figure.
+            drawn()
         if _computes_transform(artist):
             if not {"_given_transform", "_transform_set"} & artist.__dict__.keys():
                 # The transform set, which the class' ``super()`` reads

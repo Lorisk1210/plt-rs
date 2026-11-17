@@ -3424,9 +3424,24 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
     _computed = ()
     _path_hooks = ()
 
-    #: The patches clipping the start and the end (none for an arrow made
-    #: by pltrs (Rust), such as the arrow of an annotation).
-    patchA = patchB = None
+    #: The patch clipping the end (none for an arrow made by pltrs
+    #: (Rust), such as the arrow of an annotation).
+    patchB = None
+
+    def _get_patchA(self):
+        # The arrow of an annotation reads the patch its owner placed it
+        # with when last drawn (`._annotation_arrow`).
+        place = getattr(_mirrors.mirroring(self), "place_start", None)
+        if place is not None:
+            place(self)
+        return self.__dict__.get("patchA")
+
+    def _set_patchA(self, patch):
+        self.__dict__["patchA"] = patch
+
+    patchA = property(_get_patchA, _set_patchA,
+                      doc="The patch clipping the start (none by default).")
+    del _get_patchA, _set_patchA
 
     def __str__(self):
         ends, path = _patches.arrow_route(self._native)

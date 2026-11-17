@@ -741,10 +741,7 @@ impl FigureState {
     fn resolved_outline(&self, outline: &PatchOutline) -> Option<ClipPath> {
         let resolved = outline.transform.resolve(self).ok()?;
         let (path, transform) = resolved.split_path(&outline.path);
-        Some(ClipPath {
-            path: path.into_owned(),
-            transform,
-        })
+        Some(ClipPath::new(path.into_owned(), transform))
     }
 
     /// The display outline of the projection of `axes`, whose state is
@@ -753,10 +750,10 @@ impl FigureState {
         if state.projection.is_rectangular() {
             return None;
         }
-        Some(ClipPath {
-            path: state.patch_path(),
-            transform: unit_to_bbox(&self.axes_bbox(axes)?),
-        })
+        Some(ClipPath::new(
+            state.patch_path(),
+            unit_to_bbox(&self.axes_bbox(axes)?),
+        ))
     }
 
     /// Where axes `axes` placed in another (an inset, a secondary axes)

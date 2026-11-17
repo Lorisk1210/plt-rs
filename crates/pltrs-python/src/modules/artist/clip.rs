@@ -57,6 +57,14 @@ fn clips_to_artist(artist: RawHandle) -> PyResult<bool> {
     Ok(matches!(artist.clip_path(), Some(ClipPathSpec::Artist(_))))
 }
 
+/// The vertices of the outline of the clipped `DrawingArea` that clips
+/// `artist`, in points from the area's origin, `None` when none clips it
+/// (see `pltrs::offsetbox::area_clip_outline`).
+fn area_clip_outline(artist: RawHandle) -> PyResult<Option<Vec<(f64, f64)>>> {
+    Ok(pltrs::offsetbox::area_clip_outline(&artist)
+        .map(|path| path.vertices().iter().map(|p| (p.x, p.y)).collect()))
+}
+
 /// Clips `artist` to the box a live transform maps the unit square to, or
 /// to no box: the box of an axes or a figure it follows as they are laid
 /// out (`ax.transAxes` for `ax.bbox`, a figure's `transSubfigure` for its
@@ -127,6 +135,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("clips_to_patch_shape", clips_to_patch_shape)?;
     module.add("set_clip_path", set_clip_path)?;
     module.add("clips_to_artist", clips_to_artist)?;
+    module.add("area_clip_outline", area_clip_outline)?;
     module.add("set_clip_box", set_clip_box)?;
     module.add("set_clip_region", set_clip_region)?;
     module.add("get_clip_box", get_clip_box)

@@ -112,13 +112,13 @@ impl BoxItem {
         Ok(Self { artist })
     }
 
-    /// Moves the artist into `store` (unclipped, its transform to be set
-    /// by the box) and returns its id.
+    /// Moves the artist into `store` (its transform to be set by the box)
+    /// and returns its id. It keeps a clip path given to it (which a
+    /// clipped `DrawingArea` then leaves, as matplotlib's does) but no
+    /// frame's clip box.
     pub(crate) fn insert(self, store: &mut ArtistStore) -> ArtistId {
         let mut artist = self.artist;
-        let base = artist.get_mut().base_mut();
-        base.clip_box = None;
-        base.clip_path = None;
+        artist.get_mut().base_mut().clip_box = None;
         store.insert_kept(artist)
     }
 }

@@ -16,8 +16,9 @@ import functools
 
 import numpy as np
 
-from . import _mirrors
-from ._native import annotation as _annotation, offsetbox as _offsetbox
+from . import _mirrors, _unusable, _values, cbook
+from ._native import annotation as _annotation, artist as _artist
+from ._native import offsetbox as _offsetbox, patches as _patches
 from .patches import FancyArrowPatch
 from .transforms import Bbox
 
@@ -52,6 +53,44 @@ class _AnnotationArrow(_mirrors.Mirroring):
         arrays = self.native_display_path(self.owner._native)
         return (np.empty((0, 2)), None) if arrays is None else arrays
 
+    def place_start(self, patch):
+        """Give the arrow *patch* the patch clipping its start as
+        matplotlib's ``update_positions`` sets it each time it places the
+        arrow: the one ``arrowprops`` give, else the owner's
+        (`start_patch`); once per draw, none until the first, so that one
+        the program sets reads back until the next."""
+        owner = self.owner
+        draws = _artist.draw_count(owner._native)
+        if not draws or patch.__dict__.get("_start_placed_at") == draws:
+            return
+        patch._start_placed_at = draws
+        arrowprops = owner.arrowprops
+        patch.patchA = (arrowprops["patchA"] if "patchA" in arrowprops
+                        else self.start_patch())
+
+    def start_patch(self):
+        """The patch matplotlib's ``update_positions`` clips the start of
+        the arrow to unless ``arrowprops`` give one: the text's box, none
+        for an empty text, else a `.Rectangle` 4 points larger than the
+        text, in pixels, made at each placing."""
+        owner = self.owner
+        if owner.get_bbox_patch() is not None:
+            return owner.get_bbox_patch()
+        if owner.get_text() == "":
+            return None
+        draws = _artist.draw_count(owner._native)
+        made = owner.__dict__.get("_arrow_start")
+        if made is None or made[0] != draws:
+            from .patches import Rectangle
+            from .transforms import IdentityTransform
+            x0, y0, x1, y1 = owner._text_extent() or (0, 0, 0, 0)
+            pad = owner.get_figure(root=True).dpi * 4 / 72
+            made = owner._arrow_start = (draws, Rectangle(
+                xy=(x0 - pad / 2, y0 - pad / 2),
+                width=x1 - x0 + pad, height=y1 - y0 + pad,
+                transform=IdentityTransform(), clip_on=False))
+        return made[1]
+
 
 class AnnotationBboxArrow(_AnnotationArrow):
     """The arrow of *owner*, an annotation box that joined a figure."""
@@ -60,6 +99,10 @@ class AnnotationBboxArrow(_AnnotationArrow):
     native_restyle = staticmethod(_offsetbox.restyle_annotation_arrow)
     native_extent = staticmethod(_offsetbox.annotation_arrow_extent)
     native_display_path = staticmethod(_offsetbox.annotation_arrow_display_path)
+
+    def start_patch(self):
+        """The patch of the box (``update_positions``)."""
+        return self.owner.patch
 
 
 def mirror(owner, mirroring=_AnnotationArrow):
@@ -74,12 +117,35 @@ def mirror(owner, mirroring=_AnnotationArrow):
     if patch is None:
         patch = owner._arrow_mirror = _mirrors.attach(
             FancyArrowPatch._from_native(native, None), mirroring(owner))
-        # Made as matplotlib makes it, ``FancyArrowPatch((0, 0), (1, 1))``:
-        # its ends read back as those ints until its owner places it.
+        # Made as matplotlib makes it, ``FancyArrowPatch((0, 0), (1, 1),
+        # **arrowprops)``: its ends read back as those ints until its owner
+        # places it, its styles and sizes as given.
         patch._given_positions = [(0, 0), (1, 1)]
+        _keep_given(patch, owner.arrowprops)
     else:
         patch._native = native
     return patch
+
+
+def _keep_given(patch, arrowprops):
+    """Let the arrow *patch* read back what ``FancyArrowPatch(**arrowprops)``
+    keeps: the style objects given, or made of the names given (a style
+    the program registered is known to pltrs (Rust) only as the program's),
+    the shrinking as given (2, an int, by default) and the patch clipping
+    the start."""
+    from .patches import ArrowStyle, ConnectionStyle
+    props = cbook.normalize_kwargs(arrowprops, FancyArrowPatch)
+    for name, key, registry, native_get in (
+            ("arrowstyle", "_arrow_transmuter", ArrowStyle, _patches.get_arrowstyle),
+            ("connectionstyle", "_connector", ConnectionStyle,
+             _patches.get_connectionstyle)):
+        given = props.get(name)
+        if given is not None:
+            style = registry(given) if isinstance(given, str) else given
+            patch.__dict__[key] = (style, native_get(patch._native))
+    for name in ("shrinkA", "shrinkB"):
+        _values.remember(patch, name, props.get(name, 2))
+    patch.patchA = props.get("patchA")
 
 
 def assign(owner, patch, take):
@@ -91,7 +157,6 @@ def assign(owner, patch, take):
     on it (``set_mutation_scale``, ``set_positions``); without, it never
     reads it again.
     """
-    from . import _unusable, _values
     _unusable.drop(owner, "arrow_patch")
     _values.take(owner, "arrow_patch")
     if owner.arrowprops is not None and patch is not None:
@@ -112,7 +177,6 @@ def _first_call(name, arrow):
 def check_assigned(owner):
     """Fail as matplotlib's ``update_positions`` does where the arrow of
     *owner* (with ``arrowprops``) was assigned None."""
-    from . import _values
     if owner.arrowprops is not None and _values.assigned(owner, "arrow_patch", lambda: owner) is None:
         _first_call(owner._first_arrow_call, None)
 

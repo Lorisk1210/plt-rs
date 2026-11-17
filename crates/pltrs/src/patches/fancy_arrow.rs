@@ -212,13 +212,14 @@ impl FancyArrowPatch {
     /// `linewidth` points wide, or `None` when the arrow is not placed in
     /// data coordinates: what matplotlib's `_update_patch_limits` reads
     /// from the `get_path()` of a `FancyArrowPatch`, which goes through
-    /// display coordinates. Like an arrow never drawn, it takes its sizes
-    /// in points for pixels (`_dpi_cor` is 1 until the first draw); the
+    /// display coordinates, its sizes in points `dpi_cor` pixels each (the
+    /// `_dpi_cor` of its last draw, 1 until it is first drawn); the
     /// patches clipping its ends are not looked at.
     pub(crate) fn outline_data_points(
         &self,
         transform: &Transform,
         linewidth: f64,
+        dpi_cor: f64,
         ctx: &dyn TransformContext,
         axes: ArtistId,
     ) -> Option<Vec<Point>> {
@@ -233,12 +234,12 @@ impl FancyArrowPatch {
                 .route(
                     to_display.transform_point(*a),
                     to_display.transform_point(*b),
-                    1.0,
+                    dpi_cor,
                 )
                 .ok()?,
             ArrowRoute::Along(path) => to_display.transform_path(path),
         };
-        let pieces = self.spec.display_paths(&route, 1.0, linewidth).ok()?;
+        let pieces = self.spec.display_paths(&route, dpi_cor, linewidth).ok()?;
         // matplotlib's `get_path()` takes the outline back to data
         // coordinates, where its curves' extrema are then found.
         Some(
@@ -261,6 +262,8 @@ pub(crate) fn round_ends(style: &mut PatchStyle) {
 }
 
 impl PatchShape for FancyArrowPatch {
+    const REBUILDS_PATH: bool = true;
+
     const MAPS_OUTLINE_ALONE: bool = false;
 
     const EDGE_DEFAULT: bool = true;
@@ -338,10 +341,11 @@ impl PatchShape for FancyArrowPatch {
         &self,
         transform: &Transform,
         linewidth: f64,
+        dpi_cor: f64,
         ctx: &dyn TransformContext,
         axes: ArtistId,
     ) -> Option<Vec<Point>> {
-        self.outline_data_points(transform, linewidth, ctx, axes)
+        self.outline_data_points(transform, linewidth, dpi_cor, ctx, axes)
     }
 }
 
@@ -431,7 +435,7 @@ mod tests {
             .with_mutation_scale(10.0);
         let state = fig.raw().figure_state().borrow();
         let points = arrow
-            .outline_data_points(&ax.trans_data(), 1.0, &*state, ax.id())
+            .outline_data_points(&ax.trans_data(), 1.0, 1.0, &*state, ax.id())
             .expect("an arrow in data coordinates");
         let (x_min, x_max) = points
             .iter()
@@ -445,7 +449,7 @@ mod tests {
         );
         assert!(points.iter().any(|p| p.y > 5.0) && points.iter().any(|p| p.y < 5.0));
         assert_eq!(
-            arrow.outline_data_points(&ax.trans_axes(), 1.0, &*state, ax.id()),
+            arrow.outline_data_points(&ax.trans_axes(), 1.0, 1.0, &*state, ax.id()),
             None
         );
     }

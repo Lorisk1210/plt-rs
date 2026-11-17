@@ -127,10 +127,10 @@ fn clip_rect_and_clip_path_restrict_drawing() {
     let gc = GraphicsContext {
         linewidth: 0.0,
         clip_rect: Some(Bbox::from_extents(0.0, 0.0, 10.0, 20.0)),
-        clip_path: Some(crate::gc::ClipPath {
-            path: square(0.0, 0.0, 20.0, 10.0),
-            transform: Affine2D::identity(),
-        }),
+        clip_path: Some(crate::gc::ClipPath::new(
+            square(0.0, 0.0, 20.0, 10.0),
+            Affine2D::identity(),
+        )),
         ..GraphicsContext::default()
     };
     r.draw_path(

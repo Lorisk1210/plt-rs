@@ -875,10 +875,7 @@ impl<'a> DrawContext<'a> {
             ClipPathSpec::Path { path, transform } => {
                 let resolved = self.resolve(transform)?;
                 let (path, transform) = resolved.split_path(path);
-                Some(ClipPath {
-                    path: path.into_owned(),
-                    transform,
-                })
+                Some(ClipPath::new(path.into_owned(), transform))
             }
             ClipPathSpec::Artist(id) => {
                 let layout = self.layout();

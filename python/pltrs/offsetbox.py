@@ -32,7 +32,7 @@ import weakref
 
 import numpy as np
 
-from . import _docstring
+from . import _artist_clipping, _docstring
 from . import (_api, _handles, _live_transforms, _named, _offsetbox_trees,
                _python_drawing, _unusable, _values, cbook)
 from ._annotation_kept import native_coords
@@ -1148,6 +1148,7 @@ class DrawingArea(_FollowsLayout, OffsetBox):
         # matplotlib's asks whether the artist has a transform, failing on
         # what is no artist (pltrs (Rust) places the area's artists).
         a.is_transform_set()
+        _artist_clipping.add_to_area(a, self)
 
     def _package_tree(self):
         return ("drawing", self.get_visible(), number(self.width),
@@ -1437,13 +1438,17 @@ class AuxTransformBox(_FollowsLayout, OffsetBox):
         figureless = (self.get_figure(root=False) is not None
                       and hasattr(a, "set_transform") and a.get_figure() is None)
         a.set_transform(self.get_transform())
+        # The children keep the transform made of the aux transform of now:
+        # one assigned later reaches only the artists added after.
+        self._children_aux = self.aux_transform
         if figureless:
             a._no_figure = True
         self._changed()
 
     def _package_tree(self):
         return ("aux", self.get_visible(),
-                _live_transforms.to_native(self.aux_transform),
+                _live_transforms.to_native(
+                    self.__dict__.get("_children_aux", self.aux_transform)),
                 [artist_handle(child) for child in self._children])
 
     def _adopt_package_parts(self, natives, figure):
@@ -2348,7 +2353,7 @@ or callable, default: value of *xycoords*
         (Rust) places it at *xybox* and draws the arrow; return self."""
         from ._patch_styles import _native_spec
         from .patches import BoxStyle, FancyBboxPatch
-        from .text import _native_arrowprops
+        from .text import _native_arrowprops, _arrow_extras
         figure = parent.figure
         bboxprops = cbook.normalize_kwargs(self._bboxprops, FancyBboxPatch)
         boxstyle = bboxprops.pop("boxstyle", None)
@@ -2382,6 +2387,8 @@ or callable, default: value of *xycoords*
             # What the program changed of the arrow before the box joined.
             from ._annotation_arrow import AnnotationBboxArrow, adopt
             adopt(self, loose, AnnotationBboxArrow)
+        elif self.arrowprops is not None and (extras := _arrow_extras(self.arrowprops)):
+            self._arrow_patch()._internal_update(extras)
         return self
 
     @property

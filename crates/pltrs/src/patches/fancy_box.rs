@@ -81,6 +81,8 @@ impl FancyBboxPatch {
 }
 
 impl PatchShape for FancyBboxPatch {
+    const REBUILDS_PATH: bool = true;
+
     const EDGE_DEFAULT: bool = true;
 
     fn runs_program(&self) -> bool {

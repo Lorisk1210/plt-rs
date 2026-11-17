@@ -87,8 +87,8 @@ pub use apply::edit_tree;
 pub(crate) use apply::{apply_placements, lay_out_box, lay_out_boxes, place_drawn_box};
 pub use boxes::{OffsetBox, Packer, Placement, TreeLayout};
 pub use leaves::{
-    AuxTransformBox, DrawingArea, OffsetImage, PaddedBox, TextArea, text_area_baseline_shift,
-    text_area_bbox,
+    AuxTransformBox, DrawingArea, OffsetImage, PaddedBox, TextArea, area_clip_outline,
+    text_area_baseline_shift, text_area_bbox,
 };
 pub use pack::{PackAlign, PackMode, aligned_offsets, packed_offsets};
 pub use pending::BoxItem;

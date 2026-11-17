@@ -160,10 +160,7 @@ pub(crate) fn draw_tick_lines(
         return;
     };
     if style.grid_on {
-        let clip = ClipPath {
-            path: polar.patch_path(),
-            transform: unit_to_bbox(&display),
-        };
+        let clip = ClipPath::new(polar.patch_path(), unit_to_bbox(&display));
         let drawn = groups.part(ctx, TickPart::Gridline, |ctx| {
             with_path_effects(ctx, &style.grid.path_effects, |ctx| {
                 draw_gridline(ctx, axes, &ptick, &style.grid, clip, rc);

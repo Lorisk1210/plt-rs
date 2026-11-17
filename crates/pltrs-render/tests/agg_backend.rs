@@ -116,10 +116,8 @@ impl Case {
                 let v = floats(v);
                 Bbox::from_extents(v[0], v[1], v[2], v[3])
             }),
-            clip_path: arg("clippath").map(|id| ClipPath {
-                path: self.paths[id].clone(),
-                transform: self.affine(args, "clipt"),
-            }),
+            clip_path: arg("clippath")
+                .map(|id| ClipPath::new(self.paths[id].clone(), self.affine(args, "clipt"))),
             hatch: arg("hatch").map(|pattern| Hatch {
                 pattern: pattern.to_owned(),
                 color: color(arg("hcolor").expect("hatch colour")),

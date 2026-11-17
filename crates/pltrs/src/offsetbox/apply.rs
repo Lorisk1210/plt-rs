@@ -3,6 +3,7 @@
 
 use pltrs_core::{Affine2D, Bbox};
 
+use super::leaves::is_area_outline;
 use super::owners::{owner, owner_mut};
 use super::{AnnotationBboxArtist, ArtistRef, OffsetBox, OffsetBoxError, Placement, TreeLayout};
 use crate::artist::{
@@ -17,10 +18,11 @@ use crate::transforms::Transform;
 
 /// Moves every artist `placements` name to where they put it: texts and
 /// area artists onto their transforms (and clips), images and frames onto
-/// their boxes. An artist of a clipped area that was `drawn` with the
-/// area's outline keeps that outline, through the area's transform of
-/// now: matplotlib's `DrawingArea.draw` gives its outline, of its size
-/// then, only to the children that have no clip path yet.
+/// their boxes. A clipped area clips its artists with neither a clip box
+/// nor a clip path of their own to its outline (matplotlib's
+/// `DrawingArea.draw`, which gives them its outline as their clip path);
+/// one `drawn` with the outline keeps it, of the area's size then,
+/// through the area's transform of now.
 pub(crate) fn apply_placements<A: ArtistRef>(
     store: &mut ArtistStore,
     placements: Vec<Placement<A>>,
@@ -47,15 +49,24 @@ pub(crate) fn apply_placements<A: ArtistRef>(
                 for artist in artists {
                     artist.attach(store, transform.clone());
                     let id = artist.artist_id();
-                    if let (Some(path), Some(clipped)) = (&clip, store.get_mut(id)) {
-                        let kept = match &clipped.base().clip_path {
-                            Some(ClipPathSpec::Path { path, .. }) if drawn(id) => {
-                                Some(path.clone())
+                    if let (Some(outline), Some(clipped)) = (&clip, store.get_mut(id)) {
+                        let base = clipped.base_mut();
+                        if base.clip_box.is_some() || base.clip_region.is_some() {
+                            continue;
+                        }
+                        let path = match &base.clip_path {
+                            None => outline.clone(),
+                            Some(ClipPathSpec::Path { path, .. }) if is_area_outline(path) => {
+                                if drawn(id) {
+                                    path.clone()
+                                } else {
+                                    outline.clone()
+                                }
                             }
-                            _ => None,
+                            Some(_) => continue,
                         };
-                        clipped.base_mut().clip_path = Some(ClipPathSpec::Path {
-                            path: kept.unwrap_or_else(|| path.clone()),
+                        base.clip_path = Some(ClipPathSpec::Path {
+                            path,
                             transform: transform.clone(),
                         });
                     }

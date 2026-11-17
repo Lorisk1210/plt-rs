@@ -166,6 +166,8 @@ impl BboxPatch {
 }
 
 impl PatchShape for BboxPatch {
+    const REBUILDS_PATH: bool = true;
+
     const MAPS_OUTLINE_ALONE: bool = false;
 
     fn path(&self) -> Path {
@@ -232,6 +234,8 @@ impl BboxConnector {
 }
 
 impl PatchShape for BboxConnector {
+    const REBUILDS_PATH: bool = true;
+
     const MAPS_OUTLINE_ALONE: bool = false;
 
     fn path(&self) -> Path {
@@ -309,6 +313,8 @@ pltrs_core::archive_struct!(BboxConnectorPatch {
 });
 
 impl PatchShape for BboxConnectorPatch {
+    const REBUILDS_PATH: bool = true;
+
     const MAPS_OUTLINE_ALONE: bool = false;
 
     fn path(&self) -> Path {

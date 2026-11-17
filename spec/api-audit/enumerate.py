@@ -10,6 +10,7 @@ With ``--nested``, the members of the classes nested in classes too
 class' qualified name.
 """
 import importlib
+import importlib.util
 import inspect
 import json
 import sys
@@ -55,6 +56,12 @@ matplotlib.backends.backend_pdf matplotlib.backends.backend_svg
 matplotlib.backends.backend_ps matplotlib.backends.backend_pgf
 matplotlib.backends.backend_mixed matplotlib.testing
 matplotlib.testing.compare matplotlib.testing.decorators
+""".split()
+# matplotlib's Sphinx extensions, where Sphinx is installed.
+if importlib.util.find_spec("sphinx") is not None:
+    MODULES += """
+matplotlib.sphinxext.plot_directive matplotlib.sphinxext.mathmpl
+matplotlib.sphinxext.figmpl_directive matplotlib.sphinxext.roles
 """.split()
 
 # Packages whose names live in sub-modules: a name counts for the package

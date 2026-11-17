@@ -360,7 +360,7 @@ setup` makes the venvs, and the tests skip where a library is missing).
 pltrs (Python) is measured against matplotlib in these ways:
 
 * **matplotlib 3.11's own test suite**, run unchanged with `matplotlib`
-  aliased to pltrs: it passes all <!--fact:mpl-suite.all-passing-->10,191
+  aliased to pltrs: it passes all <!--fact:mpl-suite.all-passing-->10,205
   tests that pass under real matplotlib on the same machine, with the
   tools the tests ask for installed: Qt (PyQt6, PySide6, PyQt5), Tk, GTK 3 and 4, wx and Cairo
   with a display for the GUI backends, Inkscape for the SVG image
@@ -385,6 +385,11 @@ pltrs (Python) is measured against matplotlib in these ways:
   ipympl (`cargo xtask notebooks`): of the tests and comparisons that
   pass under matplotlib, all <!--fact:notebooks.all-passing-->1,091 pass
   under pltrs too (`spec/notebooks/`).
+* **Sphinx**: a documentation project using every option of matplotlib's
+  plot directive and its other Sphinx extensions (`mathmpl`,
+  `figure-mpl`, the roles) builds under pltrs with the same warnings,
+  files, HTML and pictures as under matplotlib
+  (`python/tests/test_sphx1.py`).
 * **A differential tester** (`cargo xtask diff`): it runs matplotlib's
   gallery, programs generated from its API, and programs users wrote
   (<!--fact:corpora-->178 corpora of books, courses, cheat sheets and

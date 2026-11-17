@@ -110,10 +110,9 @@ test_backend_template.py::test_show_old_global_api: a Python backend module's gl
 test_backend_webagg.py::test_webagg_core_no_toolbar: `FigureManagerWebAgg._toolbar2_class`, a Python class attribute
 test_backend_webagg.py::test_webagg_fallback: the MPLBACKEND environment variable selecting a Python backend in a subprocess
 
-# --- test_basic.py, test_doc.py, test_getattr.py, test_matplotlib.py -------
+# --- test_basic.py, test_getattr.py, test_matplotlib.py --------------------
 test_basic.py::test_lazy_imports: which Python modules `import matplotlib` loads
 test_basic.py::test_override_builtins: names `pylab` exports over Python builtins
-test_doc.py::test_sphinx_gallery_example_header: matplotlib's documentation build (sphinx-gallery)
 test_getattr.py::test_backend_getattr: module-level `__getattr__` of the Python backend modules
 test_matplotlib.py::test_configdir_uses_localappdata_on_windows: matplotlib's configuration directory on Windows
 test_matplotlib.py::test_configdir_uses_userprofile_on_windows_if_exists: matplotlib's configuration directory on Windows
@@ -240,15 +239,6 @@ test_quiver.py::test_quiver_memory_leak: Python reference counts (memory leak te
 test_rcparams.py::test_backend_fallback_headful: Python backend selection with a display
 test_rcparams.py::test_backend_fallback_headless_auto_backend: Python backend selection without a display
 test_rcparams.py::test_backend_fallback_headless_invalid_backend: Python backend selection without a display
-
-# --- test_sphinxext.py: matplotlib's Sphinx extension ----------------------
-test_sphinxext.py::test_plot_html_code_caption: the plot directive of matplotlib's Sphinx extension
-test_sphinxext.py::test_plot_html_show_source_link: the plot directive of matplotlib's Sphinx extension
-test_sphinxext.py::test_plot_html_show_source_link_custom_basename: the plot directive of matplotlib's Sphinx extension
-test_sphinxext.py::test_show_source_link_false: the plot directive of matplotlib's Sphinx extension
-test_sphinxext.py::test_show_source_link_true: the plot directive of matplotlib's Sphinx extension
-test_sphinxext.py::test_srcset_version: the plot directive of matplotlib's Sphinx extension
-test_sphinxext.py::test_tinypages: building a Sphinx project with matplotlib's extension
 
 # --- test_subplots.py ------------------------------------------------------
 test_subplots.py::test_dont_mutate_kwargs: `subplot_kw`/`gridspec_kw` dicts left unchanged; pltrs takes its options by value, so the caller's cannot change

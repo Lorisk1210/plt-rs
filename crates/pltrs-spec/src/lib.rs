@@ -27,6 +27,17 @@
 //! `crates/pltrs/src/text/tex.rs` tests without TeX, and `test_axes.py`'s
 //! `test_latex_pie_percent` that two autopct templates give the same
 //! labels under TeX, which `crates/pltrs/src/axes/pie.rs` tests.
+//!
+//! matplotlib's tests of its Sphinx extensions are Python over Sphinx, with
+//! nothing of pltrs (Rust) to port: `test_sphinxext.py`'s `test_tinypages`,
+//! `test_srcset_version`, `test_plot_html_show_source_link`,
+//! `test_plot_html_show_source_link_custom_basename`,
+//! `test_show_source_link_true`, `test_show_source_link_false` and
+//! `test_plot_html_code_caption`, and `test_doc.py`'s
+//! `test_sphinx_gallery_example_header`, run unchanged against pltrs
+//! (Python) in matplotlib's suite (`cargo xtask mpl-suite`), and
+//! `python/tests/test_sphx1.py` builds a project using every option of the
+//! extensions under both libraries.
 #![forbid(unsafe_code)]
 
 pub mod compare;

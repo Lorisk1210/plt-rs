@@ -11,6 +11,7 @@ pandas-stubs==3.1.0.261029
 types-pillow==10.2.0.20240822
 types-python-dateutil==2.9.0.20261104
 types-psutil==7.2.2.20261111
+sphinx==9.1.0
 numpy==2.5.4
 pillow==12.3.0
 cycler==0.12.1

@@ -235,9 +235,8 @@ def module_exists(relative_stub):
 
 def stubless(module, path):
     """Whether matplotlib installs the module *module* (*path* below its
-    package) without a stub, and pltrs has it: not its tests nor the
-    Sphinx extensions."""
-    if path.parts[0] in ("tests", "sphinxext") or path.stem in INLINE_TYPED:
+    package) without a stub, and pltrs has it: not its tests."""
+    if path.parts[0] == "tests" or path.stem in INLINE_TYPED:
         return False
     if module.with_suffix(".pyi").exists() and installed(module.with_suffix(".pyi")):
         return False

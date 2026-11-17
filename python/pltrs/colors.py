@@ -821,6 +821,44 @@ def _changed_in_place(cmap):
         colorizer.changed()
 
 
+#: Where the package's modules are.
+_PACKAGE = __file__.rpartition("colors.py")[0]
+
+#: The watches of the colormaps whose lookup table a program read, by the
+#: colormap's id, while the colormap lives.
+_luts_read = {}
+
+
+class _LutWatch:
+    """
+    The lookup table of *cmap*, which a program read (``cmap._lut``) and
+    may change in place: every live figure asks the watch before it tells
+    its artists (`._own_state.follow`: a draw, a measure, a pickle), and a
+    table that changed is handed to pltrs (Rust) again by the colorizers
+    drawing with the colormap, as `Colormap.set_bad` has them do.
+    """
+
+    def __init__(self, cmap):
+        self._cmap = weakref.ref(cmap)
+        self._seen = cmap.__dict__["_lut"].tobytes()
+        _luts_read[id(cmap)] = self
+        weakref.finalize(cmap, _luts_read.pop, id(cmap), None)
+        from . import _own_state
+        from .axes import _sharing
+        for figure in list(_sharing._FIGURES):
+            _own_state.follow(self, figure)
+
+    def _take_changed_in_place(self):
+        """Have the colormap handed over again if its table changed."""
+        cmap = self._cmap()
+        lut = None if cmap is None else cmap.__dict__.get("_lut")
+        if lut is not None:
+            now = lut.tobytes()
+            if now != self._seen:
+                self._seen = now
+                _changed_in_place(cmap)
+
+
 #: What no callback tells of the changes of a norm or of a colorizer, by
 #: the id of that norm or colorizer: the colorizers and mappables read
 #: back from a pickle (or copied), since callbacks are not pickled.
@@ -1117,15 +1155,33 @@ class Colormap:
         new_cm._lut[:, 3] = alpha
         return new_cm
 
-    def __getattr__(self, name):
-        # matplotlib's lookup table, which its draws make (`_init`) and
-        # programs read (``cmap._lut``): made when first read, pltrs (Rust)
-        # drawing without it.
-        if name == "_lut" and "_isinit" in self.__dict__ and not self._isinit:
+    @property
+    def _lut(self):
+        """
+        matplotlib's lookup table, which its draws make (`_init`) and map
+        through, and programs read and change (``cmap._lut[:, 3] = alphas``):
+        made when first read. pltrs (Rust) maps with a copy the colorizers
+        hand it, so a table a program read (a read from outside the
+        package) is watched from then on: what the program changes in it
+        is handed over again before the next draw (`_LutWatch`).
+        """
+        state = self.__dict__
+        lut = state.get("_lut")
+        if lut is None:
+            if state.get("_isinit") is not False:
+                raise AttributeError(
+                    f"{type(self).__name__!r} object has no attribute '_lut'",
+                    name="_lut", obj=self)
             self._init()
-            return self._lut
-        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}",
-                             name=name, obj=self)
+            lut = state["_lut"]
+        if id(self) not in _luts_read and not sys._getframe(1).f_code.co_filename.startswith(
+                _PACKAGE):
+            _LutWatch(self)
+        return lut
+
+    @_lut.setter
+    def _lut(self, lut):
+        self.__dict__["_lut"] = lut
 
     def _init(self):
         """Generate the lookup table, ``self._lut``."""

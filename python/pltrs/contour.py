@@ -401,7 +401,7 @@ class ContourLabeler:
             raise IndexError("pop index out of range")
         _contour.pop_label(self._contour, index % count)
 
-    @_values.assignable
+    @_own_state.kept_once_read(told_by=lambda self: self._labels_made())
     def labelTexts(self):
         """The label `.Text` instances."""
         from .text import Text
@@ -422,7 +422,7 @@ class ContourLabeler:
             _remember_position(text, tuple(map(np.float64, text.get_position())))
             _values.remember(text, "color", tuple(map(np.float64, text.get_color())))
 
-    @_values.assignable
+    @_own_state.kept_once_read(told_by=lambda self: self._labels_made())
     def labelXYs(self):
         """The display positions of the labels: numpy floats, as
         matplotlib's placement computes them, or as given to `add_label`."""
@@ -437,11 +437,17 @@ class ContourLabeler:
         if "_label_lists_made" not in self.__dict__:
             raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
+    def _labels_made(self):
+        """What tells the labels the set has now from those it had: their
+        ids, in order (matplotlib's lists of labels grow as `clabel` and
+        `add_label` add to them)."""
+        return tuple(self._label_ids())
+
     def _label_ids(self):
         """The ids of the label texts, in order."""
         return [_artist.id(text) for text in _contour.label_texts(self._contour)]
 
-    @_values.assignable
+    @_own_state.kept_once_read(told_by=lambda self: self._labels_made())
     def labelCValues(self):
         """The colour values (`cvalues`) of the levels of the labels, or as
         given to `add_label`."""
@@ -454,7 +460,7 @@ class ContourLabeler:
                 for key, level in zip(self._label_ids(),
                                       _contour.label_text_levels(self._contour))]
 
-    @_values.assignable
+    @_own_state.kept_once_read(told_by=lambda self: self._labels_made())
     def labelLevelList(self):
         """The levels the last `clabel` labelled: the set's levels when it
         labelled them all, else a list of those it labelled, as matplotlib
@@ -1040,7 +1046,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
                 colorizer.norm = mcolors.NoNorm()
         super()._attach_native_mapping(cmap, norm, colorizer)
 
-    @_values.assignable
+    @_own_state.kept_once_read
     def levels(self):
         """The contour levels."""
         return _contour.get_levels(self._contour)
@@ -1060,7 +1066,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
 
     # matplotlib reads the layers and the extremes of the data only while it
     # makes the set: one assigned is read back alone.
-    @_values.assignable
+    @_own_state.kept_once_read
     def layers(self):
         """The values the levels or bands are coloured by."""
         return _contour.get_layers(self._contour)
@@ -1068,7 +1074,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     # matplotlib reads the levels, the colour values, whether the set is
     # filled and its extensions again only in its later methods (labels,
     # `changed`, a colorbar made after): one assigned is read back there.
-    @_values.assignable
+    @_own_state.kept_once_read
     def cvalues(self):
         """The values the levels or bands are mapped to colours by: the
         layers, or indices into explicitly given colours (a list of
@@ -1364,8 +1370,8 @@ class ContourSet(ContourLabeler, mcoll.Collection):
             self.norm.autoscale_None(self.levels)
             _contour.set_mapping(self._contour, self.cmap, self.norm,
                                  self._norm_replaced())
-            self._A = self._native_array()
-            self.to_rgba(self._A)
+            self._mapped = self._native_array()
+            self.to_rgba(self._mapped)
             self._mapped_at_draw = _artist.draw_count(self._native)
             # The labels take the set's alpha and their colours anew.
             alphas = np.broadcast_to(self.get_alpha(), len(self.cvalues))

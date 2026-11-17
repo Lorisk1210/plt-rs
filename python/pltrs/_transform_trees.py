@@ -44,6 +44,7 @@ from .transforms import (Affine2D, Bbox, BboxTransformFrom, BboxTransformTo,
                          blended_transform_factory)
 
 
+_own_state = _lazy_imports.module(globals(), "._own_state")
 _transform_replay = _lazy_imports.module(globals(), "._transform_replay")
 _tree_validity = _lazy_imports.module(globals(), "._tree_validity")
 
@@ -204,28 +205,42 @@ class _LeafWatcher(TransformNode):
     pltrs (Rust) (*push*, given the leaf).
     """
 
-    def __init__(self, leaf, push):
+    def __init__(self, leaf, push, in_place):
         super().__init__()
         self._push = push
+        self._leaf = leaf
+        self._in_place = in_place
         self.set_children(leaf)
-        leaf.get_points()  # Valid, so that its next change reaches here.
+        # (Reading the points makes the leaf valid, so that its next
+        # change reaches here.)
+        self._seen = leaf.get_points().tobytes()
 
     def _invalidate_internal(self, level, invalidating_node):
         if not _syncing():
             self._push(invalidating_node)
         # Valid again, so that its next change reaches here too.
-        invalidating_node.get_points()
+        self._seen = invalidating_node.get_points().tobytes()
+
+    def take_changed_in_place(self):
+        """Hand pltrs (Rust) the leaf if the program changed its points in
+        the array itself (``ax.viewLim.get_points()[1, 1] = top``,
+        ``ax.viewLim.intervalx[1] = right``), which invalidates nothing:
+        matplotlib's draw reads the array."""
+        if self._in_place and self._leaf._points.tobytes() != self._seen:
+            self._leaf.invalidate()
 
     def __reduce__(self):
         # Pickled with a leaf it watches, it unpickles as a plain node.
         return (TransformNode, ())
 
 
-def _watch_leaf(owner, leaf, push):
+def _watch_leaf(owner, leaf, push, in_place=False):
     """Hand pltrs (Rust) the changes the program makes to *leaf* of
-    *owner*."""
+    *owner*: those that invalidate it and, with *in_place*, those made in
+    the array of its points, which *owner* looks for wherever pltrs (Rust)
+    reads it (`._own_state.follow_leaves`)."""
     owner.__dict__.setdefault("_leaf_watchers", []).append(
-        _LeafWatcher(leaf, push))
+        _LeafWatcher(leaf, push, in_place))
 
 
 def _points(extents):
@@ -238,7 +253,10 @@ def set_extents(bbox, extents):
     invalidating what is built on it when they differ."""
     points = _points(extents)
     if not np.array_equal(bbox._points, points, equal_nan=True):
-        bbox._points = points
+        # In the box's own array, as matplotlib's limits are set
+        # (``viewLim.intervalx = ...``): the array a program read is the
+        # box's still.
+        bbox._points[...] = points
         bbox.invalidate()
 
 
@@ -347,8 +365,13 @@ def build_axes(ax, as_made=False):
         if transform is not None and not hasattr(transform, "_live"):
             transform._live = native(ax._native)
     d["bbox"]._spanning = d["transAxes"]
-    _watch_leaf(ax, d["_viewLim"], functools.partial(_push_limits, ax, "view"))
-    _watch_leaf(ax, d["dataLim"], functools.partial(_push_limits, ax, "data"))
+    # (The boxes of a 3-D Axes are its projection plane's, which its draws
+    # make anew: matplotlib's draw reads no change made in their arrays.)
+    in_place = getattr(ax, "name", None) != "3d"
+    _watch_leaf(ax, d["_viewLim"], functools.partial(_push_limits, ax, "view"), in_place)
+    _watch_leaf(ax, d["dataLim"], functools.partial(_push_limits, ax, "data"), in_place)
+    if in_place:
+        _own_state.follow(ax, root)
     # Also an Axes outside the figure as its trees are built (one its
     # class' constructor builds, which joins the figure later under its
     # id), under the id its leaves come with (a 3-D Axes' plane's).
@@ -706,6 +729,11 @@ class AxesTrees:
                     self.autoscale_view(scalex=scalex, scaley=scaley)
             _axes.get_xlim(self._native)
 
+    def _take_changed_in_place(self):
+        """Hand pltrs (Rust) the limit boxes the program changed in their
+        arrays (asked by the figure: `._own_state.follow`)."""
+        _own_state.take_leaves(self)
+
     def _unstale_by_program(self):
         """Bring the view limits up to date through the ``autoscale_view``
         of an Axes class of the program's overriding it before they are
@@ -713,6 +741,9 @@ class AxesTrees:
         brings those of the other Axes up to date itself."""
         if takes_from_program(type(self), "autoscale_view"):
             self._unstale_viewLim()
+        if "_leaf_watchers" in self.__dict__:
+            # What the program changed in the arrays of the limit boxes.
+            _own_state.take_leaves(self)
 
     @property
     def viewLim(self):

@@ -49,9 +49,9 @@ def _array_of(mappable):
     mappable's own from then on, compared at every draw: `._own_state`),
     or what the method of a class of the program's answers.
     """
-    if _answers_array_itself(type(mappable)) or not hasattr(mappable, "_A"):
+    if _answers_array_itself(type(mappable)) or "_mapped" not in mappable.__dict__:
         return mappable.get_array()
-    return mappable._A
+    return mappable._mapped
 
 
 def _mpl():
@@ -370,7 +370,7 @@ class _ColorizerInterface:
     and `.cm.ScalarMappable` are not included.
     """
     def _scale_norm(self, norm, vmin, vmax):
-        self._colorizer._scale_norm(norm, vmin, vmax, self._A)
+        self._colorizer._scale_norm(norm, vmin, vmax, self._mapped)
 
     def to_rgba(self, x, alpha=None, bytes=False, norm=True):
         """
@@ -492,14 +492,14 @@ class _ColorizerInterface:
         Autoscale the scalar limits on the norm instance using the
         current array
         """
-        self._colorizer.autoscale(self._A)
+        self._colorizer.autoscale(self._mapped)
 
     def autoscale_None(self):
         """
         Autoscale the scalar limits on the norm instance using the
         current array, changing only limits that are None
         """
-        self._colorizer.autoscale_None(self._A)
+        self._colorizer.autoscale_None(self._mapped)
 
     @property
     def colorbar(self):
@@ -615,7 +615,7 @@ class _ScalarMappable(_ColorizerInterface):
         also for the mappables pltrs (Rust) makes, whose objects are made
         without ``__init__``).
         """
-        self._A = None
+        self._mapped = None
         self._colorizer = colorizer
         self._handed_norm = colorizer.norm  # see _norm_replaced
 
@@ -636,7 +636,7 @@ class _ScalarMappable(_ColorizerInterface):
             the dimensionality and shape of the value array *A*.
         """
         if A is None:
-            self._A = None
+            self._mapped = None
             self._array_set()
             return
 
@@ -653,7 +653,7 @@ class _ScalarMappable(_ColorizerInterface):
                     if not np.can_cast(A[key].dtype, float, "same_kind"):
                         raise TypeError(f"Image data of dtype {A.dtype} cannot be "
                                         f"converted to a sequence of floats")
-        self._A = A
+        self._mapped = A
         if not self.norm.scaled():
             self._colorizer.autoscale_None(A)
         self._array_set()
@@ -663,6 +663,24 @@ class _ScalarMappable(_ColorizerInterface):
         nothing for a mappable of no artist (pltrs's collections hand theirs
         to pltrs (Rust))."""
 
+    @property
+    def _A(self):
+        """
+        The values mapped, by matplotlib's name for them: the mappable's
+        own array (pltrs keeps it as ``_mapped``, which its own code reads
+        without handing it out), handed out as `get_array` hands it, so
+        that what code changes in it is drawn; assigning replaces it as
+        matplotlib's attribute is replaced, with no check and no scaling
+        of the norm.
+        """
+        return _ScalarMappable.get_array(self)
+
+    @_A.setter
+    def _A(self, A):
+        self._mapped = A
+        if "_native" in self.__dict__ and "_colorizer" in self.__dict__:
+            self._array_set()
+
     def get_array(self):
         """
         Return the array of values, that are mapped to colors.
@@ -670,7 +688,7 @@ class _ScalarMappable(_ColorizerInterface):
         The base class `.ScalarMappable` does not make any assumptions on
         the dimensionality and shape of the array.
         """
-        A = self._A
+        A = self._mapped
         if A is not None and "_native" in self.__dict__:
             # The artist's own array, which matplotlib maps at every draw:
             # handed out, what the program changes in it is drawn.

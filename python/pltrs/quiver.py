@@ -25,7 +25,7 @@ import numpy as np
 from numpy import ma
 
 from . import _docstring
-from . import (_api, _handles, _lazy_imports, _live_transforms, _unusable, _values,
+from . import (_api, _handles, _lazy_imports, _live_transforms, _own_state, _unusable, _values,
                cbook, collections as mcollections, colors as mcolors, transforms)
 from . import artist as martist
 from ._native import artist as _artist, plotting as _plotting
@@ -410,6 +410,14 @@ def _held_settings(settings, n):
     return held, unheld
 
 
+#: The components of a quiver's arrows (matplotlib's ``U`` and ``V``) once
+#: a program read them: arrays of the quiver's own (`._own_state`), both
+#: handed to pltrs (Rust) again when one changed.
+_U_READ = _own_state.State("U", lambda quiver: quiver._U,
+                           lambda quiver, _: quiver._take_components())
+_V_READ = _own_state.State("V", lambda quiver: quiver._V,
+                           lambda quiver, _: quiver._take_components())
+
 class Quiver(mcollections.PolyCollection):
     """
     Specialized PolyCollection for arrows.
@@ -508,7 +516,7 @@ class Quiver(mcollections.PolyCollection):
         if C is not None:
             # The values as matplotlib's `set_array` keeps them, in their
             # dtype (pltrs (Rust) maps floats).
-            self._A = cbook.safe_masked_invalid(C, copy=True)
+            self._mapped = cbook.safe_masked_invalid(C, copy=True)
         if not _single_color(facecolor):
             self.set_facecolor(facecolor)
         # The arrows are unstroked, as matplotlib's default ``(0,)`` says.
@@ -597,15 +605,46 @@ class Quiver(mcollections.PolyCollection):
         return (ma.array(U, mask=mask, copy=False), ma.array(V, mask=mask, copy=False),
                 C)
 
+    @property
+    def U(self):
+        """The x components of the arrows, masked ones 1: the quiver's
+        own array, which matplotlib makes the arrows of at every draw, so
+        that what a program changes in it is drawn; so `V`."""
+        return _own_state.hand_out_kept(self, _U_READ, self._U)
+
+    @U.setter
+    def U(self, U):
+        self._U = U
+
+    @property
+    def V(self):
+        """The y components of the arrows, masked ones 1 (see `U`)."""
+        return _own_state.hand_out_kept(self, _V_READ, self._V)
+
+    @V.setter
+    def V(self, V):
+        self._V = V
+
+    def _take_components(self):
+        """Give pltrs (Rust) the components as the arrays `U` and `V`
+        hold them now, a program having changed them in place."""
+        if self._U.size == self._V.size:
+            mask = self.Umask
+            _plotting.quiver_set_uvc(self._native, _filled(ma.array(self._U, mask=mask)),
+                                     _filled(ma.array(self._V, mask=mask)))
+
     def _store_uvc(self, U, V, C):
         """Keep the components as matplotlib's attributes."""
-        self.U = U.filled(1)
-        self.V = V.filled(1)
+        self._U = U.filled(1)
+        self._V = V.filled(1)
+        if _own_state.RECORDS in self.__dict__:
+            _own_state.drop(self, "U")
+            _own_state.drop(self, "V")
         # ``nomask`` when nothing is masked, as matplotlib's ``mask_or``
         # shrinks it.
         self.Umask = ma.make_mask(ma.getmask(U), shrink=True)
         self._C = C
-        if self.U.size != self.V.size:
+        if self._U.size != self._V.size:
             # One component for all arrows, the other one per arrow: pltrs
             # (Rust) broadcasts them, as matplotlib's arithmetic does, but
             # where it measures the arrows in data coordinates.
@@ -619,7 +658,7 @@ class Quiver(mcollections.PolyCollection):
         side, of different sizes, to measure the arrows in data coordinates
         (``_angles_lengths``, for angles or scale units ``'xy'``)."""
         if cbook._str_equal(self.angles, 'xy') or self.scale_units == 'xy':
-            np.column_stack((self.U, self.V))
+            np.column_stack((self._U, self._V))
 
     def get_transform(self):
         """
@@ -1143,7 +1182,7 @@ class Barbs(mcollections.PolyCollection):
         self._attach_native_mapping(colorizer=made, given=c if clim is None else None)
         if c is not None:
             # As matplotlib's `set_array` keeps them (see `Quiver`).
-            self._A = cbook.safe_masked_invalid(c, copy=True)
+            self._mapped = cbook.safe_masked_invalid(c, copy=True)
         # matplotlib's default width of the barbs.
         _values.remember(self, "linewidth", np.atleast_1d(1))
         self._internal_update(kwargs)

@@ -270,6 +270,21 @@ impl Collection {
         self.raw.with::<CollectionArtist, _>(|c| c.sizes.clone())
     }
 
+    /// Reads the marker areas where they are, `None` when none are set,
+    /// without copying them (as [`with_offsets`](Self::with_offsets)).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let dots = Figure::new().subplot().scatter(vec![1.0, 2.0], vec![3.0, 4.0])?;
+    /// dots.set_sizes(vec![9.0, 16.0]);
+    /// assert_eq!(dots.with_sizes(|sizes| sizes.map(<[_]>::len)), Some(2));
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn with_sizes<R>(&self, read: impl FnOnce(Option<&[f64]>) -> R) -> R {
+        self.raw
+            .with::<CollectionArtist, _>(|c| read(c.sizes.as_deref()))
+    }
+
     /// Sets the cap style of every edge.
     pub fn set_capstyle(&self, capstyle: CapStyle) -> &Self {
         self.update(|c| c.capstyle = Some(capstyle))
@@ -661,6 +676,20 @@ impl Collection {
     /// The item offsets.
     pub fn offsets(&self) -> Vec<Point> {
         self.raw.with::<CollectionArtist, _>(|c| c.offsets.clone())
+    }
+
+    /// Reads the item offsets where they are, without copying them: what
+    /// holds them elsewhere too (pltrs (Python), in an array the program
+    /// may change) compares the two so.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let dots = Figure::new().subplot().scatter(vec![1.0, 2.0], vec![3.0, 4.0])?;
+    /// assert_eq!(dots.with_offsets(<[_]>::len), 2);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn with_offsets<R>(&self, read: impl FnOnce(&[Point]) -> R) -> R {
+        self.raw.with::<CollectionArtist, _>(|c| read(&c.offsets))
     }
 
     /// The coordinates of the offsets, `None` when the items are placed

@@ -14,13 +14,14 @@ import functools
 import weakref
 
 from .._program_classes import takes_from_program
-from .. import _api, _handles, cbook, scale as mscale
+from .. import _api, _handles, _own_state, cbook, scale as mscale
 from .._native import artist as _artist, axes as _axes
 from .. import _lazy_imports
 from . import _sharing
 from ._artist_list import ArtistList
 
 _foreign_children = _lazy_imports.module(globals(), "._foreign_children")
+_figure_artists = _lazy_imports.module(globals(), ".._figure_artists")
 
 
 def _notify(axes_ref, signal):
@@ -73,7 +74,7 @@ class ClearMixin:
         if legend is not None:
             # Which keeps the Axes as its own.
             legend._cleared_from = self
-        for child in self.child_axes:
+        for child in self._child_axes_now():
             child._leave_host()
         self._decouple_children()
         for axis in self._axis_map.values():
@@ -257,6 +258,14 @@ class ClearMixin:
     def _children(self):
         """The artists added to the Axes, in the order they were added; an
         artist pltrs (Rust) makes of several (a contour set) once."""
+        return _own_state.same_list(
+            self, "_children", self._children_now,
+            lambda artists: _figure_artists.ChildList(self, artists))
+
+    def _children_now(self):
+        """The artists added to the Axes, in a list of the caller's own
+        (what the package's code reads where matplotlib's reads
+        ``_children``)."""
         children = {id(child): child for child in (
             _foreign_children.listed(_handles.wrap_any(native, self._figure))
             for native in _axes.children(self._native))}
@@ -272,11 +281,11 @@ class ClearMixin:
 
     def get_children(self):
         return [
-            *self._children,
+            *self._children_now(),
             *self.spines.values(),
             *[getattr(self, f"{name}axis") for name in self._axis_names],
             self.title, self._left_title, self._right_title,
-            *self.child_axes,
+            *self._child_axes_now(),
             *([self.legend_] if self.legend_ is not None else []),
             self.patch,
         ]

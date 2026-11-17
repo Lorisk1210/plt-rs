@@ -51,6 +51,42 @@ impl CollectionArtist {
 }
 
 impl Collection {
+    /// Replaces the vertex grid of a quad mesh with `coordinates`, of the
+    /// same shape (matplotlib keeps the vertices as an array programs
+    /// change in place): a mesh is drawn through the new vertices; one
+    /// drawn cell by cell keeps the polygons it has until its values are
+    /// set again, as matplotlib's `PolyQuadMesh` does. `false`, and no
+    /// change, for another shape or another kind of collection.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::collections::{CollectionSpec, MeshShading};
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::transforms::Point;
+    /// let ax = Figure::new().subplot();
+    /// let grid = Grid::from_fn(2, 2, |row, col| Point::new(col as f64, row as f64));
+    /// let mesh = ax.add_collection(CollectionSpec::quad_mesh(grid, MeshShading::Flat));
+    /// let moved = Grid::from_fn(2, 2, |row, col| Point::new(2.0 * col as f64, row as f64));
+    /// assert!(mesh.set_mesh_coordinates(moved.clone()));
+    /// assert_eq!(mesh.mesh_coordinates(), Some(moved));
+    /// let other = Grid::from_fn(3, 2, |row, col| Point::new(col as f64, row as f64));
+    /// assert!(!mesh.set_mesh_coordinates(other));
+    /// ```
+    pub fn set_mesh_coordinates(&self, coordinates: Grid<Point>) -> bool {
+        self.raw().with_mut::<CollectionArtist, _>(|c| {
+            let grid = match (&mut c.mesh, &mut c.polygon_grid) {
+                (Some(mesh), _) => &mut mesh.coordinates,
+                (None, Some(grid)) => grid,
+                (None, None) => return false,
+            };
+            if grid.shape() != coordinates.shape() {
+                return false;
+            }
+            *grid = coordinates;
+            true
+        })
+    }
+
     /// How the cells of a quad mesh are coloured; a mesh drawn cell by
     /// cell is flat; `None` for other collections (matplotlib's
     /// `_MeshData._shading`).

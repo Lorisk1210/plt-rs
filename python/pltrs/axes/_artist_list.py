@@ -48,7 +48,7 @@ class ArtistList(Sequence):
             return ((not valid_types or isinstance(artist, valid_types)) and
                     (not invalid_types or not isinstance(artist, invalid_types)))
 
-        self._artists = lambda: [artist for artist in axes._children
+        self._artists = lambda: [artist for artist in axes._children_now()
                                  if type_check(artist)]
 
     @classmethod

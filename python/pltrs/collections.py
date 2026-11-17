@@ -433,7 +433,7 @@ class Collection(mcolorizer.ColorizingArtist):
         if getattr(self, "_colorizer", None) is not None:
             self._colorizer.callbacks.disconnect(self._id_colorizer)
         self._attach_colorizer(colorizer)
-        self._A = self._native_array()
+        self._mapped = self._native_array()
 
     def _mapping_changed(self):
         # docstring inherited
@@ -463,11 +463,11 @@ class Collection(mcolorizer.ColorizingArtist):
         and colormap compute, to put on the sides the mapping colours.
         """
         colors = None
-        if self._A is not None:
+        if self._mapped is not None:
             alpha = self.get_alpha()
             if np.iterable(alpha):
-                alpha = np.reshape(alpha, self._A.shape)
-            colors = np.reshape(self.to_rgba(self._A, alpha), (-1, 4))
+                alpha = np.reshape(alpha, self._mapped.shape)
+            colors = np.reshape(self.to_rgba(self._mapped, alpha), (-1, 4))
         _collections.set_program_colors(self._native, colors)
 
     def update_scalarmappable(self):
@@ -477,17 +477,17 @@ class Collection(mcolorizer.ColorizingArtist):
         Assign colors to edges and faces based on the array and/or
         colors that were directly set, as appropriate.
         """
-        if self._A is None:
+        if self._mapped is None:
             _collections.update_scalarmappable(self._native)
             return
         if self._maps_variates():
             self._map_variates()
-        if self._A.ndim > 1 and not isinstance(self, (QuadMesh, PolyQuadMesh)):
-            _refuse_rank(self._A)
+        if self._mapped.ndim > 1 and not isinstance(self, (QuadMesh, PolyQuadMesh)):
+            _refuse_rank(self._mapped)
         alpha = self._get("alpha_array")
-        if alpha is not None and len(alpha) != self._A.size:
+        if alpha is not None and len(alpha) != self._mapped.size:
             alpha = np.asarray(self.__dict__.get("_array_alpha", alpha))
-            raise ValueError(f'Data array shape, {self._A.shape} '
+            raise ValueError(f'Data array shape, {self._mapped.shape} '
                              'is incompatible with alpha array shape, '
                              f'{alpha.shape}. '
                              'This can occur with the deprecated '
@@ -1081,9 +1081,11 @@ class Collection(mcolorizer.ColorizingArtist):
             _own_state.drop(self, "linewidths")
             _own_state.drop(self, "linestyles")
         # matplotlib scales the dash patterns by the widths, failing on
-        # widths that are no numbers.
-        bcast, _ = self._bcast_lwls(lw, [mlines._get_dash_pattern(style)
-                                         for style in self._given_linestyles()])
+        # widths that are no numbers. (Numbers scale any pattern: the
+        # patterns are not read for them, and no native call of this
+        # setter reads the collection.)
+        bcast = () if lw.dtype.kind in "biuf" else self._bcast_lwls(
+            lw, [mlines._get_dash_pattern(style) for style in self._given_linestyles()])[0]
         if any(isinstance(w, str) for w in bcast):
             # matplotlib keeps widths given as text, which its renderers
             # take or fail on (`._collection_draw_checks`); pltrs (Rust)
@@ -1278,7 +1280,7 @@ class Collection(mcolorizer.ColorizingArtist):
         self._array_alpha = other.__dict__.get("_array_alpha")
         self._face_fill = other.__dict__.get("_face_fill")
         # update_from for scalarmappable
-        self._A = other._A
+        self._mapped = other._mapped
         self.norm = other.norm
         self.cmap = other.cmap
         self.stale = True
@@ -1290,7 +1292,8 @@ class Collection(mcolorizer.ColorizingArtist):
     def _read_facecolor(self):
         """The face colours as drawn: the field assigned (`_facecolors`) as
         it was, while drawn, else a new array."""
-        return _values.given(self, "_facecolors", self._get("facecolor"))
+        return _state.shown_until_drawn(self, "facecolors", _values.given(
+            self, "_facecolors", self._get("facecolor")))
 
     def _forget_colors(self):
         """Forget the colour arrays handed out: matplotlib's setter of a
@@ -1362,6 +1365,8 @@ class Collection(mcolorizer.ColorizingArtist):
         masked = np.ma.is_masked(offsets)
         _collections.set_offsets(self._native, np.ma.filled(offsets, np.nan), masked)
         self.__dict__.pop("_offsets_dtype", None)
+        if _OWN in self.__dict__:
+            _own_state.drop(self, "offsets")
         self.stale = True
 
     @property
@@ -1446,7 +1451,7 @@ class Collection(mcolorizer.ColorizingArtist):
             super().set_alpha(alpha)
             # The colours read back as set again, until the next draw.
             _collections.set_alpha(self._native, alpha)
-        if self._A is not None and self._maps_variates():
+        if self._mapped is not None and self._maps_variates():
             self._map_variates()
 
     set_alpha.__doc__ = Artist._set_alpha_for_array.__doc__
@@ -1459,20 +1464,20 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def _array_set(self):
         # docstring inherited
-        if self._A is not None and self._A.ndim > 1 and not isinstance(
+        if self._mapped is not None and self._mapped.ndim > 1 and not isinstance(
                 self, (QuadMesh, PolyQuadMesh)):
             # matplotlib keeps it, and refuses it when it draws
             # (`update_scalarmappable`).
-            _unusable.keep(self, "array", self._A, _refuse_rank, measured=False)
+            _unusable.keep(self, "array", self._mapped, _refuse_rank, measured=False)
         else:
             _unusable.drop(self, "array")
-        if self._A is None or self._maps_variates():
+        if self._mapped is None or self._maps_variates():
             _collections.set_array(self._native, None)
             if self._maps_variates():
                 self._map_variates()
             return
         _collections.set_mapped_array(
-            self._native, np.ma.filled(self._A.astype(float), np.nan).ravel(),
+            self._native, np.ma.filled(self._mapped.astype(float), np.nan).ravel(),
             self.cmap)
         _collections.set_mapping(self._native, self.cmap, self._colorizer.norm,
                                  self._handing_norm())
@@ -2837,6 +2842,13 @@ class _MeshData:
         mesh, corresponding to (M+1, N+1) vertices.
         The last dimension specifies the components (x, y).
         """
+        # The mesh's own array, as matplotlib's ``_coordinates``
+        # (`._own_state`): a mesh is drawn through what a program changes
+        # in it.
+        return _own_state.hand_out(self, _state.COORDINATES)
+
+    def _read_coordinates(self):
+        """The vertices pltrs (Rust) holds, as matplotlib keeps them."""
         coordinates = _collections.get_coordinates(self._native)
         # As matplotlib keeps them: integers for a mesh of the default grid
         # (masked vertices, NaN here, stay floats), masked where the mesh
@@ -2969,9 +2981,9 @@ class _MeshData:
                 # RGB(A) values are the colours of the cells, which
                 # ``to_rgba`` passes through.
                 mcolorizer.ColorizingArtist.set_array(self, A)
-                colors = self.to_rgba(self._A).reshape(-1, 4)
+                colors = self.to_rgba(self._mapped).reshape(-1, 4)
                 if isinstance(self, PolyCollection):
-                    colors = colors[self._draw_cells_of(self._A)]
+                    colors = colors[self._draw_cells_of(self._mapped)]
                 _collections.set_array(self._native, None)
                 _collections.set_facecolors(self._native, colors)
                 return
@@ -2980,7 +2992,7 @@ class _MeshData:
     def _array_set(self):
         # docstring inherited
         # RGB(A) values colour the cells themselves (`set_array`).
-        if self._A is None or self._A.ndim != 3:
+        if self._mapped is None or self._mapped.ndim != 3:
             super()._array_set()
 
     def _draw_cells_of(self, colors):
@@ -3061,8 +3073,8 @@ class QuadMesh(_MeshData, Collection):
         if type(given) is np.ndarray and given.dtype == np.float64:
             return
         kept = cbook.safe_masked_invalid(given, copy=True)
-        if self._A is not None and kept.shape == self._A.shape:
-            self._A = kept
+        if self._mapped is not None and kept.shape == self._mapped.shape:
+            self._mapped = kept
 
     def get_paths(self):
         return super().get_paths()
@@ -3186,7 +3198,7 @@ class PolyQuadMesh(_MeshData, PolyCollection):
         """
         kept = cbook.safe_masked_invalid(given, copy=True)
         if kept.shape == self._cells():
-            self._A = kept
+            self._mapped = kept
 
     # pltrs (Rust) holds the polygons, colours and values of the cells it
     # draws, those not masked, which these give.

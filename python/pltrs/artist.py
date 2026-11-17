@@ -206,12 +206,19 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         # the artist keeps made from its native state is made again.
         state = self.__dict__.copy()
         state.pop(_live_transforms.KEPT, None)
+        state.pop(_own_state.LISTS, None)
+        # (A line's views of its numbers, held weakly: `._line_state.columns`.)
+        state.pop("_xy_views", None)
+        if "_leaf_watchers" in state:
+            # The boxes of its trees the program changed in their arrays.
+            _own_state.take_leaves(self)
         # What the program changed in place of the state kept as objects
         # (`._own_state`) is pltrs (Rust)'s before its figure is archived;
         # the pickle holds no such object.
         figure = getattr(state.get("_figure"), "_figure", None)
-        if "_own_state" in state or (
-                figure is not None and "_own_state_artists" in figure.__dict__):
+        if "_own_state" in state or (figure is not None and (
+                "_own_state_artists" in figure.__dict__
+                or "_own_state_followed" in figure.__dict__)):
             _own_state.pickling(self, state, figure)
         return _pickling.referring_to_trees(self, state)
 

@@ -19,7 +19,8 @@ import numpy as np
 from . import _program_classes
 from ._program_classes import takes_from_program
 from . import _docstring
-from . import _api, _handles, _lazy_imports, _live_transforms, _values, colors, rcParams
+from . import (_api, _handles, _lazy_imports, _live_transforms, _own_state, _values, colors,
+               rcParams)
 from . import _transform_trees, _val_or_rc
 from ._native import artist as _artist, legend as _legend
 from ._native import register as _register
@@ -801,7 +802,7 @@ class Legend(Artist):
     # matplotlib's legend lists its labels and handles when made; after, only
     # `get_texts`, `get_lines` and `get_patches` read the lists, which a
     # program may replace.
-    @_values.assignable
+    @_own_state.kept_once_read
     def texts(self):
         """The `~.text.Text` labels of the legend."""
         return _handles.wrap_all(_legend.get_texts(self._native), Text, self._figure)
@@ -831,7 +832,7 @@ class Legend(Artist):
         if prop is not None:
             self.get_title().set_fontproperties(FontProperties._from_any(prop))
 
-    @_values.assignable
+    @_own_state.kept_once_read
     def legend_handles(self):
         """
         The artists drawn as the handles of the entries, in their order:

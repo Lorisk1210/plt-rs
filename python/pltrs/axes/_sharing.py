@@ -18,7 +18,7 @@ joins them again when it is read back (`rejoin`).
 import itertools
 import weakref
 
-from .. import _handles
+from .. import _handles, _own_state, colors as _colors
 from .._native import archive as _archive, axes_base as _axes_base
 
 #: The root figures alive, each with the order it was made in.
@@ -37,6 +37,11 @@ def track(figure):
     iterate over."""
     _FIGURES[figure] = next(_made)
     _BY_KEY[_archive.figure_key(figure._native)] = figure
+    if _colors._luts_read:
+        # The colormaps whose table a program read are asked by every
+        # figure, this new one too (`..colors._LutWatch`).
+        for watch in list(_colors._luts_read.values()):
+            _own_state.follow(watch, figure)
 
 
 def _peer(native):
@@ -92,7 +97,7 @@ def _all_axes():
     def with_children(axes):
         for ax in axes:
             yield ax
-            yield from with_children(ax.child_axes)
+            yield from with_children(ax._child_axes_now())
     for figure in sorted(list(_FIGURES), key=_FIGURES.get):
         yield from with_children(figure.axes)
 

@@ -8,7 +8,7 @@ classes include. pltrs (Rust) lays the figures out (``pltrs::layout``).
 
 import numpy as np
 
-from . import _api, _docstring, _handles, _lazy_imports, cbook, rcParams
+from . import _api, _docstring, _handles, _lazy_imports, _own_state, cbook, rcParams
 from ._native import figure as _figure, figure_layout as _figure_layout
 from ._native import rcsetup as _rcsetup
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
@@ -475,6 +475,7 @@ default: %(va)s
         `.BboxBase`
             containing the bounding box (in figure inches).
         """
+        _own_state.before_measure(self.get_figure(root=True))
         if bbox_extra_artists is None:
             # matplotlib's Axes.get_tightbbox calls a locator of the
             # program's first, placing its Axes.

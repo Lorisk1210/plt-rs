@@ -7,6 +7,8 @@ the array of its numbers itself, so a change of either is a change of
 both, drawn and measured; `XY` and `PATH` share the array the same way.
 """
 
+import weakref
+
 import numpy as np
 
 from ._native import lines as _lines
@@ -35,15 +37,40 @@ def _take_xy(line, xy):
 XY = State("xy", _read_xy, _take_xy)
 
 
+#: The attribute of a line holding the views `columns` handed out, weakly
+#: (left out of its pickle).
+VIEWS = "_xy_views"
+
+
+def _no_view():
+    """The view of a line that has handed none out yet."""
+
+
 def columns(line):
     """The x and the y numbers drawn, as the two views of the line's own
     array that matplotlib's ``_x`` and ``_y`` are: the same views while the
     array is the same."""
     xy = hand_out(line, XY)
-    views = line.__dict__.get("_xy_views")
-    if views is None or views[0] is not xy:
-        views = line._xy_views = (xy, xy[:, 0], xy[:, 1])
-    return views[1], views[2]
+    # The line holds the views weakly: while the program has one, it is
+    # the same at every read, and it holds the array (which owns its
+    # numbers, read from pltrs (Rust)); once the program has none, nothing
+    # holds the array but its record, which is then compared no more
+    # (`._own_state`).
+    x, y = (view() for view in line.__dict__.get(VIEWS, (_no_view, _no_view)))
+    if x is None or x.base is not xy:
+        x = xy[:, 0]
+    if y is None or y.base is not xy:
+        y = xy[:, 1]
+    line.__dict__[VIEWS] = (weakref.ref(x), weakref.ref(y))
+    return x, y
+    # The line holds the views weakly: while the program has one, it is
+    # the same at every read, and it holds the array (which owns its
+    # numbers, read from pltrs (Rust)); once the program has none, nothing
+    # holds the array but its record, which is then compared no more
+    # (`._own_state`).
+    x, y = xy[:, 0], xy[:, 1]
+    line.__dict__[VIEWS] = (weakref.ref(x), weakref.ref(y))
+    return x, y
 
 
 def _steps_of(line):

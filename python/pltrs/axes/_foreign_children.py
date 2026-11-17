@@ -224,7 +224,7 @@ def add_drawn(ax, collection):
     and drawn there.
     """
     if not collection.get_label():
-        collection.set_label(f'_child{len(ax._children)}')
+        collection.set_label(f'_child{len(ax._children_now())}')
     _list_drawn(ax, collection)
     raise RuntimeError("Can not put single artist in more than one figure")
 

@@ -3,10 +3,11 @@ A row of the sweep and what is measured of it.
 
 A row builds a scene, reaches one object in it (`Row.hand`), changes that
 object in place (`Row.mutate`) and reads the artist again (`Row.read`).
-`outcome` builds the scene three times, so that each question is asked of
-a scene nothing else has touched: is the object the same at every read,
-does a read, a draw and the data limits show the change; does a measure
-show it; does a pickle carry it.
+`outcome` builds the scene anew for each question, so that each is asked
+of a scene nothing else has touched: is the object the same at every
+read, does a read, a draw and the data limits show the change; does a
+measure show it; does a pickle carry it; and what does the first draw of
+a scene make of a change made before it.
 """
 
 import pickle
@@ -38,16 +39,26 @@ class Row:
     *mutate* changes it in place (None: only its identity is measured),
     *read* gives what the artist then answers (default: the object
     handed), and *same* says whether two reads give one object (default:
-    two calls of *hand* do).
+    two calls of *hand* do). *then*, if given, is what the program does
+    with the scene right after the change, before anything reads the
+    artist (it calls a setter of the subject, say).
     """
 
-    def __init__(self, name, build, hand, mutate=None, read=None, same=None):
+    def __init__(self, name, build, hand, mutate=None, read=None, same=None, then=None):
         self.name = name
         self.build = build
         self.hand = hand
         self.mutate = mutate
         self.read = hand if read is None else read
         self.same = (lambda scene: hand(scene) is hand(scene)) if same is None else same
+        self.then = then
+
+    def change(self, scene, target):
+        """Change *target*, the object handed from *scene*, in place, and
+        do what the row does next."""
+        self.mutate(target)
+        if self.then is not None:
+            self.then(scene)
 
 
 def number(value):
@@ -144,9 +155,11 @@ def _drawn(row, result):
     pixels(scene.fig)
     before, limits = pixels(scene.fig), _limits(scene)
     target = row.hand(scene)
-    if not _step(result, "mutate", lambda: row.mutate(target)):
+    if not _step(result, "mutate", lambda: row.change(scene, target)):
         return
     del result["mutate"]
+    if row.then is not None:
+        _step(result, "after", lambda: row.hand(scene) is target)
     if _step(values, "after", lambda: plain(row.read(scene))):
         result["reread"] = values["after"] != values["before"]
         result["value"] = values["after"]
@@ -181,7 +194,7 @@ def _measured(row, result):
 
     def measured():
         boxes = _boxes(scene)
-        row.mutate(row.hand(scene))
+        row.change(scene, row.hand(scene))
         return _boxes(scene) != boxes
     _step(result, "measure", measured)
 
@@ -191,10 +204,29 @@ def _pickled(row, result):
     scene = row.build()
 
     def pickled():
-        row.mutate(row.hand(scene))
+        row.change(scene, row.hand(scene))
         value = plain(row.read(scene))
         return plain(row.read(pickle.loads(pickle.dumps(scene)))) == value
     _step(result, "pickle", pickled)
+
+
+def _first_drawn(row, result):
+    """What the first draw of a scene makes of a change made before it:
+    whether it differs from the first draw of the scene unchanged, and
+    whether the artist then still has the object and what it reads.
+    (matplotlib's first draw computes some state anew: the colours a
+    collection was given, say.)"""
+    scene = row.build()
+    kept = {}
+
+    def drawn():
+        kept["target"] = row.hand(scene)
+        row.change(scene, kept["target"])
+        changed = pixels(scene.fig)
+        return not np.array_equal(changed, pixels(row.build().fig))
+    if _step(result, "first_draw", drawn):
+        _step(result, "first_kept", lambda: row.hand(scene) is kept["target"])
+        _step(result, "first_value", lambda: plain(row.read(scene)))
 
 
 def outcome(row):
@@ -205,8 +237,14 @@ def outcome(row):
     once), ``draw`` (the next draw differs), ``kept`` (the object is
     still the one handed out after that draw), ``relim`` (the data limits
     recomputed are not those of the scene unchanged), ``measure`` (a measure with no draw between
-    differs) and ``pickle`` (the unpickled artist reads the same). A step
-    that raises gives the name of its exception instead.
+    differs), ``pickle`` (the unpickled artist reads the same), and of a
+    scene changed before it was ever drawn ``first_draw`` (its first draw
+    is not that of the scene unchanged), ``first_kept`` (the object is
+    still the one handed out after that draw) and ``first_value`` (what a
+    read gives then). A row that does something after the change
+    (`Row.then`) also has ``after``: whether the object is still the one
+    handed out right after it. A step that raises gives the name of its
+    exception instead.
     """
     result = {}
     with warnings.catch_warnings():
@@ -216,6 +254,7 @@ def outcome(row):
             if row.mutate is not None and "mutate" not in result and "read" not in result:
                 _measured(row, result)
                 _pickled(row, result)
+                _first_drawn(row, result)
         finally:
             plt.close("all")
     return result

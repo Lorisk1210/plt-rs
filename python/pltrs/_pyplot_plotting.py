@@ -48,10 +48,10 @@ _MAPPABLES = {
     "hist2d": lambda ret: ret[-1],
     "specgram": lambda ret: ret[-1],
     "streamplot": lambda ret: ret.lines,
-    "contour": lambda ret: ret if ret._A is not None else None,
-    "contourf": lambda ret: ret if ret._A is not None else None,
-    "tricontour": lambda ret: ret if ret._A is not None else None,
-    "tricontourf": lambda ret: ret if ret._A is not None else None,
+    "contour": lambda ret: ret if ret._mapped is not None else None,
+    "contourf": lambda ret: ret if ret._mapped is not None else None,
+    "tricontour": lambda ret: ret if ret._mapped is not None else None,
+    "tricontourf": lambda ret: ret if ret._mapped is not None else None,
     "spy": _image_of_matrix,
 }
 

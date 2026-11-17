@@ -19,8 +19,20 @@ fn touch(_artist: RawHandle) -> PyResult<()> {
     Ok(())
 }
 
+/// The native functions before which no artist is told, each as its
+/// module's name, its own and what it reads or writes
+/// (`binding::PASSING_BY`): what the sweep of changes in place makes its
+/// rows of.
+fn passing_by() -> PyResult<Vec<Vec<&'static str>>> {
+    Ok(crate::binding::PASSING_BY
+        .iter()
+        .map(|&(module, name, what)| vec![module, name, what])
+        .collect())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("tell_before_calls", tell_before_calls)?;
-    module.add("touch", touch)
+    module.add("touch", touch)?;
+    module.add("passing_by", passing_by)
 }

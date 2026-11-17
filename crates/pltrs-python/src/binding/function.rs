@@ -46,6 +46,18 @@ pub(crate) struct NativeFunction {
     /// Whether it returns nothing (`None`): a change, which a call
     /// reaching a figure in use makes once the figure is free.
     returns_nothing: bool,
+    /// Whether the artists among its arguments are told before it runs
+    /// ([`own_state`]): every function, but those listed as passing by
+    /// what the objects of artists keep ([`own_state::PASSING_BY`]).
+    tells_artists: bool,
+}
+
+impl NativeFunction {
+    /// The function, before which no artist is told.
+    pub(super) fn telling_nobody(mut self) -> Self {
+        self.tells_artists = false;
+        self
+    }
 }
 
 /// The capsule name marking a native function's body.
@@ -91,6 +103,7 @@ macro_rules! into_native {
                         self($($arg),*)?.into_py(py)
                     }),
                     returns_nothing: Output::IS_NONE,
+                    tells_artists: true,
                 }
             }
         }
@@ -176,8 +189,8 @@ unsafe extern "C" fn drop_native(capsule: *mut ffi::PyObject) {
 /// The C function behind every native function: runs the body in the
 /// capsule bound as `self`, once the work Python deferred to the next
 /// native call is done ([`deferred`]), the artists among its arguments
-/// whose objects keep state of theirs handed it over ([`own_state`]) and
-/// the figures of its artist
+/// whose objects keep state of theirs handed it over ([`own_state`], unless
+/// the function passes by that state) and the figures of its artist
 /// arguments are no longer in use by another thread ([`threads`]), and on
 /// the main thread when an argument is tied to it, this is another thread
 /// and the main thread serves others ([`home`]).
@@ -197,7 +210,7 @@ unsafe extern "C" fn dispatch(
         } else {
             std::slice::from_raw_parts(args, count)
         };
-        if !deferred::run() || !own_state::run(args) {
+        if !deferred::run() || !own_state::run(args, || tells_artists(capsule)) {
             return std::ptr::null_mut();
         }
         if !gil_held() {
@@ -210,6 +223,25 @@ unsafe extern "C" fn dispatch(
         };
         on_main.unwrap_or_else(|| call_here(capsule, args))
     }
+}
+
+/// Whether the artists among the arguments of the function in `capsule`
+/// are told before it runs. An object that is no native function's capsule
+/// tells nobody: the call raises for it ([`native_of`]).
+///
+/// # Safety
+///
+/// The GIL is held and `capsule` is a live object.
+unsafe fn tells_artists(capsule: *mut ffi::PyObject) -> bool {
+    // SAFETY: (caller) the GIL is held; the pointer is the boxed function
+    // `function` gave the capsule, which lives as long as the capsule, or
+    // NULL with an exception set for another object.
+    unsafe {
+        ffi::PyCapsule_GetPointer(capsule, BODY_CAPSULE.as_ptr())
+            .cast::<NativeFunction>()
+            .as_ref()
+    }
+    .is_some_and(|native| native.tells_artists)
 }
 
 /// Runs the function in `capsule` with `args` on this thread: as it is

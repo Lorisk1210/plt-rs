@@ -15,7 +15,8 @@ import numpy as np
 
 from . import _docstring
 from . import colorbar as cbar  # noqa: F401  (registers the colorbar snippets)
-from . import _api, _artist_clipping, _blocking_input, _handles, _values, cbook, rcParams
+from . import (_api, _artist_clipping, _blocking_input, _handles, _own_state, _values, cbook,
+               rcParams)
 from . import scale as mscale
 from . import _gridspec_kept, _transform_trees
 from ._native import artist as _artist
@@ -268,9 +269,17 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
     @property
     def texts(self):
         """The `.Text` instances added to the (sub)figure itself, in a list
-        drawing those put in it (see `._figure_artists`)."""
-        return _figure_artists.DrawnList(
-            self, _handles.wrap_all(_figure.texts(self._native), Text, self), texts=True)
+        drawing those put in it (see `._figure_artists`): one list while
+        the figure lives, as matplotlib's."""
+        return _own_state.same_list(
+            self, "texts", self._texts_now,
+            lambda texts: _figure_artists.DrawnList(self, texts, texts=True))
+
+    def _texts_now(self):
+        """The texts of the (sub)figure itself, in a list of the caller's
+        own (what the package's code reads where matplotlib's reads
+        ``texts``; so `_artists_now`, `_legends_now`)."""
+        return _handles.wrap_all(_figure.texts(self._native), Text, self)
 
     @texts.setter
     def texts(self, texts):
@@ -279,13 +288,13 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
     def get_children(self):
         """Get a list of artists contained in the figure."""
         return [self.patch,
-                *self.artists,
+                *self._artists_now(),
                 *self._localaxes,
                 *self.lines,
                 *self.patches,
-                *self.texts,
-                *self.images,
-                *self.legends,
+                *self._texts_now(),
+                *self._images_now(),
+                *self._legends_now(),
                 *self.subfigs]
 
     def _sorted_among(self):
@@ -1149,13 +1158,20 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
     @property
     def artists(self):
         """The artists added to the figure itself (`add_artist`), in a list
-        drawing those put in it (see `._figure_artists`)."""
+        drawing those put in it (see `._figure_artists`): one list while
+        the figure lives, as matplotlib's."""
+        return _own_state.same_list(
+            self, "artists", self._artists_now,
+            lambda artists: _figure_artists.DrawnList(self, artists))
+
+    def _artists_now(self):
+        """The artists added to the figure itself, in a list of the
+        caller's own."""
         listed = {id(artist) for name in ("_lines", "_patches")
                   for artist in vars(self).get(name, ())}
-        return _figure_artists.DrawnList(self, [
-            _foreign_children.listed(artist) for artist in _handles.wrap_all(
-                _figure.artists(self._native), Artist, self.figure)
-            if id(artist) not in listed])
+        return [_foreign_children.listed(artist) for artist in _handles.wrap_all(
+                    _figure.artists(self._native), Artist, self.figure)
+                if id(artist) not in listed]
 
     @artists.setter
     def artists(self, artists):
@@ -1300,7 +1316,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         # explicitly set the bbox transform if the user hasn't.
         kwargs.setdefault("bbox_transform", self.transSubfigure)
         l = mlegend.Legend(self, handles, labels, **kwargs)
-        self.legends.append(l)
+        _figure_artists.LegendList(self, self._legends_now()).append(l)
         self.stale = True
         return l
 
@@ -1309,10 +1325,16 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         """The legends of the figure, in the order they were put in it:
         putting a legend made for the figure in the list draws it (see
         `._figure_artists`)."""
+        return _own_state.same_list(
+            self, "legends", self._legends_now,
+            lambda legends: _figure_artists.LegendList(self, legends))
+
+    def _legends_now(self):
+        """The legends of the figure, in a list of the caller's own."""
         from . import legend as mlegend
         from ._native import legend as _legend
-        return _figure_artists.LegendList(self, _handles.wrap_all(
-            _legend.figure_legends(self._native), mlegend.Legend, self.figure))
+        return _handles.wrap_all(
+            _legend.figure_legends(self._native), mlegend.Legend, self.figure)
 
     @legends.setter
     def legends(self, legends):
@@ -1461,6 +1483,10 @@ class SubFigure(FigureBase):
         """The figure images of the subfigure: a list of its own, empty
         (`~.Figure.figimage` places images on the root figure)."""
         return self.__dict__.setdefault("_images", [])
+
+    def _images_now(self):
+        # docstring inherited: the subfigure's own list.
+        return self.images
 
     def __init__(self, parent, subplotspec, *,
                  facecolor=None,

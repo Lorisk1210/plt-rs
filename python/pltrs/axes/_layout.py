@@ -5,7 +5,7 @@ What layout engines measure of an Axes (matplotlib's
 
 import numpy as np
 
-from .. import _unusable
+from .. import _own_state, _unusable
 from ..artist import _AXIS_MEASURING
 from .._native import figure_layout as _figure_layout, insets as _insets
 from .._program_classes import class_cache, takes_from_program
@@ -120,6 +120,7 @@ class LayoutMixin:
         """
         self._check_figure_renderer(renderer)
         _unusable.check(self, measuring=True)
+        _own_state.before_measure(self._figure)
         # matplotlib calls the Axes' locator first: one that is an artist
         # (axes_grid1's anchored locators) takes the Axes as its own, and
         # refuses a second one (a parasite calling its host's).

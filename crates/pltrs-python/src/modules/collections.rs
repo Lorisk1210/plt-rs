@@ -22,6 +22,7 @@ use super::transforms::{points, points_array};
 use crate::binding::prelude::*;
 
 mod copy;
+mod held;
 mod mapped;
 mod new;
 
@@ -313,6 +314,14 @@ fn get_coordinates(collection: Collection) -> PyResult<Option<NdArray>> {
             NdArray::with_shape(data, vec![rows, cols, 2])
         })
         .transpose()
+}
+
+/// Gives a quad mesh the vertices `coordinates`, a `(rows, columns, 2)`
+/// array of the shape it has (the array `get_coordinates` handed out,
+/// changed in place); nothing for another shape or another collection.
+fn set_coordinates(collection: Collection, coordinates: NdArray) -> PyResult<()> {
+    collection.set_mesh_coordinates(new::vertex_grid(&coordinates)?);
+    Ok(())
 }
 
 /// The `(rows, columns)` of a mesh's vertex grid, without copying it
@@ -639,6 +648,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_fill_between_data", set_fill_between_data)?;
     module.add("fill_between_limits", fill_between_limits)?;
     module.add("get_coordinates", get_coordinates)?;
+    module.add("set_coordinates", set_coordinates)?;
     module.add("get_mesh_shape", get_mesh_shape)?;
     module.add("get_mesh_shading", get_mesh_shading)?;
     module.add("get_offsets", get_offsets)?;
@@ -668,6 +678,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("event_lines", event_lines)?;
     module.add("set_event_lines", set_event_lines)?;
     copy::register(module)?;
+    held::register(module)?;
     mapped::register(module)?;
     new::register(module)
 }

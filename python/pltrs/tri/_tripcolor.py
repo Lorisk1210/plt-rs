@@ -159,7 +159,7 @@ def tripcolor(ax, *args, alpha=1.0, norm=None, cmap=None, vmin=None,
     if faces:
         # matplotlib's collection is made with the values of the faces as
         # given (those of the triangles not masked), in their dtype.
-        collection._A = cbook.safe_masked_invalid(
+        collection._mapped = cbook.safe_masked_invalid(
             values if tri.mask is None else values[~tri.mask], copy=True)
     collection.set_alpha(alpha)
     collection._internal_update(cbook.normalize_kwargs(kwargs, mcoll.PolyCollection))

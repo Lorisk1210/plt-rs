@@ -16,6 +16,13 @@
 //! (Rust) lays a figure out or draws it could change nothing in it, and
 //! the calls the asked object makes to hand its state over ask nobody.
 //!
+//! A call asks whatever its function is, with one kind of exception: the
+//! functions listed in [`PASSING_BY`], which read nothing of what such
+//! objects hold and whose effect does not depend on it (the setter of a
+//! line width, the getter of a z-order). The hand-over waits for the
+//! next call that reads the artist, so a program that sets the styles of
+//! an artist whose array it holds pays for no comparison of the array.
+//!
 //! State no artist owns is looked at before every such call instead: the
 //! lists the current rcParams handed out ([`install_lists`]), which any
 //! native call may read. Each is compared with what it held when it was
@@ -38,6 +45,145 @@ thread_local! {
     /// Whether the thread is telling an object now: the native calls made
     /// meanwhile tell nobody.
     static TELLING: Cell<bool> = const { Cell::new(false) };
+}
+
+/// The native functions that pass by what the Python objects of artists
+/// keep, by module and name, each with what it reads or writes: no
+/// artist is told before a call of one of them ([`run`]).
+///
+/// A function belongs here only if its Rust code was read and found to
+/// read none of the state an artist may keep as a Python object (offsets,
+/// paths, sizes, widths, dash patterns, flags, URLs, colours, item
+/// transforms, mesh coordinates, the numbers and the path of a line, the
+/// path and the points of a patch, the array of a mappable, a clip box),
+/// or to read it only for what the next hand-over of that state computes
+/// again. One that writes such state is called by setters that forget the
+/// object the artist kept for it, so that nothing old is handed over
+/// afterwards. A function not listed tells: slower where an artist keeps
+/// a large array, never wrong. `python/tests/mutability` has rows for
+/// every function listed here (`setters.py`), and `test_mut1.py` fails on
+/// one without.
+pub(crate) const PASSING_BY: &[(&str, &str, &str)] = &[
+    ("artist", "axes", "reads which Axes the artist is in"),
+    ("artist", "id", "reads the artist's id in its figure"),
+    (
+        "artist",
+        "draw_count",
+        "reads how many times the artist was drawn",
+    ),
+    ("artist", "set_stale", "marks the artist changed, or drawn"),
+    ("artist", "get_visible", "reads whether the artist is drawn"),
+    (
+        "artist",
+        "set_visible",
+        "writes whether the artist is drawn",
+    ),
+    ("artist", "get_zorder", "reads the drawing order"),
+    ("artist", "set_zorder", "writes the drawing order"),
+    (
+        "artist",
+        "get_alpha",
+        "reads the opacity of the artist as a whole",
+    ),
+    (
+        "artist",
+        "set_alpha",
+        "writes the opacity of the artist as a whole (the colours of a collection take it in \
+         `collections.set_alpha`, which tells)",
+    ),
+    ("artist", "get_label", "reads the legend label"),
+    ("artist", "set_label", "writes the legend label"),
+    (
+        "artist",
+        "get_animated",
+        "reads whether normal draws leave the artist out",
+    ),
+    (
+        "artist",
+        "set_animated",
+        "writes whether normal draws leave the artist out",
+    ),
+    (
+        "artist",
+        "set_clip_on",
+        "writes whether the artist is clipped (not what it is clipped to)",
+    ),
+    (
+        "artist",
+        "set_rasterized",
+        "writes whether vector output rasterizes the artist",
+    ),
+    (
+        "artist",
+        "set_in_layout",
+        "writes whether layouts account for the artist",
+    ),
+    ("artist", "set_snap", "writes the pixel snapping preference"),
+    ("artist", "set_gid", "writes the group id of vector output"),
+    ("artist", "set_url", "writes the hyperlink of vector output"),
+    ("artist", "set_picker", "writes the picker"),
+    (
+        "collections",
+        "set_linewidths",
+        "writes the edge widths (`set_linewidth` forgets the widths and dash patterns kept)",
+    ),
+    (
+        "collections",
+        "set_linestyles",
+        "writes the dash patterns, unscaled (`set_linestyle` forgets the widths and patterns kept)",
+    ),
+    (
+        "collections",
+        "set_antialiaseds",
+        "writes the antialiasing flags (`set_antialiased` forgets the flags kept)",
+    ),
+    ("collections", "set_capstyle", "writes the cap style"),
+    ("collections", "set_joinstyle", "writes the join style"),
+    ("collections", "set_pickradius", "writes the pick radius"),
+    (
+        "collections",
+        "set_urls",
+        "writes the URLs (`set_urls` forgets the list kept)",
+    ),
+    ("collections", "set_hatch", "writes the hatch pattern"),
+    (
+        "collections",
+        "set_hatch_linewidth",
+        "writes the hatch line width",
+    ),
+    (
+        "collections",
+        "set_sizes",
+        "writes the marker areas (`set_sizes` forgets the sizes and item transforms kept)",
+    ),
+    (
+        "collections",
+        "set_offsets",
+        "writes the offsets, and a display offset transform where there is none (`set_offsets` \
+         and an assigned `_offsets` forget the offsets kept)",
+    ),
+    ("lines", "get_drawstyle", "reads the draw style"),
+    (
+        "lines",
+        "update",
+        "writes the style properties named; a draw style or interpolation steps make the path \
+         anew from the numbers pltrs (Rust) holds, as the next hand-over of the numbers does \
+         again (`set_markevery` forgets or keeps the markers given)",
+    ),
+    (
+        "patches",
+        "update",
+        "writes the edge, face and hatch properties named and the label, z-order, visibility, \
+         clip flag and opacity",
+    ),
+];
+
+/// Whether the function `name` of the module whose name ends in `module`
+/// passes by what the objects of artists keep ([`PASSING_BY`]).
+pub(super) fn passes_by(module: &str, name: &str) -> bool {
+    PASSING_BY
+        .iter()
+        .any(|&(of, function, _)| of == module && function == name)
 }
 
 /// The callable of a native object asking to be told, counted while it
@@ -185,15 +331,18 @@ impl Drop for Telling {
 
 /// Calls the callable of each native object among `args` that asked to be
 /// told, unless the call is made inside another native call of the thread
-/// or by an object being told; `false` (with the exception set) when one
-/// of them raised.
+/// or by an object being told, or `tells` (asked only where an object
+/// would be told) says that the function called passes by what the
+/// objects keep ([`PASSING_BY`]); `false` (with the exception set) when
+/// one of them raised. The lists that are no artist's are looked at
+/// whatever the function.
 ///
 /// # Safety
 ///
 /// The GIL is held, `args` are live objects, and the thread may run
 /// Python code, as at the start of a native call (see
 /// [`deferred::run`](super::deferred::run)).
-pub(super) unsafe fn run(args: &[*mut ffi::PyObject]) -> bool {
+pub(super) unsafe fn run(args: &[*mut ffi::PyObject], tells: impl FnOnce() -> bool) -> bool {
     let lists = LISTS.get().is_some();
     if (ASKING.load(Ordering::Relaxed) == 0 && !lists) || gil_held() || TELLING.get() {
         return true;
@@ -203,7 +352,7 @@ pub(super) unsafe fn run(args: &[*mut ffi::PyObject]) -> bool {
     if lists && !unsafe { tell_of_lists() } {
         return false;
     }
-    if ASKING.load(Ordering::Relaxed) == 0 {
+    if ASKING.load(Ordering::Relaxed) == 0 || !tells() {
         return true;
     }
     // What an object hands over is state its program counts as the
@@ -252,6 +401,23 @@ mod tests {
     use crate::binding::testing::{eval, extension, with_python};
 
     #[test]
+    fn functions_passing_by_are_listed_once_with_what_they_do() {
+        for (index, &(module, name, what)) in PASSING_BY.iter().enumerate() {
+            assert!(passes_by(module, name));
+            assert!(!what.is_empty(), "{module}.{name} says what it does");
+            assert!(
+                !PASSING_BY[..index]
+                    .iter()
+                    .any(|&(of, function, _)| (of, function) == (module, name)),
+                "{module}.{name} is listed twice"
+            );
+        }
+        assert!(!passes_by("artist", "touch"), "a touch tells");
+        assert!(!passes_by("collections", "get"));
+        assert!(!passes_by("lines", "set_visible"), "by module and name");
+    }
+
+    #[test]
     fn asking_objects_are_counted_and_told_only_by_outermost_calls() {
         with_python(|py| {
             extension(py);
@@ -270,7 +436,7 @@ mod tests {
             // counts as made inside one: nobody is told (the smoke tests
             // check the outermost calls, `python/tests/test_mut1.py`).
             // SAFETY: the GIL is held and the object is live.
-            assert!(unsafe { run(&[asking.as_ptr()]) });
+            assert!(unsafe { run(&[asking.as_ptr()], || true) });
             assert_eq!(told(), Vec::<i64>::new());
             native::set_asker(&asking, None).unwrap();
             assert_eq!(ASKING.load(Ordering::Relaxed), before);

@@ -462,6 +462,14 @@ fn update(line: Line2D, kwargs: LineKwargs) -> PyResult<()> {
     Ok(())
 }
 
+/// The draw style by name (`get_drawstyle`), asked by the setter of the
+/// draw style before the line's object hands over the numbers it keeps:
+/// a new draw style makes the line forget them, as matplotlib's makes
+/// them anew.
+fn get_drawstyle(line: Line2D) -> PyResult<String> {
+    Ok(line.drawstyle().to_string())
+}
+
 /// The property `name` of the line, as matplotlib's `get_<name>` returns
 /// it: colours as given (`markeredgecolor` and `markerfacecolor`
 /// resolved as matplotlib resolves `"auto"`), styles by name.
@@ -624,6 +632,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("defer_data", defer_data)?;
     module.add("update", update)?;
     module.add("get", get)?;
+    module.add("get_drawstyle", get_drawstyle)?;
     module.add("get_path", get_path)?;
     module.add("get_interpolation_steps", get_interpolation_steps)?;
     module.add("set_interpolation_steps", set_interpolation_steps)?;

@@ -226,7 +226,7 @@ def _locate(figure):
     engine of the program's of *figure*, then place everything it follows,
     with its renderer; first of all, the artists keeping state as objects
     hand over what the program changed in them."""
-    if _own_state.OWNERS in figure.__dict__:
+    if _own_state.OWNERS in figure.__dict__ or _own_state.FOLLOWED in figure.__dict__:
         _own_state.sync_figure(figure)
     for ax in list(_child_lists.get(figure, ())):
         ax._follow_child_axes()

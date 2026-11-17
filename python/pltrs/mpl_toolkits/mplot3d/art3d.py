@@ -311,6 +311,17 @@ def _segment_points(segments):
     return [segment[:, :3] for segment in points]
 
 
+#: The 3-D data of a `Line3D` (matplotlib's ``_verts3d``) and the 3-D
+#: positions of the members of a 3-D scatter (``_offsets3d``): tuples of
+#: arrays the artists keep as their own (`pltrs._own_state`).
+_DATA3D = _own_state.State(
+    "data_3d", lambda line: line._read_data_3d(),
+    lambda line, verts: line._take_data_3d(verts))
+_OFFSETS3D = _own_state.State(
+    "offsets3d", lambda collection: collection._read_offsets3d(),
+    lambda collection, offsets: collection._take_offsets3d(offsets))
+
+
 class Line3D(lines.Line2D):
     """
     3D line object.
@@ -387,6 +398,7 @@ class Line3D(lines.Line2D):
         verts = juggle_axes(xs, ys, zs, zdir)
         self._set_verts3d(_columns(verts))
         _values.remember(self, "data_3d", verts)
+        _own_state.drop(self, "data_3d")
 
     def _set_verts3d(self, columns):
         """Make *columns* the 3-D data: the native line's in a 3-D axes,
@@ -411,11 +423,30 @@ class Line3D(lines.Line2D):
         unprojectable = self.__dict__.get('_unprojectable')
         if unprojectable is not None:
             return unprojectable
+        # The line's own tuple of its own arrays, as matplotlib's
+        # ``_verts3d`` (`pltrs._own_state`): what a program changes in them
+        # is projected at the next draw.
+        return _own_state.hand_out(self, _DATA3D)
+
+    def _read_data_3d(self):
+        """The 3-D data as given, while pltrs (Rust) holds them, else as it
+        holds them."""
         axes = _axes3d(self)
         native = (self._pending3d if axes is None else tuple(
             np.array(c) for c in _mplot3d.line_data(axes._native, self._native)))
-        # The data as given, as matplotlib keeps them.
         return _values.given(self, "data_3d", native)
+
+    def _take_data_3d(self, verts):
+        """Hand pltrs (Rust) the 3-D data handed out, *verts*, which the
+        program changed in place."""
+        columns = _three_columns(verts)
+        if columns is None:
+            return
+        axes = _axes3d(self)
+        if axes is None:
+            self._pending3d = columns
+        else:
+            _mplot3d.set_line_data(axes._native, self._native, columns)
 
     def set_data_3d(self, *args):
         """
@@ -454,6 +485,7 @@ class Line3D(lines.Line2D):
             else:
                 _mplot3d.set_line_data(axes._native, self._native, columns)
             _values.remember(self, "data_3d", args)
+        _own_state.drop(self, "data_3d")
         if axes is not None:
             _draw_problems.record(self, problem)
         self.stale = True
@@ -834,9 +866,24 @@ class _Lifted3DOffsets(_Loose3D):
         pending = self.__dict__.get("_offsets3d_pending")
         if pending is not None:
             return self._lifted_offsets(*pending)
+        # The collection's own tuple of its own arrays, as matplotlib's
+        # (`pltrs._own_state`): what a program changes in them is projected
+        # at the next draw.
+        return _own_state.hand_out(self, _OFFSETS3D)
+
+    def _read_offsets3d(self):
+        """The 3-D positions as given, while pltrs (Rust) holds them, else
+        as it holds them."""
         return _values.given(self, "_offsets3d", tuple(
             np.array(c) for c in
             _mplot3d.scatter_offsets(self.axes._native, self._native)))
+
+    def _take_offsets3d(self, offsets):
+        """Hand pltrs (Rust) the 3-D positions handed out, *offsets*, which
+        the program changed in place."""
+        columns = _three_columns(offsets)
+        if columns is not None:
+            _mplot3d.set_scatter_offsets(self.axes._native, self._native, columns)
 
     @_offsets3d.setter
     def _offsets3d(self, offsets):
@@ -849,6 +896,7 @@ class _Lifted3DOffsets(_Loose3D):
             self.__dict__.pop("_offsets_unprojected", None)
             _mplot3d.set_scatter_offsets(self.axes._native, self._native, columns)
             _values.remember(self, "_offsets3d", offsets)
+        _own_state.drop(self, "offsets3d")
         _draw_problems.record(self, problem or self._sizes_problem())
         self.stale = True
 

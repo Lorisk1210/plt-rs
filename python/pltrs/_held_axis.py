@@ -1119,13 +1119,13 @@ class Axis:
                              else locator.base)
             # Passing [] as a list of labels is often used as a way to
             # remove all tick labels, so only error for > 0 labels
-            if len(fixed_locator.locs) != len(labels) and len(labels) != 0:
+            if len(fixed_locator._locs) != len(labels) and len(labels) != 0:
                 raise ValueError(
                     "The number of FixedLocator locations"
-                    f" ({len(fixed_locator.locs)}), usually from a call to"
+                    f" ({len(fixed_locator._locs)}), usually from a call to"
                     " set_ticks, does not match"
                     f" the number of labels ({len(labels)}).")
-            tickd = {loc: lab for loc, lab in zip(fixed_locator.locs, labels)}
+            tickd = {loc: lab for loc, lab in zip(fixed_locator._locs, labels)}
             func = functools.partial(self._format_with_dict, tickd)
             formatter = mticker.FuncFormatter(func)
         else:

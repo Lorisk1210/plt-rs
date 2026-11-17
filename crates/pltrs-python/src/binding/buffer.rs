@@ -510,65 +510,128 @@ fn half_to_f64(bits: u16) -> f64 {
     }
 }
 
-/// A buffer view, released when dropped.
+/// A buffer view, released when dropped. An exporter may point into the
+/// view itself (its shape at its length), so a view is filled where it
+/// is and stays there.
 struct View {
     view: ffi::Py_buffer,
 }
 
 impl Drop for View {
     fn drop(&mut self) {
-        // SAFETY: the view was filled by a successful `PyObject_GetBuffer`
-        // and is released once, with the GIL held (as when it was taken).
-        unsafe { ffi::PyBuffer_Release(&raw mut self.view) };
+        if !self.view.obj.is_null() {
+            // SAFETY: the view was filled by a successful
+            // `PyObject_GetBuffer` and is released once, with the GIL held
+            // (as when it was taken).
+            unsafe { ffi::PyBuffer_Release(&raw mut self.view) };
+        }
     }
+}
+
+impl View {
+    /// A view nothing has filled: nothing to release.
+    fn unfilled() -> Self {
+        // SAFETY: an all-zero `Py_buffer` is a valid "empty" value for an
+        // exporter to fill (plain integers and null pointers).
+        let view = unsafe { std::mem::zeroed() };
+        Self { view }
+    }
+
+    /// Has `object` fill the view with its buffer, its format and its
+    /// strides; `false`, the view left unfilled, when it exports none.
+    fn fill(&mut self, object: &Bound<'_>) -> bool {
+        // SAFETY: a live object and a view for it to fill; on failure an
+        // exception is set, and the view holds nothing to release.
+        let status = unsafe {
+            ffi::PyObject_GetBuffer(object.as_ptr(), &raw mut self.view, ffi::PyBUF_RECORDS_RO)
+        };
+        if status != 0 {
+            drop(PyErr::take(object.py()));
+            self.view.obj = std::ptr::null_mut();
+        }
+        status == 0
+    }
+
+    /// The item format, the shape and the strides of the view.
+    fn layout(&self) -> (Cow<'_, str>, &[ffi::Py_ssize_t], &[ffi::Py_ssize_t]) {
+        let raw = &self.view;
+        // SAFETY: a filled view has a NUL-terminated format or none, and
+        // `ndim` entries in `shape` and `strides` (requested with
+        // `PyBUF_STRIDES`), all valid until the view is released, when
+        // `self` is dropped.
+        unsafe {
+            let format = format_of(raw.format);
+            let ndim = usize::try_from(raw.ndim).unwrap_or_default();
+            if ndim == 0 {
+                (format, &[][..], &[][..])
+            } else {
+                (
+                    format,
+                    std::slice::from_raw_parts(raw.shape, ndim),
+                    std::slice::from_raw_parts(raw.strides, ndim),
+                )
+            }
+        }
+    }
+}
+
+/// The extents `shape` of a buffer as sizes.
+fn extents(shape: &[ffi::Py_ssize_t]) -> Vec<usize> {
+    shape
+        .iter()
+        .map(|&extent| usize::try_from(extent).unwrap_or_default())
+        .collect()
+}
+
+/// Calls `read` with the items of `object` where the object keeps them
+/// and with its shape, if `object` exports a buffer of `T` in its own
+/// layout ([`Element::DTYPE`]), one item after another in row-major order
+/// (a C-contiguous numpy array of float64 for `f64`, of bool for `bool`):
+/// the bytes of the items, no copy made. `None` for any other object.
+pub(crate) fn with_item_bytes<T: Element, R>(
+    object: &Bound<'_>,
+    read: impl FnOnce(&[u8], &[usize]) -> R,
+) -> Option<R> {
+    let mut view = View::unfilled();
+    if !view.fill(object) {
+        return None;
+    }
+    let (format, shape, strides) = view.layout();
+    let size = usize::try_from(view.view.itemsize).unwrap_or_default();
+    let layout = Layout::parse(&format, size)?;
+    let shape = extents(shape);
+    if layout.dtype() != Some(T::DTYPE) || !is_row_major(&shape, strides, size) {
+        return None;
+    }
+    let count = shape.iter().product::<usize>();
+    if count == 0 {
+        // Nothing to read, from a pointer that may be NULL.
+        return Some(read(&[], &shape));
+    }
+    // SAFETY: a row-major buffer holds its `count` items of `size` bytes
+    // one after another from `buf`, valid until the view is released
+    // (when this function returns); the GIL is held meanwhile (`object`
+    // is bound), so no Python code writes to them.
+    let bytes = unsafe { std::slice::from_raw_parts(view.view.buf.cast::<u8>(), count * size) };
+    Some(read(bytes, &shape))
 }
 
 /// The numbers of `object` through the buffer protocol, or `None` when it
 /// exports no buffer.
 fn read_buffer<T: Element>(object: &Bound<'_>) -> PyResult<Option<NdArray<T>>> {
-    let py = object.py();
-    // SAFETY: an all-zero `Py_buffer` is a valid "empty" value for the
-    // exporter to fill (plain integers and null pointers).
-    let empty = unsafe { std::mem::zeroed() };
-    let mut view = View { view: empty };
-    // SAFETY: a live object and a view for it to fill; on failure the
-    // view stays untouched and an exception is set.
-    let status = unsafe {
-        ffi::PyObject_GetBuffer(object.as_ptr(), &raw mut view.view, ffi::PyBUF_RECORDS_RO)
-    };
-    if status != 0 {
-        std::mem::forget(view);
-        drop(PyErr::take(py));
+    let mut view = View::unfilled();
+    if !view.fill(object) {
         return Ok(None);
     }
     let raw = &view.view;
-    // SAFETY: a filled view has a NUL-terminated format or none, and `ndim`
-    // entries in `shape` and `strides` (requested with `PyBUF_STRIDES`),
-    // all valid (and borrowed here) until the view is released, when this
-    // function returns.
-    let (format, shape, strides) = unsafe {
-        let format = format_of(raw.format);
-        let ndim = usize::try_from(raw.ndim).unwrap_or_default();
-        if ndim == 0 {
-            (format, &[][..], &[][..])
-        } else {
-            (
-                format,
-                std::slice::from_raw_parts(raw.shape, ndim),
-                std::slice::from_raw_parts(raw.strides, ndim),
-            )
-        }
-    };
+    let (format, shape, strides) = view.layout();
     let size = usize::try_from(raw.itemsize).unwrap_or_default();
     let layout = Layout::parse(&format, size).ok_or_else(|| {
         PyErr::type_error(format!(
             "cannot read numbers from a buffer of format {format:?}"
         ))
     })?;
-    let shape: Vec<usize> = shape
-        .iter()
-        .map(|&extent| usize::try_from(extent).unwrap_or_default())
-        .collect();
+    let shape = extents(shape);
     let count = shape.iter().product::<usize>();
     if count == 0 {
         // Nothing to read, from a pointer that may be NULL.

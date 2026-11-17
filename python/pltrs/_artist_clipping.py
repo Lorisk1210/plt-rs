@@ -10,13 +10,15 @@ of another figure, or outside any, clips with its outline as it is when
 it is given.
 """
 
-from . import _api, _background_patch, _live_transforms, _mirrors
+from . import _api, _background_patch, _lazy_imports, _live_transforms, _mirrors
 from ._native import artist as _artist
 from ._native import transforms as _transforms
 from .path import Path
 from .transforms import (Affine2D, Bbox, BboxBase, BboxTransformTo,
                          Transform, TransformedBbox,
                          TransformedPatchPath, TransformedPath)
+
+_own_state = _lazy_imports.module(globals(), "._own_state")
 
 
 def _placed(patch):
@@ -195,6 +197,11 @@ class ClippingMixin:
     #: until one is set.
     _clippath = None
 
+    def _take_clip_box(self, clipbox):
+        """Hand pltrs (Rust) the clip box given, *clipbox*, where it stands
+        now (the program moved it)."""
+        _artist.set_clip_path(self._native, clip_box_spec(clipbox))
+
     def set_clip_box(self, clipbox):
         """
         Set the artist's clip `.Bbox`.
@@ -222,6 +229,12 @@ class ClippingMixin:
             # path (matplotlib's ``clipbox`` and ``_clippath`` both clip).
             _artist.set_clip_region(self._native, clip_box_spec(clipbox))
         self._clipbox = clipbox
+        if type(clipbox) is Bbox:
+            # A box of the program's own, which matplotlib reads at every
+            # draw: where it stands then is where the artist is clipped.
+            _own_state.keep(self, _own_state.CLIP_BOX, clipbox)
+        elif "_own_state" in self.__dict__:
+            _own_state.drop(self, "clip_box")
         self.pchanged()
 
     @property

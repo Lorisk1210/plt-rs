@@ -167,6 +167,8 @@ def _watch(helper, axis):
     object.__setattr__(helper, "_native_axis", axis)
     for part in _parts(helper):
         object.__setattr__(part, "_native_root", helper)
+    if "_locs_followed" in helper.__dict__:
+        follow_in_place(helper)
 
 
 def _watch_native_formatter(helper, axis):
@@ -300,6 +302,17 @@ def _removed(axes):
     registry = getattr(axes._figure, "_artists", {})
     return (registry.get(key) is not axes
             and _artist.removed_roots(axes._native, [key])[0] is not None)
+
+
+def follow_in_place(helper):
+    """Have the figure *helper* ticks an axis of, if it does, ask it
+    before each draw for what the program changed in the array it keeps
+    (`._own_state.follow`)."""
+    axis = helper.__dict__.get("_native_axis")
+    figure = None if axis is None else axis.axes.get_figure(root=True)
+    if figure is not None:
+        from . import _own_state
+        _own_state.follow(helper, figure)
 
 
 def changed(helper):

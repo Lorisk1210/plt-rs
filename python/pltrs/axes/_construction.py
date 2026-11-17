@@ -21,7 +21,8 @@ import numpy as np
 
 from .. import _api, _handles, _python_drawing
 from .._program_classes import takes_from_program
-from .._native import artist as _artist, axis as _axis, figure as _figure
+from .._native import artist as _artist, axis as _axis, axes_base as _axes_base
+from .._native import figure as _figure
 from .._native import insets as _insets, mplot3d as _mplot3d
 from ..transforms import Bbox
 from . import _program_tick_params
@@ -132,6 +133,12 @@ class ConstructionMixin:
         _handles.adopt(self, _removed_native(fig, args, type(self)), fig.figure)
         self._init_axes_state()
         self._init_projection()
+        # matplotlib's `__init__` keeps the Axes it shares with, which its
+        # first clear joins.
+        from ._base import _AxesBase
+        _axes_base.give_shares(self._native, *(
+            other._native if isinstance(other, _AxesBase) else None
+            for other in (sharex, sharey)))
         # As matplotlib's `__init__`, which subclasses' `clear` (or `cla`)
         # override takes part in.
         self.clear()
@@ -140,7 +147,6 @@ class ConstructionMixin:
         # transforms read: those of the sides of rectilinear axes (the
         # transforms of projections, made with their parameters later, read
         # none).
-        from ._base import _AxesBase
         for name in ("x", "y"):
             getter = f"get_{name}axis_transform"
             if getattr(type(self), getter) is getattr(_AxesBase, getter):

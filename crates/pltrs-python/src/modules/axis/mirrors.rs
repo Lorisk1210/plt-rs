@@ -732,32 +732,27 @@ fn sync_offset_text(owner: AxisOwner, name: String, text: Text) -> PyResult<()> 
         (AxisName::X, _) | (AxisName::Y, true) => (Point::new(1.0, across), HAlign::Right),
     };
     let valign = axis.offset_text_valign();
-    let rc = pltrs::rc::params();
     text.set_text(axis.kept_offset_text())
         .set_position(position)
         .set_color(style.label_color.clone())
-        .set_font(pltrs::fonts::FontProperties {
-            size: axis.offset_text_size(),
-            ..pltrs::fonts::FontProperties::from_rc(&rc)
-        })
+        .set_font(axis.offset_text_font())
         .set_halign(halign)
         .set_valign(valign);
     text.set_visible(axis.offset_text_visible());
     Ok(())
 }
 
-/// Reads the visibility and font size of the mirror `text` of the offset
-/// text of axis `name` back into the axis.
+/// Reads the visibility, font and vertical alignment of the mirror `text`
+/// of the offset text of axis `name` back into the axis.
 fn push_offset_text(owner: AxisOwner, name: String, text: Text) -> PyResult<()> {
     let axis = owner.axis(&name)?;
     axis.set_gid(AxisGroup::OffsetText, text.gid());
     match axis {
         AnyAxis::Flat(axis) => {
             axis.set_offset_text_visible(text.visible());
-            // The size synced comes back as it went, which changes nothing.
-            let size = text.font().size;
-            if size.to_bits() != axis.offset_text_size().to_bits() {
-                axis.set_offset_text_size(size);
+            // The font synced comes back as it went, which changes nothing.
+            if let Some(font) = own(text.font(), &axis.offset_text_font()) {
+                axis.set_offset_text_font(font);
             }
             if let Some(valign) = own(text.valign(), &axis.offset_text_valign()) {
                 axis.set_offset_text_valign(valign);

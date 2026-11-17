@@ -10,6 +10,8 @@ use pltrs::image::BitmapFormat;
 use pltrs::layout::{
     ConstrainedLayout, LayoutEngine, LayoutEngineError, PlaceHolderLayout, SolvedGrid, TightLayout,
 };
+use pltrs::mplot3d::SharedAxes;
+use pltrs::projections::InitialShares;
 use pltrs::text::Text;
 use pltrs_core::alloc::caused_by_out_of_memory;
 use pltrs_render::{RasterBackendError, VectorError};
@@ -421,28 +423,41 @@ fn removed_subplot_projection(
 }
 
 /// Axes with the projection `projection` at `[left, bottom, width,
-/// height]` in figure fractions (`add_axes(rect, projection=...)`).
+/// height]` in figure fractions (`add_axes(rect, projection=...)`),
+/// sharing their x and y axes with the axes given, if any, as they are
+/// made (`sharex=`, `sharey=`).
 fn add_axes_projection(
     figure: Figure,
     (left, bottom, width, height): (f64, f64, f64, f64),
     projection: String,
+    (sharex, sharey): (Option<SharedAxes>, Option<SharedAxes>),
 ) -> PyResult<Axes> {
     let kind = projection_kind(&projection)?;
+    let shares = InitialShares {
+        x: sharex,
+        y: sharey,
+    };
     figure
-        .add_axes_with_projection([left, bottom, width, height], kind)
+        .add_axes_sharing([left, bottom, width, height], kind, &shares)
         .map_err(|err| PyErr::value_error(err.to_string()))
 }
 
 /// Axes with the projection `projection` on the block `spec`
-/// (`add_subplot(gs[...], projection=...)`).
+/// (`add_subplot(gs[...], projection=...)`), sharing their x and y axes
+/// with the axes given, if any, as they are made (`sharex=`, `sharey=`).
 fn add_subplot_spec_projection(
     figure: Figure,
     spec: SubplotSpec,
     projection: String,
+    (sharex, sharey): (Option<SharedAxes>, Option<SharedAxes>),
 ) -> PyResult<Axes> {
     let kind = projection_kind(&projection)?;
+    let shares = InitialShares {
+        x: sharex,
+        y: sharey,
+    };
     figure
-        .add_subplot_spec_with_projection(&spec, kind)
+        .add_subplot_spec_sharing(&spec, kind, &shares)
         .map_err(|err| PyErr::value_error(err.to_string()))
 }
 

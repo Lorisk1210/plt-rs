@@ -28,8 +28,13 @@ use crate::binding::dict_value;
 use crate::binding::prelude::*;
 
 impl From<ProjectionError> for PyErr {
+    /// A `ValueError`, but for an axis the Axes made could not share,
+    /// which raises as sharing it does.
     fn from(err: ProjectionError) -> Self {
-        PyErr::value_error(err.to_string())
+        match err {
+            ProjectionError::Share(err) => err.into(),
+            other => PyErr::value_error(other.to_string()),
+        }
     }
 }
 

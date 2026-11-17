@@ -126,6 +126,7 @@
 mod create;
 mod error;
 mod hooks;
+mod initial_shares;
 mod navigate;
 mod projection;
 mod registry;
@@ -137,6 +138,7 @@ mod view;
 pub(crate) use create::{OUTLINE_SPINE, Projector, install, reinstall};
 pub use error::ProjectionError;
 pub(crate) use hooks::SpineSpans;
+pub use initial_shares::InitialShares;
 pub use navigate::{FrozenView, PanStart, ViewLimits, ZoomBox};
 pub use projection::{AxesOutline, Projection, ProjectionClone, TickLabelPlacement};
 pub(crate) use registry::registered_name;

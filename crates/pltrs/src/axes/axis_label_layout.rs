@@ -9,7 +9,6 @@ use super::axis_layout::{
     AxisPainter, PlacedText, measured_at_nan, place_text_measured, rc_with_effects,
 };
 use crate::artist::{FigureReader, LayoutContext};
-use crate::fonts::FontProperties;
 use crate::rc::RcParams;
 use crate::text::{TextProblem, Typesetting};
 use crate::ticker::AxisName;
@@ -148,14 +147,10 @@ impl AxisPainter<'_> {
             return None;
         }
         let (anchor, block) = self.offset_placement(cx.read(), label_boxes)?;
-        let font = FontProperties {
-            size: self.axis.offset_size,
-            ..FontProperties::from_rc(rc)
-        };
         Some(place_text_measured(
             cx,
             text,
-            &font,
+            &self.axis.offset_font,
             &self.axis.major_style.label_color,
             &block,
             anchor,

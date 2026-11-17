@@ -8,7 +8,6 @@ use pltrs_core::Point;
 use pltrs_text::{HAlign, VAlign};
 
 use super::axis_handle::Axis;
-use super::axis_layout::PlacedText;
 use super::label_loc::LabelLoc;
 use super::{AxesState, PlotError};
 use crate::artist::ArtistHandle;
@@ -478,10 +477,17 @@ impl Axis {
 
     /// The display box of the offset (or scale) text in the figure as it
     /// stands (not laid out first), if it is shown (matplotlib's
-    /// `axis.offsetText.get_window_extent()`).
+    /// `axis.offsetText.get_window_extent()`). The other texts of the axis,
+    /// which place it, are laid out unnoted (see
+    /// [`take_font_notes`](pltrs_text::take_font_notes)): matplotlib
+    /// measures the offset text alone, where its last draw placed it.
     pub fn offset_text_extent(&self) -> Option<Bbox> {
-        self.with_texts_as_is(|texts, _| texts.offset.as_ref().map(PlacedText::bbox))
-            .flatten()
+        self.with_painter_as_is(|painter, cx, rc| {
+            let offset = crate::text::font_notes::unnoted(|| painter.texts(cx, rc)).offset?;
+            offset.laid_out.measure_again(cx.dpi(), rc).ok()?;
+            Some(offset.bbox())
+        })
+        .flatten()
     }
 
     /// Where the offset (or scale) text is anchored in display pixels

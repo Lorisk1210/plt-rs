@@ -5,6 +5,7 @@
 use pltrs::axes::{AspectError, Axes, AxisName, PropCycle, WhichPosition};
 use pltrs::colors::Color;
 use pltrs::mplot3d::SharedAxes;
+use pltrs::projections::InitialShares;
 use pltrs::rc::{Cycler, CyclerError};
 use pltrs::transforms::Bbox;
 
@@ -96,6 +97,17 @@ fn set_position(axes: Axes, extents: (f64, f64, f64, f64), which: String) -> PyR
 /// (`sharex`, `sharey`).
 fn share(axes: Axes, name: String, other: SharedAxes) -> PyResult<()> {
     axes.share_with(axis_name(&name)?, &other)?;
+    Ok(())
+}
+
+/// Records the axes `axes`, made for a class' constructor, shares its x
+/// and y axes with, which the clear that follows joins (`sharex=` and
+/// `sharey=` of matplotlib's `__init__`).
+fn give_shares(axes: Axes, sharex: Option<SharedAxes>, sharey: Option<SharedAxes>) -> PyResult<()> {
+    axes.give_shares(&InitialShares {
+        x: sharex,
+        y: sharey,
+    });
     Ok(())
 }
 
@@ -211,6 +223,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("located_position", located_position)?;
     module.add("set_position", set_position)?;
     module.add("share", share)?;
+    module.add("give_shares", give_shares)?;
     module.add("join_shared", join_shared)?;
     module.add("leave_shared", leave_shared)?;
     module.add("shared_from", shared_from)?;

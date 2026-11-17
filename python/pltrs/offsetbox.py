@@ -39,7 +39,7 @@ from ._annotation_kept import native_coords
 from . import rcParams
 from . import text as mtext
 from . import transforms as mtransforms
-from ._native import artist as _artist, offsetbox as _offsetbox
+from ._native import artist as _artist, axes_base as _axes_base, offsetbox as _offsetbox
 from ._drawn_with import DrawnWith
 from ._offsetbox_trees import (
     PACK_ALIGNS, PACK_MODES, TreeOwner, TreeSetting, Unusable, adopt_part,
@@ -1339,13 +1339,8 @@ class TextArea(_FollowsLayout, OffsetBox):
         # centred on the baseline with *multilinebaseline* (pltrs (Rust)
         # measures it, as it lays the area out).
         laid_out = self._laid_out_bbox(renderer)
-        if laid_out is None and (
-                (self._area_text.get_figure(root=True) is None and self._drawer() is None
-                 and "_figure_given" not in self.__dict__)
-                or self.__dict__.get("_joined_late")):
-            # matplotlib measures the text at the dpi of the area's figure (a
-            # box of a tree has its owner's, unless it joined the tree late,
-            # see `._offsetbox_trees.TreeOwner._note_late_boxes`),
+        if laid_out is None and self._text_without_figure():
+            # matplotlib measures the text at the dpi of the area's figure,
             raise AttributeError("'NoneType' object has no attribute 'dpi'")
         # with *renderer*, whose metrics it looks up in a weak cache
         # (``_get_text_metrics_function``), which refuses what cannot be
@@ -1358,10 +1353,21 @@ class TextArea(_FollowsLayout, OffsetBox):
             self._area_text._native, bool(self._multilinebaseline),
             self._measured_dpi()))
 
+    def _text_without_figure(self):
+        """Whether matplotlib's text of the area has no figure: none of its
+        own, the area's tree drawn by no artist and no figure given to the
+        area's box (a box of a tree has its owner's, unless it joined the
+        tree late, see `._offsetbox_trees.TreeOwner._note_late_boxes`)."""
+        return ((self._area_text.get_figure(root=True) is None and self._drawer() is None
+                 and "_figure_given" not in self.__dict__)
+                or bool(self.__dict__.get("_joined_late")))
+
     def draw(self, renderer):
         # docstring inherited
         _unusable.check(self)
-        self._area_text.draw(renderer)
+        text = self._area_text
+        with text._figure_known(not self._text_without_figure()):
+            text.draw(renderer)
         self.stale = False
 
 
@@ -1771,9 +1777,12 @@ class AnchoredOffsetbox(OffsetBox):
 
     def _locate_by_program(self, renderer):
         # docstring inherited; the child then goes where a ``get_offset``
-        # of the program's puts it, as matplotlib's ``draw`` asks it.
+        # of the program's puts it, as matplotlib's ``draw`` asks it: after
+        # the draw of its Axes applied their aspect.
         super()._locate_by_program(renderer)
         if takes_from_program(type(self), "get_offset") and not self.__dict__.get("_decoupled"):
+            if self.axes is not None:
+                _axes_base.apply_aspect(self.axes._native, None)
             offset = self.get_offset(self.get_bbox(renderer), renderer)
             _offsetbox.set_anchored_offset(self._tree_handle,
                                            tuple(map(float, offset)))
@@ -2102,15 +2111,25 @@ class AnnotationBbox(TreeOwner, Artist, mtext._AnnotationBase):
         super().set_figure(fig)
         if joining:
             self._join_unlisted(fig)
+            self._only_given_figure = True
 
-    def _join_unlisted(self, fig):
-        """Join *fig* in none of its lists, as `set_figure` leaves the box
-        in matplotlib (drawn only when a program calls its ``draw``):
-        pltrs (Rust) makes the box and holds it apart in *fig*, where its
-        draw and its measures place it."""
-        self._join(fig)
+    def _join_unlisted(self, parent):
+        """Join *parent*, a figure or an Axes, in none of its lists, as
+        `set_figure` or an Axes assigned leave the box in matplotlib (drawn
+        only when a program calls its ``draw``): pltrs (Rust) makes the box
+        and holds it apart in *parent*'s figure, where its draw and its
+        measures place it."""
+        self._join(parent)
         _offsetbox.unlist_annotation_bbox(self._native)
-        self._only_given_figure = True
+
+    def _axes_given(self, axes):
+        # docstring inherited: given an Axes before any figure, the box
+        # draws in it as matplotlib's does (its coordinates read the Axes),
+        # its figure staying None.
+        if axes is not None and self._figure is None and "_tree_handle" not in self.__dict__:
+            self._join_unlisted(axes)
+            self._no_figure = True
+            self._only_given_axes = True
 
     # matplotlib's draw of the class is not decorated with
     # `allow_rasterization`: asking to rasterize it warns.
@@ -2139,9 +2158,9 @@ class AnnotationBbox(TreeOwner, Artist, mtext._AnnotationBase):
 
     def _placed_extent(self, renderer):
         """The box placed in the figure as it is now, measured with
-        *renderer* (by default its figure's); a box outside any figure has
-        no renderer to be measured with, as in matplotlib."""
-        self._check_figure_renderer(None)
+        *renderer* (by default its figure's); a box outside any figure is
+        measured only with one given, as in matplotlib."""
+        self._check_figure_renderer(renderer)
         self._sync_tree()
         self.update_positions(self.get_figure(root=True)._get_renderer()
                               if renderer is None else renderer)
@@ -2314,6 +2333,9 @@ or callable, default: value of *xycoords*
 
     def _add_to_axes(self, axes, kind, autolim=True):
         if self._comes_back(axes):
+            # An Axes given before (`_axes_given`) is the box's figure's.
+            self.__dict__.pop("_no_figure", None)
+            self.__dict__.pop("_only_given_axes", None)
             return Artist._add_to_axes(self, axes, kind, autolim)
         return self._join(axes)
 

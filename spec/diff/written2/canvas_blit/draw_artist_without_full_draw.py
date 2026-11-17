@@ -1,0 +1,33 @@
+# Draw only some artists with ax.draw_artist after one full draw, then compare buffers to a full redraw.
+import numpy as np
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+fig = Figure(figsize=(3, 3), dpi=50)
+canvas = FigureCanvasAgg(fig)
+ax = fig.add_subplot()
+ax.set_xlim(0, 1)
+ax.set_ylim(0, 1)
+static, = ax.plot([0, 1], [0, 1], "k-")
+moving, = ax.plot([0.5], [0.2], "bs", ms=10)
+canvas.draw()
+base = np.asarray(canvas.buffer_rgba()).copy()
+moving.set_ydata([0.8])
+ax.draw_artist(moving)
+partial = np.asarray(canvas.buffer_rgba()).copy()
+canvas.draw()
+full = np.asarray(canvas.buffer_rgba()).copy()
+blue = lambda a: int(((a[..., 2] > 200) & (a[..., 0] < 60)).sum())
+print(blue(base), blue(partial), blue(full))
+print(int((partial != full).any(axis=2).sum()) > 0, int((base != full).any(axis=2).sum()) > 0)
+r = canvas.get_renderer()
+ax.draw_artist(static)
+print(type(r).__name__, list(moving.get_ydata()))
+fig.savefig("draw_artist.png")
+moving.set_visible(False)
+canvas.draw()
+hidden = np.asarray(canvas.buffer_rgba()).copy()
+print(blue(hidden))
+moving.set_visible(True)
+ax.draw_artist(moving)
+print(blue(np.asarray(canvas.buffer_rgba())))

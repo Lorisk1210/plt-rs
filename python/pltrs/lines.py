@@ -702,6 +702,25 @@ class Line2D(Artist):
         # The line's own path, as matplotlib's ``_path`` (`._own_state`).
         return _own_state.hand_out(self, _state.PATH)
 
+    def _get_transformed_path(self):
+        """Return this line's `~matplotlib.transforms.TransformedPath`: its
+        path through its transform, the same object until the data or the
+        transform change (matplotlib's ``_transformed_path``)."""
+        kept = self.__dict__.get("_transformed_path_kept")
+        if kept is not None:
+            # matplotlib makes a new one where it recaches the line: when its
+            # path is read, or the line drawn, after its data or its
+            # transform changed.
+            held = _own_state.kept(self, "path")
+            drawn = _artist.draw_count(self._native) != self.__dict__["_transformed_path_draws"]
+            if (held is kept._path or held is None and not drawn) and (
+                    kept._transform is self.get_transform() or not drawn):
+                return kept
+        kept = TransformedPath(self.get_path(), self.get_transform())
+        self.__dict__["_transformed_path_kept"] = kept
+        self.__dict__["_transformed_path_draws"] = _artist.draw_count(self._native)
+        return kept
+
     def set_data(self, *args):
         """
         Set the x and y data.

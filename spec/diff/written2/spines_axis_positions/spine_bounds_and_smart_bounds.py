@@ -1,0 +1,31 @@
+# Spine set_bounds with fixed and None values, bounds following ticks, capstyles, and spine patches in polar axes.
+import numpy as np
+import matplotlib
+matplotlib.use("agg")
+import matplotlib.pyplot as plt
+
+fig, (a1, a2) = plt.subplots(1, 2, figsize=(7, 3), dpi=60)
+a1.plot(np.linspace(0, 10, 50), np.sin(np.linspace(0, 10, 50)))
+a1.spines["bottom"].set_bounds(2, 8)
+a1.spines["left"].set_bounds(-0.5, None)
+fig.canvas.draw()
+print(a1.spines["bottom"].get_bounds(), a1.spines["left"].get_bounds())
+print(np.round(a1.spines["bottom"].get_path().vertices, 3).tolist(), np.round(a1.spines["left"].get_path().vertices, 3).tolist())
+ticks = a1.get_xticks()
+a1.spines["bottom"].set_bounds(ticks[1], ticks[-2])
+fig.canvas.draw()
+print([round(v, 3) for v in a1.spines["bottom"].get_bounds()], a1.spines["bottom"].get_capstyle())
+a1.spines["bottom"].set_capstyle("round")
+a1.spines["left"].set_linewidth(3)
+a1.spines["left"].set_linestyle("--")
+print(a1.spines["bottom"].get_capstyle(), a1.spines["left"].get_linewidth(), a1.spines["left"].get_linestyle())
+fig.delaxes(a2)
+pax = fig.add_subplot(1, 2, 2, projection="polar")
+pax.set_thetamin(30)
+pax.set_thetamax(240)
+pax.set_rorigin(-0.5)
+fig.canvas.draw()
+print(sorted(pax.spines.keys()), [pax.spines[k].spine_type for k in sorted(pax.spines.keys())])
+print([len(pax.spines[k].get_path().vertices) for k in sorted(pax.spines.keys())])
+print(type(pax.spines["polar"]).__name__, pax.spines["inner"].get_visible())
+fig.savefig("spine_bounds.png")

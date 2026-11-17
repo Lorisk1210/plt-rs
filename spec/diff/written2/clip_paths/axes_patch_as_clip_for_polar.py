@@ -1,0 +1,32 @@
+# Artists clipped by a polar axes' circular patch, and the same artist moved to a rectilinear axes; clip paths follow the axes.
+import numpy as np
+import matplotlib
+matplotlib.use("agg")
+import matplotlib.pyplot as plt
+
+fig = plt.figure(figsize=(6, 3))
+pax = fig.add_subplot(1, 2, 1, projection="polar")
+rax = fig.add_subplot(1, 2, 2)
+theta = np.linspace(0, 2 * np.pi, 200)
+ln, = pax.plot(theta, 1.5 + np.sin(5 * theta))
+pax.set_rmax(2)
+fill = pax.fill_between(theta, 0, 1 + 0.5 * np.cos(3 * theta), alpha=0.4)
+fig.canvas.draw()
+print(type(pax.patch).__name__, type(ln.get_clip_path()).__name__, ln.get_clip_box() is pax.bbox)
+cp, aff = ln.get_clip_path().get_transformed_path_and_affine()
+print(len(cp.vertices), np.round(pax.patch.get_path().get_extents().bounds, 3).tolist())
+img = pax.imshow(np.arange(16).reshape(4, 4), extent=(0, 2 * np.pi, 0, 2), aspect="auto")
+print(type(img.get_clip_path()).__name__ if img.get_clip_path() is not None else None)
+fig.canvas.draw()
+ln2, = rax.plot([0, 1], [0, 1])
+ln2.set_clip_path(pax.patch)
+fig.canvas.draw()
+print(type(ln2.get_clip_path()).__name__)
+w = pax.patch.get_window_extent()
+print([round(v, 1) for v in w.bounds])
+fig.savefig("polar_clip.png")
+pax.set_rorigin(-0.5)
+fig.canvas.draw()
+print([round(v, 1) for v in pax.patch.get_window_extent().bounds])
+print(len(fill.get_paths()), fill.get_clip_on())
+fig.savefig("polar_clip2.png")

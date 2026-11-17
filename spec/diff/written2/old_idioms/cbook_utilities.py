@@ -1,0 +1,31 @@
+# matplotlib.cbook helpers older scripts import: flatten, boxplot_stats, violin_stats, contiguous_regions, normalize_kwargs and more.
+import numpy as np
+from matplotlib import cbook
+from matplotlib.lines import Line2D
+
+print(list(cbook.flatten([1, [2, [3, (4, 5)]], "ab"])))
+stats = cbook.boxplot_stats(np.array([1.0, 2, 3, 4, 5, 6, 30]), labels=["a"])
+print(sorted(stats[0]), stats[0]["med"], stats[0]["fliers"].tolist(), round(stats[0]["whishi"], 3))
+vs = cbook.violin_stats(np.array([[1.0, 2, 2, 3]]).T, lambda d, coords: np.ones_like(coords), points=5)
+print(sorted(vs[0]), np.round(vs[0]["coords"], 3).tolist())
+print(cbook.contiguous_regions(np.array([0, 1, 1, 0, 1, 0, 0, 1, 1, 1], bool)))
+print(cbook.normalize_kwargs({"lw": 2, "c": "r", "ls": "--"}, Line2D))
+print(cbook.is_scalar_or_string("x"), cbook.is_scalar_or_string([1]), cbook.is_math_text("$x$"), cbook.is_math_text("a$"))
+print(cbook.simple_linear_interpolation(np.array([0.0, 1, 2]), 2).tolist())
+print([a.tolist() for a in cbook.pts_to_prestep([1, 2, 3], [4, 5, 6])])
+print([a.tolist() for a in cbook.pts_to_poststep([1, 2, 3], [4, 5, 6])])
+print([a.tolist() for a in cbook.pts_to_midstep([1, 2, 3], [4, 5, 6])])
+x, y = cbook.index_of([3.0, 1.0, 2.0])
+print(x.tolist(), y.tolist())
+pts = cbook.delete_masked_points(np.array([1.0, np.nan, 3]), np.ma.masked_array([1, 2, 3], [0, 0, 1]))
+print([np.asarray(p).tolist() for p in pts])
+print(cbook.ls_mapper, sorted(cbook.ls_mapper_r))
+print(cbook._str_equal("a", "a"), cbook.sanitize_sequence({"a": 1}.keys()))
+print([list(map(float, r)) for r in cbook._reshape_2D([[1, 2], [3]], "x")])
+b = cbook.silent_list("Line2D", [1, 2])
+print(repr(b))
+print(cbook.strip_math(r"$\alpha$ x"), cbook.file_requires_unicode(__import__("io").StringIO()))
+st = cbook._Stack()
+st.push(1)
+st.push(2)
+print(st(), st.back(), st.forward(), st.home())

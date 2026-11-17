@@ -1,0 +1,38 @@
+# pyplot's current axes bookkeeping: gca after subplots, sca, subplot reuse, axes() calls, delaxes and twin axes becoming current.
+import matplotlib
+matplotlib.use("agg")
+import matplotlib.pyplot as plt
+
+fig, (a1, a2) = plt.subplots(1, 2)
+print(plt.gca() is a2)
+plt.sca(a1)
+print(plt.gca() is a1)
+plt.plot([1, 2])
+print(len(a1.lines), len(a2.lines))
+s = plt.subplot(1, 2, 2)
+print(s is a2, plt.gca() is a2)
+s3 = plt.subplot(2, 2, 1)
+print(s3 is a1, len(fig.axes))
+tw = a2.twinx()
+print(plt.gca() is tw)
+plt.title("current title")
+print(tw.get_title(), a2.get_title())
+inset = plt.axes([0.6, 0.6, 0.2, 0.2])
+print(plt.gca() is inset, len(fig.axes))
+plt.delaxes(inset)
+print(len(fig.axes), plt.gca() in fig.axes)
+plt.figure()
+print(plt.gcf() is not fig, len(plt.gcf().axes))
+ax_new = plt.gca()
+print(len(plt.gcf().axes), ax_new.get_subplotspec().get_geometry())
+plt.figure(fig.number)
+print(plt.gca() in fig.axes)
+plt.cla()
+plt.clf()
+print(len(fig.axes), plt.get_fignums())
+try:
+    plt.sca(ax_new)
+    print("sca switched figure", plt.gcf() is ax_new.get_figure())
+except ValueError as e:
+    print("ValueError", str(e)[:60])
+plt.close("all")

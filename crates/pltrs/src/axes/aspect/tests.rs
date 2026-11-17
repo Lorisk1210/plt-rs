@@ -25,6 +25,28 @@ fn box_adjustable_shrinks_and_centres_the_axes() {
 }
 
 #[test]
+fn an_axes_the_figure_does_not_list_applies_its_aspect_in_the_figure() {
+    // matplotlib's `apply_aspect` of an axes made for a figure but never
+    // added (pltrs makes it removed), on a square figure: the box keeps
+    // the 2:1 view's aspect, centred where it was.
+    let fig = Figure::with_size(3.0, 3.0, 50.0);
+    let ax = fig
+        .add_axes([0.1, 0.1, 0.8, 0.8])
+        .expect("a valid rectangle");
+    ax.set_xlim(0.0, 2.0).expect("finite limits");
+    ax.set_aspect(Aspect::Equal).unwrap();
+    ax.remove();
+    ax.apply_aspect().expect("the aspect applies");
+    let (x, y, w, h) = ax.position().bounds();
+    assert!((x - 0.1).abs() < 1e-12 && (w - 0.8).abs() < 1e-12);
+    assert!(
+        (y - 0.3).abs() < 1e-12 && (h - 0.4).abs() < 1e-12,
+        "{y} {h}"
+    );
+    assert!(fig.axes().is_empty(), "still apart from the figure");
+}
+
+#[test]
 fn a_given_position_replaces_the_located_one() {
     // matplotlib's `apply_aspect(position)`: a square on a 2:1 figure
     // spanning its height, centred.

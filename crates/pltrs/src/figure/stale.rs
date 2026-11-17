@@ -141,6 +141,22 @@ impl FigureState {
         draws.last_tick = next_draw_tick();
     }
 
+    /// Ends the draw pltrs made of artist `id` for a program's call
+    /// drawing it, which ended at `tick` of the clock of draws (see
+    /// [`DrawnArtist`](crate::artist::DrawnArtist)): the draw is dated
+    /// then, and the artist left `stale` as the call and what the program
+    /// did after it left it (matplotlib's draw marks it fresh as it ends,
+    /// and a change after that, its axes' `get_position` among them,
+    /// stales it).
+    pub(crate) fn drawn_for_call(&self, id: ArtistId, tick: u64, stale: bool) {
+        if let Some(draws) = self.fresh.draws.borrow_mut().get_mut(&id) {
+            draws.last_tick = tick;
+        }
+        if stale {
+            self.fresh.fresh.borrow_mut().remove(&id);
+        }
+    }
+
     /// How many times artist `id` was drawn, by the figure or alone.
     pub(crate) fn draw_count(&self, id: ArtistId) -> u64 {
         self.fresh.draw_count(id)

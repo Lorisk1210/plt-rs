@@ -1,6 +1,6 @@
 {
   "matplotlib": "3.11.2",
-  "counts": {"passed": 10192, "failed": 6, "error": 0, "skipped": 268, "xfailed": 29, "xpassed": 5},
+  "counts": {"passed": 10193, "failed": 5, "error": 0, "skipped": 268, "xfailed": 29, "xpassed": 5},
   "collection_errors": {},
   "outcomes": {
     "matplotlib/tests/test__style_helpers.py::test_style_generator_list[edgecolor-value1]": "passed",
@@ -9691,7 +9691,7 @@
     "matplotlib/tests/test_ticker.py::TestScalarFormatter::test_format_data[0.11-1.1e-1]": "passed",
     "matplotlib/tests/test_ticker.py::TestScalarFormatter::test_format_data[100000000.0-1e8]": "passed",
     "matplotlib/tests/test_ticker.py::TestScalarFormatter::test_format_data[110000000.0-1.1e8]": "passed",
-    "matplotlib/tests/test_ticker.py::TestScalarFormatter::test_mathtext_ticks": "failed",
+    "matplotlib/tests/test_ticker.py::TestScalarFormatter::test_mathtext_ticks": "passed",
     "matplotlib/tests/test_ticker.py::TestScalarFormatter::test_offset_value[-0.452-0.492-0]": "passed",
     "matplotlib/tests/test_ticker.py::TestScalarFormatter::test_offset_value[-0.492-0.492-0]": "passed",
     "matplotlib/tests/test_ticker.py::TestScalarFormatter::test_offset_value[-100000.5--99990.5--100000]": "passed",

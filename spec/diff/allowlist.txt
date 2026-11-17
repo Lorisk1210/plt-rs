@@ -593,6 +593,11 @@ corpus/ultraplot/docs/examples/colors/02_diverging_colormap$ | ^image: RMS > 1$ 
 # 9 and 23 under pltrs, the same two values; a variant draws an edge a
 # pixel row lower at the save's dpi (RMS 3.18; task ECO10).
 corpus/ultraplot/docs/1dplots$ | ^image: RMS > 1$ @ ^figure 10$ | kiwisolver's subplot positions differ in their last bits from run to run (under matplotlib too: two values in 32 runs); a variant moves an edge by a pixel row
+# And its figure 2: the right subplot's left is 0.575326191457218 or
+# ...217 (and the top one's width ...788 or ...787), saved as one of two
+# images, in 19 and 1 of 20 runs under matplotlib and 12 and 8 under
+# pltrs, the same two pixel for pixel (RMS 1.974; task ECO11).
+corpus/ultraplot/docs/1dplots$ | ^image: RMS > 1$ @ ^figure 2$ | kiwisolver's subplot positions differ in their last bits from run to run (under matplotlib too: two images in 20 runs); pltrs draws the same two
 # stats' figure 2 (the boxes and violins demo) is saved as one of two
 # images under matplotlib, in 12 and 4 of 16 runs, and as the same two,
 # pixel for pixel, in 9 and 7 under pltrs. Its Axes have the same

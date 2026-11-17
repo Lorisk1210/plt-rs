@@ -54,6 +54,7 @@ pub use cell::{WeakFigure, take_changed_figures};
 pub(crate) use detach::attach;
 pub use draw_hook::DrawHook;
 pub(crate) use draw_order::draws_before;
+pub(crate) use drawn_changes::next_draw_tick;
 pub use drawn_changes::{
     clear_draw_end_handler, draw_tick, replaying_changes_from, set_draw_end_handler,
 };

@@ -432,6 +432,10 @@ impl Axes {
     /// When adjusting the data limits would make them NaN or infinite
     /// (they are left as they are).
     pub fn apply_aspect(&self) -> Result<&Self, AspectError> {
+        // An axes the figure does not list (removed, or made for it but
+        // never added) has its tree stand in, as matplotlib applies the
+        // aspect of any axes.
+        let _standing = self.raw.standing_in();
         // Worked on apart from the figure, which a projection of the
         // program's asked for its data ratio finds free.
         let id = self.id();
@@ -450,6 +454,7 @@ impl Axes {
     ///
     /// As [`Axes::apply_aspect`].
     pub fn apply_aspect_to_measure(&self) -> Result<&Self, AspectError> {
+        let _standing = self.raw.standing_in();
         let id = self.id();
         (self.raw.figure_state())
             .work_on(|state| state.apply_aspect_unsynced(id, Placement::Located))?;
@@ -466,6 +471,7 @@ impl Axes {
     ///
     /// As [`Axes::apply_aspect`].
     pub fn apply_aspect_at(&self, position: Bbox) -> Result<&Self, AspectError> {
+        let _standing = self.raw.standing_in();
         let id = self.id();
         let placement = Placement::Given(position);
         self.raw

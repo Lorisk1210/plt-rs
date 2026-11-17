@@ -207,10 +207,20 @@ impl PatchShape for CellShape {
 /// One cell of a table.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Cell {
-    /// Width in axes fractions.
-    pub(crate) width: f64,
-    /// Height in axes fractions.
-    pub(crate) height: f64,
+    /// Width in axes fractions: as given, until the table placing the
+    /// cell sets it (matplotlib's `_update_positions`, when the table is
+    /// drawn or measured, writes the widths of fitted columns and of a
+    /// table stretched over its box into its cells).
+    pub(crate) width: std::cell::Cell<f64>,
+    /// Height in axes fractions, as given until the table sets it.
+    pub(crate) height: std::cell::Cell<f64>,
+    /// Whether the width is the one the table set since it was given (a
+    /// fitted column, or a table stretched over its box), which
+    /// matplotlib computes as a numpy float.
+    pub(crate) width_fitted: std::cell::Cell<bool>,
+    /// Whether the height is the one the table set since it was given (a
+    /// table stretched over its box).
+    pub(crate) height_fitted: std::cell::Cell<bool>,
     pub(crate) text: String,
     /// The look of the cell's rectangle (matplotlib's `Cell` is a
     /// `Rectangle`): its face, edges, line and hatch.
@@ -253,6 +263,8 @@ pub(crate) struct Cell {
 pltrs_core::archive_struct!(Cell {
     width,
     height,
+    width_fitted,
+    height_fitted,
     text,
     style,
     base,
@@ -281,8 +293,10 @@ impl Cell {
         let mut base = ArtistBase::with_zorder(1.0);
         base.clip_on = false;
         Self {
-            width,
-            height,
+            width: std::cell::Cell::new(width),
+            height: std::cell::Cell::new(height),
+            width_fitted: std::cell::Cell::new(false),
+            height_fitted: std::cell::Cell::new(false),
             text: String::new(),
             style,
             base,
@@ -507,6 +521,9 @@ impl Cell {
 pub(crate) struct PlacedCell {
     /// The cell in the coordinates it is drawn in.
     pub(crate) bbox: Bbox,
+    /// The width and height the table gave the cell, as computed (the
+    /// box's own differ from them by their rounding).
+    pub(crate) size: (f64, f64),
     /// The text size in points.
     pub(crate) fontsize: f64,
 }

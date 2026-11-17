@@ -380,6 +380,12 @@ fn find_nearest_contour(
         }))
 }
 
+/// Sets the hatch patterns of the bands.
+fn set_hatches(set: ContourSet, hatches: Vec<Option<String>>) -> PyResult<()> {
+    set.set_hatches(hatches);
+    Ok(())
+}
+
 /// Sets the line widths of the levels.
 fn set_linewidths(set: ContourSet, widths: Vec<f64>) -> PyResult<()> {
     set.set_linewidths(&widths);
@@ -480,6 +486,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_collections", get_collections)?;
     module.add("find_nearest_contour", find_nearest_contour)?;
     module.add("set_linewidths", set_linewidths)?;
+    module.add("set_hatches", set_hatches)?;
     module.add("get_clim", get_clim)?;
     module.add("set_mapping", set_mapping)?;
     module.add("get_cmap", get_cmap)?;

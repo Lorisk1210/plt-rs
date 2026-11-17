@@ -43,15 +43,5 @@
   "matplotlib": "list[0]()",
   "pltrs": "_StickyEdgeList[0]()",
   "reason": "the lists of sticky edges are pltrs' list subclass, which tells pltrs (Rust) of each change in place before it autoscales: no sync point precedes every native autoscale"
- },
- "R clabel manual rotation | get_rotation()": {
-  "matplotlib": "float=349.4473",
-  "pltrs": "float=-10.5527",
-  "reason": "a manual or inline label's rotation, a value (COLL1's)"
- },
- "R clabel | get_rotation()": {
-  "matplotlib": "float=349.4473",
-  "pltrs": "float=-10.5527",
-  "reason": "a manual or inline label's rotation, a value (COLL1's)"
  }
 }

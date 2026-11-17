@@ -84,7 +84,8 @@ impl TableArtist {
         }
         Ok((self.cells.iter())
             .map(|(_, cell)| PlacedCell {
-                bbox: Bbox::from_bounds(0.0, 0.0, cell.width, cell.height),
+                bbox: Bbox::from_bounds(0.0, 0.0, cell.width.get(), cell.height.get()),
+                size: (cell.width.get(), cell.height.get()),
                 fontsize: cell.fontsize(),
             })
             .collect())
@@ -99,8 +100,8 @@ impl TableArtist {
     ) -> Result<Vec<PlacedCell>, TextDrawError> {
         let cells = &self.cells;
         let mut sizes = Sizes {
-            width: cells.iter().map(|(_, c)| c.width).collect(),
-            height: cells.iter().map(|(_, c)| c.height).collect(),
+            width: cells.iter().map(|(_, c)| c.width.get()).collect(),
+            height: cells.iter().map(|(_, c)| c.height.get()).collect(),
             fontsize: cells.iter().map(|(_, c)| c.fontsize()).collect(),
         };
         let cell_maps = self.cell_maps(layout, maps);
@@ -164,18 +165,28 @@ impl TableArtist {
             .zip(&sizes.fontsize)
             .map(|((origin, (&width, &height)), &fontsize)| PlacedCell {
                 bbox: Bbox::from_bounds(origin.x + ox, origin.y + oy, width, height),
+                size: (width, height),
                 fontsize,
             })
             .collect())
     }
 
-    /// Remembers the font size the table fitted the texts of its cells to
-    /// in `placed`, from which it fits them next (matplotlib's
-    /// `_auto_set_font_size` sets every cell's font to it when the table
-    /// is drawn or measured, never growing it back).
-    pub(super) fn remember_fitted(&self, placed: &[PlacedCell]) {
-        if self.auto_fontsize {
-            for ((_, cell), placed) in self.cells.iter().zip(placed) {
+    /// Writes what placing the cells as `placed` set into them, as
+    /// matplotlib's `_update_positions` does when the table is drawn or
+    /// measured: their sizes (fitted columns, a table stretched over its
+    /// box), and the font size the texts were fitted to, from which they
+    /// are fitted next (never growing back).
+    pub(super) fn remember_placed(&self, placed: &[PlacedCell]) {
+        for (((_, column), cell), placed) in self.cells.iter().zip(placed) {
+            if self.bbox.is_some() || self.auto_columns.contains(column) {
+                cell.width_fitted.set(true);
+            }
+            if self.bbox.is_some() {
+                cell.height_fitted.set(true);
+            }
+            cell.width.set(placed.size.0);
+            cell.height.set(placed.size.1);
+            if self.auto_fontsize {
                 cell.fitted(placed.fontsize);
             }
         }

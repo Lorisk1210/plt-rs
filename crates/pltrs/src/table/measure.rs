@@ -218,7 +218,7 @@ fn fitted_size(
 ) -> Result<f64, TextDrawError> {
     let mut size = cell.fontsize();
     let mut required = cell.required_width(size, layout, rc, &maps.to_axes)?;
-    while size > 1.0 && required > cell.width {
+    while size > 1.0 && required > cell.width.get() {
         size -= 1.0;
         required = cell.required_width(size, layout, rc, &maps.to_axes)?;
     }

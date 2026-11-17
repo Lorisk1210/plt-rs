@@ -63,22 +63,42 @@ pub(super) fn resolve_reported_sides(c: &CollectionArtist) -> (Sided, Sided) {
     {
         return (Ok(faces.clone()), Ok(edges.clone()));
     }
-    let (faces, edges) = resolve_sides(c, Reading::Reported(c.mapped_shown.get()));
+    let (faces, edges) = kept_sides(c, resolve_sides(c, Reading::Reported(c.mapped_shown.get())));
     (
-        c.kept_colors
-            .faces(faces)
-            .map(|faces| unprojected(c, faces)),
-        c.kept_colors
-            .edges(edges)
-            .map(|edges| unprojected(c, edges)),
+        faces.map(|faces| unprojected(c, faces)),
+        edges.map(|edges| unprojected(c, edges)),
     )
+}
+
+/// The sides `resolved`, those kept since per-item alphas or colours
+/// that do not fit each other were set taking their place (see
+/// [`KeptColors`]); edges that follow the faces follow those reported
+/// (matplotlib's `'face'` is never resolved).
+///
+/// [`KeptColors`]: super::alpha_fit::KeptColors
+fn kept_sides(c: &CollectionArtist, (faces, edges): (Sided, Sided)) -> (Sided, Sided) {
+    let kept = c.kept_colors.borrow();
+    let faces = kept.faces(faces);
+    let edges =
+        if c.edgecolors == EdgeColors::Face && c.mapped_shown.get() == MappedSides::default() {
+            faces.clone()
+        } else {
+            kept.edges(edges)
+        };
+    (faces, edges)
 }
 
 /// Face and edge colours after defaults, colour mapping and alpha
 /// (matplotlib's `_set_facecolor`, `_set_edgecolor` and
-/// `update_scalarmappable`).
+/// `update_scalarmappable`); a side that per-item alphas set since do not
+/// fit keeps the colours it had (see [`KeptColors`]), which matplotlib
+/// draws when the draw does not resolve them again
+/// ([`CollectionArtist::draw_resolves_colors`]; a draw that does fails
+/// first).
+///
+/// [`KeptColors`]: super::alpha_fit::KeptColors
 pub(super) fn resolve_base_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
-    let (faces, edges) = resolve_sides(c, Reading::Drawing);
+    let (faces, edges) = kept_sides(c, resolve_sides(c, Reading::Drawing));
     Ok((faces?, edges?))
 }
 
@@ -196,7 +216,17 @@ impl CollectionArtist {
     /// edges with the colours as they are now (see
     /// [`CollectionArtist::default_rule_edges_as`]).
     pub(super) fn default_rule_edges(&self) -> bool {
-        self.default_rule_edges_as(unfilled(&self.face_spec(&self.colors_rc())))
+        self.default_rule_edges_as(self.faces_given_unfilled())
+    }
+
+    /// Whether the face colour given last is `'none'`, which the default
+    /// rule decides from (matplotlib's `_original_facecolor`): as the
+    /// faces held are, unless a colour refused since says otherwise
+    /// ([`CollectionArtist::faces_given_unfilled`]).
+    fn faces_given_unfilled(&self) -> bool {
+        self.faces_given_unfilled
+            .get()
+            .unwrap_or_else(|| unfilled(&self.face_spec(&self.colors_rc())))
     }
 
     /// Whether the default rule gives the items edges when the faces are
@@ -219,20 +249,19 @@ impl CollectionArtist {
     }
 
     /// Whether `update_scalarmappable` decides the default edges anew:
-    /// for a collection with values to map, when it maps a side or the
-    /// sides it maps changed, and the mapping does not colour the edges
-    /// (matplotlib's `_set_edgecolor(self._original_edgecolor)` there).
+    /// when it resolves the colours again
+    /// ([`CollectionArtist::draw_resolves_colors`]) and the mapping does
+    /// not colour the edges (matplotlib's
+    /// `_set_edgecolor(self._original_edgecolor)` there).
     pub(super) fn update_decides_default_edges(&self) -> bool {
-        let mapped = MappedSides::of(self);
-        let has_values = self.mapping.is_some() || self.program_colors.is_some();
-        has_values && !mapped.edges && (mapped.faces || mapped != self.mapped_shown.get())
+        self.draw_resolves_colors() && !MappedSides::of(self).edges
     }
 
     /// Has the default rule decide now whether default edges are drawn,
     /// which they stay until it decides again (see
     /// [`CollectionArtist::default_edges`]).
     pub(super) fn decide_default_edges(&self) {
-        self.decide_default_edges_as(unfilled(&self.face_spec(&self.colors_rc())));
+        self.decide_default_edges_as(self.faces_given_unfilled());
     }
 
     /// [`CollectionArtist::decide_default_edges`] as if the faces were
@@ -356,21 +385,37 @@ impl HatchColors {
 /// The hatch colour of each item (matplotlib's
 /// `Collection.get_hatchcolor`): the resolved `edges` for
 /// [`HatchColors::Edge`], or the default edge colour when there are none;
-/// both the default and explicit colours take the collection's alpha.
+/// both the default and explicit colours take the collection's alpha, an
+/// array of per-item alphas repeating a single colour for each
+/// (`to_rgba_array(c, self._alpha)`). Explicit colours that per-item
+/// alphas do not fit keep the collection's single alpha.
 pub(super) fn resolve_hatch_colors(
     c: &CollectionArtist,
     edges: &[Rgba],
 ) -> Result<Vec<Rgba>, ColorError> {
     let alpha = c.base().alpha;
+    let per_item = c.alphas.clone().map(Alpha::Each);
     match &c.hatchcolors {
         HatchColors::Edge if edges.is_empty() => {
-            Ok(vec![default_edge(c, &c.colors_rc()).resolve_alpha(alpha)?])
+            let rc = c.colors_rc();
+            let default = default_edge(c, &rc);
+            match per_item {
+                Some(alphas) => to_rgba_array(vec![default.clone()], alphas),
+                None => Ok(vec![default.resolve_alpha(alpha)?]),
+            }
         }
         HatchColors::Edge => Ok(edges.to_vec()),
-        HatchColors::Colors(colors) => colors
-            .iter()
-            .map(|color| color.resolve_alpha(alpha))
-            .collect(),
+        HatchColors::Colors(colors) => per_item
+            .and_then(|alphas| to_rgba_array(colors.clone(), alphas).ok())
+            .map_or_else(
+                || {
+                    colors
+                        .iter()
+                        .map(|color| color.resolve_alpha(alpha))
+                        .collect()
+                },
+                Ok,
+            ),
     }
 }
 
@@ -385,21 +430,21 @@ fn default_edge<'a>(c: &CollectionArtist, rc: &'a RcParams) -> &'a Color {
 
 /// Pairs line widths with dash patterns (cycling both to their least
 /// common multiple) and scales each pattern by its width (matplotlib's
-/// `Collection._bcast_lwls`).
+/// `Collection._bcast_lwls`); with no width, neither (the renderer then
+/// strokes with its default width, solid, as matplotlib's renderers do),
+/// and with no pattern, solid lines (the renderers' default dashes).
 pub(super) fn broadcast_widths_and_dashes(
     widths: &[f64],
     styles: &[LineStyle],
     rc: &RcParams,
 ) -> (Vec<f64>, Vec<Dashes>) {
+    if widths.is_empty() {
+        return (Vec::new(), Vec::new());
+    }
     let styles = if styles.is_empty() {
         &[LineStyle::Solid][..]
     } else {
         styles
-    };
-    let widths = if widths.is_empty() {
-        &[0.0][..]
-    } else {
-        widths
     };
     let n = lcm(widths.len(), styles.len());
     let paired_widths: Vec<f64> = (0..n).map(|i| widths[i % widths.len()]).collect();

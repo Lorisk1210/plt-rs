@@ -6,6 +6,7 @@ use std::fmt;
 use pltrs_core::{Affine2D, Path, Point, Rgba};
 use pltrs_render::{CapStyle, JoinStyle};
 
+use super::alpha_fit::Side;
 use super::{
     ArrayError, CollectionArtist, CollectionKind, CollectionStyle, ColorMapping, EdgeColors,
     HatchColors, KeptColors, Mapped, style,
@@ -112,8 +113,74 @@ impl Collection {
             c.keep_default_edges();
             c.facecolors = Some(colors);
             c.unmap_faces();
-            c.kept_colors.forget_faces();
+            c.kept_colors.get_mut().forget_faces();
+            c.faces_given_unfilled.set(None);
         })
+    }
+
+    /// [`set_facecolors`](Self::set_facecolors), refused as matplotlib
+    /// refuses colours per-item alphas cannot be broadcast onto.
+    ///
+    /// # Errors
+    ///
+    /// numpy's `ValueError` message: the colours are set all the same, and
+    /// the faces keep reporting and drawing those they had (matplotlib sets
+    /// `_original_facecolor` before it resolves it), until a draw that
+    /// resolves them again fails on them.
+    ///
+    /// ```
+    /// use pltrs::colors::Color;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let dots = ax.scatter(vec![0.0, 1.0, 2.0], vec![0.0, 1.0, 2.0])?;
+    /// dots.set_alphas(vec![0.1, 0.2, 0.3]);
+    /// let refused = dots.try_set_facecolors(vec![Color::from("r"), Color::from("g")]);
+    /// assert_eq!(
+    ///     refused.unwrap_err(),
+    ///     "could not broadcast input array from shape (3,) into shape (2,)"
+    /// );
+    /// assert_eq!(dots.reported_colors()?.faces.len(), 3);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn try_set_facecolors(&self, colors: Vec<Color>) -> Result<&Self, String> {
+        let before = self
+            .raw
+            .with::<CollectionArtist, _>(|c| c.reported_sides().0);
+        self.set_facecolors(colors);
+        self.refuse_unfit(Side::Faces, |kept| kept.keep_faces(before))
+    }
+
+    /// [`set_edgecolors`](Self::set_edgecolors), refused as
+    /// [`try_set_facecolors`](Self::try_set_facecolors) refuses face colours.
+    ///
+    /// # Errors
+    ///
+    /// numpy's `ValueError` message, the edges keeping the colours they had.
+    pub fn try_set_edgecolors(&self, edges: EdgeColors) -> Result<&Self, String> {
+        let before = self
+            .raw
+            .with::<CollectionArtist, _>(|c| c.reported_sides().1);
+        self.set_edgecolors(edges);
+        self.refuse_unfit(Side::Edges, |kept| kept.keep_edges(before))
+    }
+
+    /// The problem of per-item alphas that do not fit the colours of
+    /// `side`, after `keep` kept the colours that side had.
+    fn refuse_unfit(
+        &self,
+        side: Side,
+        keep: impl FnOnce(&mut KeptColors),
+    ) -> Result<&Self, String> {
+        match self
+            .raw
+            .with::<CollectionArtist, _>(|c| c.side_problem(side))
+        {
+            Some(problem) => {
+                self.update(|c| keep(c.kept_colors.get_mut()));
+                Err(problem)
+            }
+            None => Ok(self),
+        }
     }
 
     /// Gives the items their kind's default face colour again, which a
@@ -123,7 +190,8 @@ impl Collection {
             c.keep_default_edges();
             c.facecolors = None;
             c.unmap_faces();
-            c.kept_colors.forget_faces();
+            c.kept_colors.get_mut().forget_faces();
+            c.faces_given_unfilled.set(None);
         })
     }
 
@@ -137,7 +205,7 @@ impl Collection {
             c.default_edges.set(None);
             c.decide_default_edges();
             c.unmap_edges();
-            c.kept_colors.forget_edges();
+            c.kept_colors.get_mut().forget_edges();
         })
     }
 
@@ -162,7 +230,10 @@ impl Collection {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn decide_default_edges_as(&self, unfilled: bool) -> &Self {
-        self.update(|c| c.decide_default_edges_as(unfilled))
+        self.update(|c| {
+            c.faces_given_unfilled.set(Some(unfilled));
+            c.decide_default_edges_as(unfilled);
+        })
     }
 
     /// Sets one edge colour for every item.
@@ -181,9 +252,11 @@ impl Collection {
     }
 
     /// Sets one opacity per item (matplotlib's `set_alpha` with an array):
-    /// the faces and edges take them, a single colour repeated for each.
+    /// the faces and edges take them, a single colour repeated for each;
+    /// sides whose colours they do not fit keep the colours they had (see
+    /// [`try_set_alpha_array`](Self::try_set_alpha_array)).
     pub fn set_alphas(&self, alphas: Vec<f64>) -> &Self {
-        self.set_alpha_array(alphas, None)
+        self.try_set_alpha_array(alphas, None).unwrap_or(self)
     }
 
     /// [`set_alphas`](Self::set_alphas) from an array of `shape` (row by
@@ -207,9 +280,11 @@ impl Collection {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
-    /// The colours the getters report ([`reported_colors`]) stay those
-    /// they reported before, on the sides the alphas do not fit, until
-    /// that side's colours are set again, as matplotlib keeps them.
+    /// The colours the getters report ([`reported_colors`]) and draws draw
+    /// stay those of before on the side the alphas do not fit and the
+    /// sides matplotlib resolves after it (faces, then edges), until that side's
+    /// colours are set again or a draw resolves them again, as matplotlib
+    /// keeps them.
     ///
     /// [`reported_colors`]: Self::reported_colors
     pub fn try_set_alpha_array(
@@ -217,33 +292,35 @@ impl Collection {
         alphas: Vec<f64>,
         shape: Option<Vec<usize>>,
     ) -> Result<&Self, String> {
-        let before = self.raw.with::<CollectionArtist, _>(|c| {
-            let (faces, edges) = c.reported_sides();
-            KeptColors::of(faces, edges)
-        });
-        self.set_alpha_array(alphas, shape);
-        let problem = self
+        let (faces, edges) = self
             .raw
-            .with::<CollectionArtist, _>(CollectionArtist::alpha_colors_problem);
-        match problem {
-            Some(problem) => {
-                self.update(|c| c.kept_colors = before);
-                Err(problem)
-            }
-            None => Ok(self),
-        }
-    }
-
-    /// [`set_alphas`](Self::set_alphas) from an array of `shape` (`None`
-    /// for one dimension).
-    fn set_alpha_array(&self, alphas: Vec<f64>, shape: Option<Vec<usize>>) -> &Self {
+            .with::<CollectionArtist, _>(CollectionArtist::reported_sides);
         self.update(|c| {
             c.alphas = Some(alphas);
             c.alpha_shape = shape.filter(|shape| shape.len() > 1);
-            c.unmap_faces();
-            c.unmap_edges();
-            c.kept_colors = KeptColors::default();
-        })
+            *c.kept_colors.get_mut() = KeptColors::default();
+        });
+        let problem = self
+            .raw
+            .with::<CollectionArtist, _>(CollectionArtist::alpha_colors_problem);
+        let failed = problem.as_ref().map(|(side, _)| *side);
+        // matplotlib sets the faces again, then the edges (the default
+        // rule deciding anew from the faces as they are), and stops at the
+        // first side that fails: the sides from there on keep their
+        // colours, mapped ones included.
+        self.update(|c| {
+            if failed.is_none_or(|side| side > Side::Faces) {
+                c.unmap_faces();
+                c.decide_default_edges();
+            }
+            if failed.is_none_or(|side| side > Side::Edges) {
+                c.unmap_edges();
+            }
+            if let Some(side) = failed {
+                *c.kept_colors.get_mut() = KeptColors::from_side(side, faces, edges);
+            }
+        });
+        problem.map_or(Ok(self), |(_, problem)| Err(problem))
     }
 
     /// Sets per-item antialiasing (cycled).
@@ -621,7 +698,7 @@ impl Collection {
     /// let dots = fig.subplot().scatter(vec![1.0, 2.0], vec![3.0, 4.0])?;
     /// dots.set_array(vec![Some(0.0), Some(1.0)])?;
     /// assert_eq!(dots.reported_colors()?.faces.len(), 1, "the default colour");
-    /// dots.update_scalarmappable();
+    /// dots.update_scalarmappable()?;
     /// assert_eq!(dots.reported_colors()?.faces.len(), 2, "mapped");
     /// dots.set_facecolor(Color::from("red"));
     /// assert_eq!(dots.reported_colors()?.faces.len(), 1, "as set");
@@ -635,11 +712,11 @@ impl Collection {
     /// use pltrs::prelude::*;
     /// let fig = Figure::new();
     /// let dots = fig.subplot().scatter(vec![1.0, 2.0], vec![3.0, 4.0])?;
-    /// dots.set_array(vec![Some(0.0), Some(1.0)])?.update_scalarmappable();
+    /// dots.set_array(vec![Some(0.0), Some(1.0)])?.update_scalarmappable()?;
     /// let before = dots.reported_colors()?.faces;
     /// dots.set_array(vec![Some(1.0), Some(0.0)])?;
     /// assert_eq!(dots.reported_colors()?.faces, before, "until mapped again");
-    /// dots.update_scalarmappable();
+    /// dots.update_scalarmappable()?;
     /// assert_eq!(dots.reported_colors()?.faces, [before[1], before[0]]);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
@@ -655,21 +732,35 @@ impl Collection {
     /// Maps the values onto the faces and edges the colour mapping colours,
     /// as a draw does, for [`Collection::reported_colors`] (matplotlib's
     /// `update_scalarmappable`).
-    pub fn update_scalarmappable(&self) -> &Self {
-        self.raw
-            .with::<CollectionArtist, _>(CollectionArtist::update_scalarmappable);
-        self
+    ///
+    /// # Errors
+    ///
+    /// matplotlib's `ValueError` message when per-item alphas do not fit
+    /// the values or the colours it resolves again; the colours stay as
+    /// they were.
+    pub fn update_scalarmappable(&self) -> Result<&Self, String> {
+        match self
+            .raw
+            .with::<CollectionArtist, _>(CollectionArtist::update_scalarmappable)
+        {
+            Some(problem) => Err(problem),
+            None => Ok(self),
+        }
     }
 
     /// Sets (or clears) the opacity of every item, and the colours as set
     /// again for [`Collection::reported_colors`] (matplotlib's
-    /// `Collection.set_alpha` with a single value).
+    /// `Collection.set_alpha` with a single value), default edges decided
+    /// anew.
     pub fn set_uniform_alpha(&self, alpha: Option<f64>) -> &Self {
         self.set_alpha(alpha);
         self.update(|c| {
             c.unmap_faces();
             c.unmap_edges();
-            c.kept_colors = KeptColors::default();
+            // `_set_edgecolor(self._original_edgecolor)`: the default
+            // rule decides anew from the faces as they are.
+            c.decide_default_edges();
+            *c.kept_colors.get_mut() = KeptColors::default();
         })
     }
 

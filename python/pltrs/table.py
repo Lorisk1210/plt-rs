@@ -622,12 +622,19 @@ substring of 'BRTL'
 
     def get_width(self):
         """Return the width of the cell."""
-        return _values.given(self, "width", _table.get_size(self._ref())[0])
+        width, _, fitted, _ = _table.get_size(self._ref())
+        if fitted:
+            # The table's fitting (a numpy float in matplotlib's).
+            return np.float64(width)
+        return _values.given(self, "width", width)
 
     def get_height(self):
         """Return the height of the cell: as given, else the numpy float of
         the text height matplotlib's tables size their rows with."""
-        native = _table.get_size(self._ref())[1]
+        _, native, _, fitted = _table.get_size(self._ref())
+        if fitted:
+            # The table's stretching (a numpy float in matplotlib's).
+            return np.float64(native)
         return _values.given(self, "height", native, np.float64(native))
 
     def set_width(self, w):

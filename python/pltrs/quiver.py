@@ -276,6 +276,10 @@ class QuiverKey(martist.Artist):
         from .text import Text
         self.text = _handles.wrap(_plotting.quiverkey_text(native), Text,
                                   made_for.figure)
+        if labelcolor is not None:
+            # matplotlib's ``self.text.set_color(labelcolor)``: read back as
+            # given.
+            _values.remember(self.text, "color", labelcolor)
         # matplotlib's constructor makes the key in no figure, which its
         # Axes' ``quiverkey`` (or the program) then adds with
         # ``add_artist``: pltrs (Rust) made it apart until then.

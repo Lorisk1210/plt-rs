@@ -259,7 +259,18 @@ pub(crate) struct CollectionArtist {
     pub(crate) default_edges: Cell<Option<bool>>,
     /// The colours the getters keep reporting for a side that per-item
     /// alphas set since do not fit.
-    pub(crate) kept_colors: KeptColors,
+    pub(crate) kept_colors: RefCell<KeptColors>,
+    /// The sides the values coloured at the last `update_scalarmappable`
+    /// (matplotlib's `_face_is_mapped` and `_edge_is_mapped`); `None`
+    /// before the first.
+    pub(crate) mapping_flags: Cell<Option<MappedSides>>,
+    /// Whether the face colour given last is `'none'`, when the default
+    /// edge rule is to decide as if it were or were not whatever the faces
+    /// held (a colour refused: see [`Collection::decide_default_edges_as`]);
+    /// `None` follows the faces held.
+    ///
+    /// [`Collection::decide_default_edges_as`]: handle::Collection::decide_default_edges_as
+    pub(crate) faces_given_unfilled: Cell<Option<bool>>,
     /// The norm and colormap of a colour mapping removed by
     /// [`Collection::clear_array`], which the next
     /// [`Collection::set_array`] maps through again.
@@ -329,6 +340,8 @@ pltrs_core::archive_struct!(CollectionArtist {
     mapped_shown,
     default_edges,
     kept_colors,
+    mapping_flags,
+    faces_given_unfilled,
     parked_mappable,
     program_colors,
     pickradius,
@@ -386,7 +399,9 @@ impl CollectionArtist {
             mapped_shown: Cell::default(),
             mapping_shown: RefCell::default(),
             default_edges: Cell::default(),
-            kept_colors: KeptColors::default(),
+            kept_colors: RefCell::default(),
+            mapping_flags: Cell::default(),
+            faces_given_unfilled: Cell::default(),
             parked_mappable: None,
             program_colors: None,
             pickradius: 5.0,
@@ -414,16 +429,23 @@ impl CollectionArtist {
     /// coordinates (matplotlib's `get_datalim` for collections whose shapes
     /// live in data space).
     pub(crate) fn shape_extents(&self) -> DataLimits {
+        self.shape_extents_at(Affine2D::IDENTITY, &self.offsets)
+    }
+
+    /// [`shape_extents`](Self::shape_extents) with the shapes taken into
+    /// data coordinates by `master` (unless they have transforms of their
+    /// own, as `get_path_collection_extents` does) and placed at `offsets`
+    /// (a collection without offsets has one at the origin).
+    pub(crate) fn shape_extents_at(&self, master: Affine2D, offsets: &[Point]) -> DataLimits {
         let shapes = self.shapes();
         let geometry = CollectionGeometry {
-            master_transform: Affine2D::IDENTITY,
+            master_transform: master,
             paths: &shapes,
             transforms: &self.transforms,
-            // matplotlib collections without offsets have one at the origin.
-            offsets: if self.offsets.is_empty() {
+            offsets: if offsets.is_empty() {
                 &[Point::ORIGIN]
             } else {
-                &self.offsets
+                offsets
             },
             offset_transform: Affine2D::IDENTITY,
         };
@@ -452,6 +474,17 @@ impl CollectionArtist {
         if first || MappedSides::of(self) != MappedSides::default() {
             *self.colors_rc.borrow_mut() = Some(crate::rc::params());
         }
+    }
+
+    /// Whether the next draw resolves the colours again from those set,
+    /// with the alphas of the moment (matplotlib's `update_scalarmappable`,
+    /// going on when `_set_mappable_flags` says so): when values colour a
+    /// side, or the sides they colour changed since the last draw, the
+    /// first included. Otherwise the draw draws the colours resolved when
+    /// they or the alpha were set.
+    pub(crate) fn draw_resolves_colors(&self) -> bool {
+        let now = MappedSides::of(self);
+        now != MappedSides::default() || self.mapping_flags.get() != Some(now)
     }
 
     /// The edge widths in points, or the kind's default width
@@ -546,17 +579,54 @@ impl CollectionArtist {
 
     /// Maps the values onto the sides the mapping colours, for the getters
     /// (matplotlib's `update_scalarmappable`, which drawing runs). When it
-    /// maps a side, or the sides it maps changed, edges it does not colour
-    /// take their colours as set again, with the parameters of the moment
-    /// ([`CollectionArtist::resolve_colors_again`]), the default rule
-    /// deciding anew from the faces as they are (matplotlib's
-    /// `_set_edgecolor(self._original_edgecolor)` there).
-    pub(crate) fn update_scalarmappable(&self) {
-        if self.update_decides_default_edges() {
+    /// maps a side, or the sides it maps changed, the first time included
+    /// ([`CollectionArtist::draw_resolves_colors`]), the sides it does not
+    /// colour take their colours as set again, with the parameters and
+    /// alphas of the moment ([`CollectionArtist::resolve_colors_again`]),
+    /// the default rule for edges deciding anew from the faces as they are
+    /// (matplotlib's `_set_edgecolor(self._original_edgecolor)` there).
+    ///
+    /// Returns matplotlib's `ValueError` message when per-item alphas do
+    /// not fit what it resolves ([`CollectionArtist::draw_alpha_problem`]),
+    /// the colours then staying as they were.
+    pub(crate) fn update_scalarmappable(&self) -> Option<String> {
+        let decides_edges = self.update_decides_default_edges();
+        let resolves = self.draw_resolves_colors();
+        self.mapping_flags.set(Some(MappedSides::of(self)));
+        if resolves {
+            if let Some((side, problem)) = self.draw_alpha_problem() {
+                if side == alpha_fit::Side::Edges {
+                    self.faces_resolved_before_edges_fail();
+                }
+                return Some(problem);
+            }
             self.resolve_colors_again();
-            self.decide_default_edges();
+            if decides_edges {
+                self.decide_default_edges();
+            }
+            *self.kept_colors.borrow_mut() = KeptColors::default();
         }
         self.mapped_shown.set(MappedSides::of(self));
+        self.mapping_shown.take();
+        None
+    }
+
+    /// The faces as a draw leaves them when it resolved them and then
+    /// failed on the edges: those of now (mapped where the values colour
+    /// them), the edges keeping the colours they had.
+    fn faces_resolved_before_edges_fail(&self) {
+        let edges = self.reported_sides().1;
+        let mut kept = self.kept_colors.borrow_mut();
+        kept.forget_faces();
+        if !kept.holds_edges() {
+            kept.keep_edges(edges);
+        }
+        drop(kept);
+        let shown = self.mapped_shown.get();
+        self.mapped_shown.set(MappedSides {
+            faces: MappedSides::of(self).faces,
+            ..shown
+        });
         self.mapping_shown.take();
     }
 
@@ -704,7 +774,7 @@ impl Artist for CollectionArtist {
             ctx.free();
             mapped.normalize_drawn();
         }
-        self.update_scalarmappable();
+        let unfit_alphas = self.update_scalarmappable();
         self.warn_transforming_ellipses(ctx);
         if self.single_path {
             // matplotlib's renderers index the paths as a sequence.
@@ -723,7 +793,7 @@ impl Artist for CollectionArtist {
             // matplotlib's norms raise a `ValueError` for values or limits
             // they cannot normalise.
             ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem);
-        } else if let Some(problem) = self.alpha_problem() {
+        } else if let Some(problem) = unfit_alphas {
             ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem);
         } else if let Some((kind, problem)) = self.draw_time.as_ref().and_then(|g| g.problem()) {
             ctx.report_kind(self.base.id(), kind, problem);
@@ -810,8 +880,8 @@ impl Artist for CollectionArtist {
     }
 
     /// matplotlib's `_update_collection_limits`.
-    fn limit_points(&self, axes: ArtistId, _ctx: &dyn TransformContext) -> Option<LimitPoints> {
-        let (limits, directions) = self.data_limits(axes);
+    fn limit_points(&self, axes: ArtistId, ctx: &dyn TransformContext) -> Option<LimitPoints> {
+        let (limits, directions) = self.data_limits(axes, ctx);
         LimitPoints::from_limits(limits, directions)
     }
 

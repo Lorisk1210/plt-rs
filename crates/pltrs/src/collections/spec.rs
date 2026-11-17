@@ -4,7 +4,7 @@
 //! `RegularPolyCollection`, `EventCollection`, `QuadMesh`).
 
 use pltrs_core::path::DataLimits;
-use pltrs_core::{Path, Point};
+use pltrs_core::{Affine2D, Path, Point};
 
 use super::{
     CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors, EventLines,
@@ -15,7 +15,7 @@ use crate::colors::{Color, ColorError};
 use crate::numeric::Grid;
 use crate::orientation::Orientation;
 use crate::patches::{PatchProps, PatchShape, PatchStyle};
-use crate::transforms::Transform;
+use crate::transforms::{Transform, TransformContext};
 
 /// The unit of the widths and heights of an ellipse collection
 /// (matplotlib's `units`).
@@ -349,8 +349,21 @@ impl CollectionSpec {
 impl CollectionArtist {
     /// The data limits the collection adds to `axes`, and in which
     /// directions they are data values (matplotlib's `get_datalim` and
-    /// `_update_collection_limits`).
-    pub(crate) fn data_limits(&self, axes: ArtistId) -> (DataLimits, (bool, bool)) {
+    /// `_update_collection_limits`), offsets placed through `ctx`.
+    ///
+    /// As matplotlib's `get_datalim`: offsets count only in display
+    /// coordinates (no offset transform) or in coordinates that end in the
+    /// axes' data coordinates (`contains_branch(transData)`, which a blend
+    /// does not); shapes in data coordinates are measured with their
+    /// offsets taken through the whole offset transform (its affine part
+    /// ends in display pixels: `get_path_collection_extents` adds them to
+    /// the shapes as such); shapes in other coordinates leave the offsets
+    /// alone, taken into the data coordinates.
+    pub(crate) fn data_limits(
+        &self,
+        axes: ArtistId,
+        ctx: &dyn TransformContext,
+    ) -> (DataLimits, (bool, bool)) {
         let transform = self.transform();
         let (x_data, y_data) = transform.data_directions(axes);
         let (ox_data, oy_data) = self
@@ -374,12 +387,18 @@ impl CollectionArtist {
         let offsets_usable = self
             .offset_transform
             .as_ref()
-            .is_none_or(|t| ox_data || oy_data || *t == Transform::Display);
+            .is_none_or(|t| *t == Transform::Display || t.contains_branch(&Transform::Data(axes)));
         if !offsets_usable || !self.has_shapes() {
             return (DataLimits::NULL, directions);
         }
         if x_data || y_data {
-            return (self.shape_extents(), directions);
+            // The part of the transform before the data coordinates
+            // (`transform.get_affine() - transData`).
+            let master = transform
+                .affine_before_data(axes)
+                .unwrap_or(Affine2D::IDENTITY);
+            let offsets = self.placed_offsets(ctx);
+            return (self.shape_extents_at(master, &offsets), directions);
         }
         if let Some(offset_transform) = &self.offset_transform {
             // matplotlib maps the offsets into the data coordinates
@@ -396,6 +415,23 @@ impl CollectionArtist {
             return (limits, directions);
         }
         (DataLimits::NULL, directions)
+    }
+
+    /// The offsets as `get_path_collection_extents` adds them to shapes in
+    /// data coordinates: through the whole offset transform (into display
+    /// pixels), unless it is the display's own; as they are where `ctx`
+    /// cannot place them (measured with the figure free).
+    fn placed_offsets(&self, ctx: &dyn TransformContext) -> Vec<Point> {
+        let mut offsets = self.offsets.clone();
+        if let Some(transform) = self
+            .offset_transform
+            .as_ref()
+            .filter(|t| **t != Transform::Display)
+            .and_then(|t| t.resolve(ctx).ok())
+        {
+            transform.transform_points(&mut offsets);
+        }
+        offsets
     }
 
     /// The limits of the offsets in the data coordinates of `axes`, when

@@ -328,6 +328,27 @@ impl ContourSet {
         self
     }
 
+    /// Replaces the hatch patterns cycled over the bands (matplotlib's
+    /// `hatches` assigned, which its draws read): a hatched filled set,
+    /// drawn by a collection per band, gives each band its pattern anew.
+    /// A set drawn by one collection (lines, or bands made unhatched)
+    /// keeps drawing so, its bands having no pattern of their own.
+    pub fn set_hatches(&self, hatches: Vec<Option<String>>) -> &Self {
+        let bands = self.collections.len();
+        let patterns: Vec<Option<String>> = self.update(|state| {
+            state.hatches = hatches;
+            (0..bands).map(|band| state.hatch(band)).collect()
+        });
+        if bands > 1 {
+            for (collection, pattern) in self.collections.iter().zip(patterns) {
+                collection
+                    .raw()
+                    .with_mut::<CollectionArtist, _>(|c| c.hatch = pattern);
+            }
+        }
+        self
+    }
+
     /// Applies `f` to the collections drawing the lines.
     fn restyle_lines(&self, f: impl Fn(&mut CollectionArtist)) {
         for collection in &self.collections {

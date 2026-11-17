@@ -100,6 +100,20 @@ def _plain_histogram(x, bins, bin_range, weights):
                  or np.shape(bin_range) == (2,) and numbers(bin_range)))
 
 
+def _data_range(x):
+    """matplotlib's range of the datasets *x* when none is given: from
+    the smallest to the largest value of all (NaN and masked values left
+    out), None when there is none."""
+    xmin, xmax = np.inf, -np.inf
+    for xi in x:
+        if len(xi):
+            xmin = min(xmin, np.nanmin(xi))
+            xmax = max(xmax, np.nanmax(xi))
+    if xmin <= xmax:  # Only happens if we have seen a finite value.
+        return (xmin, xmax)
+    return None
+
+
 def _numpy_histograms(x, bins, bin_range, weights, density):
     """
     matplotlib's binning of the datasets *x*, for those pltrs (Rust) does
@@ -108,13 +122,7 @@ def _numpy_histograms(x, bins, bin_range, weights, density):
     does.
     """
     if bin_range is None:
-        xmin, xmax = np.inf, -np.inf
-        for xi in x:
-            if len(xi):
-                xmin = min(xmin, np.nanmin(xi))
-                xmax = max(xmax, np.nanmax(xi))
-        if xmin <= xmax:  # Only happens if we have seen a finite value.
-            bin_range = (xmin, xmax)
+        bin_range = _data_range(x)
     hist_kwargs = {}
     if any(len(xi) for xi in x) and len(x) > 1:
         _w = None if weights[0] is None else np.concatenate(weights)
@@ -383,6 +391,14 @@ such objects
         for xi, wi in zip(x, w):
             if wi is not None and len(wi) != len(xi):
                 raise ValueError('weights should have the same shape as x')
+        if any(np.ma.is_masked(xi) for xi in x):
+            # matplotlib bins the data of masked arrays, masked values
+            # included (numpy's ``histogram`` reads the data), over the
+            # range of the values not masked (``nanmin`` and ``nanmax``
+            # skip the mask).
+            if bin_range is None:
+                bin_range = _data_range(x)
+            x = [np.ma.getdata(xi) for xi in x]
         if not _plain_histogram(x, bins, bin_range, w):
             _numpy_histograms(x, bins, bin_range, w, bool(density) and not stacked)
         if histtype.startswith('bar') and rwidth is not None:

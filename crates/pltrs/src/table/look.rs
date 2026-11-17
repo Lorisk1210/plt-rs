@@ -52,8 +52,8 @@ impl TableCell {
         let corner = self.placed_corner().unwrap_or(Point::new(0.0, 0.0));
         let (width, height, (angle, point), style, base) = self.read(|cell| {
             (
-                cell.width,
-                cell.height,
+                cell.width.get(),
+                cell.height.get(),
                 (cell.angle, cell.rotation_point),
                 cell.style.clone(),
                 cell.base.clone(),

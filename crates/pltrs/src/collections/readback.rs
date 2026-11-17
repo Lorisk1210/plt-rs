@@ -106,8 +106,11 @@ impl Collection {
         let Some(axes) = self.raw().with_base(|base| base.parent) else {
             return DataLimits::NULL;
         };
-        self.raw()
-            .with::<CollectionArtist, _>(|c| c.data_limits(axes).0)
+        let state = self.raw().figure_state().borrow();
+        state
+            .store
+            .get_as::<CollectionArtist>(self.raw().id())
+            .map_or(DataLimits::NULL, |c| c.data_limits(axes, &*state).0)
     }
 
     /// The edge widths as drawn (matplotlib's `get_linewidth`): the widths

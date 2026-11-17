@@ -263,9 +263,11 @@ fn get_path(cell: CellRef) -> PyResult<PathArrays> {
     path_arrays(&cell.0.path(), false)
 }
 
-/// The `(width, height)` of a cell in axes fractions.
-fn get_size(cell: CellRef) -> PyResult<(f64, f64)> {
-    Ok((cell.0.width(), cell.0.height()))
+/// The `(width, height)` of a cell in axes fractions, and whether its
+/// table set each since it was given (fitted, or stretched).
+fn get_size(cell: CellRef) -> PyResult<(f64, f64, bool, bool)> {
+    let fitted = (cell.0.width_fitted(), cell.0.height_fitted());
+    Ok((cell.0.width(), cell.0.height(), fitted.0, fitted.1))
 }
 
 /// Sets the width of a cell in axes fractions.
@@ -341,7 +343,7 @@ mod tests {
         assert_eq!(cell_keys(table.clone()).unwrap(), [(2, 1)]);
         let put = || CellRef(table.cell(2, 1).unwrap());
         assert_eq!(get_text(put()).unwrap(), "x");
-        assert_eq!(get_size(put()).unwrap(), (1.0, 2.0));
+        assert_eq!(get_size(put()).unwrap(), (1.0, 2.0, false, false));
         assert_eq!(get_visible_edges(put()).unwrap(), "BT");
         assert!(!has_cell(table, 0, 0).unwrap());
     }

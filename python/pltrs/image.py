@@ -973,7 +973,9 @@ class AxesImage(_ImageBase):
             _artist.set_clip_box(self._native, None)
 
     def get_window_extent(self, renderer=None):
-        x0, x1, y0, y1 = self._extent_now()
+        # matplotlib reads its field ``_extent`` here, not ``get_extent()``,
+        # which a class of the program's may answer.
+        x0, x1, y0, y1 = self._read_extent()
         bbox = Bbox.from_extents([x0, y0, x1, y1])
         return bbox.transformed(self.get_transform())
 

@@ -9,6 +9,7 @@ close asked for on another thread, an animation's frames. The tests
 prints them.
 """
 
+import ctypes
 import json
 import os
 import pathlib
@@ -116,18 +117,44 @@ def usage(pid):
     return switches, (int(fields[11]) + int(fields[12])) / ticks
 
 
+class _RusageInfoV2(ctypes.Structure):
+    """``struct rusage_info_v2`` of ``<sys/resource.h>``."""
+
+    _fields_ = [("ri_uuid", ctypes.c_uint8 * 16)] + [
+        (name, ctypes.c_uint64) for name in (
+            "ri_user_time", "ri_system_time", "ri_pkg_idle_wkups",
+            "ri_interrupt_wkups", "ri_pageins", "ri_wired_size",
+            "ri_resident_size", "ri_phys_footprint", "ri_proc_start_abstime",
+            "ri_proc_exit_abstime", "ri_child_user_time",
+            "ri_child_system_time", "ri_child_pkg_idle_wkups",
+            "ri_child_interrupt_wkups", "ri_child_pageins",
+            "ri_child_elapsed_abstime", "ri_diskio_bytesread",
+            "ri_diskio_byteswritten")]
+
+
+#: ``RUSAGE_INFO_V2``: the version of `_RusageInfoV2`.
+_RUSAGE_INFO_V2 = 2
+
+
 def _usage_macos(pid):
-    """`usage` from ``top``: the process' idle wake-ups (``IDLEW``, its
-    wake-ups from waiting) and its CPU time (``TIME``, ``[H:]MM:SS.ss``)."""
+    """`usage` on macOS: the process' wake-ups as the kernel counts them
+    (``proc_pid_rusage``: its timer and interrupt wake-ups and those
+    from the package's idle state; ``top``'s ``IDLEW`` reads 0 even for
+    a process waking 20 times a second) and its CPU time from ``top``
+    (``TIME``, ``[H:]MM:SS.ss``)."""
+    info = _RusageInfoV2()
+    libproc = ctypes.CDLL("/usr/lib/libproc.dylib")
+    if libproc.proc_pid_rusage(pid, _RUSAGE_INFO_V2, ctypes.byref(info)) != 0:
+        raise OSError(ctypes.get_errno(), f"proc_pid_rusage({pid})")
     out = subprocess.run(
-        ["top", "-l", "1", "-pid", str(pid), "-stats", "pid,idlew,time"],
+        ["top", "-l", "1", "-pid", str(pid), "-stats", "pid,time"],
         capture_output=True, text=True, check=True).stdout
     fields = next(line.split() for line in reversed(out.splitlines())
                   if line.split() and line.split()[0] == str(pid))
     seconds = 0.0
-    for part in fields[2].split(":"):
+    for part in fields[1].split(":"):
         seconds = 60 * seconds + float(part)
-    return int(fields[1].rstrip("+")), seconds
+    return info.ri_interrupt_wkups + info.ri_pkg_idle_wkups, seconds
 
 
 def idle(library, backend, display, workdir, wayland=None, seconds=3.0):

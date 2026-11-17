@@ -23,7 +23,9 @@ mod fonts;
 mod output;
 mod parser;
 mod pattern;
+pub mod program_fonts;
 mod style;
+pub mod tables;
 
 pub use boxes::MathNode;
 pub use output::{MathGlyph, MathLayout, MathRect, RasterExtents, RasterMath};
@@ -202,6 +204,22 @@ impl TextEngine {
     /// # Ok::<(), pltrs_text::TextError>(())
     /// ```
     pub fn layout_math(&self, source: &str, style: &MathStyle) -> Result<TextRun, TextError> {
+        let typeset = || {
+            let layout = self.typeset_math(source, style)?;
+            let mut run = layout.to_text_run();
+            run.source = Some(TextSource::Math {
+                text: source.to_owned(),
+                style: style.clone(),
+                logged: layout.logged,
+            });
+            Ok(run)
+        };
+        if program_fonts::in_place() {
+            // The glyphs of the program's font classes follow what they
+            // read (an rcParam of the program's): typeset every time, as
+            // matplotlib's parse cache, which the program clears, decides.
+            return crate::deep::with_room(crate::deep::formula_need(source), typeset);
+        }
         let fingerprint = crate::memo::fingerprint(&style.font, (source, style.dpi.to_bits()));
         let matches = |key: &FormulaKey| key.source == source && key.style == *style;
         if let Some(run) = self.formulas.get(fingerprint, matches) {
@@ -217,16 +235,7 @@ impl TextEngine {
                     source: source.to_owned(),
                     style: style.clone(),
                 },
-                || {
-                    let layout = self.typeset_math(source, style)?;
-                    let mut run = layout.to_text_run();
-                    run.source = Some(TextSource::Math {
-                        text: source.to_owned(),
-                        style: style.clone(),
-                        logged: layout.logged,
-                    });
-                    Ok(run)
-                },
+                typeset,
             )
         })
     }

@@ -188,7 +188,11 @@ fn import_gaps(python: &Path, site: &Path) -> Result<(), String> {
             .arg(Mode::Reference.outcome_file())
             .current_dir(site)
             .env("PYTHONPATH", site)
-            .env("MPLCONFIGDIR", site.join("../mplconfig"))
+            .envs(
+                pytest::own_directories(&site.join("../import-gaps"))?
+                    .iter()
+                    .map(|(name, path)| (name, path)),
+            )
             .env_remove(CONFIG_DIR_VARIABLE),
     )
 }

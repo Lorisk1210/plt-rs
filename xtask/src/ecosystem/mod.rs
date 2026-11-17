@@ -26,8 +26,8 @@
 
 mod baselines;
 mod data;
+mod install;
 mod libraries;
-mod metadata;
 mod setup;
 mod site;
 mod suite;

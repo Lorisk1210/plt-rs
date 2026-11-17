@@ -83,11 +83,10 @@ fn single_char(symbol: &str) -> Option<char> {
 
 /// STIX's swapped `⋒`/`⋓` glyphs.
 fn stix_glyph_fix(code: u32) -> u32 {
-    match code {
-        0x22d2 => 0x22d3,
-        0x22d3 => 0x22d2,
-        other => other,
-    }
+    data::STIX_GLYPH_FIXES
+        .iter()
+        .find(|(from, _)| *from == code)
+        .map_or(code, |(_, to)| *to)
 }
 
 /// Glyphs `cmr10` lacks and the `cmsy10` codes that draw them.

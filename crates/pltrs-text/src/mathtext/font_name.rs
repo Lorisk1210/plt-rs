@@ -58,6 +58,32 @@ impl FontName {
         name.parse::<MathFont>().ok().map(Self::from)
     }
 
+    /// The font matplotlib names `name` (`rm`, `ex`, `0`, `nonunirm`, ...),
+    /// the inverse of its [`Display`](fmt::Display).
+    pub(crate) fn from_matplotlib(name: &str) -> Option<Self> {
+        Some(match name {
+            "rm" => Self::Rm,
+            "it" => Self::It,
+            "bf" => Self::Bf,
+            "bfit" => Self::Bfit,
+            "sf" => Self::Sf,
+            "tt" => Self::Tt,
+            "cal" => Self::Cal,
+            "default" => Self::Default,
+            "regular" => Self::Regular,
+            "normal" => Self::Normal,
+            "bb" => Self::Bb,
+            "frak" => Self::Frak,
+            "scr" => Self::Scr,
+            "ex" => Self::Ex,
+            "nonunirm" => Self::NonUniRm,
+            "nonuniit" => Self::NonUniIt,
+            "nonunibf" => Self::NonUniBf,
+            "nonunibfit" => Self::NonUniBfit,
+            size => Self::Size(size.parse().ok().filter(|size| *size <= 5)?),
+        })
+    }
+
     /// Whether selecting this font also changes the font class
     /// (matplotlib's `ParserState.font` setter).
     pub(crate) fn sets_class(self) -> bool {

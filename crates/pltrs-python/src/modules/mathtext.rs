@@ -290,5 +290,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("parse_raster", parse_raster)?;
     module.add("get_unicode_index", get_unicode_index)?;
     module.add("accent_map", get_accent_map)?;
-    module.add("wide_accents", get_wide_accents)
+    module.add("wide_accents", get_wide_accents)?;
+    super::mathtext_program::register(module)
 }

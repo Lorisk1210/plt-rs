@@ -150,6 +150,28 @@ pub(crate) fn bakoma_size_alternatives(
     sorted_lookup(&bakoma::SIZE_ALTERNATIVES, symbol)
 }
 
+/// matplotlib's `stix_glyph_fixes`: the STIX code points whose glyphs
+/// are swapped (`⋒` and `⋓`), and the code each takes instead.
+pub(crate) const STIX_GLYPH_FIXES: [(u32, u32); 2] = [(0x22d2, 0x22d3), (0x22d3, 0x22d2)];
+
+/// The `BaKoMa` font file and character code of every symbol
+/// (matplotlib's `latex_to_bakoma`).
+pub(crate) fn latex_to_bakoma_table() -> &'static [(&'static str, BakomaFile, u32)] {
+    &bakoma::LATEX_TO_BAKOMA
+}
+
+/// TeX symbol names (without the backslash) and their code points
+/// (matplotlib's `tex2uni`).
+pub(crate) fn tex2uni_table() -> &'static [(&'static str, u32)] {
+    &tex2uni::TEX2UNI
+}
+
+/// The STIX virtual fonts by TeX font name (matplotlib's
+/// `stix_virtual_fonts`).
+pub(crate) fn virtual_fonts() -> &'static [(FontName, VirtualFont)] {
+    &stix::VIRTUAL_FONTS
+}
+
 /// The STIX virtual font called `name`.
 pub(crate) fn virtual_font(name: FontName) -> Option<VirtualFont> {
     stix::VIRTUAL_FONTS

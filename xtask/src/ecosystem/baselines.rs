@@ -38,7 +38,7 @@ use pltrs_core::os::Os;
 use super::libraries::{Baselines, Library, Making};
 use super::suite::Tests;
 use super::{site, venvs};
-use crate::mpl_suite::{Mode, prepare, tools};
+use crate::mpl_suite::{prepare, tools};
 use crate::python;
 
 /// The file naming the pins the baselines were made with.
@@ -120,7 +120,6 @@ pub(super) fn make(library: &Library, venv: &Path) -> Result<(), String> {
     let site = site::lay_out(library, &python::site_packages(venv)?, &work, &partial)?;
     let tests = Tests {
         library,
-        mode: Mode::Reference,
         python: &python,
         site: &site,
         dir: &work,

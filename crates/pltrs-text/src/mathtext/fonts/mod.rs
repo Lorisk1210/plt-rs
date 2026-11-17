@@ -13,9 +13,10 @@ use pltrs_font::{FontDatabase, FontError, FontId, GlyphId, Hinting, KerningMode,
 
 pub(crate) use constants::FontConstants;
 use faces::{FaceCache, hinted_glyph};
-use select::GlyphSet;
+use select::{Glyph, GlyphSet};
 
 use super::font_name::FontName;
+use super::program_fonts::{self, ProgramFonts};
 use super::style::{Fontset, MathStyle};
 use crate::error::TextError;
 
@@ -26,6 +27,8 @@ pub(crate) enum GlyphError {
     UnknownSymbol(String),
     /// A font could not be read.
     Font(FontError),
+    /// The program's font set raised (its message).
+    Program(String),
 }
 
 impl fmt::Display for GlyphError {
@@ -36,6 +39,7 @@ impl fmt::Display for GlyphError {
                 "{symbol:?} is not a valid Unicode character or TeX/Type1 symbol"
             ),
             Self::Font(err) => err.fmt(f),
+            Self::Program(message) => f.write_str(message),
         }
     }
 }
@@ -49,7 +53,7 @@ impl From<FontError> for GlyphError {
 impl From<GlyphError> for TextError {
     fn from(err: GlyphError) -> Self {
         match err {
-            GlyphError::UnknownSymbol(_) => Self::Math(err.to_string()),
+            GlyphError::UnknownSymbol(_) | GlyphError::Program(_) => Self::Math(err.to_string()),
             GlyphError::Font(err) => err.into(),
         }
     }
@@ -158,11 +162,23 @@ struct InfoKey {
     fontsize: u64,
 }
 
+/// Where a typesetting run's glyphs come from.
+#[derive(Debug)]
+enum GlyphSource {
+    /// pltrs' copy of the font class of matplotlib's that serves the
+    /// fontset.
+    Native(GlyphSet),
+    /// The program's font set, when a class of the program's serves the
+    /// fontset (see [`program_fonts`]): it looks its fonts up itself, so
+    /// pltrs' own lookups of the fontset's fonts are not made.
+    Program(Box<dyn ProgramFonts>),
+}
+
 /// The fonts of one typesetting run, with matplotlib's per-run caches.
 #[derive(Debug)]
 pub(crate) struct Fonts<'e> {
     faces: FaceCache<'e>,
-    set: GlyphSet,
+    source: GlyphSource,
     constants: FontConstants,
     /// `mathtext.default`, the class used to measure reference glyphs.
     default_class: FontName,
@@ -183,14 +199,21 @@ impl<'e> Fonts<'e> {
         style: &MathStyle,
         text_font: FontId,
     ) -> Result<Self, TextError> {
-        if let Some(source) = db.source(text_font) {
-            // matplotlib's fontset opens its default font as it is made,
-            // before the formula is parsed (`TruetypeFonts.__init__`).
-            crate::lookups::note_open(source, false);
-        }
+        let source =
+            if let Some(program) = program_fonts::program_fonts(style).map_err(TextError::Math)? {
+                GlyphSource::Program(program)
+            } else {
+                if let Some(source) = db.source(text_font) {
+                    // matplotlib's fontset opens its default font as it is
+                    // made, before the formula is parsed
+                    // (`TruetypeFonts.__init__`).
+                    crate::lookups::note_open(source, false);
+                }
+                GlyphSource::Native(GlyphSet::for_style(db, style, text_font)?)
+            };
         Ok(Self {
             faces: FaceCache::new(db),
-            set: GlyphSet::for_style(db, style, text_font)?,
+            source,
             constants: MathFonts::of(style).constants(),
             default_class: style.default.into(),
             dpi: style.dpi,
@@ -229,9 +252,7 @@ impl<'e> Fonts<'e> {
     }
 
     fn load_info(&mut self, key: GlyphKey<'_>) -> Result<FontInfo, GlyphError> {
-        let glyph = self
-            .set
-            .glyph(&mut self.faces, key.font, key.class, key.symbol)?;
+        let glyph = self.glyph(key)?;
         let db = self.faces.db();
         let face = self.faces.face(glyph.font)?;
         // matplotlib's mathtext sets the size of every glyph's font.
@@ -359,7 +380,53 @@ impl<'e> Fonts<'e> {
         font: FontName,
         symbol: &str,
     ) -> Result<Vec<(FontName, String)>, GlyphError> {
-        self.set.sized_alternatives(&mut self.faces, font, symbol)
+        let program = match &self.source {
+            GlyphSource::Native(set) => {
+                return set.sized_alternatives(&mut self.faces, font, symbol);
+            }
+            GlyphSource::Program(program) => program,
+        };
+        program
+            .sized_alternatives(&font.to_string(), symbol)
+            .map_err(GlyphError::Program)?
+            .into_iter()
+            .map(|(name, symbol)| {
+                FontName::from_matplotlib(&name)
+                    .map(|font| (font, symbol))
+                    .ok_or_else(|| GlyphError::Program(format!("unknown TeX font {name:?}")))
+            })
+            .collect()
+    }
+
+    /// The face, code and slant drawing the symbol of `key`: the
+    /// program's font set's answer when one serves the fontset, else the
+    /// glyph set's.
+    fn glyph(&mut self, key: GlyphKey<'_>) -> Result<Glyph, GlyphError> {
+        let program = match &self.source {
+            GlyphSource::Native(set) => {
+                return set.glyph(&mut self.faces, key.font, key.class, key.symbol);
+            }
+            GlyphSource::Program(program) => program,
+        };
+        let named = program
+            .glyph(&key.font.to_string(), &key.class.to_string(), key.symbol)
+            .map_err(GlyphError::Program)?;
+        let faces = self.faces.db().file_faces(&named.file)?;
+        let font = usize::try_from(named.face_index)
+            .ok()
+            .and_then(|index| faces.get(index).copied())
+            .ok_or_else(|| {
+                GlyphError::Program(format!(
+                    "{} has no face {}",
+                    named.file.display(),
+                    named.face_index
+                ))
+            })?;
+        Ok(Glyph {
+            font,
+            code: named.code,
+            slanted: named.slanted,
+        })
     }
 }
 

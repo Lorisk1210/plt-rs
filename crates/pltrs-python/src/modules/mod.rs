@@ -55,6 +55,7 @@ mod legend;
 mod lines;
 mod markers;
 mod mathtext;
+mod mathtext_program;
 mod mlab;
 mod mplot3d;
 mod navigation;

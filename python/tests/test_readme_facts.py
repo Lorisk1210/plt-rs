@@ -293,10 +293,21 @@ def test_no_marker_starts_a_line(document):
                 if line.lstrip().startswith("<!--fact:")]
 
 
+#: Facts about the libraries' tests failing under pltrs, which the
+#: documents state only while some do (the CHANGELOG's known limitations).
+WHILE_FAILING = {"ecosystem.failing", "ecosystem.incomplete-libraries"}
+
+
 def test_every_fact_is_stated_and_every_marker_known():
     named = {name for _, name, _ in MARKED}
     assert named - EXACT.keys() - APPROXIMATE.keys() == set(), "markers of unknown facts"
-    assert EXACT.keys() | APPROXIMATE.keys() <= named, "facts no document marks any more"
+    failing = bool(_ecosystem()[3])
+    if not failing:
+        assert not named & WHILE_FAILING, "the libraries' tests all pass under pltrs"
+    required = EXACT.keys() | APPROXIMATE.keys()
+    if not failing:
+        required -= WHILE_FAILING
+    assert required <= named, "facts no document marks any more"
 
 
 @pytest.mark.parametrize(("document", "name", "text"), MARKED,

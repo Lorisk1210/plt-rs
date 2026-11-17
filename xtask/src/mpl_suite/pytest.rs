@@ -56,8 +56,8 @@ pub(crate) const CONFIG_DIR_VARIABLE: &str = "PLTRSCONFIGDIR";
 /// A pytest run: the tests `targets` of the site `site`, with `python`.
 ///
 /// Its files go to `dir`: `results.jsonl` (the plugin's), `pytest.log`
-/// (pytest's output), `pytest-tmp` (`tmp_path`) and `mplconfig` (the
-/// configuration directory).
+/// (pytest's output), `pytest-tmp` (`tmp_path`) and the configuration
+/// and cache directories ([`own_directories`]).
 #[derive(Debug)]
 pub(crate) struct Run<'a> {
     /// What the progress line calls the suite ("matplotlib's suite").
@@ -114,8 +114,7 @@ impl Run<'_> {
         let mut path = self.python_path.clone();
         path.push(root.join("python/mpl_suite"));
         let python_path = crate::python::python_path(path)?;
-        let config = self.dir.join("mplconfig");
-        forget_font_list(&config)?;
+        let own = own_directories(self.dir)?;
         println!(
             "running {} with {} (log: {})",
             self.suite,
@@ -148,12 +147,12 @@ impl Run<'_> {
             .env("PYTHONPATH", python_path)
             .env(LOOK_VARIABLE, "matplotlib")
             .env("MPL_SUITE_RESULTS", &results)
-            // The run's own configuration directory, which pltrs reads
-            // from `MPLCONFIGDIR` as matplotlib does: some of matplotlib's
-            // tests make theirs unwritable, which must not reach the one
-            // cargo's tests share (`target/pltrs-config`), and expect the
-            // warning to name `MPLCONFIGDIR`.
-            .env("MPLCONFIGDIR", &config)
+            // The run's own configuration and cache directories, pltrs
+            // reading `MPLCONFIGDIR` as matplotlib does: some of
+            // matplotlib's tests make theirs unwritable, which must not
+            // reach the one cargo's tests share (`target/pltrs-config`),
+            // and expect the warning to name `MPLCONFIGDIR`.
+            .envs(own.iter().map(|(name, path)| (name, path)))
             .env_remove(CONFIG_DIR_VARIABLE)
             .envs(self.environment.iter().map(|(name, value)| (name, value)))
             .stdin(Stdio::null())
@@ -193,23 +192,25 @@ impl Run<'_> {
     }
 }
 
-/// Removes matplotlib's font list cache (`fontlist-v*.json`) from the
-/// configuration directory `config`: matplotlib reads it without looking
-/// at the font directories again, so a run would keep the fonts of the
-/// previous one, with or without the suite tools' fonts.
-fn forget_font_list(config: &Path) -> Result<(), String> {
-    let Ok(entries) = std::fs::read_dir(config) else {
-        return Ok(());
-    };
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        if name.starts_with("fontlist-") && name.ends_with(".json") {
-            std::fs::remove_file(entry.path())
-                .map_err(|err| format!("{}: {err}", entry.path().display()))?;
-        }
+/// The configuration and cache directories a run in `dir` has to itself,
+/// made empty: matplotlib's (`MPLCONFIGDIR`, which pltrs reads when
+/// `PLTRSCONFIGDIR` is unset) and the XDG cache and configuration homes a
+/// library writes to on its own, or a Python a test starts without
+/// `MPLCONFIGDIR` (ultraplot's font cache). Nothing a run writes there
+/// reaches the user's `~/.cache` or `~/.config`, or a later run: a font
+/// list cached by an earlier run (with or without the suite tools'
+/// fonts) would be read without looking at the font directories again.
+pub(crate) fn own_directories(dir: &Path) -> Result<[(&'static str, PathBuf); 3], String> {
+    let directories = [
+        ("MPLCONFIGDIR", dir.join("mplconfig")),
+        ("XDG_CACHE_HOME", dir.join("xdg-cache")),
+        ("XDG_CONFIG_HOME", dir.join("xdg-config")),
+    ];
+    for (_, path) in &directories {
+        super::prepare::remove(path)?;
+        std::fs::create_dir_all(path).map_err(|err| format!("{}: {err}", path.display()))?;
     }
-    Ok(())
+    Ok(directories)
 }
 
 #[cfg(test)]

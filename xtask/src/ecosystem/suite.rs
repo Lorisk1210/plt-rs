@@ -3,8 +3,8 @@
 //! (`libraries`), the tests of each that reach matplotlib, run unchanged
 //! from their source trees against real matplotlib (`--reference`, in a
 //! reference venv) or against pltrs as matplotlib (in a venv without it,
-//! with `python/alias` and the metadata of the `matplotlib` distribution,
-//! `metadata`, on `PYTHONPATH`), as `cargo xtask mpl-suite` runs
+//! into which a run installs pltrs and its `matplotlib` distribution as
+//! users have them, `install`), as `cargo xtask mpl-suite` runs
 //! matplotlib's: the ecosystem's shared venvs, or a library's own
 //! (`venvs`).
 //!
@@ -29,7 +29,7 @@ use std::time::Instant;
 use pltrs_core::os::Os;
 
 use super::libraries::{self, Library, Network};
-use super::{baselines, data, metadata, site, venvs};
+use super::{baselines, data, install, site, venvs};
 use crate::mpl_suite::display::VirtualDisplay;
 use crate::mpl_suite::outcomes::Outcomes;
 use crate::mpl_suite::pytest::Variable;
@@ -83,7 +83,6 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
     }
     if options.mode == Mode::Pltrs {
         python::build(python::Profile::Release)?;
-        metadata::write(&python::interpreter(&super::venv(), Os::CURRENT))?;
     }
     let mut prepared = Vec::new();
     for library in libraries::all() {
@@ -108,6 +107,15 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
         });
     }
     check_patterns(&options.patterns, &prepared)?;
+    if options.mode == Mode::Pltrs {
+        // Each venv once, before any of its libraries runs.
+        let mut venvs: Vec<&Path> = prepared.iter().map(|p| p.python.as_path()).collect();
+        venvs.sort_unstable();
+        venvs.dedup();
+        for python in venvs {
+            install::install(python)?;
+        }
+    }
 
     let path = outcome_file(options.mode);
     let details = details_file(options.mode);
@@ -130,7 +138,6 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
         let started = Instant::now();
         let run = Tests {
             library,
-            mode: options.mode,
             python,
             site,
             dir,
@@ -172,8 +179,6 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
 pub(super) struct Tests<'a> {
     /// The library.
     pub(super) library: &'a Library,
-    /// What they run on.
-    pub(super) mode: Mode,
     /// The interpreter of the mode's venv.
     pub(super) python: &'a Path,
     /// The library's site.
@@ -187,10 +192,8 @@ impl Tests<'_> {
     /// library's options and `extra`, and reads how they ended.
     pub(super) fn run(&self, extra: &[String], targets: &[String]) -> Result<Outcomes, String> {
         let sources = python::root().join("python");
-        let mut python_path = vec![self.site.to_owned(), sources.join("ecosystem/plugin")];
-        if self.mode == Mode::Pltrs {
-            python_path.extend([sources.join("alias"), metadata::dir(), sources]);
-        }
+        // pltrs is installed into the venv of a pltrs run (`install`).
+        let python_path = vec![self.site.to_owned(), sources.join("ecosystem/plugin")];
         // Tests running elsewhere in the site are named by their paths.
         let (working_dir, targets) = match self.library.runs_in {
             Some(dir) => (

@@ -14,7 +14,7 @@ standard one first. It has the name of the class it derives from, as
 module under that name.
 """
 
-from . import markers
+from . import _mirrors, markers
 from .transforms import Affine2D
 
 
@@ -57,4 +57,4 @@ class MarkerStyle(markers.MarkerStyle):
         mirror = line.__dict__.get("_mirror")
         if mirror is not None:
             # The mark of a tick, which its axis draws, turns with it.
-            mirror.push(line)
+            _mirrors.push(mirror, line)

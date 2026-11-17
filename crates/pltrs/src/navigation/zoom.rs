@@ -45,10 +45,10 @@ impl Axes {
     }
 
     /// Lets the navigation toolbar act on this axes or not (matplotlib's
-    /// `set_navigate`; widgets turn it off).
+    /// `set_navigate`; widgets turn it off), which changes nothing drawn.
     pub fn set_navigate(&self, navigate: bool) -> &Self {
         self.raw()
-            .with_mut::<AxesState, _>(|state| state.navigate = navigate);
+            .with_mut_unseen::<AxesState, _>(|state| state.navigate = navigate);
         self
     }
 

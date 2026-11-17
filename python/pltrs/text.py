@@ -1448,20 +1448,22 @@ class Text(Artist):
         (`_unitless_coordinate`, with the units of *axes*, by default the
         text's): a value that fails to convert is kept (see `._unusable`),
         and the text fails there as matplotlib's does. The text goes stale
-        unless *stale* is false (a new text, see `_place`).
+        (pltrs (Rust) marks it; a value it cannot hold leaves it stale
+        unless *stale* is false: a new text, see `_place`).
         """
         try:
             number = self._unitless_coordinate(index, value, axes)
         except (TypeError, ValueError):
             self._keep_unusable_coordinate(index, value)
+            if stale:
+                self.stale = True
         else:
+            # (pltrs (Rust) marks the text stale.)
             position = list(_text.get_position(self._native))
             position[index] = number
             _text.set_position(self._native, *position)
             self._remember_coordinate(index, value)
             _unusable.drop(self, _POSITION[index])
-        if stale:
-            self.stale = True
 
     def _keep_unusable_coordinate(self, index, value):
         """Keep *value*, the coordinate *index* of the position, which

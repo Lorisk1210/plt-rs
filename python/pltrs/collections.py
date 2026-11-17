@@ -3163,6 +3163,7 @@ class QuadMesh(_MeshData, Collection):
         self._antialiaseds = [bool(a) for a in np.atleast_1d(aa)]
         if _OWN in self.__dict__:
             _own_state.drop(self, "antialiaseds")
+        self.stale = True
 
     set_antialiased.__doc__ = Collection.set_antialiased.__doc__
 

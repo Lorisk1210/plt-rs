@@ -132,7 +132,7 @@ class _DrawnOnItsOwn:
         """Hand what pltrs (Rust) draws for the object its state again."""
         mirror = _mirrors.mirroring(self)
         if mirror is not None:
-            mirror.push(self)
+            _mirrors.push(mirror, self)
 
     def _add_to_axes(self, axes, kind, autolim=True):
         if isinstance(_mirrors.mirroring(self), _Drawn):

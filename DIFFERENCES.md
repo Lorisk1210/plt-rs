@@ -86,6 +86,18 @@ excuses is missing here.
   differ from matplotlib's while the pixels are the same. A PDF with
   `pdf.fonttype` 42 embeds the same glyphs in a differently packed
   TrueType subset.
+* WebP files are written losslessly: pltrs has no lossy WebP encoder,
+  where matplotlib saves through Pillow's lossy default. The pixels of
+  pltrs' file are the canvas' own; what a program gives in `pil_kwargs`
+  goes through Pillow under both.
+* With `ps.fonttype` 42 a PostScript file embeds the whole font where
+  matplotlib embeds a subset of it: the file is larger and draws the
+  same.
+* In SVG and PostScript text a zero can carry the other sign (`-0` where
+  matplotlib writes `0`, or the reverse), and the ids matplotlib hashes
+  from that text (of markers and clip paths) differ with it. A rasterized
+  artist in an SVG can be cropped one pixel column wider. The drawing is
+  the same in both cases.
 * A pickled figure holds pltrs' own archive of it, of another length
   than matplotlib's. pltrs loads the pickles pltrs writes, but pickles do
   not cross between pltrs and matplotlib in either direction (see "Not

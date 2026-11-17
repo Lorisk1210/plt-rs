@@ -20,7 +20,7 @@ from ..backend_bases import (
     _Backend, FigureCanvasBase, FigureManagerBase, GraphicsContextBase)
 from ..font_manager import FontManager
 from ..text import _drawing_with
-from ._backend_pdf_ps import RendererPDFPSBase
+from ._backend_pdf_ps import RendererPDFPSBase, _in_points
 from ._native_drawing import DocumentDrawingMixin
 from ._ps_arguments import CAPS, JOINS, PsArgumentsMixin, check_numbers
 from ._source_date import source_date
@@ -403,21 +403,23 @@ class FigureCanvasPS(FigureCanvasBase):
         """Write the figure as *fmt*, ``ps`` or ``eps``, after matplotlib's
         checks of the paper type and orientation, its texts measured
         through the metrics cache of a renderer of the print's own, as
-        matplotlib's ``print_ps`` draws with a new `RendererPS`."""
-        dsc_comments = _dsc_metadata(outfile, metadata)
-        if papertype is None:
-            papertype = rcParams['ps.papersize']
-        papertype = papertype.lower()
-        _api.check_in_list(['figure', *papersize], papertype=papertype)
-        orientation = _api.getitem_checked(
-            _Orientation, orientation=orientation.lower())
-        width, height = self.figure.get_size_inches()
-        with _drawing_with(self.figure, RendererPS(width, height, None,
-                                                   imagedpi=self.figure.dpi)):
-            self._print_native(
-                fmt, outfile, metadata=dsc_comments,
-                bbox_inches_restore=bbox_inches_restore,
-                orientation=orientation.name, papertype=papertype)
+        matplotlib's ``print_ps`` draws with a new `RendererPS`; the
+        figure's ``dpi`` is 72 afterwards, as there."""
+        with _in_points(self.figure):
+            dsc_comments = _dsc_metadata(outfile, metadata)
+            if papertype is None:
+                papertype = rcParams['ps.papersize']
+            papertype = papertype.lower()
+            _api.check_in_list(['figure', *papersize], papertype=papertype)
+            orientation = _api.getitem_checked(
+                _Orientation, orientation=orientation.lower())
+            width, height = self.figure.get_size_inches()
+            with _drawing_with(self.figure, RendererPS(width, height, None,
+                                                       imagedpi=self.figure.dpi)):
+                self._print_native(
+                    fmt, outfile, metadata=dsc_comments,
+                    bbox_inches_restore=bbox_inches_restore,
+                    orientation=orientation.name, papertype=papertype)
 
     print_ps = functools.partialmethod(_print_ps, "ps")
     print_eps = functools.partialmethod(_print_ps, "eps")

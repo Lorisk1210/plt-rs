@@ -84,6 +84,7 @@ engine, windowing layer and conformance suite.
 | Adobe Glyph List For New Fonts 1.7 (`aglfn.txt`, as fontTools ships it in its `agl` module, whose `UV2AGL` `crates/pltrs-font/src/agl.rs` ports) | BSD-3-Clause, Adobe's notice at the top of the file (`adobe-glyph-list.txt`) | `crates/pltrs-font/data/aglfn.txt` |
 | matplotlib's sample data (`mpl-data/sample_data`: the files `cbook.get_sample_data` opens, among them the photograph `grace_hopper.jpg`, a U.S. Navy photograph in the public domain) | Matplotlib License, as matplotlib distributes them (`matplotlib.txt`) | `python/pltrs/mpl-data/sample_data` |
 | matplotlib's window and toolbar icons (`mpl-data/images`: the PNGs the Tk backend shows) | Matplotlib License, as matplotlib distributes them (`matplotlib.txt`) | `python/pltrs/mpl-data/images` |
+| matplotlib's default rc file and `kpsewhich` script (`mpl-data/matplotlibrc`, `mpl-data/kpsewhich.lua`), which programs read below `get_data_path()` | Matplotlib License, as matplotlib distributes them (`matplotlib.txt`) | `python/pltrs/mpl-data` |
 | matplotlib's WebAgg page, scripts and toolbar icons, the toolbar icons also those of the figure windows in matplotlib's look | Matplotlib License | `crates/pltrs/src/web/assets` (see its `LICENSE`), embedded for the windows by `crates/pltrs/src/gui/images.rs` |
 
 ## Test data in the repository only

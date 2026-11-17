@@ -223,8 +223,16 @@ impl Pages {
 }
 
 /// The document information dictionary (`_create_pdf_info_dict`): the
-/// creator, producer and creation date first, then the other entries.
+/// creator, producer and creation date first, then the other entries; the
+/// program's own entries as it wrote them, if it gave them
+/// ([`Metadata::pdf_info`]).
 pub(super) fn info_dict(metadata: &Metadata) -> Obj {
+    if let Some(entries) = &metadata.pdf_info {
+        let written = entries
+            .iter()
+            .map(|(key, value)| (key.clone(), Obj::Raw(value.clone())));
+        return Obj::Dict(written.collect());
+    }
     let text = |key: &str, value: &Option<String>| {
         value
             .as_ref()
@@ -272,6 +280,19 @@ mod tests {
             "<< /CreationDate (D:19700101000000Z) /Title (T) /Author (A)\n/Trapped /Unknown >>"
         );
         assert_eq!(text(&info_dict(&Metadata::none())), "<< >>");
+    }
+
+    #[test]
+    fn info_written_by_the_program_is_written_as_it_is() {
+        let metadata = Metadata {
+            title: Some("left out".to_owned()),
+            pdf_info: Some(vec![
+                ("Title".to_owned(), b"5".to_vec()),
+                ("Trapped".to_owned(), b"/True".to_vec()),
+            ]),
+            ..Metadata::none()
+        };
+        assert_eq!(text(&info_dict(&metadata)), "<< /Title 5 /Trapped /True >>");
     }
 
     #[test]

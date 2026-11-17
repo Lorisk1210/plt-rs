@@ -167,7 +167,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         if name == "draw" and "_native" in vars(self):  # As in matplotlib.
             _python_drawing.attach(self, again=True)
         elif name == "stale_callback":
-            _artist_staleness.set_by_program()
+            _artist_staleness.set_by_program(self)
         elif name in _POSITION_SETTERS:
             # An axis label's (ultraplot's spanning labels follow them).
             _axis_artists.follow_program_setters(self, name)
@@ -339,6 +339,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         elif new_axes is not None:
             self.__dict__.pop("_axes_unset", None)
         self._axes = new_axes
+        if new_axes is not None and not isinstance(new_axes, StalenessMixin):
+            # matplotlib's stale callback fails to mark it stale: the
+            # changes pltrs (Rust) makes run it (`._artist_staleness`).
+            _artist_staleness.watch(self)
         self._axes_given(new_axes)
 
     def _axes_given(self, axes):
@@ -478,10 +482,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         b : bool
         """
         if b != self.get_visible():
+            # (pltrs (Rust) marks the artist stale.)
             _artist.set_visible(self._native, bool(b))
             _values.remember(self, "visible", b)
             self.pchanged()
-            self.stale = True
 
     def get_zorder(self):
         """Return the artist's zorder."""
@@ -516,8 +520,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
                 _values.keep(self, "zorder", level)
                 _unusable.keep(self, "zorder", level, self._sort_with_siblings,
                                measured=False)
+            # (pltrs (Rust) marked the artist stale.)
             self.pchanged()
-            self.stale = True
 
     def _sort_with_siblings(self, _):
         """Fail as matplotlib's draw of the Axes (or figure) holding the
@@ -566,6 +570,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         else:
             _artist.set_alpha(self._native, alpha)
             _values.remember(self, "alpha", alpha)
+            if self._staled_by_setters:
+                self.stale = True
         self.pchanged()
 
     #: Whether the alpha, transform, clip regions and path effects the
@@ -573,6 +579,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
     #: (a figure's: its background has an alpha of its own), else pltrs
     #: (Rust) draws the artist with them.
     _kept_only = False
+
+    #: Whether the alpha, clipping and snapping setters stale the artist
+    #: themselves (an artist drawn by another, `._drawn_with.DrawnWith`),
+    #: else pltrs (Rust) does.
+    _staled_by_setters = False
 
     @property
     def _alpha(self):
@@ -632,6 +643,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """
         _artist.set_clip_on(self._native, bool(b))
         _values.remember(self, "clip_on", b)
+        if self._staled_by_setters:
+            self.stale = True
 
     def get_rasterized(self):
         """Return whether the artist is to be rasterized."""
@@ -791,6 +804,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             _artist.set_snap(self._native, None if snap is None else bool(snap))
             _unusable.drop(self, "snap")
             _values.remember(self, "snap", snap)
+            if self._staled_by_setters:
+                self.stale = True
         else:
             # matplotlib keeps what no ``e_snap_mode`` casts from (text, a
             # list), failing where its draw hands a renderer a graphics

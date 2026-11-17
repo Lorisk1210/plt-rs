@@ -11,6 +11,7 @@ import PIL.Image
 
 from .. import _docstring
 from .. import _api, _handles, _live_transforms, _values, cbook, colorizer as mcolorizer
+from . import _failed_calls
 from .. import image as mimage
 from .._native import image as _native_image
 from .._preprocess import _preprocess_data
@@ -284,6 +285,8 @@ class ImagingMixin:
             aspect = _rc('image.aspect')
         if aspect is not None:
             self.set_aspect(aspect)
+            # Kept should the data be refused (matplotlib gives it after).
+            _failed_calls.keep_added(self)
         A = mimage._ImageBase._normalize_image_array(X)
         colorizer._scale_norm(norm, vmin, vmax, A)
         spec = {

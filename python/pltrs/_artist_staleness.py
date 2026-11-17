@@ -9,9 +9,17 @@ matplotlib's (`_stale_axes_callback` for an artist in an Axes,
 callback of its own on any artist, setting ``artist.stale = True`` runs the
 chain of callbacks as matplotlib does: the artist's, which sets its Axes'
 or its figure's ``stale``, which runs theirs, up to the program's.
+
+The changes pltrs (Rust) makes (a setter, a plotting method) set no
+``stale`` in Python: the figure of an artist given a callback of the
+program's reports the artists they mark stale (`watch`), and at the end
+of the native call each of them is set stale as matplotlib's setters set
+it (`stale_reported`), which runs the chain.
 """
 
-from ._native import artist as _artist
+import weakref
+
+from ._native import artist as _artist, register as _register
 
 #: A callback nobody set: the artist's reads as matplotlib's default.
 _DEFAULT = object()
@@ -91,11 +99,55 @@ def default_stale_callback(artist):
     return _default_callback(artist)
 
 
-def set_by_program():
-    """Note that a program set a stale callback of its own (see
-    `_program_callbacks`)."""
+#: The root figures reporting the artists their changes mark stale.
+_watched = weakref.WeakSet()
+
+#: Whether a figure was ever watched: until then nothing is reported, and
+#: what reports need is skipped (`._mirrors.push`).
+reporting = False
+
+
+def set_by_program(artist):
+    """Note that a program set a stale callback of its own on *artist*
+    (see `_program_callbacks`), whose figure then reports its changes
+    (`watch`)."""
     global _program_callbacks
     _program_callbacks = True
+    watch(artist)
+
+
+def watch(artist):
+    """Have the root figure of *artist*, if it has one, report the artists
+    its changes mark stale, which `stale_reported` sets stale."""
+    global reporting
+    figure = artist.get_figure(root=True)
+    if figure is not None and figure not in _watched:
+        reporting = True
+        _watched.add(figure)
+        _artist.report_stale(figure._native, True)
+
+
+def stale_reported():
+    """Set stale, as matplotlib's setters do, the artists pltrs (Rust)
+    marked stale in the figures watched (`watch`) during the native call
+    that ends, running their stale callbacks."""
+    from ._handles import wrap_any
+    for figure in list(_watched):
+        root = _artist.id(figure._native)
+        for native in _artist.take_stale_reports(figure._native):
+            if _artist.id(native) == root:
+                # A change to the figure's own state.
+                figure.stale = True
+                continue
+            try:
+                artist = wrap_any(native, figure)
+            except AttributeError:
+                # A part with no class of its own here (a tick).
+                continue
+            artist.stale = True
+
+
+_register("stale_reported", stale_reported)
 
 
 class StalenessMixin:

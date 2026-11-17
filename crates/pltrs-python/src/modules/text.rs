@@ -216,9 +216,10 @@ fn get_wrap(text: Text) -> PyResult<bool> {
     Ok(text.wrap())
 }
 
-/// Sets whether the lines are wrapped to fit in the figure.
+/// Sets whether the lines are wrapped to fit in the figure, leaving the
+/// text as fresh as it was (as matplotlib's `set_wrap` does).
 fn set_wrap(text: Text, wrap: bool) -> PyResult<()> {
-    text.set_wrap(wrap);
+    pltrs::figure::unseen(|| text.set_wrap(wrap));
     Ok(())
 }
 
@@ -286,9 +287,10 @@ impl FromPy<'_> for BoxKwargs {
     }
 }
 
-/// `set_bbox(rectprops)`: draws a box behind the text (`None` removes it).
+/// `set_bbox(rectprops)`: draws a box behind the text (`None` removes
+/// it), leaving the text as fresh as it was (as matplotlib's does).
 fn set_bbox(text: Text, props: Option<BoxKwargs>) -> PyResult<()> {
-    text.set_bbox(props.map(|props| props.0));
+    pltrs::figure::unseen(|| text.set_bbox(props.map(|props| props.0)));
     Ok(())
 }
 

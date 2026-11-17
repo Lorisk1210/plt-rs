@@ -21,6 +21,7 @@ pub(in crate::modules) mod filter;
 mod own_state;
 mod picking;
 mod stale;
+pub(super) use stale::deliver_stale_reports;
 
 pub(super) use clip::ClipSpec;
 pub(super) use filter::{filter_image, image_array, python_filter};
@@ -166,9 +167,11 @@ fn get_label(artist: RawHandle) -> PyResult<String> {
     Ok(artist.label())
 }
 
-/// Sets the legend label.
+/// Sets the legend label, leaving the artist as fresh as it was:
+/// `Artist.set_label` stales it as matplotlib's does, through `stale`
+/// (which a container, borrowing the method, keeps as an attribute).
 fn set_label(artist: RawHandle, label: String) -> PyResult<()> {
-    artist.set_label(label);
+    pltrs::figure::unseen(|| artist.set_label(label));
     Ok(())
 }
 

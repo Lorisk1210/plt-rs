@@ -20,6 +20,9 @@ import functools
 import inspect
 import weakref
 
+from . import _artist_staleness
+from ._native import artist as _artist
+
 #: What a `Mirroring` answers to leave a question to the mirror's class.
 OWN = object()
 
@@ -33,6 +36,11 @@ class Mirroring:
     is in (`figure`) and the transform matplotlib places it with
     (`transform`); `OWN` leaves the answer to the mirror's class.
     """
+
+    #: Whether matplotlib's part has a stale callback, which stales what
+    #: holds it (a figure's patch): pushing then runs the program's
+    #: callbacks as the owner's change (see `push`).
+    stales_owner = False
 
     def window_extent(self, artist, renderer=None, dpi=None):
         """The display box of the part *artist* mirrors, or `OWN`."""
@@ -156,10 +164,26 @@ def _pushing(method):
         result = method(self, *args, **kwargs)
         mirror = mirroring(self)
         if mirror is not None:
-            mirror.push(self)
+            if _artist_staleness.reporting:
+                push(mirror, self)
+            else:
+                mirror.push(self)
         return result
     setter._pushes = True
     return setter
+
+
+def push(mirror, obj):
+    """Give the part *mirror* stands for the state of its mirror *obj*
+    (`Mirroring.push`). matplotlib's part is the mirror itself, whose
+    setters stale it alone (most parts have no stale callback): the owner
+    pltrs (Rust) marks stale meanwhile is reported to no stale callback of
+    the program's (`._artist_staleness`), unless the part's would stale it
+    (`Mirroring.stales_owner`)."""
+    if _artist_staleness.reporting and not mirror.stales_owner:
+        _artist.unreported(mirror.push, obj)
+    else:
+        mirror.push(obj)
 
 
 def pushing(cls):

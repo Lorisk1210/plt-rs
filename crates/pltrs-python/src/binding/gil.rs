@@ -87,6 +87,13 @@ pub(crate) fn gil_held() -> bool {
     GIL_COUNT.with(|count| count.get() > 0)
 }
 
+/// Whether the native call ending on this thread is its outermost: no
+/// native call of the thread runs around it (asked by the work left to
+/// the end of a call, [`after_call`]).
+pub(crate) fn outermost_call() -> bool {
+    GIL_COUNT.with(|count| count.get() == 1)
+}
+
 /// Runs `f` with the GIL released, taking it back afterwards (also when
 /// `f` panics), so that other threads run meanwhile. The thread does not
 /// count as holding the GIL meanwhile, even inside a native call: a

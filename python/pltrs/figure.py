@@ -54,6 +54,13 @@ _figure_draws = _lazy_imports.module(globals(), "._figure_draws")
 _program = _lazy_imports.module(globals(), ".projections._program")
 
 _log = logging.getLogger(__name__)
+# The loggers of the modules matplotlib's figure imports, which programs
+# configure by name: pltrs loads some of these modules later, or has them
+# log through others.
+for _module in ('_constrained_layout', '_layoutgrid', 'axes', 'axes._axes', 'axes._base',
+                'axis', 'dates', 'gridspec', 'texmanager', 'text', 'textpath'):
+    logging.getLogger(f'{__package__}.{_module}')
+del _module
 
 
 def _native_maker(projection_class):

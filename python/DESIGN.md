@@ -3508,6 +3508,25 @@ wait cursor; vector canvases leave their figure at 72 dpi once drawn); and
 a Jupyter kernel runs pltrs' windows between its messages
 (`_pltrs_loop._kernel_loop`, `%matplotlib pltrs`).
 
+### Sphinx
+
+matplotlib's Sphinx extensions (`sphinxext`: the plot directive,
+`mathmpl`, `figure-mpl` and the roles) are matplotlib's modules, changed
+only where they import the package, and line for line matplotlib's, as
+the tracebacks of a failing plot in a build's warnings show their lines.
+They run pltrs through its public API, as they run matplotlib, so a
+difference in a documentation build is a difference of pltrs', fixed
+there. `python/tests/test_sphx1.py` builds `python/tests/sphinx_project`,
+which uses every option and configuration value of the extensions, under
+matplotlib and under pltrs as matplotlib, and compares the warnings, the
+files, the HTML and the pictures (`sphinx_builds.py`, which also serves
+to compare real projects' documentation); matplotlib's own
+`test_sphinxext.py` runs in the suite. The plot directive resets the
+rcParams with `rc_file_defaults` before each plot, which gives the look's
+parameters (`rcParamsOrig`): a documentation build draws in pltrs' modern
+look unless `PLTRS_LOOK=matplotlib` is set, while sphinx-gallery, which
+resets with `rcdefaults`, draws in matplotlib's.
+
 ### Apple silicon
 
 pltrs agrees with numpy and matplotlib on the machine it runs on, not

@@ -38,8 +38,9 @@ matplotlib's: PNG pixel for pixel, and SVG, PDF, PostScript and PGF
 documents drawing the same items.
 Interactive figures open in pltrs' own windows (Wayland, X11, macOS,
 Windows) or in a browser (WebAgg). pltrs (Python) also runs in Jupyter
-(inline, nbAgg, ipympl) and with matplotlib's Qt, GTK 3 and 4, Tk, wx and
-Cairo backends.
+(inline, nbAgg, ipympl), with matplotlib's Qt, GTK 3 and 4, Tk, wx and
+Cairo backends, and in Sphinx documentation builds (matplotlib's plot
+directive, `mathmpl`, `figure-mpl` and roles).
 
 pltrs is MIT OR Apache-2.0. The code it ports from matplotlib and the
 libraries under it keeps their permissive licences (`THIRD_PARTY.md`,
@@ -76,7 +77,7 @@ libraries under it keeps their permissive licences (`THIRD_PARTY.md`,
 ### How it is measured
 
 * matplotlib 3.11's own test suite, run unchanged against pltrs: all
-  of the <!--fact:mpl-suite.all-passing-->10,191 tests that pass under matplotlib on the same
+  of the <!--fact:mpl-suite.all-passing-->10,205 tests that pass under matplotlib on the same
   machine pass.
 * The test suites of <!--fact:ecosystem.libraries-->75 libraries built on matplotlib: <!--fact:ecosystem.pltrs-passing-->24,559
   of the <!--fact:ecosystem.reference-passing-->24,559 tests that pass under matplotlib pass under

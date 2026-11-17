@@ -261,8 +261,6 @@ file system that ignores case.
 
 * **Pickles do not cross** between pltrs and matplotlib: a figure pickled
   by matplotlib does not load under pltrs, nor the other way round.
-* **`matplotlib.sphinxext` ships no modules**: a Sphinx project using the
-  plot directive (`.. plot::`) or `mathmpl` fails at its configuration.
 * **3-D patches of your own**: a subclass of `Patch3D` gets no
   `_segment3d`, and its own `draw` is not called; qiskit's Bloch sphere
   draws its vectors without arrowheads.

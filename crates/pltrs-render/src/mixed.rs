@@ -22,7 +22,7 @@ use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
 use crate::quad_mesh::QuadMesh;
 use crate::raster::{RasterBackendError, RasterRenderer};
-use crate::renderer::Renderer;
+use crate::renderer::{Renderer, TextLines};
 
 /// A vector renderer that draws rasterized artists into a raster canvas
 /// placed in the document as an image (matplotlib's `MixedModeRenderer`).
@@ -172,6 +172,14 @@ impl Renderer for MixedModeRenderer<'_> {
 
     fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
         self.active().draw_text(gc, run, origin, angle);
+    }
+
+    fn draw_text_lines(&mut self, gc: &GraphicsContext, text: &TextLines<'_>) -> bool {
+        self.active().draw_text_lines(gc, text)
+    }
+
+    fn takes_texts_whole(&self) -> bool {
+        self.current().takes_texts_whole()
     }
 
     fn rounds_glyph_positions(&self) -> bool {

@@ -66,6 +66,13 @@ impl RawHandle {
         &self.figure
     }
 
+    /// The size in pixels of the artist's figure (matplotlib's
+    /// `figure.bbox`), which matplotlib's drawing reads where it needs
+    /// the canvas' size, rather than asking the renderer.
+    pub fn figure_size_pixels(&self) -> (f64, f64) {
+        self.figure.borrow().size_pixels()
+    }
+
     /// Whether `other` is an artist of the same figure, which ids of
     /// artists refer to (a loose artist is alone in a holder of its own).
     ///

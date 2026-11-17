@@ -235,6 +235,17 @@ class RendererAgg(AggArgumentsMixin, NativeDrawingMixin, RendererBase):
         finally:
             self._queued = None
 
+    def _replaced_drawing(self):
+        """The drawing methods the program replaced on this renderer or on
+        `RendererAgg` (a renderer of a class of its own draws through
+        Python whole, see `._python_drawing.overrides_drawing`), which the
+        canvas' draw hands it as matplotlib's artists call them."""
+        own = vars(self)
+        held = RendererAgg.__dict__
+        return ([name for name, method in _OWN_DRAWING.items()
+                 if name in own or held.get(name) is not method]
+                + [name for name in _BOUND_DRAWING if name in own])
+
     @contextmanager
     def _drawing(self):
         """Draw with this renderer: its text metrics cache measures the
@@ -365,6 +376,18 @@ class RendererAgg(AggArgumentsMixin, NativeDrawingMixin, RendererBase):
 #: The ``draw_tex`` of `RendererAgg`, which pltrs (Rust) draws TeX with.
 _OWN_DRAW_TEX = RendererAgg.draw_tex
 
+#: The drawing methods of `RendererAgg` a program may replace on the class
+#: to see what matplotlib's artists draw, as the class holds them (None:
+#: inherited).
+_OWN_DRAWING = {name: RendererAgg.__dict__.get(name) for name in (
+    "draw_path", "draw_text", "open_group", "close_group")}
+
+#: Those matplotlib's renderer binds on each renderer to its C++ one
+#: (``RendererAgg._update_methods``), which only a replacement on the
+#: renderer itself replaces.
+_BOUND_DRAWING = ("draw_markers", "draw_path_collection", "draw_quad_mesh",
+                  "draw_gouraud_triangles", "draw_image")
+
 
 # Raster canvases draw text as paths while the program has taken
 # `RendererAgg.draw_text` away, as `RendererBase.draw_text` draws it.
@@ -390,11 +413,16 @@ class FigureCanvasAgg(FigureCanvasBase):
         self.renderer.clear()
         with self._wait_cursor():
             with self.renderer._drawing():
-                # Through the figure's class' own draw, if it has one.
+                # Through the figure's class' own draw, if it has one, and
+                # the renderer's drawing methods the program replaced.
                 from .. import _figure_draws
-                _figure_draws.draw(self.figure,
-                                   lambda: _backends.draw(self.figure._native),
-                                   lambda: self.renderer)
+                replaced = self.renderer._replaced_drawing()
+                native = self.figure._native
+                _figure_draws.draw(
+                    self.figure,
+                    (lambda: _backends.draw_replacing(native, self.renderer, replaced))
+                    if replaced else (lambda: _backends.draw(native)),
+                    lambda: self.renderer)
             DrawEvent("draw_event", self, self.renderer)._process()
             # A GUI class may be need to update a window using this draw, so
             # don't forget to call the superclass.

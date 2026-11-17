@@ -3,7 +3,10 @@
 
 use std::collections::HashSet;
 
-use pltrs::text::{Feature, Language, LanguageRange, tex_glyphs, text_path_shaped, text_path_tex};
+use pltrs::text::{
+    Feature, Language, LanguageRange, set_metrics_cache, tex_glyphs, text_path_shaped,
+    text_path_tex,
+};
 use pltrs_core::{Path, PathCode, Point};
 use pltrs_text::{Shaping, TEXT_PATH_FONT_SCALE};
 
@@ -76,13 +79,17 @@ fn get_text_path(
 ) -> PyResult<PathArrays> {
     let at = Point::new(0.0, 0.0);
     let size = Some(TEXT_PATH_FONT_SCALE);
+    let shaping = shaping(features, language)?;
+    // `TextToPath` lays text out by itself, through no renderer's
+    // metrics cache (the cache of a renderer drawing meanwhile).
+    let installed = set_metrics_cache(None);
     let path = if usetex {
         text_path_tex(at, &s, size, &props.0)
     } else {
-        text_path_shaped(at, &s, size, &props.0, &shaping(features, language)?, math)
-    }
-    .map_err(|err| PyErr::value_error(err.to_string()))?;
-    path_arrays(&path)
+        text_path_shaped(at, &s, size, &props.0, &shaping, math)
+    };
+    set_metrics_cache(installed);
+    path_arrays(&path.map_err(|err| PyErr::value_error(err.to_string()))?)
 }
 
 /// A glyph of `get_glyphs_tex`: the PostScript name of its font, its index

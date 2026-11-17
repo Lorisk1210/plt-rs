@@ -139,8 +139,22 @@ def takes_from_program(cls, name):
     for klass in cls.__mro__:
         if name in vars(klass):
             path = getattr(sys.modules.get(klass.__module__), "__file__", None)
+            if path is None:
+                path = _code_file(vars(klass)[name])
             return path is None or _outside_package(path)
     return False
+
+
+def _code_file(attribute):
+    """The source file of the code of *attribute* (a function, a method
+    object, a property's getter), None when it has none: where a class'
+    attribute comes from when the class' module is not among
+    ``sys.modules``. pytest's ``pytester`` takes the modules an in-process
+    run imported out again, while classes of this package made during the
+    run live on; such a class is not the program's (a renderer taken for
+    one was measured through itself without end)."""
+    function = getattr(attribute, "__func__", None) or getattr(attribute, "fget", None) or attribute
+    return getattr(getattr(function, "__code__", None), "co_filename", None)
 
 
 @class_cache

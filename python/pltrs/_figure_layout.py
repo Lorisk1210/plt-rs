@@ -483,6 +483,9 @@ default: %(va)s
             for ax in self.axes:
                 if ax.get_visible():
                     _program_locators.place_to_measure(ax, renderer)
+            # And the boxes whose offset a callable of the program's gives,
+            # which matplotlib asks as it measures them.
+            _program_locators.place_boxes_to_measure(self, renderer)
             # pltrs (Rust) unites the boxes of the figure's artists, axes
             # and subfigures, in pixels, measuring with the renderer's
             # text metrics cache.

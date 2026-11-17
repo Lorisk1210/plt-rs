@@ -35,7 +35,7 @@ import numpy as np
 from . import _api, _docstring, _transform_trees, backend_tools as tools, cbook, colors, transforms
 from . import _print_targets
 from . import _val_or_rc, rcParams
-from ._program_classes import takes_from_program
+from ._program_classes import from_program, takes_from_program
 from ._enums import JoinStyle, CapStyle
 from .colors import to_rgba
 from ._pylab_helpers import Gcf
@@ -2198,6 +2198,11 @@ class FigureCanvasBase:
                 # anew at each draw) the tight box and the print take in.
                 self.figure.draw_without_rendering()
                 predrawn = False
+            if (self.figure.get_layout_engine() is not None
+                    or cbook._str_equal(bbox_inches, "tight")) and from_program(print_method):
+                # The draw before the print, done with the program's
+                # renderer if the dry run reached one.
+                predrawn = predrawn and not self._run_dry(print_method, orientation)
             with self._laid_out_for_print(bbox_inches):
                 self.figure.pchanged()
             try:
@@ -2219,6 +2224,28 @@ class FigureCanvasBase:
                 with self._laid_out_for_print(bbox_inches):
                     for _ in range(colored + 1):
                         self.figure.pchanged()
+
+    def _run_dry(self, print_method, orientation):
+        """Run *print_method*, the program's, once to a file of no use, as
+        matplotlib's ``print_figure`` runs it to find the print's renderer
+        (``_get_renderer``) before a print laid out or cut to its tight
+        box: stopped at the figure's draw, which must be reached. A
+        renderer of the program's it reached then draws the figure with
+        its drawing turned off, as matplotlib's draw before the print does
+        with it (asked what the draw asks): whether it did."""
+        from . import _figure_draws
+        try:
+            with _figure_draws.dry_run():
+                print_method(io.BytesIO(), orientation=orientation)
+        except _figure_draws.DryRunDrawn as drawn:
+            renderer, = drawn.args
+            if type(renderer)._draw_artist is not RendererBase._draw_artist:
+                return False
+            with renderer._draw_disabled():
+                self.figure.draw(renderer)
+            return True
+        raise RuntimeError(f"{functools.partial(print_method, orientation=orientation)} "
+                           f"did not call Figure.draw, so no renderer is available")
 
     @staticmethod
     def _print_bbox(bbox_inches, pad_inches):

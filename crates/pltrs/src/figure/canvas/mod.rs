@@ -41,7 +41,7 @@ use std::fmt;
 
 use pltrs_core::{Bbox, Point};
 use pltrs_raster::{Pixmap, RasterError};
-use pltrs_render::{RasterBackendError, RasterRenderer, RgbaImage};
+use pltrs_render::{RasterBackendError, RasterRenderer, Renderer, RgbaImage};
 use pltrs_text::TextError;
 
 use super::{DrawErrors, Figure};
@@ -164,9 +164,32 @@ impl FigureCanvas {
     /// When the canvas cannot be made, or some artists cannot be drawn
     /// (the others are).
     pub fn draw(&self) -> Result<(), CanvasError> {
+        self.draw_with(|figure, canvas| figure.draw_without_event(canvas))
+    }
+
+    /// [`draw`](Self::draw), drawing through the renderer `through` makes
+    /// of the canvas' own (one some of whose drawing methods the program
+    /// replaced, drawing the others onto the canvas).
+    ///
+    /// # Errors
+    ///
+    /// As [`draw`](Self::draw).
+    pub fn draw_through(
+        &self,
+        through: impl for<'r> FnOnce(&'r mut RasterRenderer) -> Box<dyn Renderer + 'r>,
+    ) -> Result<(), CanvasError> {
+        self.draw_with(|figure, canvas| figure.draw_without_event(&mut *through(canvas)))
+    }
+
+    /// Draws the figure onto the canvas cleared with `draw`, then sends
+    /// [`Event::Draw`] (see [`draw`](Self::draw)).
+    fn draw_with(
+        &self,
+        draw: impl FnOnce(&Figure, &mut RasterRenderer) -> Result<(), DrawErrors>,
+    ) -> Result<(), CanvasError> {
         let mut kept = self.take()?;
         kept.renderer.clear();
-        let drawn = self.figure.draw_without_event(&mut kept.renderer);
+        let drawn = draw(&self.figure, &mut kept.renderer);
         let drawn = DrawErrors::with_refused_memory(drawn, &mut kept.renderer, self.figure.id());
         self.keep(kept);
         self.figure.state_mut().canvas.drawn();

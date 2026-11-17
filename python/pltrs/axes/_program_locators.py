@@ -167,9 +167,11 @@ def follow_engine(figure):
 
 def _owners(figure):
     """What the root *figure* places by locators of the program's, its
-    layout hook installed."""
+    layout hook installed, and its draw hook, which places the Axes again
+    once the figure is laid out (`locate_laid_out`)."""
     owners = _followed.get(figure)
     if owners is None:
+        from .. import _computed_transforms
         owners = _followed[figure] = weakref.WeakKeyDictionary()
         figure_ref = weakref.ref(figure)
 
@@ -179,7 +181,22 @@ def _owners(figure):
                 _locate(alive)
 
         _insets.set_layout_hook(figure._native, hook)
+        _computed_transforms.follow(figure)
     return owners
+
+
+def locate_laid_out(figure):
+    """Place the Axes of the root *figure* placed by locators of the
+    program's where they say once the figure is laid out, as matplotlib's
+    ``Axes.draw`` applies its locator, after the layout engine moved the
+    Axes the locators read."""
+    axes = [owner for owner in _followed.get(figure, ()) if hasattr(owner, "_axes_locator")]
+    if axes:
+        from .._native import axes_base as _axes_base
+        renderer = drawing_renderer(figure)
+        for ax in axes:
+            ax._locate_by_program(renderer)
+            _axes_base.apply_aspect(ax._native, None)
 
 
 def followed(figure):
@@ -197,6 +214,19 @@ def place_to_measure(ax, renderer):
     if figure is not None and ax in _followed.get(figure, ()):
         ax._locate_by_program(figure._get_renderer() if renderer is None else renderer)
     measure_boxes(ax)
+
+
+def place_boxes_to_measure(figure, renderer):
+    """Place the offset boxes of *figure* whose offset a callable of the
+    program's gives where it says now, as matplotlib's measure of such a
+    box asks it (with the figure's renderer when *renderer* is None)."""
+    root = figure.get_figure(root=True)
+    boxes = [owner for owner in _followed.get(root, ())
+             if not hasattr(owner, "_axes_locator") and callable(getattr(owner, "_offset", None))]
+    if boxes:
+        renderer = root._get_renderer() if renderer is None else renderer
+        for box in boxes:
+            box._locate_by_program(renderer)
 
 
 def forget(owner, figure):

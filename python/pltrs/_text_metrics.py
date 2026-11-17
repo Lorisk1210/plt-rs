@@ -21,7 +21,8 @@ import contextlib
 import threading
 
 from ._native import text_overrides as _native
-from .font_manager import FontManager
+from ._program_classes import class_cache, takes_from_program
+from .font_manager import FontManager, FontProperties
 
 #: What a cache has done (the fields of ``functools.lru_cache``'s
 #: ``cache_info()``).
@@ -52,9 +53,25 @@ def _measures_as(renderer):
     """How *renderer* measures the lines pltrs (Rust) lays out with it: as
     its vector backend (``_text_metrics`` of its class: ``"pdf"``,
     ``"ps"``, ``"svg"``), that of its vector renderer for a mixed-mode
-    renderer, else as Agg (``"raster"``)."""
+    renderer, by its own ``get_text_width_height_descent`` for a renderer
+    of the program's (``"program"``: one drawing through the package's
+    `.RendererBase`, or measuring with a method of its own), else as Agg
+    (``"raster"``)."""
     measuring = getattr(renderer, "_vector_renderer", renderer)
+    if _measures_itself(type(measuring)):
+        return "program"
     return getattr(type(measuring), "_text_metrics", "raster")
+
+
+@class_cache
+def _measures_itself(cls):
+    """Whether renderers of the class *cls* measure text with their own
+    ``get_text_width_height_descent``, as matplotlib's do: those of the
+    program's (drawing through `.RendererBase._draw_artist`), and those
+    whose class gives the method."""
+    from .backend_bases import RendererBase
+    return (getattr(cls, "_draw_artist", None) is RendererBase._draw_artist
+            or takes_from_program(cls, "get_text_width_height_descent"))
 
 
 class TextMetrics:
@@ -67,7 +84,16 @@ class TextMetrics:
 
     def __init__(self, renderer_ref):
         self._renderer_ref = renderer_ref
-        self._native = _native.new_metrics_cache(_measures_as(renderer_ref()))
+        renderer = renderer_ref()
+        measures_as = "raster" if renderer is None else _measures_as(renderer)
+        self._native = _native.new_metrics_cache(
+            measures_as, self._measure if measures_as == "program" else None)
+
+    def _measure(self, text, props, ismath, dpi):
+        """A line pltrs (Rust) lays out with a renderer of the program's,
+        measured by the renderer (on a miss of its cache)."""
+        return self._renderer_ref().get_text_width_height_descent(
+            text, FontProperties._from_native(props), ismath)
 
     def __call__(self, text, fontprop, ismath, dpi):
         def measure():

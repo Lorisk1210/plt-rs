@@ -11,6 +11,41 @@ use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
 use crate::quad_mesh::QuadMesh;
 
+/// One line of a text as matplotlib's `Text.draw` hands it to a
+/// renderer's `draw_text` or `draw_tex`: the line laid out (its
+/// [`TextRun::source`] says what it is) and the left end of its baseline,
+/// in display coordinates.
+#[derive(Clone, Copy, Debug)]
+pub struct TextLine<'a> {
+    /// The line laid out.
+    pub run: &'a TextRun,
+    /// The left end of its baseline.
+    pub origin: Point,
+}
+
+/// A text as matplotlib's `Text.draw` draws it through a renderer: its
+/// lines, its rotation, and what drew it (its artist and its font, as the
+/// crate drawing it describes them), for renderers that take texts whole
+/// (see [`Renderer::draw_text_lines`]).
+#[derive(Clone, Copy)]
+pub struct TextLines<'a> {
+    /// The lines, first to last.
+    pub lines: &'a [TextLine<'a>],
+    /// The rotation in degrees counter-clockwise.
+    pub angle: f64,
+    /// What drew the text, as the crate drawing it describes it.
+    pub source: &'a dyn std::any::Any,
+}
+
+impl std::fmt::Debug for TextLines<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TextLines")
+            .field("lines", &self.lines)
+            .field("angle", &self.angle)
+            .finish_non_exhaustive()
+    }
+}
+
 /// A drawing target: a raster canvas, an SVG/PDF/PS document, a window.
 ///
 /// This mirrors matplotlib's `RendererBase`. All geometry arrives in
@@ -110,6 +145,23 @@ pub trait Renderer {
     /// override it to reproduce `FreeType`'s glyph rendering.
     fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
         fill_text(self, gc, run, origin, angle);
+    }
+
+    /// Draws `text` whole, as matplotlib's `Text.draw` hands a renderer a
+    /// text's lines one by one, each with its string, font and artist
+    /// (`draw_text(gc, x, y, s, prop, angle, ismath, mtext)`); whether
+    /// the renderer drew it. The renderers of this crate don't (they draw
+    /// each line through [`draw_text`](Self::draw_text) or
+    /// [`draw_tex`](Self::draw_tex)), a renderer of the program's does.
+    fn draw_text_lines(&mut self, _gc: &GraphicsContext, _text: &TextLines<'_>) -> bool {
+        false
+    }
+
+    /// Whether the renderer takes texts whole
+    /// ([`draw_text_lines`](Self::draw_text_lines)), which those drawing
+    /// texts ask before they describe one.
+    fn takes_texts_whole(&self) -> bool {
+        false
     }
 
     /// Draws `tex`, a line of TeX text that is the source of `run`

@@ -20,7 +20,7 @@ use crate::axes::{Axes, DataUpdate, PlacedText};
 use crate::colors::Color;
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
-use crate::text::{TextError, draw_laid_out, measure_text};
+use crate::text::{TextError, TextOwner, draw_laid_out, measure_text};
 use crate::transforms::Transform;
 
 /// The z-order of the texts (matplotlib's `Text`).
@@ -293,7 +293,15 @@ impl Artist for AxisTextsState {
             let mut gc = ctx.base_gc(&self.base);
             gc.foreground = text.color;
             gc.antialiased = text.antialiased.unwrap_or(self.rc.text_antialiased);
-            if let Err(err) = draw_laid_out(ctx, &gc, &text.laid_out, text.anchor, text.rotation) {
+            let drawn = draw_laid_out(
+                ctx,
+                &gc,
+                &text.laid_out,
+                text.anchor,
+                text.rotation,
+                TextOwner::Unnamed,
+            );
+            if let Err(err) = drawn {
                 ctx.report_kind(id, err.kind(), err);
             }
         }

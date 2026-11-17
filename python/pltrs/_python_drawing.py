@@ -64,6 +64,10 @@ class _Drawing(threading.local):
         #: prepared, a path effect, a renderer of the program's), which
         #: cannot change it then.
         self.figures = 0
+        #: The root figures drawn through renderers of the program's,
+        #: innermost last (`draw_through`), whose texts their drawing
+        #: methods receive.
+        self.through = []
 
 
 _drawing_now = _Drawing()
@@ -507,8 +511,48 @@ def draw_through(renderer, artist):
     """Draw *artist*, as pltrs (Rust) draws it, through the drawing methods
     of *renderer*, a renderer of the program's (matplotlib's
     ``artist.draw(renderer)``); a figure is laid out and drawn whole."""
-    with _figure_drawn():
-        _drawing.draw_through(renderer, artist._native)
+    from .text import _measuring_with
+    through = _drawing_now.through
+    through.append(artist.get_figure(root=True))
+    try:
+        # Its texts laid out with the renderer's metrics, as matplotlib's
+        # `Text.draw` lays them out.
+        with _figure_drawn(), _measuring_with(renderer):
+            _drawing.draw_through(renderer, artist._native)
+    finally:
+        through.pop()
+
+
+def _text_of(owner):
+    """The `.Text` a text pltrs (Rust) draws through a renderer of the
+    program's is (``draw_text``'s *mtext*), from its *owner*:
+    ``("artist", handle)``, ``("cell", table handle, (row, column))``,
+    ``("axis", axes handle,
+    axis name, (part, minor, index, second))``, or None for a text pltrs
+    does not name."""
+    figure = _drawing_now.through[-1] if _drawing_now.through else None
+    if owner is None or figure is None:
+        return None
+    from . import _handles
+    kind, native, *rest = owner
+    artist = _handles.wrap_any(native, figure)
+    if kind == "artist":
+        return artist
+    if kind == "cell":
+        return artist[rest[0]].get_text()
+    (name, (part, minor, index, second)) = rest
+    axis = getattr(artist, f"{name}axis")
+    if part == "label":
+        return axis.label
+    if part == "offset":
+        return axis.offsetText
+    ticks = axis._ticks[minor]
+    if index < len(ticks):
+        tick = ticks[index]
+    else:
+        from .axis import Tick
+        tick = (axis._tick_class or Tick)._of_axis(axis, not minor, index)
+    return tick.label2 if second else tick.label1
 
 
 #: The methods matplotlib's drawing calls on a renderer.
@@ -547,11 +591,12 @@ def paint(artist):
 
 
 @contextlib.contextmanager
-def _gc_of(renderer, spec):
+def _gc_of(renderer, spec, with_gid=False):
     """A graphics context of *renderer* set as pltrs (Rust) describes one
-    (*spec*), restored once the drawing call is done."""
+    (*spec*), its gid only *with_gid* (matplotlib's images set it, no other
+    artist), restored once the drawing call is done."""
     from .backends._native_drawing import gc_from_native
-    gc = gc_from_native(spec, renderer.new_gc())
+    gc = gc_from_native(spec, renderer.new_gc(), with_gid)
     try:
         yield gc
     finally:
@@ -570,8 +615,7 @@ class forward_drawing:
     def draw_path(renderer, gc, path, matrix, rgbFace):
         """``renderer.draw_path``."""
         with _gc_of(renderer, gc) as gc:
-            renderer.draw_path(gc, Path(*path), mtransforms.Affine2D(matrix),
-                               rgbFace)
+            renderer.draw_path(gc, Path(*path), _frozen(matrix), rgbFace)
 
     @staticmethod
     def draw_markers(renderer, gc, marker, marker_matrix, path, matrix, rgbFace):
@@ -579,22 +623,48 @@ class forward_drawing:
         with _gc_of(renderer, gc) as gc:
             renderer.draw_markers(gc, Path(*marker),
                                   mtransforms.Affine2D(marker_matrix),
-                                  Path(*path), mtransforms.Affine2D(matrix),
-                                  rgbFace)
+                                  Path(*path), _frozen(matrix), rgbFace)
 
     @staticmethod
     def draw_path_collection(renderer, gc, master, paths, transforms, offsets,
                              colors, strokes):
         """``renderer.draw_path_collection``, the *offsets* in display
-        pixels."""
+        pixels, as matplotlib's `.Collection.draw` calls it: first with no
+        paths and the hatch colours, to learn whether the renderer takes
+        them (a renderer written before them raises `TypeError`), then with
+        the paths, with the hatch colours where it takes them, else without
+        them, or, for a hatched collection, item by item through
+        ``draw_path`` (`.RendererBase._iter_collection`)."""
         facecolors, edgecolors, hatchcolors = colors
         linewidths, linestyles, antialiaseds, urls = strokes
+        master = _frozen(master)
+        offset_trf = mtransforms.IdentityTransform()
+        linewidths = np.asarray(linewidths, dtype=float)
+        antialiaseds = np.asarray(antialiaseds, dtype=bool)
+        paths = [Path(*path) for path in paths]
         with _gc_of(renderer, gc) as gc:
-            renderer.draw_path_collection(
-                gc, mtransforms.Affine2D(master), [Path(*path) for path in paths],
-                transforms, offsets, mtransforms.IdentityTransform(), facecolors,
-                edgecolors, np.asarray(linewidths, dtype=float), linestyles,
-                antialiaseds, urls, "screen", hatchcolors=hatchcolors)
+            def draw(paths, **hatch):
+                renderer.draw_path_collection(
+                    gc, master, paths, transforms, offsets, offset_trf, facecolors,
+                    edgecolors, linewidths, linestyles, antialiaseds, urls, "screen",
+                    **hatch)
+            try:
+                draw([], hatchcolors=hatchcolors)
+            except TypeError:
+                if gc.get_hatch() is None:
+                    draw(paths)
+                    return
+                path_ids = renderer._iter_collection_raw_paths(master, paths, transforms)
+                for xo, yo, (path, transform), gc0, rgbFace in renderer._iter_collection(
+                        gc, list(path_ids), offsets, offset_trf, facecolors, edgecolors,
+                        linewidths, linestyles, antialiaseds, urls, "screen",
+                        hatchcolors=hatchcolors):
+                    if xo != 0 or yo != 0:
+                        transform = transform.frozen()
+                        transform.translate(xo, yo)
+                    renderer.draw_path(gc0, path, transform, rgbFace)
+            else:
+                draw(paths, hatchcolors=hatchcolors)
 
     @staticmethod
     def draw_quad_mesh(renderer, gc, master, coordinates, facecolors,
@@ -616,15 +686,63 @@ class forward_drawing:
                                             mtransforms.Affine2D(matrix))
 
     @staticmethod
+    def draw_text_lines(renderer, gc, lines, angle, props, owner):
+        """A text as matplotlib's ``Text.draw`` draws it: the canvas'
+        height asked, a graphics context made, then each line ``(s,
+        ismath, x, y)`` (the left end of its baseline, in display
+        coordinates from the bottom) handed to ``draw_text``, or to
+        ``draw_tex`` for TeX, with *y* from the top where the renderer's
+        ``flipy()`` says so, the text's font and, for a single line, the
+        text itself (*owner*, see `_text_of`)."""
+        from .font_manager import FontProperties
+        text = _text_of(owner)
+        prop = (text.get_fontproperties() if text is not None
+                else FontProperties._from_native(props))
+        _, canvash = renderer.get_canvas_width_height()
+        mtext = text if len(lines) == 1 else None
+        with _gc_of(renderer, gc) as gc:
+            for s, ismath, x, y in lines:
+                if renderer.flipy():
+                    y = canvash - y
+                if ismath == "TeX":
+                    renderer.draw_tex(gc, x, y, s, prop, angle, mtext=mtext)
+                else:
+                    renderer.draw_text(gc, x, y, s, prop, angle, ismath=ismath,
+                                       mtext=mtext)
+
+    @staticmethod
+    def recorded(renderer, method, *args):
+        """``forward_drawing.<method>(renderer, *args)`` with *renderer*
+        (the canvas' `RendererAgg`, some of whose methods the program
+        replaced) recording what its own methods draw: the drawing, which
+        pltrs (Rust) draws onto the canvas."""
+        drawing = _drawing.new()
+        recording, renderer._recording = renderer._recording, drawing
+        try:
+            getattr(forward_drawing, method)(renderer, *args)
+        finally:
+            renderer._recording = recording
+        return drawing
+
+    @staticmethod
     def draw_image(renderer, gc, origin, im, matrix):
         """``renderer.draw_image``, with a transform for renderers that
         scale images."""
         x, y = origin
-        with _gc_of(renderer, gc) as gc:
+        with _gc_of(renderer, gc, with_gid=True) as gc:
             if matrix is None:
                 renderer.draw_image(gc, x, y, im)
             else:
                 renderer.draw_image(gc, x, y, im, mtransforms.Affine2D(matrix))
+
+
+def _frozen(matrix):
+    """The transform matplotlib's drawing hands a renderer for the affine
+    *matrix*: `.IdentityTransform` where it is the identity (a frozen
+    identity), else an `.Affine2D`."""
+    if np.array_equal(matrix, np.identity(3)):
+        return mtransforms.IdentityTransform()
+    return mtransforms.Affine2D(matrix)
 
 
 def filter_function(shared):

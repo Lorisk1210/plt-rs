@@ -351,10 +351,9 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         with its origin at the box's offset in display pixels (a plain
         offset box given to ``add_artist``); return self. A box whose
         offset a callable computes is placed where it says before every
-        layout of a draw, as matplotlib calls it when it draws the box."""
+        layout of a draw (not before: matplotlib calls it when it draws
+        or measures the box)."""
         self._join_placed(_offsetbox.add_placed, parent._native, parent.figure)
-        if callable(self._offset):
-            self._locate_by_program(parent.figure.figure._get_renderer())
         return self
 
     def _join_placed(self, add, parent, figure):

@@ -15,7 +15,7 @@ use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
 use crate::patches::{PatchParts, PatchShape, PatchStyle, RotationPoint};
 use crate::rc::RcParams;
-use crate::text::{LaidOutText, TextDrawError, draw_laid_out, lay_out};
+use crate::text::{LaidOutText, TextDrawError, TextOwner, draw_laid_out, lay_out};
 use crate::transforms::Transform;
 
 /// Padding between a cell's text and its edges, as a fraction of the cell
@@ -419,7 +419,7 @@ impl Cell {
 
     /// Draws the cell placed at `placed` (in the table's axes fractions,
     /// which map to display pixels by `to_display`) with its text
-    /// (`Cell.draw`).
+    /// (`Cell.draw`), in `table`, the text being `owner`.
     pub(crate) fn draw(
         &self,
         ctx: &mut DrawContext<'_>,
@@ -427,6 +427,7 @@ impl Cell {
         rc: &RcParams,
         placed: &PlacedCell,
         to_display: &Affine2D,
+        owner: TextOwner,
     ) -> Result<(), TextDrawError> {
         if !self.base.visible {
             return Ok(());
@@ -457,7 +458,12 @@ impl Cell {
             antialiased: rc.text_antialiased,
             ..GraphicsContext::default()
         };
-        draw_laid_out(ctx, &gc, &laid_out, anchor, 0.0)
+        // The cell's text draws in a group of its own, as matplotlib's
+        // `Text.draw` opens one.
+        ctx.renderer().open_group("text", None);
+        let drawn = draw_laid_out(ctx, &gc, &laid_out, anchor, 0.0, owner);
+        ctx.renderer().close_group("text");
+        drawn
     }
 
     /// Where the text of the cell drawn at `display` (display pixels) is

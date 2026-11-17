@@ -76,7 +76,7 @@ fn draw_cell_into(drawing: Native<Drawing>, cell: CellRef) -> PyResult<()> {
 /// Draws the cell alone through the drawing methods of `renderer`, a
 /// renderer of the program's (`Cell.draw` with it).
 fn draw_cell_through(renderer: Owned, cell: CellRef) -> PyResult<()> {
-    Ok(cell.0.draw_onto(&mut PythonRenderer::new(renderer))?)
+    Ok(cell.0.draw_onto(&mut PythonRenderer::new(renderer, None))?)
 }
 
 /// A loose rectangle with the cell's look, where its table last placed

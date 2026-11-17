@@ -11,6 +11,7 @@ use super::handle::TableCell;
 use super::layout::AxesMaps;
 use crate::artist::{ArtistHandle, ArtistId, DrawContext, RawHandle};
 use crate::figure::{CanvasError, DrawErrors, Figure, FigureState, StateRole};
+use crate::text::TextOwner;
 
 impl TableArtist {
     /// The maps of the table's axes and its cells placed in the layout
@@ -47,14 +48,26 @@ impl TableArtist {
         placed: &PlacedCell,
         maps: &AxesMaps,
     ) {
-        let cell = &self.cells[index].1;
+        let (key, cell) = &self.cells[index];
         let Some(cell_maps) = cell.maps(ctx.layout(), maps) else {
             return ctx.report(
                 self.base.id(),
                 "a cell's transform is not an invertible affine map",
             );
         };
-        if let Err(err) = cell.draw(ctx, &self.base, &self.rc, placed, &cell_maps.to_display) {
+        let owner = TextOwner::Cell {
+            table: self.base.id(),
+            row: key.0,
+            column: key.1,
+        };
+        if let Err(err) = cell.draw(
+            ctx,
+            &self.base,
+            &self.rc,
+            placed,
+            &cell_maps.to_display,
+            owner,
+        ) {
             ctx.report(self.base.id(), err);
         }
     }

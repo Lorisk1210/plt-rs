@@ -177,9 +177,9 @@ fn measurer() -> Option<Rc<dyn LineMeasurer>> {
 
 /// Whether the program measures the lines laid out on this thread (a
 /// [`LineMeasurer`] in force is set, and the thread does not measure text
-/// itself for now).
+/// itself for now, or the renderer laying them out is the program's).
 pub(crate) fn has_line_measurer() -> bool {
-    measurer().is_some()
+    measurer().is_some() || super::metrics_cache::measured_by_program()
 }
 
 /// The thread's painter if it is in force, unless the thread draws texts

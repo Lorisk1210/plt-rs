@@ -233,8 +233,34 @@ native_value!(Rc<MetricsCache>);
 
 /// A new, empty metrics cache for a renderer measuring as `metrics`
 /// says: `"raster"` (Agg's), `"pdf"`, `"ps"` or `"svg"` (a vector
-/// backend's renderer, see [`RendererMetrics`]).
-fn new_metrics_cache(metrics: String) -> PyResult<Rc<MetricsCache>> {
+/// backend's renderer, see [`RendererMetrics`]), or `"program"`, a
+/// renderer of the program's, whose lines `measure(text, props, ismath,
+/// dpi)` measures (its `get_text_width_height_descent`).
+fn new_metrics_cache(metrics: String, measure: Option<Callback>) -> PyResult<Rc<MetricsCache>> {
+    if metrics == "program" {
+        let measure = measure.ok_or_else(|| {
+            PyErr::type_error("a renderer of the program's measures with its own function")
+        })?;
+        return Ok(Rc::new(MetricsCache::measured_by(Box::new(
+            move |text, font, kind, dpi| {
+                let (width, height, descent) = measure
+                    .call::<(f64, f64, f64)>((
+                        text.to_owned(),
+                        FontProps(font.clone()),
+                        IsMath(kind),
+                        dpi,
+                    ))
+                    .ok_or_else(|| {
+                        TextError::Font("the renderer could not measure the text".into())
+                    })?;
+                Ok(LineMetrics {
+                    width,
+                    height,
+                    descent,
+                })
+            },
+        ))));
+    }
     let metrics = match metrics.as_str() {
         "raster" => RendererMetrics::Raster,
         "pdf" => RendererMetrics::Pdf,

@@ -28,12 +28,14 @@ mod asked;
 mod effect;
 mod foreign;
 mod painter;
+mod replaced;
 mod steps;
 
 pub(super) use asked::AskingPainter;
 pub(super) use effect::{PythonEffect, python_effect};
 pub(super) use foreign::PythonRenderer;
 pub(super) use painter::PythonPainter;
+pub(super) use replaced::{Replaced, ReplacingRenderer};
 
 use pltrs::artist::Drawing;
 

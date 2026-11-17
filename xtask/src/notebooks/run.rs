@@ -20,7 +20,7 @@ use pltrs_core::json;
 use super::compare::{Check, compare};
 use super::record::Record;
 use crate::mpl_suite::outcomes::Outcomes;
-use crate::mpl_suite::{Mode, Options, report};
+use crate::mpl_suite::{Mode, Options, pytest, report};
 use crate::python;
 
 /// The directory of the notebooks, and the prefix of their outcome ids.
@@ -154,8 +154,12 @@ fn execute(mode: Mode, names: &[String]) -> Result<Child, String> {
         .envs(super::environment(mode, &dir)?)
         .env("PYTHONPATH", python_path(mode)?)
         .env("PLTRS_LOOK", "matplotlib")
-        .env("MPLCONFIGDIR", dir.join("mplconfig"))
-        .env_remove("PLTRSCONFIGDIR")
+        .envs(
+            pytest::own_directories(&dir)?
+                .iter()
+                .map(|(name, path)| (name, path)),
+        )
+        .env_remove(pytest::CONFIG_DIR_VARIABLE)
         .env_remove("MPLBACKEND")
         .current_dir(&dir)
         .stdin(Stdio::null())

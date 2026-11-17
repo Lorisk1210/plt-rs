@@ -368,9 +368,9 @@ pltrs (Python) is measured against matplotlib in these ways:
   tests, seaborn, xarray, scikit-learn, statsmodels and geopandas to
   add-ons such as mplhep, ultraplot, mpltern, MetPy, sunpy and
   photutils and the plots of ObsPy, yt and QuTiP (`cargo xtask
-  ecosystem suite`). Of the <!--fact:ecosystem.reference-passing-->24,521
-  tests of theirs that pass under real matplotlib, <!--fact:ecosystem.pltrs-passing-->24,514
-  pass under pltrs too: every one in <!--fact:ecosystem.complete-libraries-->73
+  ecosystem suite`). Of the <!--fact:ecosystem.reference-passing-->24,559
+  tests of theirs that pass under real matplotlib, <!--fact:ecosystem.pltrs-passing-->24,559
+  pass under pltrs too: every one in <!--fact:ecosystem.complete-libraries-->75
   of the libraries, pandas' and seaborn's among them. The outcomes per
   test are in `spec/ecosystem/`.
 * **Jupyter**: the notebooks of `spec/notebooks` (the inline backend,

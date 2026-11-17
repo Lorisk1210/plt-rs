@@ -15,7 +15,7 @@ under the Matplotlib License.
 from numbers import Real
 
 from .. import _api, _handles, _live_transforms, _unusable, _values
-from .._native import axes as _axes
+from .._native import axes as _axes, insets as _insets
 from .._program_classes import takes_from_program
 from ..text import Text
 from ..transforms import ScaledTranslation
@@ -177,7 +177,28 @@ class TitlesMixin:
         Update the title position based on the bounding box enclosing
         all the ticklabels and x-axis spine and xlabel...
         """
+        placement = _axes.title_placement(self._native)
+        if placement == "program" and any(
+                title.get_text() for title in (self.title, self._left_title, self._right_title)):
+            # As matplotlib's, which places the children only when the
+            # titles are lifted (not fixed, and not all empty).
+            self._locate_children_by_program(renderer)
         _axes.update_title_position(self._native)
+
+    def _locate_children_by_program(self, renderer):
+        """Place the child Axes by their locators of the program's, as
+        matplotlib's ``_update_title_position`` does first (calling each
+        with this Axes). An Axes whose class places its titles calls it
+        while pltrs (Rust) lifts them without laying the figure out, which
+        would leave such a child where it stood before (an inset colorbar
+        ultraplot places, above the Axes before the figure was resized);
+        pltrs (Rust) places its own locators' children itself."""
+        for ax in self.child_axes:
+            locator = ax.get_axes_locator()
+            if locator and getattr(locator, "_place", None) is None:
+                bbox = locator(self, renderer)
+                _insets.set_located_position(
+                    ax._native, None if bbox is None else tuple(map(float, bbox.bounds)))
 
     @property
     def _autotitlepos(self):

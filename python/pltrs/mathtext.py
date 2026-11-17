@@ -18,7 +18,7 @@ import logging
 import numpy as np
 
 from . import _api, _mathtext
-from ._native import mathtext as _native_mathtext
+from ._native import mathtext as _native_mathtext, register as _register
 from .font_manager import (
     FontManager, FontPath, FontProperties, _data_font_path, findfont, get_font)
 from ._mathtext import (  # noqa: F401, reexported API
@@ -36,15 +36,80 @@ def _rc(name):
     return rcParams._get(name)
 
 
+#: matplotlib's font class of each fontset, which pltrs (Rust) typesets as.
+_OWN_FONT_CLASSES = {
+    'cm':          _mathtext.BakomaFonts,
+    'dejavuserif': _mathtext.DejaVuSerifFonts,
+    'dejavusans':  _mathtext.DejaVuSansFonts,
+    'stix':        _mathtext.StixFonts,
+    'stixsans':    _mathtext.StixSansFonts,
+    'custom':      _mathtext.UnicodeFonts,
+}
+
+
+class _FontTypeMapping(dict):
+    """
+    The font class of each fontset (``MathTextParser._font_type_mapping``),
+    which tells pltrs (Rust) whenever it changes whether a class of the
+    program's serves a fontset: matplotlib makes the class for every
+    parse and asks it for every glyph, so a typesetting run of such a
+    fontset asks an instance of the program's class (see
+    `_program_fontset`); runs of the fontsets matplotlib's own classes
+    serve stay pltrs (Rust)'s alone.
+    """
+
+    def _changed(self):
+        _native_mathtext.set_program_fonts(any(
+            cls is not _OWN_FONT_CLASSES.get(name) for name, cls in self.items()))
+        # A parse made with the class a fontset had is not served once
+        # another one serves it.
+        MathTextParser._parse_cached.cache_clear()
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        self._changed()
+
+    def __delitem__(self, key):
+        super().__delitem__(key)
+        self._changed()
+
+    def update(self, *args, **kwargs):
+        super().update(*args, **kwargs)
+        self._changed()
+
+    def setdefault(self, key, default=None):
+        value = super().setdefault(key, default)
+        self._changed()
+        return value
+
+    def pop(self, *args):
+        value = super().pop(*args)
+        self._changed()
+        return value
+
+    def popitem(self):
+        item = super().popitem()
+        self._changed()
+        return item
+
+    def clear(self):
+        super().clear()
+        self._changed()
+
+    def __ior__(self, other):
+        super().__ior__(other)
+        self._changed()
+        return self
+
+
+# Named as the type it extends, as matplotlib's mapping is a dict
+# (``type(MathTextParser._font_type_mapping)`` reads ``<class 'dict'>``).
+_FontTypeMapping.__name__ = _FontTypeMapping.__qualname__ = "dict"
+_FontTypeMapping.__module__ = "builtins"
+
+
 class MathTextParser:
-    _font_type_mapping = {
-        'cm':          _mathtext.BakomaFonts,
-        'dejavuserif': _mathtext.DejaVuSerifFonts,
-        'dejavusans':  _mathtext.DejaVuSansFonts,
-        'stix':        _mathtext.StixFonts,
-        'stixsans':    _mathtext.StixSansFonts,
-        'custom':      _mathtext.UnicodeFonts,
-    }
+    _font_type_mapping = _FontTypeMapping(_OWN_FONT_CLASSES)
 
     def __init__(self, output):
         """
@@ -118,6 +183,42 @@ class MathTextParser:
         (width, height, depth), image = _native_mathtext.parse_raster(
             s, float(dpi), props, bool(antialiased))
         return RasterParse(0, 0, width, height, depth, image)
+
+
+def _program_fontset(fontset, font, dpi):
+    """
+    An instance of the program's class serving *fontset* for a typesetting
+    run, made as matplotlib's parse makes it (``fontset_class(prop,
+    load_glyph_flags)``) with the run's text font *font* (``(families,
+    style, weight, stretch, size)``); None while matplotlib's own class
+    serves it.
+    """
+    cls = MathTextParser._font_type_mapping.get(fontset)
+    if cls is None or cls is _OWN_FONT_CLASSES.get(fontset):
+        return None
+    families, style, weight, stretch, size = font
+    prop = FontProperties(family=families, style=style, weight=weight,
+                          stretch=stretch, size=size, math_fontfamily=fontset)
+    return cls(prop, LoadFlags.NO_HINTING)
+
+
+def _program_glyph(fonts, fontname, font_class, sym):
+    """The glyph the program's font set *fonts* gives *sym* (its
+    ``_get_glyph``), as pltrs (Rust) takes it: ``(font file, face index,
+    character code, slanted)``."""
+    font, num, slanted = fonts._get_glyph(fontname, font_class, sym)
+    return font.fname, font.face_index, int(num), bool(slanted)
+
+
+def _program_alternatives(fonts, fontname, sym):
+    """The size variants the program's font set *fonts* gives *sym*."""
+    return [(str(name), str(symbol))
+            for name, symbol in fonts.get_sized_alternatives_for_symbol(fontname, sym)]
+
+
+_register("program_fontset", _program_fontset)
+_register("program_glyph", _program_glyph)
+_register("program_alternatives", _program_alternatives)
 
 
 def math_to_image(s, filename_or_obj, prop=None, dpi=None, format=None,

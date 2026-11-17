@@ -522,20 +522,6 @@ written/combo_export_pipeline/pickle_then_modify_and_export$ | ^value\[dumps\]: 
 # gives the later calls; pltrs' findfont gives its own copy of the font.
 hostile/module_matplotlib_font_manager_1$ | ^identity\[get_font\]: (a new object where matplotlib returns the same|another object than matplotlib's)$ | get_font of matplotlib's font file by a case-swapped name, which a case-insensitive file system resolves; matplotlib's later findfont names the same file, pltrs' its own copy
 
-# ultraplot replaces matplotlib's mathtext fonts with a UnicodeFonts subclass
-# of its own (MathTextParser._font_type_mapping["custom"]), which puts the
-# real font's name in place of the "regular" placeholder its rcParams give
-# mathtext.rm, mathtext.it and the others before any font is looked up, and
-# routes some glyphs to Computer Modern (_get_glyph, per glyph). pltrs
-# typesets mathtext natively and asks the font manager for the family
-# "regular", which logs matplotlib's own warning (font_manager's
-# _findfont_cached: "findfont: Font family ['regular'] not found. Falling
-# back to DejaVu Sans."). The per-glyph path is not built (one library of the
-# 261 of the private census uses it; task ECO9); the mathtext glyphs these
-# programs draw differ for the same reason, which the image differences of
-# their figures still show.
-corpus/ultraplot/docs/(fonts|networks|stats)$ | ^warning extra: WARNING: findfont: Font family \['…'\] not found\. Falling back to DejaVu Sans\.$ | ultraplot's mathtext font class replaces the "regular" placeholder before matplotlib looks a font up; pltrs' native mathtext looks "regular" up and logs matplotlib's fallback warning (per-glyph font path not built, task ECO9)
-
 # ultraplot places subplots with kiwisolver (UltraLayout), whose solution
 # for the same constraints differs in its last bits from run to run: it
 # depends on the addresses of the solver's objects. Under matplotlib, nine
@@ -549,6 +535,33 @@ corpus/ultraplot/docs/(fonts|networks|stats)$ | ^warning extra: WARNING: findfon
 # matplotlib's rasterizer, and pltrs', draw the frame's edge one row lower
 # (RMS 4.04 in 2 to 4 of 8 runs; clean otherwise; task ECO9).
 corpus/ultraplot/docs/colors$ | ^image: RMS > 1$ @ ^figure 2$ | kiwisolver's subplot positions differ in their last bits from run to run with the addresses of its objects (under matplotlib too); a variant puts figure 2's legend frames on the other side of a half pixel at 1000 dpi
+# The same solver places 2dplots' figure 8 (the diverging normalizer
+# demo): the bottom row's subplot specs (ultraplot's `_get_ultra_position`)
+# took four values in eight runs under matplotlib, their bottom
+# 0.11498708010335906, ...912, ...923 or ...928, and four under pltrs,
+# ...912, ...917 or ...928 (the same grid positions in all of them); under
+# `setarch -R` with PYTHONHASHSEED=0 both took ...928 in five of six runs.
+# Which edge of the bottom row's frame rounds to which pixel row at the
+# 1000 dpi save follows the variant (task ECO10).
+corpus/ultraplot/docs/2dplots$ | ^image: RMS > 1$ @ ^figure 8$ | kiwisolver's subplot positions differ in their last bits from run to run (under matplotlib too: four values in eight runs); a variant moves the bottom row's frame edge by a pixel row at 1000 dpi
+# And the diverging colormap example: its four Axes took three sets of
+# positions in twenty runs under matplotlib (11, 8 and 1 runs; the
+# second subplot's left at 0.5558695652173912 or ...913, the first's right
+# at 0.5030998389694041 or ...042) and the same values under pltrs; a
+# variant moves a colorbar's edge by a pixel column at the save's dpi
+# (task ECO10).
+corpus/ultraplot/docs/examples/colors/02_diverging_colormap$ | ^image: RMS > 1$ @ ^figure 1$ | kiwisolver's subplot positions differ in their last bits from run to run (under matplotlib too: three sets in twenty runs); a variant moves a colorbar's edge by a pixel column
+# 1dplots' figure 10 likewise: the middle subplot's bottom is
+# 0.365804041886214 or ...213, in 29 and 3 of 32 runs under matplotlib and
+# 9 and 23 under pltrs, the same two values; a variant draws an edge a
+# pixel row lower at the save's dpi (RMS 3.18; task ECO10).
+corpus/ultraplot/docs/1dplots$ | ^image: RMS > 1$ @ ^figure 10$ | kiwisolver's subplot positions differ in their last bits from run to run (under matplotlib too: two values in 32 runs); a variant moves an edge by a pixel row
+# stats' figure 2 (the boxes and violins demo) is saved as one of two
+# images under matplotlib, in 12 and 4 of 16 runs, and as the same two,
+# pixel for pixel, in 9 and 7 under pltrs. Its Axes have the same
+# positions in all of them; the images differ in four pixel rows at the
+# figure's bottom (RMS 1.212; task ECO10).
+corpus/ultraplot/docs/stats$ | ^image: RMS > 1$ @ ^figure 2$ | the saved figure takes one of two images from run to run under matplotlib too (12 and 4 of 16 runs), and pltrs draws the same two; they differ in four pixel rows at the figure's bottom
 
 # The programs opening a toolkit's window (spec/diff/gui.txt, gui_shim.py).
 user_interfaces/(pylab_with_gtk3|pylab_with_gtk4|gtk4_spreadsheet)_sgskip$ | ^value\[connect\]: int$ | GObject numbers signal handlers in the order they are connected, GTK's own connections inside the widgets included, which vary from run to run: matplotlib run twice gives 261 and 267 (pylab_with_gtk3), 199 and 202 (pylab_with_gtk4), 147 and 149 (gtk4_spreadsheet); the connections made from Python are the same, in the same order, under both

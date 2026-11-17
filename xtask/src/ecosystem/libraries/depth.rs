@@ -170,6 +170,10 @@ pub(super) const LIBRARIES: [Library; 17] = [
         name: "pygsp",
         package: "pygsp",
         copies: &[("pygsp/tests", "pygsp/tests")],
+        // `test_graphs.py::test_laplacian` draws unseeded Erdős–Rényi graphs
+        // of 100 nodes (p = 0.1) and fails when one has an isolated node,
+        // whose normalized Laplacian diagonal is 0: about 0.3 % of each
+        // graph, under matplotlib as well (task ECO10).
         tests: &["pygsp/tests/test_plotting.py", "pygsp/tests/test_graphs.py"],
         options: &[NO_ADDOPTS],
         title: "PyGSP's plots",

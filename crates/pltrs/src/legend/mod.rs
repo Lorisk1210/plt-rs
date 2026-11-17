@@ -493,8 +493,10 @@ impl Axes {
     /// (matplotlib's `ax.add_artist(legend)` for showing several legends).
     /// The axes legend kept so stays the one [`Axes::current_legend`]
     /// returns (and is drawn twice, as matplotlib draws it) until the next
-    /// [`Axes::legend`]. A legend of the axes that a newer one replaced
-    /// comes back on it.
+    /// [`Axes::legend`]. A legend of the axes out of them (one a newer one
+    /// replaced, one removed, or one made for them without becoming their
+    /// legend, as matplotlib's `Legend(ax, ...)`) comes back on them as an
+    /// ordinary artist only, drawn once.
     ///
     /// ```
     /// use pltrs::artist::ArtistHandle;
@@ -522,6 +524,9 @@ impl Axes {
         let id = legend.raw.id();
         let mut state = self.raw().figure_state().borrow_mut();
         if own && state.is_removed(id) {
+            if let Some(kept) = state.artist_as_mut::<LegendArtist>(id) {
+                kept.current = false;
+            }
             state
                 .attach_artist(self.id(), id)
                 .expect("an axes takes back its own removed legend");

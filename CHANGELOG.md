@@ -44,9 +44,9 @@ libraries under it keeps their permissive licences (`THIRD_PARTY.md`,
 * matplotlib 3.11's own test suite, run unchanged against pltrs: all
   of the <!--fact:mpl-suite.all-passing-->10,191 tests that pass under matplotlib on the same
   machine pass.
-* The test suites of <!--fact:ecosystem.libraries-->75 libraries built on matplotlib: <!--fact:ecosystem.pltrs-passing-->24,514
-  of the <!--fact:ecosystem.reference-passing-->24,521 tests that pass under matplotlib pass under
-  pltrs, every one in <!--fact:ecosystem.complete-libraries-->73 of the libraries.
+* The test suites of <!--fact:ecosystem.libraries-->75 libraries built on matplotlib: <!--fact:ecosystem.pltrs-passing-->24,559
+  of the <!--fact:ecosystem.reference-passing-->24,559 tests that pass under matplotlib pass under
+  pltrs, every one in <!--fact:ecosystem.complete-libraries-->75 of the libraries.
 * Jupyter: all <!--fact:notebooks.all-passing-->1,091 notebook comparisons and tests of IPython,
   matplotlib-inline and ipympl that pass under matplotlib.
 * A differential tester running matplotlib's gallery, generated programs
@@ -152,11 +152,6 @@ in last bits or in ill-conditioned results only:
   thread draws, but a draw started inside a draw (a callback saving its
   figure) raises `RecursionError` there; the message names
   `threading.stack_size`.
-* Of the libraries' tests that pass under matplotlib, <!--fact:ecosystem.failing-->7 fail under
-  pltrs, all of them in <!--fact:ecosystem.incomplete-libraries-->pyfolio and ultraplot (pyfolio's test
-  of its optional import runs a Python of its own without pltrs' alias on
-  its path, and ultraplot's mathtext font routing goes through its own
-  font class, glyph by glyph).
 * The corpora's programs that still differ from matplotlib somewhere are
   listed by `cargo xtask diff --corpus` (`spec/diff/corpus-outcomes.json`).
 * Private state a program assigns and pltrs does not draw from, or

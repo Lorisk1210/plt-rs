@@ -1,3 +1,17 @@
+# Every function starts on a 64-byte boundary, for every target (cargo
+# joins these flags with a target's own). With the default 16, the code of
+# a crate shifts by 16, 32 or 48 bytes whenever anything laid out before it
+# changes size, and the hot loops inside move across the processor's
+# 64-byte fetch and op-cache lines with it: the image resampler of
+# meshes/imshow_2000_bicubic_colorbar ran the same 26.15 billion
+# instructions in 4.45 or 4.93 billion cycles (+9%, 2026-11-17), as
+# unrelated commits shifted it, and even between two builds of the same
+# code in different directories. Aligned, every build runs it in 4.45. The
+# wheel backend, which sets CARGO_ENCODED_RUSTFLAGS for musl and so
+# replaces these, adds the same flag (`pltrs_backend._linker`).
+[target.'cfg(all())']
+rustflags = ["-C", "llvm-args=-align-all-functions=6"]
+
 # Lets the musl target link without a system C toolchain.
 [target.x86_64-unknown-linux-musl]
 linker = "rust-lld"

@@ -203,8 +203,25 @@ fn order_functions(target_os: &str) {
     }
 }
 
+/// Tells the crate the cargo profile it is built with, as
+/// `PLTRS_BUILD_PROFILE`: the directory cargo builds that profile in
+/// (`OUT_DIR` is `<target>/[<triple>/]<profile>/build/<package>-<hash>/out`),
+/// so `extension` for `cargo xtask python --release` and the wheels, whose
+/// functions [`SYMBOL_ORDER`] names, and `debug` for the `dev` profile.
+fn tell_profile() {
+    let out = PathBuf::from(std::env::var_os("OUT_DIR").unwrap_or_default());
+    let profile = out
+        .ancestors()
+        .nth(3)
+        .and_then(|dir| dir.file_name())
+        .and_then(|name| name.to_str())
+        .unwrap_or("unknown");
+    println!("cargo::rustc-env=PLTRS_BUILD_PROFILE={profile}");
+}
+
 fn main() {
     println!("cargo::rustc-check-cfg=cfg(pltrs_python_embed)");
+    tell_profile();
     println!("cargo::rustc-check-cfg=cfg(pltrs_python_link_python3)");
     println!("cargo::rerun-if-env-changed=PLTRS_PYTHON");
     println!("cargo::rerun-if-changed=build.rs");

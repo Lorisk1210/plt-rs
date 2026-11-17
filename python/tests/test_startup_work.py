@@ -145,6 +145,13 @@ def _ordered_offsets():
     """The order file's function names, and where the extension built lays
     out each it has; skips where the extension was not built with the
     order's profile."""
+    profile = pltrs._native.diagnostics.build_profile()
+    if profile != "extension":
+        # cargo names a crate's functions after the profile it builds:
+        # the order is the extension profile's (`cargo xtask python
+        # --release`, the wheels), and other builds keep the compiler's.
+        pytest.skip(f"the extension was built with the {profile!r} profile, "
+                    "the order is the 'extension' profile's")
     tool = runpy.run_path(str(ROOT / "crates/pltrs-python/tools/symbol_order.py"))
     if not tool["has_symbol_table"](pltrs._native.__file__):
         # The wheels' extension is stripped (Zig links it so): its order
@@ -153,11 +160,6 @@ def _ordered_offsets():
     offsets = {name: offset for offset, _, name in tool["functions"](pltrs._native.__file__)}
     named = [line for line in tool["ORDER"].read_text().splitlines()
              if line and not line.startswith("#")]
-    if sum(name in offsets for name in named[:500]) < 250:
-        # cargo names a crate's functions after the profile it builds:
-        # the order is the extension profile's (`cargo xtask python
-        # --release`, the wheels), and other builds keep the compiler's.
-        pytest.skip("the extension was built with another profile than the order's")
     return named, offsets
 
 
@@ -173,7 +175,12 @@ def test_extension_lays_out_functions_in_order():
     assert laid_out == sorted(laid_out)
     # A cheap second line: most of the functions the file names still
     # exist (all of them when it is written; 95.6% after the 80 commits
-    # that let it go stale before task PERF9).
+    # that let it go stale before task PERF9). A change to how cargo builds
+    # a crate renames all its functions and those of every crate above it:
+    # a build script given to pltrs-core (92663e93) left 5.5% of them, the
+    # linker ordered nothing, and the extension a small figure holds grew
+    # from 6,484 to 14,100 KiB while this test, telling the profile by the
+    # names, took it for another profile's build and skipped.
     present = sum(name in offsets for name in named) / len(named)
     assert present >= 0.97, f"{present:.1%} of the order's functions exist: {_REORDER}"
 

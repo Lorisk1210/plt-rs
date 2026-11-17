@@ -42,17 +42,59 @@ impl Taps {
     /// the sum of the weights. Each weight is the fixed-point product of
     /// the row's and the column's.
     fn accumulate<P: PixelOps>(&self, pixels: &impl Source<P>) -> (P::Accum, i32) {
-        let mut acc = P::ACCUM_ZERO;
-        let mut total_weight = 0_i32;
+        let mut sum = (P::ACCUM_ZERO, 0_i32);
         for &(row, weight_y) in &self.rows {
-            for &(column, weight_x) in &self.columns {
-                let weight = (weight_y * weight_x + FILTER_SCALE / 2) >> FILTER_SHIFT;
-                pixels.pixel(row + column).accumulate(&mut acc, weight);
-                total_weight = total_weight.wrapping_add(weight);
+            for &column in &self.columns {
+                add_tap(&mut sum, pixels, row, weight_y, column);
             }
         }
-        (acc, total_weight)
+        sum
     }
+
+    /// [`accumulate`](Self::accumulate) for the stretched kernels of
+    /// [`resample_affine`], whose tens or hundreds of taps per pixel are
+    /// where a downsampled image spends its time.
+    ///
+    /// Never inlined, and two taps per turn of the loop. Inlined into the
+    /// generator, its loop lay wherever the generator's other code put it,
+    /// and the same instructions took 9% more or fewer cycles as unrelated
+    /// changes moved them (`meshes/imshow_2000_bicubic_colorbar`, 2026-11-17).
+    /// In a function of its own, which starts on a 64-byte boundary
+    /// (`.cargo/config.toml`), it lies the same way in every build. Going
+    /// back to the loop's head once per two taps also kept it fast in
+    /// every placement measured, where the loop of one tap was still slower
+    /// in one of four. The taps are summed in the same order either way.
+    #[inline(never)]
+    fn accumulate_stretched<P: PixelOps>(&self, pixels: &impl Source<P>) -> (P::Accum, i32) {
+        let mut sum = (P::ACCUM_ZERO, 0_i32);
+        for &(row, weight_y) in &self.rows {
+            let (pairs, rest) = self.columns.as_chunks::<2>();
+            for &[first, second] in pairs {
+                add_tap(&mut sum, pixels, row, weight_y, first);
+                add_tap(&mut sum, pixels, row, weight_y, second);
+            }
+            for &column in rest {
+                add_tap(&mut sum, pixels, row, weight_y, column);
+            }
+        }
+        sum
+    }
+}
+
+/// Adds the pixel at `row + column` to `sum` (the weighted sum and the sum
+/// of the weights), weighted by the fixed-point product of the row's weight
+/// and the column's.
+#[inline]
+fn add_tap<P: PixelOps>(
+    sum: &mut (P::Accum, i32),
+    pixels: &impl Source<P>,
+    row: usize,
+    weight_y: i32,
+    (column, weight_x): (usize, i32),
+) {
+    let weight = (weight_y * weight_x + FILTER_SCALE / 2) >> FILTER_SHIFT;
+    pixels.pixel(row + column).accumulate(&mut sum.0, weight);
+    sum.1 = sum.1.wrapping_add(weight);
 }
 
 /// Nearest-neighbour samples with a zero background outside the source.
@@ -193,7 +235,7 @@ pub(super) fn resample_affine<P: PixelOps>(
                     (row, lut.weight(index))
                 }),
         );
-        let (acc, total_weight) = taps.accumulate(src);
+        let (acc, total_weight) = taps.accumulate_stretched(src);
         *color = P::resampled(acc, total_weight);
         interpolator.advance();
     }

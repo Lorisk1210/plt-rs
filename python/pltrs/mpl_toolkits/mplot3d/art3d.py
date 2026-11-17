@@ -593,8 +593,7 @@ class _Loose3D:
     _zsort = None
     _closed = True
     #: What a loose collection keeps for the axes that will add it: the
-    #: position it is ordered by, and the codes of its 3-D polygons.
-    _sort_zpos = None
+    #: codes of its 3-D polygons.
     _codes3d = None
 
     def do_3d_projection(self):
@@ -602,22 +601,40 @@ class _Loose3D:
         # the depth of its nearest point (NaN without points).
         return _projected_depth(self)
 
+    @property
+    def _sort_zpos(self):
+        # matplotlib's plain field, which programs assign as
+        # `set_sort_zpos` sets it (qutip orders its bars so): a loose
+        # collection's, or a position of no number, as given, else the
+        # axes'.
+        if '_sort_zpos' in self.__dict__:
+            return self.__dict__['_sort_zpos']
+        axes = _axes3d(self)
+        return None if axes is None else _mplot3d.sort_zpos(axes._native, self._native)
+
+    @_sort_zpos.setter
+    def _sort_zpos(self, val):
+        self._place_sort_zpos(val)
+
     def _place_sort_zpos(self, val):
         """`set_sort_zpos` of the collection classes: a position of no
         number is kept as given (the order stays as it was), and fails the
         draws of polygons, which matplotlib projects it for."""
         axes = _axes3d(self)
         if axes is None:
-            self._sort_zpos = val
+            self.__dict__['_sort_zpos'] = val
         elif val is None or (np.ndim(val) == 0
                              and np.asarray(val).dtype.kind in 'biuf'):
+            self.__dict__.pop('_sort_zpos', None)
             _mplot3d.set_sort_zpos(axes._native, self._native,
                                    None if val is None else float(val))
             if self.__dict__.pop('_sort_zpos_fails', False):
                 _draw_problems.record(self, None)
-        elif isinstance(self, Poly3DCollection):
-            self._sort_zpos_fails = True
-            _draw_problems.record(self, _draw_problems.sort_zpos_problem(val))
+        else:
+            self.__dict__['_sort_zpos'] = val
+            if isinstance(self, Poly3DCollection):
+                self._sort_zpos_fails = True
+                _draw_problems.record(self, _draw_problems.sort_zpos_problem(val))
         self.stale = True
 
     def _add_to_axes(self, axes, kind, autolim=True):
@@ -1466,9 +1483,9 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         axes = _axes3d(self)
         if axes is None:
             self._zsort = zsort
-            self._sort_zpos = None
         else:
             _mplot3d.set_zsort(axes._native, self._native, zsort)
+        self._sort_zpos = None
         self.stale = True
 
     def _set_faces(self, faces, closed):
@@ -1566,11 +1583,11 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         axes = _axes3d(self)
         if axes is None:
             self._zsort = 'average'
-            self._sort_zpos = None
         else:
             self.update_scalarmappable()
             _mplot3d.set_poly_3d_properties(axes._native, self._native)
             _mplot3d.set_axlim_clip(axes._native, self._native, bool(axlim_clip))
+        self._sort_zpos = None
         self.stale = True
 
     def set_sort_zpos(self, val):

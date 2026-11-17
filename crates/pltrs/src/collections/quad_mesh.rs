@@ -4,12 +4,13 @@
 
 use std::borrow::Cow;
 
-use pltrs_core::{Affine2D, Path, Point, Rgba};
+use pltrs_core::path::DataLimits;
+use pltrs_core::{Affine2D, Bbox, Path, Point, Rgba};
 use pltrs_render::QuadMesh;
 
 use super::style::resolve_colors;
 use super::{CollectionArtist, CollectionKind};
-use crate::artist::{Artist, ArtistId, DrawContext};
+use crate::artist::{Artist, ArtistId, DrawContext, LayoutContext};
 use crate::numeric::Grid;
 use crate::rc::RcParams;
 use crate::transforms::{Transform, program_calls};
@@ -47,6 +48,29 @@ impl CollectionArtist {
     pub(crate) fn mesh_coordinates_in(&self, axes: ArtistId) -> Option<&[Point]> {
         let mesh = self.mesh.as_ref()?;
         (self.transform() == Transform::Data(axes)).then(|| mesh.coordinates.as_slice())
+    }
+
+    /// The box of the vertices of the quad mesh, `None` for no mesh or
+    /// no finite vertex (matplotlib's `QuadMesh._bbox`).
+    pub(crate) fn mesh_box(&self) -> Option<Bbox> {
+        let mesh = self.mesh.as_ref()?;
+        let mut limits = DataLimits::NULL;
+        limits.update_from_points(mesh.coordinates.as_slice(), true, true);
+        (!limits.bbox.is_null()).then_some(limits.bbox)
+    }
+
+    /// The box of the mesh's vertices mapped through its transform, when
+    /// that runs code of the program's: the mapping, to run with the
+    /// figure free, as matplotlib's `QuadMesh.get_datalim` maps the box's
+    /// corners whenever the mesh is measured; the mesh's measure then
+    /// answers from it (see
+    /// [`program_calls`](crate::transforms::program_calls)).
+    pub(crate) fn program_mesh_box(&self, ctx: LayoutContext<'_>) -> Option<impl FnOnce() + use<>> {
+        let bbox = self.mesh_box()?;
+        let resolved = ctx.resolve(&self.transform())?;
+        resolved.calls_program().then_some(move || {
+            resolved.transform_bbox(&bbox);
+        })
     }
 
     /// A quad mesh over `coordinates` (matplotlib's `QuadMesh`): the

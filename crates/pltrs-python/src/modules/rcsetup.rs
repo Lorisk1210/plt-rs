@@ -358,6 +358,9 @@ fn bundled_styles() -> PyResult<Vec<(String, Pairs)>> {
         .collect()
 }
 
+/// The rcParam of the path effects, which pltrs (Rust) holds as effects.
+const PATH_EFFECTS: &str = "path.effects";
+
 /// Copies the parameters `keys` of the store `source` into the store
 /// `target` as they are (`rcParams.update(other_rcparams)`, `style.use`).
 fn update_from(
@@ -365,17 +368,29 @@ fn update_from(
     source: Option<Native<RcParams>>,
     keys: Vec<String>,
 ) -> PyResult<()> {
-    let texts = read(source.as_ref(), |params| {
-        keys.iter()
+    // Path effects, which rc text cannot spell, are copied as they are.
+    let (effects, texts) = read(source.as_ref(), |params| {
+        let effects = keys
+            .iter()
+            .any(|key| key == PATH_EFFECTS)
+            .then(|| params.path_effects.clone());
+        let texts = keys
+            .iter()
+            .filter(|key| *key != PATH_EFFECTS)
             .map(|key| {
                 params
                     .get(key)
                     .map(|text| (key.as_str(), text))
                     .ok_or_else(|| RcError::UnknownKey(key.clone()))
             })
-            .collect::<Result<Vec<_>, _>>()
-    })?;
+            .collect::<Result<Vec<_>, _>>();
+        (effects, texts)
+    });
+    let texts = texts?;
     let copy = |params: &mut RcParams| -> Result<(), RcError> {
+        if let Some(effects) = &effects {
+            params.path_effects.clone_from(effects);
+        }
         texts
             .iter()
             .try_for_each(|(key, text)| params.set(key, text))

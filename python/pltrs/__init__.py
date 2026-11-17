@@ -345,6 +345,9 @@ class RcParams(MutableMapping, dict):
             # Path effect objects, which rc text cannot spell.
             _patheffects.set_rc_path_effects(
                 self._store, [effect._native_spec() for effect in val])
+            if self._store is None:
+                from . import _artist_effects
+                _artist_effects.rc_effects_set(val)
         elif self._typed_color(key, val):
             # A colour as a tuple, which matplotlib's validator of the key
             # takes from Python but not as rc text (``legend.labelcolor``).

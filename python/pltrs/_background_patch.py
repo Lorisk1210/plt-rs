@@ -141,6 +141,9 @@ def _made(owner, patch, mirroring, transform):
         with _mirrors.detached(patch):
             patch.set_transform(transform)
     owner.__dict__["_patch"] = patch
+    # The path effects of the rcParam matplotlib makes the patch under,
+    # with its owner (pltrs (Rust) draws the background with the owner's).
+    patch.__dict__.setdefault("_path_effects", owner.get_path_effects())
     # As old as matplotlib's patch, which it makes with the owner and
     # anew at an Axes' clear: stale until the owner draws after that,
     # whenever the program first reads it.

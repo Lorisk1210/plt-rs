@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use pltrs_core::Point;
 
-use super::{Attach, HandleBox, HandlerArtist, HandlerContext, copy_collection};
+use super::{Attach, HandleBox, HandlerArtist, HandlerContext, copy_base, copy_collection};
 use crate::artist::{Artist, KeptArtist};
 use crate::collections::{CollectionArtist, CollectionKind};
 use crate::legend::LegendError;
@@ -35,7 +35,14 @@ pub(super) fn path_collection(
     markers.sizes = Some(sizes(source, settings.scatterpoints, settings.markerscale));
     markers.offsets = offsets;
     markers.offset_transform = Some(Transform::Display);
-    copy_collection(&mut markers, source)?;
+    if source.mapping.is_some() {
+        // matplotlib's handle takes the values, the colormap and the norm
+        // (`update_from`), and maps them when it is drawn.
+        copy_base(markers.base_mut(), source.base());
+        markers.take_look(source);
+    } else {
+        copy_collection(&mut markers, source)?;
+    }
     markers
         .base_mut()
         .transform

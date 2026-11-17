@@ -662,6 +662,7 @@ class Legend(Artist):
             self._remember_point(given_loc)
         self._made_handles = made.returned
         self._entry_handles = kept_handles
+        _share_mappings(self)
         _legend_label_colors.remember(self, labelcolor)
         if draggable and "set_draggable" not in overridden:
             self.set_draggable(True)
@@ -1294,6 +1295,24 @@ def _fresh(box):
     for child in box.get_children():
         if isinstance(child, OffsetBox):
             _fresh(child)
+
+
+def _share_mappings(legend):
+    """Give the handle drawn for each scatter entry mapped to colours the
+    entry's values, colormap and norm, the objects themselves, as
+    matplotlib's handler copies them (``update_from``): the handle maps
+    them when it is drawn, through the norm it shares with the entry."""
+    made = legend._made_handles
+    entries = legend._entry_handles
+    for index, handle in enumerate(_legend.legend_handles(legend._native)):
+        entry = entries[index] if index < len(entries) else None
+        if (handle is None or index in made or _DRAWN_CLASSES[handle[1]] is not PathCollection
+                or not isinstance(entry, PathCollection) or entry.get_array() is None):
+            continue
+        drawn = made[index] = legend._drawn_handle(index, handle)
+        drawn._A = entry._A
+        drawn.norm = entry.norm
+        drawn.cmap = entry.cmap
 
 
 #: What matplotlib's ``update_from`` copies that pltrs (Rust) does not

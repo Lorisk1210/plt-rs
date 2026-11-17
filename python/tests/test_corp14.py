@@ -6,6 +6,7 @@ expected value was recorded from matplotlib.
 
 import io
 import logging
+import warnings
 
 import numpy as np
 import pytest
@@ -130,6 +131,24 @@ def test_a_text_the_tight_layout_measures_at_150_dpi_looks_its_font_up():
         fig.tight_layout()
 
     assert logged(work, family)[0] == 2
+
+
+@pytest.mark.parametrize("mode, zlim, autoscale", [
+    ("tight", [-0.02083, 1.02083], False), ("auto", [-0.02083, 1.02083], True),
+    ("image", [-0.02083, 1.02083], False), ("scaled", [-0.02083, 1.02083], False),
+    ("square", [-0.02083, 1.02083], False), ("equal", [-0.14453, 1.14453], True)])
+def test_the_modes_of_axis_autoscale_a_3d_axes_along_z(mode, zlim, autoscale):
+    # qutip's process tomography makes its bars `ax.axis("tight")`.
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    ax.bar3d([0, 1], [0, 1], [0, 0], [0.5, 0.5], [0.5, 0.5], [1.0, 0.5])
+    ax.set_zlim3d([-0.0117, 1.0])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        limits = ax.axis(mode)
+    assert np.round(limits, 5).tolist()[4:] == zlim
+    assert np.round(ax.get_zlim(), 5).tolist() == zlim
+    assert ax.get_autoscalez_on() is autoscale and ax.get_autoscalex_on() is autoscale
 
 
 @pytest.fixture

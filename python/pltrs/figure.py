@@ -15,8 +15,8 @@ import numpy as np
 
 from . import _docstring
 from . import colorbar as cbar  # noqa: F401  (registers the colorbar snippets)
-from . import (_api, _artist_clipping, _blocking_input, _handles, _own_state, _values, cbook,
-               rcParams)
+from . import (_api, _artist_clipping, _artist_effects, _blocking_input, _handles, _own_state,
+               _values, cbook, rcParams)
 from . import scale as mscale
 from . import _gridspec_kept, _transform_trees
 from ._native import artist as _artist
@@ -1579,6 +1579,9 @@ class SubFigure(FigureBase):
         self._parent = parent
         self._subplotspec = subplotspec
         self.subfigs = []
+        # matplotlib's artist keeps the rcParam's list, which pltrs (Rust)
+        # draws no subfigure with.
+        self._path_effects = _artist_effects.rc_effects()
         _handles.adopt(self, native, parent.figure)
         self._figure._subfigures_made = True
         if facecolor is not None:
@@ -1839,6 +1842,9 @@ None}, default: None
         self._native = _figure.new(float(width), float(height), float(dpi))
         _values.remember(self, "dpi", dpi)
         self._figure = self
+        # matplotlib's artist keeps the rcParam's list, which pltrs (Rust)
+        # draws no figure with.
+        self._path_effects = _artist_effects.rc_effects()
         self._artists = _handles.Registry({_artist.id(self._native): self})
         _sharing.track(self)
         _transform_trees.follow_evaluations(self)

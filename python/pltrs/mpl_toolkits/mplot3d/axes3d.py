@@ -227,6 +227,9 @@ _BOX_ASPECT = _own_state.State(
     "box_aspect", lambda axes: np.array(_mplot3d.get_box_aspect(axes._native)),
     lambda axes, stored: axes._take_box_aspect(stored))
 
+#: The modes of `Axes3D.axis` that set limits and aspect.
+_AXIS_MODES = ('equal', 'tight', 'scaled', 'auto', 'image', 'square')
+
 
 @_docstring.interpd
 @_api.define_aliases({
@@ -1859,7 +1862,40 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             else:
                 self.set_axis_off()
             arg = None
+        if isinstance(arg, str) and arg.lower() in _AXIS_MODES:
+            # matplotlib's `_AxesBase.axis` with the 3-D methods, which
+            # autoscale, and turn autoscaling off, along z too (qutip's
+            # process tomography makes its bars `axis("tight")`).
+            self._axis_mode(arg.lower(), emit)
+            arg = None
         return super().axis(arg, emit=emit, **kwargs)
+
+    def _axis_mode(self, mode, emit):
+        """Set the limits and aspect of the *mode* of `axis` (one of
+        `_AXIS_MODES`) as matplotlib's `_AxesBase.axis` does."""
+        self.set_autoscale_on(True)
+        self.set_aspect('auto')
+        self.autoscale_view(tight=False)
+        if mode == 'equal':
+            self.set_aspect('equal', adjustable='datalim')
+        elif mode == 'scaled':
+            self.set_aspect('equal', adjustable='box', anchor='C')
+            self.set_autoscale_on(False)
+        elif mode == 'tight':
+            self.autoscale_view(tight=True)
+            self.set_autoscale_on(False)
+        elif mode == 'image':
+            self.autoscale_view(tight=True)
+            self.set_autoscale_on(False)
+            self.set_aspect('equal', adjustable='box', anchor='C')
+        elif mode == 'square':
+            self.set_aspect('equal', adjustable='box', anchor='C')
+            self.set_autoscale_on(False)
+            xlim = self.get_xlim()
+            ylim = self.get_ylim()
+            edge_size = max(np.diff(xlim), np.diff(ylim))[0]
+            self.set_xlim(xlim[0], xlim[0] + edge_size, emit=emit, auto=False)
+            self.set_ylim(ylim[0], ylim[0] + edge_size, emit=emit, auto=False)
 
     def set_axis_off(self):
         self._axis3don = False
@@ -2183,9 +2219,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             .. versionadded:: 3.10
         """
         zvals = np.atleast_1d(zs)
-        if zvals.size:
-            # matplotlib orders the collection by the lowest position.
-            np.min(zvals)
+        zsortval = np.min(zvals) if zvals.size else 0
+        # matplotlib orders a 2-D collection of exactly these classes by
+        # the lowest position.
+        ordered = type(col) in (mcoll.PolyCollection, mcoll.LineCollection,
+                                mcoll.PatchCollection)
         if not isinstance(col, art3d._Loose3D):
             if not isinstance(col, mcoll.LineCollection):
                 zs = np.ma.filled(np.ma.asarray(zs, dtype=float), np.nan)
@@ -2199,6 +2237,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                 # Any other collection is added as it is, as matplotlib
                 # adds it.
                 return self.add_collection(col)
+        if ordered:
+            col.set_sort_zpos(zsortval)
         segments = col.__dict__.get('_segments3d')
         if autolim and isinstance(col, art3d.Line3DCollection) and segments is not None:
             # matplotlib gathers the coordinates of the points of the

@@ -221,7 +221,9 @@ impl Figure {
                 crate::axisartist::lay_out_as_drawn(&self.state());
                 self.predraw_program();
                 let (w_pad, h_pad) = self.tight_padding(options.pad_inches, rc.savefig_pad_inches);
-                self.tight_bbox().padded(w_pad, h_pad)
+                let window = self.tight_bbox().padded(w_pad, h_pad);
+                self.measure_texts_left_out();
+                window
             })),
             // The layout the window is cut from, at the print resolution.
             Some(BboxInches::Inches(bbox)) => {

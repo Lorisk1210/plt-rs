@@ -19,8 +19,8 @@ import weakref
 import numpy as np
 
 from . import _docstring
-from . import (_api, _lazy_imports, _live_transforms, _mirrors, _program_classes,
-               _text_overrides, _transform_trees, _unusable, _values, cbook,
+from . import (_api, _kept_geometry, _lazy_imports, _live_transforms, _mirrors,
+               _program_classes, _text_overrides, _transform_trees, _unusable, _values, cbook,
                units)
 from . import _text_metrics as _text_metrics_module
 # pltrs (Rust) warns through it about the glyphs no font has.
@@ -35,6 +35,7 @@ from .textpath import TextPath, TextToPath  # noqa: F401 (logically located here
 from .transforms import Bbox, BboxBase, Transform
 
 _text_coords = _lazy_imports.module(globals(), "._text_coords")
+_unit_values = _lazy_imports.module(globals(), "._unit_values")
 _computed_transforms = _lazy_imports.module(globals(), "._computed_transforms")
 
 #: The keywords `Text` takes explicitly, in the order matplotlib's
@@ -403,12 +404,22 @@ class Text(Artist):
         self._init_properties(kwargs, text)
 
     def _convert_units_for(self, axes):
-        # A coordinate in units converts once the text joins *axes*, as
-        # matplotlib converts its position when drawn.
+        # A coordinate in units converts once the text joins *axes*, and
+        # again when its units change (see `._unit_values`), as matplotlib
+        # converts its position when drawn: one pltrs (Rust) could not
+        # hold, or one in units it held as Python floats it.
+        converted = False
         for index, name in enumerate(_POSITION):
             given = _unusable.kept(self, name, _NOT_KEPT)
+            if given is _NOT_KEPT and _values.is_kept(self, name):
+                given = _values.given(self, name, None)
+                if not _kept_geometry.in_units(given):
+                    continue
             if given is not _NOT_KEPT:
                 self._set_text_coordinate(index, given, axes)
+                converted = True
+        if converted:
+            _unit_values.follow(self, axes)
 
     def _char_index_at(self, x):
         """

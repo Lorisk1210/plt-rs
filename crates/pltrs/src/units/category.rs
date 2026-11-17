@@ -22,6 +22,24 @@ impl Categories {
         self.names.iter().position(|known| known == name)
     }
 
+    /// The categories `names`, in that order; a repeated name keeps its
+    /// first position (matplotlib's `UnitData(names)`).
+    ///
+    /// ```
+    /// use pltrs::units::Categories;
+    /// let categories = Categories::from_names(["b", "a", "b"].map(String::from));
+    /// assert_eq!(categories.names(), ["b", "a"]);
+    /// ```
+    pub fn from_names(names: impl IntoIterator<Item = String>) -> Self {
+        let mut categories = Self::default();
+        for name in names {
+            if categories.position(&name).is_none() {
+                categories.names.push(name);
+            }
+        }
+        categories
+    }
+
     /// Positions of `names`, adding the unknown ones as new categories.
     pub fn convert(&mut self, names: &[String]) -> Vec<f64> {
         names

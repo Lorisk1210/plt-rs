@@ -249,6 +249,25 @@ impl Axis {
         self.read(|axis| axis.categories().cloned())
     }
 
+    /// Makes `categories` the category names of the axis and of the axes
+    /// sharing it, in place of those placed so far (matplotlib's
+    /// `set_units` with a `UnitData`): names converted afterwards take
+    /// their positions from them, new ones after them.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::units::Categories;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot(vec!["a", "b"], [1.0, 2.0])?;
+    /// ax.xaxis().set_categories(&Categories::from_names(["b", "a"].map(String::from)));
+    /// assert_eq!(ax.xaxis().convert_units(vec!["a", "c"]), [1.0, 2.0]);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn set_categories(&self, categories: &Categories) -> &Self {
+        self.replace_categories(categories);
+        self
+    }
+
     /// Whether the axis has a unit converter of its own, a unit or
     /// category names (matplotlib's `have_units`; see
     /// [`own_converter`](Self::own_converter)).

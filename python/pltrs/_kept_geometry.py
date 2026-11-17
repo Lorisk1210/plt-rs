@@ -19,6 +19,10 @@ import numpy as np
 
 from . import _unusable, _values, units
 
+#: The types of values that are never in units, which the callers of
+#: `._unit_values` on the plain path test as a set of types, without a call.
+PLAIN_TYPES = frozenset({int, float, bool, str, np.float64, np.int64})
+
 
 def real(value):
     """*value* as the number pltrs (Rust) holds: a real number (numpy's
@@ -27,6 +31,34 @@ def real(value):
     if np.ndim(value) or not units._is_natively_supported(value):
         raise TypeError(f"{value!r} is no number")
     return float(value)
+
+
+def floated(value):
+    """
+    *value* as the number matplotlib's arithmetic with it ends in, for the
+    fields it computes with as they are instead of converting them with an
+    Axes' units (a wedge's centre, a regular polygon's, a fancy box's): a
+    real number (`real`), or an object of the program's whose class Python's
+    `float` takes (a quantity defining ``__float__``), which numpy floats
+    where the vertices become an array of floats. numpy's own scalars (a
+    ``datetime64``) fail in its arithmetic before, as here.
+    """
+    try:
+        return real(value)
+    except TypeError:
+        if (isinstance(value, (str, np.generic)) or np.ndim(value)
+                or not hasattr(type(value), "__float__")):
+            raise
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise TypeError(f"{value!r} is no number") from None
+
+
+def floated_point(value):
+    """The point *value* as pltrs (Rust) holds it, its first two items as
+    `floated` numbers."""
+    return floated(value[0]), floated(value[1])
 
 
 def in_units(value):

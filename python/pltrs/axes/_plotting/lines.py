@@ -93,6 +93,24 @@ def _given_format_color(fmt):
     return None if color is None else _format_color(fmt) or color
 
 
+#: The types whose ``iter`` does nothing a program sees (`_check_sequences`).
+_PLAIN_SEQUENCES = (np.ndarray, list, tuple)
+
+
+def _check_sequences(x, y):
+    """
+    Fail as matplotlib's `.Line2D` fails for data *x*, *y* that are no
+    sequences, which it checks (`numpy.iterable`, which iterates them) as
+    it is made and again as its data are set: a program's unit type sees
+    each of those four ``iter`` calls (and refuses them, if it is no
+    sequence). Plain arrays and lists are sequences without asking.
+    """
+    checks = (("xdata", x), ("ydata", y), ("x", x), ("y", y))
+    for name, values in checks:
+        if type(values) not in _PLAIN_SEQUENCES and not np.iterable(values):
+            raise RuntimeError(f"{name} must be a sequence")
+
+
 def _plot_datasets(args, data, kwargs, axes=None):
     """
     Split ``plot``'s positional arguments into ``(x, y, fmt, label)``
@@ -487,6 +505,7 @@ class LinesMixin:
                 props["label"] = label
             else:
                 props.pop("label", None)
+            _check_sequences(x, y)
             data = converted_line_data(self, x, y)
             if not fmt and "marker" not in props:
                 mlines._check_rc_marker("lines.marker")

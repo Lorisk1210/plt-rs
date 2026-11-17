@@ -84,6 +84,7 @@ impl From<DateError> for TickerError {
         match err {
             DateError::NonFinite(_) => Self::NonFinite("date number"),
             DateError::Overflow => Self::DateOverflow,
+            DateError::DateNumberOutOfRange(x) => Self::DateNumberOutOfRange(x),
             other => Self::InvalidParameter {
                 name: "date",
                 reason: other.to_string(),

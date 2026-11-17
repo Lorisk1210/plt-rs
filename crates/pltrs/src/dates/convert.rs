@@ -158,6 +158,52 @@ impl Epoch {
     }
 }
 
+/// matplotlib's message for date number `x`, which converts to an instant
+/// outside the years 1–9999 from `epoch` (`_from_ordinalf`'s
+/// `ValueError`): the number as Python writes it and the instant as numpy
+/// writes a `datetime64[us]` (years of any length, padded to four
+/// characters with their sign).
+///
+/// ```
+/// use pltrs::dates::{Epoch, ordinal_message};
+/// assert_eq!(
+///     ordinal_message(-1e8, &Epoch::default()),
+///     "Date ordinal -100000000.0 converts to -271821-04-20T00:00:00.000000 (using epoch \
+///      1970-01-01T00:00:00), but Matplotlib dates must be between year 0001 and 9999."
+/// );
+/// ```
+pub fn ordinal_message(x: f64, epoch: &Epoch) -> String {
+    ordinal_message_written(&pltrs_core::pyfmt::repr(x), x, epoch)
+}
+
+/// [`ordinal_message`] with the date number written as `written`: as
+/// Python writes the value matplotlib was given (an integer's digits for
+/// an `int`), which `x` is.
+///
+/// ```
+/// use pltrs::dates::{Epoch, ordinal_message_written};
+/// assert!(ordinal_message_written("10000000", 1e7, &Epoch::default())
+///     .starts_with("Date ordinal 10000000 converts to 29349-01-26T00:00:00.000000"));
+/// ```
+pub fn ordinal_message_written(written: &str, x: f64, epoch: &Epoch) -> String {
+    // The number of microseconds saturates, as no such date number has an
+    // instant outside 64 bits (`num2date` overflows first).
+    let micros = epoch
+        .instant
+        .timestamp_micros()
+        .saturating_add((x * MICROSECONDS_PER_DAY).round_ties_even() as i64);
+    let (year, month, day) = calendar::civil_from_days(micros.div_euclid(MICROS_PER_DAY));
+    let rest = micros.rem_euclid(MICROS_PER_DAY);
+    let (seconds, fraction) = (rest / MICROS_PER_SECOND, rest % MICROS_PER_SECOND);
+    format!(
+        "Date ordinal {written} converts to {year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}.{fraction:06} \
+         (using epoch {epoch}), but Matplotlib dates must be between year 0001 and 9999.",
+        seconds / 3600,
+        seconds / 60 % 60,
+        seconds % 60,
+    )
+}
+
 static EPOCH: Mutex<Option<Epoch>> = Mutex::new(None);
 
 /// The epoch used by the module-level conversions (`dates.get_epoch`);

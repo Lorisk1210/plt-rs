@@ -107,10 +107,13 @@ def _error_bounds(dep_axis, dep, err, convert=None, depconv=None):
         raise ValueError(
             f"'{dep_axis}err' must not contain negative values")
     if convert is not None and _in_units(err):
-        lower, upper = err if np.ndim(err) == 2 else (err, err)
+        # The ends as matplotlib computes them, ``dep + [[-1], [1]] * err``:
+        # a `datetime.date` plus a negative `timedelta` of hours is the day
+        # before, where the date minus the positive one stays on its day.
+        low, high = dep + np.array([[-1], [1]]) * err
         depconv = np.asarray(depconv, dtype=float)
-        return (depconv - np.asarray(convert(dep - lower), dtype=float),
-                np.asarray(convert(dep + upper), dtype=float) - depconv)
+        return (depconv - np.asarray(convert(low), dtype=float),
+                np.asarray(convert(high), dtype=float) - depconv)
     # Masked errors are skipped as NaN ones are.
     err = np.ma.filled(np.ma.asarray(err, dtype=float), np.nan)
     lower, upper = np.broadcast_to(err, (2, len(dep)))

@@ -1402,6 +1402,36 @@ autoscaling) only until it is cleared: its first clear after it is made
 disconnects the handler with the axis' callbacks (`Axis::follows_units`),
 and a clear keeps the data limits for the next data to replace.
 
+Patches, texts and annotations a program makes with values in units keep
+them as given, as matplotlib's do, which convert them each time they draw
+or measure (`_unit_values`). Such an artist hands pltrs (Rust) their
+conversion when it joins an Axes (its `_convert_units_for`), and then
+follows the units of the Axes' axes: an axis whose units change
+(`set_units`, `set_converter`) has it convert them again before the
+`'units'` callbacks run, so that the Axes' handler recomputes the data
+limits from the new numbers, also on Axes whose handler is gone
+(matplotlib's patches convert at every draw). A patch keeps every field of
+its geometry while any is in units (`keep_geometry`), since matplotlib
+converts them together (a rectangle's far edge as ``x + width``), and its
+getters answer the values given while pltrs (Rust) holds their conversion
+(`_values.InUnits`). A conversion a setter cannot do yet (a new left edge
+in dates beside a width still in numbers) waits for the draw or measure,
+and fails there as matplotlib's does. The fields matplotlib computes with
+as they are, without an Axes' units (a wedge's or a regular polygon's
+centre, a fancy box), take what its arithmetic ends in, Python's `float`
+of the object (`_kept_geometry.floated`). Nothing of this is paid by an
+artist given no values in units: the constructors and setters on the
+plain path tell plain values by a set of their types, without a call.
+
+Category data a program gives `set_units` (a `UnitData`) replaces the
+names pltrs (Rust) placed (`set_categories`), on the axes sharing the axis
+too, and becomes their units object; names the program adds to it in
+place (``units.update([...])``) are handed over where pltrs converts or
+reads categories next. Masked dates convert as matplotlib's `date2num`
+converts them, with its numbers under the mask (seconds since 1970, which
+`bar` and `stairs` use, as matplotlib's do), and the conversion keeps the
+mask.
+
 A zone crosses as pltrs (Rust) models it where it can (`_date_locators._native_tz`:
 the names of `zoneinfo`, pytz and dateutil's files, the fixed offsets that
 name themselves as `datetime.timezone` does); any other `tzinfo`

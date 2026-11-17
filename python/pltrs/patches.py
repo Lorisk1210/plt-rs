@@ -32,6 +32,7 @@ _own_state = _lazy_imports.module(globals(), "._own_state")
 # The state patches keep as an object of their own (`._own_state`).
 _state = _lazy_imports.module(globals(), "._patch_state", "_state")
 _patch_arguments = _lazy_imports.module(globals(), "._patch_arguments")
+_unit_values = _lazy_imports.module(globals(), "._unit_values")
 
 cbook._set_module(__name__, ArrowStyle, BoxStyle, ConnectionStyle, _Style)
 from ._program_classes import takes_from_program
@@ -960,28 +961,52 @@ class Rectangle(Patch):
         """
         x0, y0 = xy[0], xy[1]
         self._native = _patches.new_rectangle((0., 0.), (0., 0.), 0.)
-        if any(map(_kept_geometry.in_units, (x0, y0, width, height))):
-            # Values in units convert once the rectangle joins an axes; the
-            # far corner is summed now, which checks that the units add up,
-            # as matplotlib's constructor does.
-            self._unit_bounds = (x0, y0, x0 + width, y0 + height)
+        if (not {type(value) for value in (x0, y0, width, height)} <= _kept_geometry.PLAIN_TYPES
+                and _unit_values.any_in_units((x0, y0, width, height))):
+            _unit_values.keep_geometry(self, {"x": x0, "y": y0, "width": width, "height": height})
+            # Values in units convert once the rectangle joins an axes (see
+            # `._unit_values`); the far corner is summed now, which checks
+            # that the units add up, as matplotlib's constructor does.
+            x1, y1 = x0 + width, y0 + height
             self._hold_fields(angle=float(angle))
+            self._hold_unconverted(x0, y0, x1, y1)
         else:
             self._hold_fields(x=x0, y=y0, width=width, height=height, angle=float(angle))
         self.rotation_point = rotation_point
         super().__init__(**kwargs)
-        if "_unit_bounds" not in self.__dict__:
+        if "_unit_geometry" not in self.__dict__:
             self._converted_bounds()  # Validate the inputs, as matplotlib does.
         self._watch_geometry()
 
-    def _convert_units_for(self, axes):
-        bounds = self.__dict__.pop("_unit_bounds", None)
-        if bounds is None:
+    #: The fields of the geometry that may be given in units.
+    _UNIT_FIELDS = ("x", "y", "width", "height")
+
+    def _hold_unconverted(self, x0, y0, x1, y1):
+        """Hand pltrs (Rust) the edges *x0*, *y0*, *x1*, *y1* of a rectangle
+        in units that no Axes converts yet as matplotlib computes with them
+        then (a `Shadow` of it, say): Python's `float` of each, where it
+        takes them (see `._kept_geometry.floated`)."""
+        try:
+            x0, y0, x1, y1 = map(_kept_geometry.floated, (x0, y0, x1, y1))
+        except TypeError:
             return
-        x0, y0, x1, y1 = bounds
-        x0, x1 = (float(axes.convert_xunits(x)) for x in (x0, x1))
-        y0, y1 = (float(axes.convert_yunits(y)) for y in (y0, y1))
-        self._set_fields(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
+        self._hold_fields(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
+
+    def _convert_units_for(self, axes):
+        if "_unit_geometry" not in self.__dict__:
+            return
+        geometry = _unit_values.kept_geometry(self)
+        x, y, width, height = (geometry[name] for name in self._UNIT_FIELDS)
+        # matplotlib converts the far edges, not the sizes
+        # (``_convert_units``).
+        x0, x1 = (float(axes.convert_xunits(value)) for value in (x, x + width))
+        y0, y1 = (float(axes.convert_yunits(value)) for value in (y, y + height))
+        numbers = (x0, y0, x1 - x0, y1 - y0)
+        self._hold_fields(**dict(zip(self._UNIT_FIELDS, numbers)))
+        for name, number in zip(self._UNIT_FIELDS, numbers):
+            _unit_values.converted(self, name, geometry[name], number)
+        self._watch_geometry()
+        _unit_values.follow(self, axes)
 
     #: The names of `_fields`.
     _FIELDS = ("x", "y", "width", "height", "angle", "rotation_point")
@@ -1019,10 +1044,24 @@ class Rectangle(Patch):
                     angle=_values.NONE_GIVEN, rotation_point=_values.NONE_GIVEN):
         """Change the fields of the geometry given (by name or in the
         order of `_FIELDS`), kept as given (see `._kept_geometry`)."""
-        given = zip(self._FIELDS, (x, y, width, height, angle, rotation_point))
-        self._hold_fields(**{name: value for name, value in given
-                             if value is not _values.NONE_GIVEN})
+        given = {name: value for name, value in zip(
+            self._FIELDS, (x, y, width, height, angle, rotation_point))
+            if value is not _values.NONE_GIVEN}
+        if (("_unit_geometry" in self.__dict__
+             or not {type(value) for value in given.values()} <= _kept_geometry.PLAIN_TYPES)
+                and self._kept_in_units(given)):
+            given = {name: value for name, value in given.items()
+                     if name not in self._UNIT_FIELDS}
+        self._hold_fields(**given)
         self._watch_geometry()
+
+    def _kept_in_units(self, given):
+        """Whether the geometry, with the fields *given* (of any field),
+        is in units, kept as given (see `._unit_values`) and handed to
+        pltrs (Rust) converted, where the rectangle has an Axes."""
+        return _unit_values.kept_in_units(
+            self, {name: given[name] for name in self._UNIT_FIELDS if name in given},
+            lambda: dict(zip(self._UNIT_FIELDS, self._fields())))
 
     def _hold_fields(self, **given):
         """Hand pltrs (Rust) the fields *given* it can hold (see
@@ -1255,7 +1294,7 @@ class RegularPolygon(Patch):
 
     #: How pltrs (Rust) holds each field of the polygon's geometry (see
     #: `._kept_geometry`).
-    _FIELDS = {"xy": _kept_geometry.point, "radius": _kept_geometry.real,
+    _FIELDS = {"xy": _kept_geometry.floated_point, "radius": _kept_geometry.real,
                "orientation": _kept_geometry.real}
 
     def _make_polygon(self, xy, num_vertices, radius, orientation, new):
@@ -1917,16 +1956,27 @@ class Wedge(Patch):
         self._set_fields(width=width)
 
 
+def _ends_in_units(positions):
+    """Whether a coordinate of the arrow ends *positions* is in units (see
+    `._unit_values`)."""
+    try:
+        values = [value for pos in positions for value in (pos[0], pos[1])]
+    except (TypeError, LookupError):
+        return False
+    return (not {type(value) for value in values} <= _kept_geometry.PLAIN_TYPES
+            and _unit_values.any_in_units(values))
+
+
 def _wedge_center(center):
     """The centre of a wedge, which matplotlib adds to its vertices, as
     pltrs (Rust) holds it: a pair, or one number (alone or in a sequence)
     for both coordinates (see `._kept_geometry`)."""
     match np.shape(center):
         case () | (1,):
-            x = _kept_geometry.real(np.ravel(center)[0])
+            x = _kept_geometry.floated(np.ravel(center)[0])
             return x, x
         case (2,):
-            return _kept_geometry.point(center)
+            return _kept_geometry.floated_point(center)
     raise ValueError(f"{center!r} is no point")
 
 
@@ -2330,24 +2380,31 @@ class Ellipse(Patch):
             values = (xy[0], xy[1], width, height)
         except (TypeError, LookupError):
             values = ()
-        if any(map(_kept_geometry.in_units, values)):
-            self._unit_geometry = values
-            _values.remember_all(self, {"center": xy, "width": width, "height": height},
-                                 self._GIVEN)
+        if (not {type(value) for value in values} <= _kept_geometry.PLAIN_TYPES
+                and _unit_values.any_in_units(values)):
+            _unit_values.keep_geometry(self, {"center": xy, "width": width, "height": height})
             self._hold_fields(angle=angle)
         else:
             self._hold_fields(center=xy, width=width, height=height, angle=angle)
 
+    #: The fields of the geometry that may be given in units.
+    _UNIT_FIELDS = ("center", "width", "height")
+
     def _convert_units_for(self, axes):
-        values = self.__dict__.pop("_unit_geometry", None)
-        if values is None:
+        if "_unit_geometry" not in self.__dict__:
             return
-        x, y, width, height = values
+        geometry = _unit_values.kept_geometry(self)
+        xy = geometry["center"]
         # matplotlib converts the width and height as coordinates too.
-        self._set_fields(center=(float(axes.convert_xunits(x)),
-                                 float(axes.convert_yunits(y))),
-                         width=float(axes.convert_xunits(width)),
-                         height=float(axes.convert_yunits(height)))
+        numbers = {"center": (float(axes.convert_xunits(xy[0])),
+                              float(axes.convert_yunits(xy[1]))),
+                   "width": float(axes.convert_xunits(geometry["width"])),
+                   "height": float(axes.convert_yunits(geometry["height"]))}
+        self._hold_fields(**numbers)
+        for name, number in numbers.items():
+            _unit_values.converted(self, name, geometry[name], number)
+        self._watch_geometry()
+        _unit_values.follow(self, axes)
 
     def _fields(self):
         """``(x, y, width, height, angle)``."""
@@ -2360,7 +2417,16 @@ class Ellipse(Patch):
     def _set_fields(self, **given):
         """Change the fields of the geometry *given* (``center``,
         ``width``, ``height``, ``angle``), kept as given (see
-        `._kept_geometry`)."""
+        `._kept_geometry`, and `._unit_values` for values in units)."""
+        if (("_unit_geometry" in self.__dict__
+             or not {type(value) for value in given.values()} <= _kept_geometry.PLAIN_TYPES)
+                and _unit_values.kept_in_units(
+                    self, {name: given[name] for name in self._UNIT_FIELDS if name in given},
+                    lambda: {"center": self.get_center(), "width": self.get_width(),
+                             "height": self.get_height()},
+                    _unit_values.point_scalars)):
+            given = {name: value for name, value in given.items()
+                     if name not in self._UNIT_FIELDS}
         self._hold_fields(**given)
         self._watch_geometry()
 
@@ -2582,7 +2648,11 @@ class Annulus(Patch):
 
     def _set(self, **given):
         """Change the fields of the annulus *given*, kept as given (see
-        `._kept_geometry`)."""
+        `._kept_geometry`, and `._unit_values` for a centre in units)."""
+        if "center" in given and _unit_values.kept_in_units(
+                self, {"center": given["center"]}, lambda: {"center": self.get_center()},
+                _unit_values.point_scalars):
+            given = {name: value for name, value in given.items() if name != "center"}
         center, (a, b), width, angle = _patches.annulus(self._native)
         held = {"center": center, "a": a, "b": b, "width": width, "angle": angle}
         for name, value in given.items():
@@ -2607,6 +2677,19 @@ class Annulus(Patch):
             .rotate_deg(self.angle) \
             .translate(*self._convert_xy_units(self.center)) \
             .transform(verts)
+
+    def _convert_units_for(self, axes):
+        if "_unit_geometry" not in self.__dict__:
+            return
+        geometry = _unit_values.kept_geometry(self)
+        xy = geometry["center"]
+        # matplotlib converts the centre where it makes the path
+        # (``_transform_verts``).
+        center = (float(axes.convert_xunits(xy[0])), float(axes.convert_yunits(xy[1])))
+        _patches.set_annulus(self._native, center, None, None, None)
+        _unit_values.converted(self, "center", xy, center)
+        self._set()
+        _unit_values.follow(self, axes)
 
     def _recompute_path(self):
         """The path matplotlib's draws and measures compute from the
@@ -2755,7 +2838,7 @@ class Circle(Ellipse):
         # matplotlib's circle is an ellipse of that width and height.
         size = radius * 2
         self._native = _patches.new_circle((0., 0.), 0.)
-        self._hold_fields(center=xy, width=size, height=size, angle=0)
+        self._make_geometry(xy, size, size, 0)
         Patch.__init__(self, **kwargs)
         self._watch_geometry()
 
@@ -2848,6 +2931,10 @@ class Arc(Ellipse):
                              ("theta1", "theta2"))
         self._make_geometry(xy, width, height, angle)
         Patch.__init__(self, **kwargs)
+        if "_unit_geometry" in self.__dict__:
+            # matplotlib's constructor stretches the angles by the size as
+            # given, which no Axes converts yet (a `timedelta` fails there).
+            _patch_arguments.arc_angles(width, height, theta1, theta2)
         if not plain:
             # The angles as matplotlib's constructor computes with them,
             # failing as it does.
@@ -3202,7 +3289,8 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
         where it draws and measures it (`._patch_arguments.fancy_box_path`)."""
         held = dict(zip(self._BOX, _patches.fancy_bbox(self._native)))
         for name, value in given.items():
-            held[name] = _kept_geometry.hold(self, name, value, _kept_geometry.real,
+            # matplotlib's box styles compute with the fields as given.
+            held[name] = _kept_geometry.hold(self, name, value, _kept_geometry.floated,
                                              held[name])
         _patches.set_fancy_bbox(self._native, (held["x"], held["y"]), held["width"],
                                 held["height"])
@@ -3777,6 +3865,15 @@ default: 'arc3'
         for index, pos in enumerate((posA, posB)):
             if pos is not None:
                 positions[index] = pos
+        if _ends_in_units(positions):
+            # Kept as given, converted with the units of the arrow's Axes
+            # (see `._unit_values`).
+            self._unit_positions = tuple(positions)
+            _unusable.drop(self, "positions")
+            self._keep_cast(())
+            _unit_values.convert(self)
+            return
+        self.__dict__.pop("_unit_positions", None)
         try:
             ends = _float_ends(positions)
         except (TypeError, ValueError):
@@ -3847,10 +3944,16 @@ default: 'arc3'
                                    shrinkB=self.shrinkB * dpi_cor)
 
     def _convert_units_for(self, axes):
-        positions = self.__dict__.pop("_unit_positions", None)
-        if positions is not None:
-            self.set_positions(*((axes.convert_xunits(x), axes.convert_yunits(y))
-                                 for x, y in positions))
+        positions = self.__dict__.get("_unit_positions")
+        if positions is None:
+            return
+        # matplotlib converts them where it draws the arrow
+        # (``_get_path_in_displaycoord``).
+        ends = [(float(axes.convert_xunits(pos[0])), float(axes.convert_yunits(pos[1])))
+                for pos in positions]
+        _patches.set_arrow_positions(self._native, *ends)
+        self._unit_ends = ends
+        _unit_values.follow(self, axes)
 
     @property
     def _posA_posB(self):
@@ -3860,10 +3963,13 @@ default: 'arc3'
         kept = _unusable.kept(self, "positions", None)
         if kept is not None:
             return list(kept)
-        positions = self.__dict__.get("_unit_positions")
-        if positions is not None:
-            return list(positions)
         ends, _ = _patches.arrow_route(self._native)
+        positions = self.__dict__.get("_unit_positions")
+        if positions is not None and (
+                ends is None or self.__dict__.get("_unit_ends", list(map(tuple, ends)))
+                == list(map(tuple, ends))):
+            # In units, while pltrs (Rust) holds their conversion.
+            return list(positions)
         if ends is None:
             return None
         given = self.__dict__.get("_given_positions")
@@ -4165,6 +4271,22 @@ class ConnectionPatch(FancyArrowPatch):
                 _unusable.drop(self, name)
             else:
                 _unusable.keep(self, name, (xy, *given), self._place_end_as_given)
+
+    def _convert_units_for(self, axes):
+        # The points in units of the ends in data coordinates of no Axes of
+        # their own convert with the units of the patch's Axes, as
+        # matplotlib's ``_get_xy`` converts them where it places them.
+        converted = False
+        for index, (xy, (coords, end_axes)) in enumerate(
+                zip(self._given_points, self._given_ends)):
+            if (end_axes is None and isinstance(coords, str) and coords == "data"
+                    and _ends_in_units([xy])):
+                _patches.set_connection_end(self._native, bool(index),
+                                            _connection_end(xy, coords, axes))
+                _unusable.drop(self, f"end{index + 1}")
+                converted = True
+        if converted:
+            _unit_values.follow(self, axes)
 
     def _place_end_as_given(self, end):
         """Place the point of *end* (``(xy, coords, axes)``) as matplotlib's

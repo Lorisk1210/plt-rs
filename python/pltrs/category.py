@@ -204,6 +204,13 @@ class UnitData:
         try:
             float(val)
         except ValueError:
+            if isinstance(val, bytes):
+                # dateutil's parser reads bytes decoded; bytes that do not
+                # decode are no date.
+                try:
+                    val = val.decode()
+                except UnicodeDecodeError:
+                    return False
             return _dates.is_datetime_string(val)
         return True
 

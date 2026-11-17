@@ -384,6 +384,21 @@ fn category_names(owner: AxisOwner, name: String) -> PyResult<Vec<String>> {
         .unwrap_or_default())
 }
 
+/// Makes `names` the category names of the axis and of the axes sharing
+/// it, in place of those placed so far (`set_units` with a `UnitData`).
+fn set_categories(owner: AxisOwner, name: String, names: Vec<String>) -> PyResult<()> {
+    let categories = Categories::from_names(names);
+    match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => {
+            axis.set_categories(&categories);
+        }
+        AnyAxis::Deep(axis) => {
+            axis.set_categories(&categories);
+        }
+    }
+    Ok(())
+}
+
 /// Whether the axis converts units.
 fn have_units(owner: AxisOwner, name: String) -> PyResult<bool> {
     Ok(match owner.axis(&name)? {
@@ -506,6 +521,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("mark_default_helpers", mark_default_helpers)?;
     module.add("has_categories", has_categories)?;
     module.add("category_names", category_names)?;
+    module.add("set_categories", set_categories)?;
     module.add("have_units", have_units)?;
     module.add("update_units", update_units)?;
     module.add("converter_kind", converter_kind)?;
@@ -540,6 +556,8 @@ mod tests {
         assert!(update_units(owner(), x(), names()).unwrap());
         assert_eq!(category_names(owner(), x()).unwrap(), ["a", "b"]);
         assert_eq!(converter_kind(owner(), x()).unwrap(), Some("category"));
+        set_categories(owner(), x(), vec!["c".to_owned(), "b".to_owned()]).unwrap();
+        assert_eq!(category_names(owner(), x()).unwrap(), ["c", "b"]);
     }
 
     #[test]

@@ -190,10 +190,23 @@ def date2num(d):
             d = np.asarray(d)
         d = d.astype('datetime64[us]')
 
-    d = _dt64_to_ordinalf(d)
+    numbers = _dt64_to_ordinalf(d)
     if masked:
-        d = np.ma.masked_array(d, mask=mask)
-    return d if iterable else d[0]
+        numbers = _masked_ordinalf(d, numbers, mask)
+    return numbers if iterable else numbers[0]
+
+
+def _masked_ordinalf(d, numbers, mask):
+    """
+    The date numbers *numbers* of the instants *d* under *mask*, as
+    matplotlib's ``_dt64_to_ordinalf`` computes them on a masked array:
+    numpy's masked arithmetic keeps its first operand where the mask is
+    set, which leaves the instant's seconds since 1970 there rather than
+    days (NaN for NaT, as everywhere).
+    """
+    hidden = np.broadcast_to(mask, d.shape) & ~np.isnat(d)
+    seconds = d.astype('datetime64[s]').view(np.int64).astype(np.float64)
+    return np.ma.masked_array(np.where(hidden, seconds, numbers), mask=mask)
 
 
 def _axis_zone(values):
@@ -253,12 +266,14 @@ def num2date(x, tz=None):
     For details, see the module docstring.
     """
     tz = _get_tzinfo(tz)
-    if np.asarray(x).dtype.kind not in 'biuf':
+    kind = np.asarray(x).dtype.kind
+    if kind not in 'biuf':
         # matplotlib multiplies each value by the microseconds of a day.
         np.vectorize(lambda value: value * MUSECONDS_PER_DAY, otypes="O")(x)
     values = _counted_values(x)
+    # (Its error writes a number as it was given: an int without ``.0``.)
     dates = [datetime.datetime(*date, *time, tzinfo=UTC).astimezone(tz)
-             for date, time in _dates.num_to_utc(values.ravel())]
+             for date, time in _dates.num_to_utc(values.ravel(), kind in 'iu')]
     if np.iterable(x):
         return np.array(dates, dtype=object).reshape(values.shape).tolist()
     return dates[0]

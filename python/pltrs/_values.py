@@ -29,10 +29,23 @@ matplotlib answers:
   the property's own setter (`RegularPolygon.xy`).
 """
 
+from typing import NamedTuple
+
 import numpy as np
 
 #: No value given (`given`'s default).
 NONE_GIVEN = object()
+
+
+class InUnits(NamedTuple):
+    """A value in units the program gave (a date, a quantity), which pltrs
+    (Rust) was handed converted, as *number*: `given` answers *value*
+    while pltrs (Rust) holds *number*, and whatever it holds while
+    *number* is None, no Axes having converted the value yet (see
+    `._unit_values`)."""
+
+    value: object
+    number: object
 
 
 def float64s(values):
@@ -95,6 +108,9 @@ def given(artist, name, native, default=NONE_GIVEN, same=None):
     value = artist.__dict__.get("_given_values", {}).get(name, default)
     if is_kept(artist, name):
         return value
+    if isinstance(value, InUnits):
+        return (value.value if value.number is None or _same(value.number, native)
+                else native)
     if value is NONE_GIVEN or not (same or _same)(value, native):
         return native
     return value

@@ -4,6 +4,10 @@
 //! out) and records *why* reproducing matplotlib would be wrong — typically an
 //! accidental behaviour or a matplotlib bug. Waived probes are reported
 //! separately and never count as passing.
+//!
+//! Each waiver stands below a `// topic: <anchor>` comment naming the
+//! section of `DIFFERENCES.md` that tells users about it
+//! (`python/tests/test_differences.py` checks that each does).
 
 use crate::compare::{Tolerance, compare};
 use crate::json::Json;
@@ -61,6 +65,7 @@ const NAIVE_RULE_PAST_9999: &str = "a naive view whose rule would stop past the 
 
 /// Every waiver, grouped by area.
 pub const WAIVERS: &[Waiver] = &[
+    // topic: pltrs-rust
     Waiver {
         op: "dates_tz.locate",
         args: r#"{"via": "tick_values", "view": ["9999-12-31T00:00:00", "9999-12-31T12:00:00"]}"#,
@@ -81,11 +86,13 @@ pub const WAIVERS: &[Waiver] = &[
         args: r#"{"levels": [2.0, 1.0, 0.0]}"#,
         reason: UNSORTED_BOUNDARIES,
     },
+    // topic: where-matplotlib-fails-and-pltrs-does-not
     Waiver {
         op: "patches.BoxStyle",
         args: r#"{"style": "roundtooth,pad=0.2,tooth_size=1"}"#,
         reason: SMALLER_THAN_A_TOOTH,
     },
+    // topic: pltrs-rust
     Waiver {
         op: "ticker.AsinhLocator.__call__",
         args: r#"{"params": {"linear_width": 10.0, "numticks": 7}, "view": [10.0, 100.0]}"#,
@@ -101,6 +108,7 @@ pub const WAIVERS: &[Waiver] = &[
         args: r#"{"params": {"linear_width": 1.0, "base": 2}, "vmin": -3.0, "vmax": 2.0}"#,
         reason: NUMPY_SIMD_SINH,
     },
+    // topic: not-built
     Waiver {
         op: "markers.MarkerStyle",
         args: r#"{"marker": [-3, 0], "fillstyle": "full"}"#,
@@ -111,6 +119,7 @@ pub const WAIVERS: &[Waiver] = &[
         args: r#"{"marker": [4.5, 0], "fillstyle": "full"}"#,
         reason: NON_INTEGER_SIDES,
     },
+    // topic: pltrs-rust
     Waiver {
         op: "markers.MarkerStyle.derived",
         args: r#"{"marker": "s", "fillstyle": "full", "transform": [["rotate_deg", 10]], "steps": [["transformed", [["scale", 2]]], ["rotated", {"deg": 5}]]}"#,
@@ -126,16 +135,19 @@ pub const WAIVERS: &[Waiver] = &[
         args: r#"{"control_points": [[1e17, 0.0], [1.00000000000001e17, 0.0]], "circle": [0, 0, 1.0000000000000051e17], "t0": 0.0, "t1": 1.0, "tolerance": 1e-30}"#,
         reason: OPENBLAS_FMA,
     },
+    // topic: numbers-on-other-machines
     Waiver {
         op: "axes3d.format_coord",
         args: r#"{"pixel": [120, 120], "view": null, "limits": [[0, 10], [-2, 3], [100, 400]]}"#,
         reason: OPENBLAS_BASELINE,
     },
+    // topic: where-matplotlib-fails-and-pltrs-does-not
     Waiver {
         op: "path.Path",
         args: r#"{"vertices": [[0, 0], [1, 2], [2, 0]], "codes": [1, 5, 7], "closed": false}"#,
         reason: UNVALIDATED_CODES,
     },
+    // topic: pltrs-rust
     Waiver {
         op: "path.Path.get_extents",
         args: r#"{"path": {"vertices": [[0.0, 0.0], [1.0, 1.0], [NaN, 2.0], [3.0, 3.0], [4.0, 4.0], [5.0, 5.0]], "codes": [1, 2, 2, 2, 2, 2]}, "transform": null}"#,
@@ -191,6 +203,7 @@ pub const WAIVERS: &[Waiver] = &[
         args: r#"{"c": [[2, 0, 0], [0, 1, 0]]}"#,
         reason: RGBA_ARRAY_FAST_PATH,
     },
+    // topic: numbers-on-other-machines
     Waiver {
         op: "mlab.cohere",
         args: r#"{"NFFT": 32, "detrend": "linear", "window": "none"}"#,

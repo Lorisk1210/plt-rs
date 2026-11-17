@@ -78,8 +78,17 @@ pub(in crate::modules) fn draw_error(kind: DrawErrorKind, message: &str) -> Opti
     if kind == DrawErrorKind::Singular {
         return Some(registered_error("LinAlgError", message));
     }
-    draw_exception(kind).map(|kind| PyErr::new(kind, message.to_owned()))
+    // A TeX file kpathsea cannot find: `dviread`'s message, which names
+    // matplotlib where pltrs (Rust) names itself.
+    let message = match message.strip_prefix(RUST_TEX_IMPLEMENTATION) {
+        Some(rest) => format!("Matplotlib's TeX implementation{rest}"),
+        None => message.to_owned(),
+    };
+    draw_exception(kind).map(|kind| PyErr::new(kind, message))
 }
+
+/// How pltrs (Rust)'s message for a TeX file not found starts.
+const RUST_TEX_IMPLEMENTATION: &str = "pltrs' TeX implementation";
 
 /// The exception matplotlib raises for a problem of `kind` met drawing:
 /// a `ValueError` for a value of the program's that cannot be drawn

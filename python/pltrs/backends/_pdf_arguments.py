@@ -196,8 +196,9 @@ class PdfArgumentsMixin:
 
     def _tex_arguments(self, gc, x, y, s, prop, angle):
         """The arguments of ``draw_tex`` as matplotlib reads them (before
-        and after it has TeX typeset *s*)."""
-        prop.get_size_in_points()
+        and after it has TeX typeset *s*): TeX runs first, so that a
+        missing TeX fails before the other arguments."""
+        self.get_texmanager().make_dvi(s, prop.get_size_in_points())
         gc.get_url()
         # The transform of the text, ``Affine2D().rotate_deg(angle)
         # .translate(x, y)``, computed as numpy computes it there.

@@ -178,6 +178,28 @@ pub(super) fn xpdf_distill(
     Ok(())
 }
 
+/// Runs `distill` as a save runs a distiller (matplotlib's
+/// `_try_distill`): a program it needs that is missing logs matplotlib's
+/// warning, and the file is left as written.
+///
+/// # Errors
+///
+/// When the distiller fails otherwise.
+pub(super) fn try_distill(
+    distill: impl FnOnce() -> Result<(), ProgramError>,
+) -> Result<(), ProgramError> {
+    match distill() {
+        Err(ProgramError::NotFound(missing)) => {
+            crate::warnings::log(
+                "backends.backend_ps",
+                &format!("{missing}.  Distillation step skipped."),
+            );
+            Ok(())
+        }
+        done => done,
+    }
+}
+
 /// How a PostScript file is distilled (the arguments of matplotlib's
 /// `gs_distill` and `xpdf_distill` but the file).
 #[derive(Clone, Copy, Debug, PartialEq)]

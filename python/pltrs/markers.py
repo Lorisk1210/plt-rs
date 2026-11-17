@@ -15,6 +15,7 @@ angle)``, with style 0 (polygon), 1 (star) or 2 (asterisk).
 import copy
 
 from collections.abc import Hashable, Sized
+from numbers import Integral
 
 import numpy as np
 
@@ -58,6 +59,23 @@ def _builtin_path(vertices, codes):
     if path is None:
         path = _BUILTIN_PATHS[key] = Path(vertices, codes)
     return path
+
+
+#: The unit paths of polygon marker styles, as matplotlib makes them.
+_POLYGON_PATHS = (Path.unit_regular_polygon, Path.unit_regular_star,
+                  Path.unit_regular_asterisk)
+
+
+def _polygon_spec(numsides, style, rotation):
+    """The spec of a ``(numsides, style, rotation)`` marker. A number of
+    sides other than a positive integer goes through matplotlib's unit
+    path first, which fails as there (negative and zero counts); a count
+    it makes no vertices for is that empty path."""
+    if not (isinstance(numsides, Integral) and numsides > 0):
+        path = _POLYGON_PATHS[style](numsides)
+        if not len(path.vertices):
+            return ("path", path)
+    return ("polygon", (int(numsides), style, rotation))
 
 
 class MarkerStyle:
@@ -251,8 +269,7 @@ class MarkerStyle:
                 marker[1] in (0, 1, 2)):
             numsides, rotation = (marker[0], 0.0) if len(marker) == 2 else (
                 marker[0], marker[2])
-            self._spec = ("polygon", (int(numsides), int(marker[1]),
-                                      float(rotation)))
+            self._spec = _polygon_spec(numsides, int(marker[1]), float(rotation))
         elif isinstance(marker, MarkerStyle):
             self.__dict__ = copy.deepcopy(marker.__dict__)
         else:

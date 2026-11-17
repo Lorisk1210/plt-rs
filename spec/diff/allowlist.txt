@@ -4,32 +4,38 @@
 # only (a value's key). `cargo xtask diff` leaves them out of its report
 # (it lists them per program as `allowed` in report.json). Anything else is
 # a difference to fix.
+# Each entry stands below a `# topic: <anchor>` line naming the section
+# of DIFFERENCES.md that tells users about it
+# (python/tests/test_differences.py checks that each does).
 
+# topic: values-that-differ-between-any-two-runs
 # The program reads the clock: the time it prints is its own, under either.
 images_contours_and_fields/plot_streamplot$ | ^value\[(time|joinedstr)\]: | the example times streamplot with time.time() and writes the time into a figure title
-images_contours_and_fields/plot_streamplot$ | ^image: RMS > 1$ | the pixels that differ are the digits of the times the titles of figure 2 show
+images_contours_and_fields/plot_streamplot$ | ^image: RMS > 1$ @ ^figure 2$ | the pixels that differ are the digits of the times the titles of figure 2 show
 statistics/time_series_histogram$ | ^stdout$ | the example prints the seconds its plotting took
-(event_handling/pong_sgskip|mplot3d/wire3d_animation|statistics/time_series_histogram)$ | ^value\[time\]: float$ | the example reads time.time(), which differs between the runs (the reference run is cached)
 
 # The program draws object reprs, with their memory addresses.
-users_explain/axes/axes_units$ | ^image: RMS > 1$ | figure 12 writes the reprs of each axis' converter, locator and formatter ("<... object at 0x...>"), whose addresses differ from run to run
+users_explain/axes/axes_units$ | ^image: RMS > 1$ @ ^figure 12$ | figure 12 writes the reprs of each axis' converter, locator and formatter ("<... object at 0x...>"), whose addresses differ from run to run
 
+# topic: files-pltrs-writes
 # A PDF names the software that wrote it.
 (misc/multipage_pdf|api/pdf_pages_0)$ | ^value\[infodict\]: str$ | the PDF Creator entry names pltrs, the software writing the file, where matplotlib names itself
 rcparams/pgf_v[01]$ | ^value\[read_text\]: str$ | the PGF file's comment header names pltrs, the software writing it ("%% Creator: pltrs, PGF backend", "%% pltrs used the following preamble"), where matplotlib names itself; the rest of the file is the same
 
+# topic: values-that-differ-between-any-two-runs
 # matplotlib salts the ids of its SVG elements with a random uuid unless
 # svg.hashsalt is set, so they differ between two runs of matplotlib too.
 (misc/svg_filter_line|user_interfaces/svg_histogram_sgskip|user_interfaces/svg_tooltip_sgskip)$ | ^value\[XMLID\]: dict keys$ | SVG ids are hashed with a random salt (svg.hashsalt None)
 
+# topic: the-look-of-figures
 # pltrs ships its own looks as style sheets (pltrs-modern, pltrs-modern-dark,
 # `pltrs::look`), which style.available lists with matplotlib's.
 style_sheets/style_sheets_reference$ | ^(value\[constant\]: list length|image: other figures open)$ | the example draws one figure per available style, two more with pltrs' own looks
 style_sheets/style_sheets_reference$ | ^(callback|calls)\[[^]]+\]: runs another number of times$ | the example's functions run once more per figure for each of pltrs' two looks (31 styles, not 29; the dark-background branch for pltrs-modern-dark too)
 style_sheets/style_sheets_reference$ | ^warning extra: WARNING: findfont: Failed to find font weight semibold for DejaVu Sans( Mono)?, now using N\.$ | pltrs' two looks set semibold titles (figure.titleweight, axes.titleweight), and the bundled DejaVu fonts have no semibold face, so the font manager logs the substitution as matplotlib's does for that weight
-style_sheets/style_sheets_reference$ | ^warning extra: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown$ | plt.show() warns once per open figure where the Agg canvas cannot show one and a display could be (Windows, macOS; matplotlib keeps quiet on Linux without $DISPLAY): two warnings more, for pltrs' two looks' figures (31, not 29)
 (tutorials/lifecycle|users_explain/customizing)$ | ^stdout$ | the example prints style.available (its only other printed line, lifecycle's file types, is the same)
 
+# topic: classes-and-types
 # matplotlib's C++ extensions define their classes with pybind11, whose
 # classes derive from pybind11_object; pltrs's are Python classes.
 . | ^type\[\w+\]: MRO of matplotlib\.(ft2font\.(FT2Font|FT2Image|Glyph|LayoutItem)|backends\._backend_agg\.BufferRegion|_tri\.(Triangulation|TriContourGenerator|TrapezoidMapTriFinder)): missing \['pybind11_object'\]$ | pybind11_object is the base of pybind11's extension classes, an implementation detail of matplotlib's C++ modules
@@ -47,12 +53,7 @@ style_sheets/style_sheets_reference$ | ^warning extra: UserWarning: FigureCanvas
 # matplotlib's list).
 artists/\w+_(getters|setters)$ | ^type\[child_axes\]: list -> matplotlib\._figure_artists\.ChildAxesList$ | an Axes' list of child Axes is a list subclass that has pltrs (Rust) draw the Axes put in it
 
-# matplotlib's Artist.set_mouseover adds the artist to self.axes._mouseover_set;
-# the axes of a (sub)figure is the list of its Axes, so a figure with Axes
-# fails there with AttributeError (a matplotlib bug), where pltrs sets it.
-artists/subfigure_setters$ | ^exception\[set_mouseover\]: missing AttributeError$ | matplotlib fails reading _mouseover_set from the list a SubFigure's axes attribute is
-api/(figure(_variant)?_[0-9]+|subfigure_0)$ | ^exception\[(set_mouseover|set|constant)\]: missing AttributeError$ | matplotlib fails reading _mouseover_set from the list a (Sub)Figure's axes attribute is: set_mouseover(True), mouseover = True and set(mouseover=True)
-
+# topic: your-subclasses-and-callbacks
 # pltrs (Rust) lays out the tree of an added offset box itself and asks a
 # box of the program's in it for its extent once per layout (its
 # get_bbox, through measure_box), then draws it once, where matplotlib's
@@ -69,11 +70,7 @@ generated/offsetboxes/program_boxes$ | ^callback\[[^]]+\]: runs another number o
 misc/custom_projection$ | ^callback\[_[xy]axis_(text[12]_)?transform\]: (runs another number of times|never runs)$ | the getters run for the Tick objects an axis makes: 30 and 10 calls in the first draw of the figure, none in a second
 specialty_plots/skewt$ | ^callback\[SkewXTick\]: runs another number of times$ | SkewXAxis._get_tick runs for each Tick object the axis makes: 17 calls in the first draw of the figure, none in a second
 
-# The tester imports pltrs (Python) as `pltrs`, and writes the names in
-# what it records back as matplotlib's (`pltrs.lines` as
-# `matplotlib.lines`), but not the padding computed from them.
-api/inspector_0$ | ^value\[pprint_setters_rest\]: str$ | the reST table pads its first column to the longest `:meth:` target, which names the setter's module: `pltrs.lines.Line2D.set_markerfacecoloralt` under the tester's import, five characters shorter twice in the row than `matplotlib.lines...` (the rows are the same once renamed; under `import matplotlib` via python/alias the table is matplotlib's)
-
+# topic: windows-and-backends
 # pltrs has a GUI backend of its own (`backend_pltrs`, its windows), which
 # the backend registry lists among matplotlib's.
 (api|hostile)/module_matplotlib_0$ | ^exception message\[(use|validate_backend)\]: ValueError$ | the list of valid backends in the message of use('nonexistent_backend') and validate_backend('text') ends with pltrs' own backend, 'pltrs'
@@ -81,6 +78,7 @@ api/inspector_0$ | ^value\[pprint_setters_rest\]: str$ | the reST table pads its
 rcparams/api_validators$ | ^exception message\[validate_backend\]: ValueError$ | the list of valid backends in the message of validate_backend('nobackend') ends with pltrs' own backend, 'pltrs'
 api/backend_registry_0$ | ^value\[list_all\]: list length$ | backend_registry.list_all() lists pltrs' own backend, 'pltrs', after matplotlib's built-in ones
 
+# topic: installation-configuration-and-data-files
 # pltrs (Rust) writes the data files it bundles (its fonts, the template of
 # the defaults) into a data directory of its own, which programs reach as
 # matplotlib's mpl-data, and names its rc file pltrsrc.
@@ -92,24 +90,21 @@ api/pdf_file_0$ | ^exception message\[(writeFonts|embedTTF)\]: KeyError$ | the K
 (api|hostile)/module_matplotlib_ft2font_0$ | ^exception message\[FT2Font\]: TypeError$ | pybind11's message for FT2Font(findfont('DejaVu Sans'), nonexistent_kw=1) repeats the arguments, and the FontPath findfont() gives is the bundled DejaVu Sans in pltrs' data directory ('<config>/mpl-data/fonts/ttf'), where matplotlib's is in its package; the rest of the message is matplotlib's
 (api|hostile)/module_matplotlib_0$ | ^warning (missing|extra): WARNING: Cannot decode configuration file FontPath\('…', N\) as utf-N\.$ | the file rc_params_from_file is handed (the FontPath findfont() gives) is the bundled DejaVu Sans of pltrs' data directory ('<config>/mpl-data/fonts/ttf'), where matplotlib's is in its package; the warning is the same
 (api|hostile)/module_matplotlib_font_manager_0$ | ^warning (missing|extra): ResourceWarning: unclosed file <_io\.BufferedReader name='…'>$ | the AFM file the program opens from get_data_path() is in pltrs' data directory ('<config>/mpl-data/fonts/afm'), where matplotlib's is in its package; the warning is the same
+api/(font_manager_0|module_matplotlib_font_manager_0)$ | ^value\[(get_font_names|findSystemFonts)\]: str$ | findSystemFonts() returns a set of absolute paths as a list, and get_font_names() a set of the names of the fonts loaded in that order: the fonts of pltrs' data directory ('<config>/mpl-data/fonts/ttf') and of matplotlib's package are the same 40 files and 24 names, in the order their different paths hash to
 
+# topic: the-look-of-figures
 # pltrs bundles Inter, the font of its modern look, with matplotlib's
 # DejaVu and STIX fonts.
-(api/(font_manager_0|module_matplotlib_font_manager_0)|hostile/module_matplotlib_font_manager_1)$ | ^value\[(get_font_names|findSystemFonts|list_fonts)\]: list length$ | the fonts of pltrs' data directory and of its font manager include Inter's five faces (Regular, Italic, SemiBold, Bold, BoldItalic: one more family name, Inter, and its SemiBold face's)
+(api/module_matplotlib_font_manager_0|hostile/module_matplotlib_font_manager_1)$ | ^value\[list_fonts\]: list length$ | list_fonts() lists the directory, and the fonts directory of pltrs' data directory holds Inter's five faces (Regular, Italic, SemiBold, Bold, BoldItalic) beside matplotlib's 40 files; under matplotlib's look findSystemFonts() and the font manager leave them out
 
-# matplotlib's fallback `RendererBase.draw_path_collection` (which its
-# vector renderers use for a few paths) translates a frozen copy of the
-# master transform for each offset, and an `IdentityTransform` freezes to
-# itself, which has no `translate` (a matplotlib bug): matplotlib fails on
-# an identity master transform with offsets, where pltrs draws.
-api/(pdf|svg|ps)_renderer_0$ | ^exception\[draw_path_collection\]: missing AttributeError$ | the base draw_path_collection calls IdentityTransform().frozen().translate(xo, yo), which IdentityTransform lacks
-
+# topic: values-that-differ-between-any-two-runs
 # HTMLWriter names the elements of its player with a random uuid
 # (`DISPLAY_TEMPLATE.format(id=uuid.uuid4().hex, ...)`): the HTML of one
 # animation differs between two runs of matplotlib (and the frames it
 # embeds are PNG files, whose compressed bytes are each encoder's own).
 api/func_animation_0$ | ^value\[to_jshtml\]: str$ | to_jshtml() names its elements with uuid.uuid4().hex, so its text differs between two runs of matplotlib
 
+# topic: where-matplotlib-fails-and-pltrs-does-not
 # matplotlib's deprecated `_Style.register` checks the style against
 # `cls._Base`, which no style class has any more (a matplotlib bug): it
 # fails with AttributeError and registers nothing, where pltrs registers.
@@ -126,11 +121,8 @@ api/annotation_0$ | ^(exception\[savefig\]: missing StopIteration|calls\[savefig
 # `draw_rect_filled`) crashes the interpreter with a segmentation fault;
 # pltrs refuses the size as numpy does.
 api/module_matplotlib_ft2font_0$ | ^crash: ValueError: negative dimensions are not allowed$ | an FT2Image of negative width or height crashes matplotlib's interpreter (segmentation fault) as soon as it is read
-# A failed command's error names the command, here sys.executable: the
-# interpreter of each run's own venv (the reference venv's under
-# matplotlib, the pltrs one's under pltrs), the rest of the message alike.
-rest/testing_helpers$ | ^exception message\[subprocess_run_for_testing\]: CalledProcessError$ | the message quotes the command run, sys.executable, a path to the interpreter of each implementation's own venv
 
+# topic: values-that-differ-between-any-two-runs
 # The corpora (`cargo xtask diff --corpus`, spec/diff/corpora.toml).
 # Programs that time themselves: the times are their own, under either.
 corpus/cheatsheets/scripts/performance-tips$ | ^(value\[perf_counter\]: float|stdout)$ | the cheat sheet's tip times plot and scatter with time.perf_counter() and prints the seconds
@@ -139,9 +131,11 @@ corpus/from-python-to-numpy/code/(allocations|benchmark|random_walk|vectorizatio
 corpus/from-python-to-numpy/code/random_walk$ | ^value\[(choices|constant|walk)\]: int$ | the walks the timed statements draw continue Python's random generator from where the runs before them, whose number tools.timeit picks from the time a first run took, left it
 corpus/from-python-to-numpy/code/random_walk$ | ^value\[(random_walk_fastest|listcomp|where|candidates|all)\]: (array values|array shape|list length)$ | the walk W draws with NumPy's global generator after the timed statements drew from it as many times as tools.timeit chose from the time a first run took, so W and the crossings found in it follow that time: two matplotlib runs looped 31 and 301 times (task REGR5)
 corpus/matplotlib-3d/elevation$ | ^(value\[(time|format)\]: (float|str)|image: (RMS > 1|written PNG RMS > 1))$ | the program times its rendering with time.time() and writes the seconds into the figure's title
+# topic: the-look-of-figures
 # pltrs' two looks are style sheets that style.available lists with
 # matplotlib's (as for the gallery's style_sheets_reference).
 corpus/cheatsheets/scripts/styles$ | ^(value\[available\]: list length|calls\[[^]]+\]: runs another number of times|image: other files written|warning extra: WARNING: findfont: Font family '…' not found\.)$ | the program draws and saves one figure per available style, two more with pltrs' own looks (pltrs-modern, pltrs-modern-dark), whose titles look the missing family up as often as the others' do
+# topic: warnings-and-error-messages
 # A family no font has leaves matplotlib's findfont scoring every font
 # on the other properties, and the first of those scoring best is the one
 # its weight warning names: its font list is in the order of a Python set
@@ -151,13 +145,9 @@ corpus/cheatsheets/scripts/styles$ | ^(value\[available\]: list length|calls\[[^
 # Resort High-Efficiency; the corpora's reference venv, STIXSizeFourSym), so
 # that any of the fonts scoring alike may be named. The fallback font drawn
 # is the same.
-^corpus/ | ^warning (missing|extra): WARNING: findfont: Failed to find font weight \S+ for [\w -]+, now using( N\.)?$ | the font named for a family not found is the first in the font list of those scoring best, in an order of set iteration over the font paths
+^corpus/ | ^warning (missing|extra): WARNING: findfont: Failed to find font weight \S+ for [\w -]+, now using( N\.)?$ | the font named for a family not found is the first in the font list of those scoring best, in an order of set iteration over the font paths; the line also covers how many such lookups are logged, which differs in 14 programs of the corpora (CORP14's run of 2026-11-16: 18 more under pltrs in each of scqubits' 7 examples and in mplfinance's hollow_and_filled_candles, for weights 500 and medium of DejaVu Sans, cmsy10 and the STIX fonts; cheatsheets/fonts 4 fewer and 3 more; one fewer in rougier-book's scale and tick-labels-variation, flexitext's OOP and tueplots' bundles; one more in cheatsheets/styles), whose figures and values are matplotlib's (all of them clean but for this line in that run; task ALLOW1)
+# topic: values-that-differ-between-any-two-runs
 rcparams/text_1_v[12]$ | ^warning (missing|extra): WARNING: findfont: Failed to find font weight \S+ for [\w -]+, now using( N\.)?$ | the same order of set iteration: matplotlib 3.11.2 itself names other fonts for four of these lookups from run to run (text_1_v1: DejaVu Sans Mono 3 or 7 times and DejaVu Sans 10 or 6, pltrs' counts equal to matplotlib's whole output in 5 of 10 runs; text_1_v2: the four land on DejaVu Serif, Sans, Sans Display, cmmi10, cmsy10, STIXSizeTwoSym or STIXSizeFourSym, pltrs' DejaVu Sans 12 in one run of 18), GEN10 2026-11-16
-
-# An artist inspector's reST table of setters names each setter by module
-# (pltrs.artist.Artist.set_alpha), and its first column is as wide as the
-# longest name: five letters per name narrower than matplotlib's.
-^generated/(api|hostile)/inspector_\d+$ | ^value\[pprint_setters_rest\]: str$ | the rows name the same setters as matplotlib's once pltrs reads matplotlib; only the "=" rules and the padding to the column's width differ, by the package name's length
 
 # What the corpora's programs read of the machine and the moment, which
 # differs between any two runs, two of matplotlib's too (each entry below
@@ -208,7 +198,8 @@ corpus/scikit-learn-mooc/python_scripts/cross_validation_time$ | ^value\[cross_v
 corpus/scikit-learn-mooc/python_scripts/(cross_validation_sol_02|feature_selection_introduction)$ | ^image: RMS > 1$ | the script plots the seconds its fits took
 corpus/scipy-cookbook/ipython/ApplyFIRFilter$ | ^(value\[min\]: float|image: RMS > 1)$ | the recipe plots the seconds each filter took (the least of three runs)
 # Memory addresses (a NumPy array's data pointer).
-corpus/ipython-cookbook/chapter04_optimization/(05_array_copies|07_rolling_average)$ | ^value\[(__array_interface__|aid|ax)\]: int$ | the recipe reads where NumPy keeps its arrays' data (`__array_interface__['data'][0]`)
+corpus/ipython-cookbook/chapter04_optimization/(05_array_copies|07_rolling_average)$ | ^value\[\?\]: int$ | the recipe reads where NumPy keeps its arrays' data (`__array_interface__['data'][0]`), which the tracer names `?`
+corpus/ipython-cookbook/chapter04_optimization/(05_array_copies|07_rolling_average)$ | ^stdout$ | the recipe times its copies and its rolling average with %timeit, whose line prints the microseconds a loop took
 # sympy orders the solutions of a system as its sets iterate, which differs
 # between two runs.
 corpus/johansson-lectures/Lecture-5-Sympy$ | ^type\[solve\]: | sympy's solve returns its solutions in an order of its own from run to run
@@ -230,16 +221,24 @@ corpus/py-pde/examples/(jupyter/Tutorial 2 - Solving pre-defined partial differe
 corpus/mlxtend/docs/sources/user_guide/evaluate/BootstrapOutOfBag$ | ^stdout$ | the example prints the indices of an unseeded BootstrapOutOfBag split
 corpus/dna-features-viewer/examples/ | ^(type|value)\[plot\]: | plot returns the features' levels keyed by GraphicFeature objects, all described alike, so which level a key compares with follows the run: two matplotlib runs give 0 and 1.0 for the first
 corpus/imbalanced-learn/examples/under-sampling/plot_comparison_under_sampling$ | ^(value\[(predict|reshape|fit_resample|joinedstr)\]: |image: RMS > 1$) | the example iterates over sets of samplers ({FunctionSampler(), ClusterCentroids(...)}), hashed by their addresses, so the order in which it fits and plots them follows where the process allocated them: matplotlib's runs agree with each other, pltrs's heap differs
+# topic: the-look-of-figures
 # pltrs' own looks and backend, and the files of its configuration.
 ^corpus/ | ^value\[available\]: list length$ | style.available lists pltrs' two looks (pltrs-modern, pltrs-modern-dark) with matplotlib's sheets
 corpus/ipython-cookbook/chapter06_viz/01_styles$ | ^value\[sorted\]: list length$ | the recipe sorts style.available, which lists pltrs' two looks with matplotlib's sheets
+# topic: installation-configuration-and-data-files
 ^corpus/ | ^value\[matplotlib_fname\]: str$ | without an rc file of the program's, the file named is the template of the defaults, pltrs' `pltrsrc` in its data directory
+# topic: windows-and-backends
 corpus/scipy-cookbook/ipython/Matplotlib_PySide$ | ^exception message\[use\]: ValueError$ | the backends a name may name are matplotlib's and pltrs' own GUI backend (`pltrs`)
+# topic: installation-configuration-and-data-files
 corpus/matplotlib-3-cookbook/Chapter12/Chapter 12 - Using axisartist Toolkit$ | ^exception message\[\?\]: ImportError$ | the message names the file of the package imported from, matplotlib's mpl_toolkits beside it in site-packages, pltrs' inside its package
+# topic: the-look-of-figures
 # The rcParams and pickling programs (task GEN3).
 generated/rcparams/api_styles$ | ^value\[sorted\]: list length$ | style.available and style.library list pltrs' two looks (pltrs-modern, pltrs-modern-dark) with matplotlib's sheets
+# topic: installation-configuration-and-data-files
 generated/rcparams/api_rc_files$ | ^value\[basename\]: str$ | without an rc file of the program's, matplotlib_fname() names the template of the defaults, pltrs' `pltrsrc` in its data directory
+# topic: files-pltrs-writes
 generated/rcparams/svg_v1$ | ^value\[findall\]: str$ @ ^\d+:0\[\d+\]$ | an embedded image's id is hashed from its PNG bytes: matplotlib's are Pillow's (zlib's DEFLATE), pltrs' its own encoder's, of the same pixels; the ids of everything else, hashed from what both write alike, agree
+# topic: where-matplotlib-fails-and-pltrs-does-not
 generated/pickling/unpicklable$ | ^exception\[(dumps|deepcopy)\]: missing TypeError$ | pltrs' category UnitData pickles (since 607ebf70), where matplotlib's holds an itertools.count, which Python 3.14 no longer pickles
 generated/pickling/unpicklable$ | ^exception message\[dumps\]: PicklingError$ | both fail with pickle's PicklingError for a function of the program's that pickle cannot find; matplotlib meets the y axis' lambda first walking its objects, pltrs the x axis' formatter first among the callables its archive refers to
 
@@ -249,13 +248,6 @@ generated/pickling/unpicklable$ | ^exception message\[dumps\]: PicklingError$ | 
 # colour is whatever memory those arrays were given.
 hostile/module_matplotlib_colors_4$ | ^value\[hsv_to_rgb\]: array values$ @ ^10[12]:0$ | the RGB of a NaN hue is uninitialized memory in matplotlib (np.empty_like, written by no sector), 1.0, 5e-324 and 0.0 in one run, 0.0, 0.0 and NaN for the same input masked; pltrs (Rust) computes a colour of its own
 
-# matplotlib draws a polar line through the transformed path it cached at
-# the draw before its radial limits changed (`PolarTransform` reads them
-# without invalidating the line's cache): the same program without the draw
-# before `set_ylim` draws as pltrs does (RMS 17 between matplotlib's two
-# runs, 0 to pltrs'; refreshing the line's data draws as pltrs too).
-generated/interaction/events_polar$ | ^image: RMS > 1$ | matplotlib's stale cached path of a polar line after its radial limits change (see above)
-
 # matplotlib's AsinhLocator.tick_values sorts a set of its rounded tick
 # values (`sorted(set(qs))`); NaN values hash by identity and compare false
 # with anything, so where the finite value lands among them follows the
@@ -264,6 +256,7 @@ generated/interaction/events_polar$ | ^image: RMS > 1$ | matplotlib's stale cach
 # nan, nan] once (task REGR5).
 hostile/asinh_locator_0$ | ^value\[tick_values\]: array values$ @ ^11[89]:0$ | the order of NaN tick values among the finite one follows the iteration order of a Python set of NaNs, which differs between runs of matplotlib itself
 
+# topic: numbers-on-other-machines
 # What differs with the system matplotlib runs on, not with pltrs (macOS,
 # task MAC3).
 # matplotlib's FontManager logs this from a 5-second timer while it reads
@@ -356,6 +349,7 @@ hostile/table_cell_1$ | ^exception\[draw\]: missing OverflowError$ @ ^line 481$ 
 # them by processor (python/DESIGN.md, "Processor levels").
 images_contours_and_fields/tricontour_smooth_delaunay$ | ^value\[refine_field\]: array values$ @ ^95:0\[1\]$ | the min_E interpolation of the example's random points (flat triangles among them) solves an ill-conditioned system, whose result moves by the tolerance under matplotlib itself between OpenBLAS's kernels: with numpy at X86_V3 its minimum is -8.772904476 on the SkylakeX kernels and -8.772913748 on the Haswell ones (1.06e-6 apart), where pltrs gives -8.772904663; clean with AVX-512
 
+# topic: where-matplotlib-fails-and-pltrs-does-not
 # A callback of the program's that clears its Axes, or removes the Axes'
 # text, while those Axes are drawn. matplotlib's draw goes on with the
 # artists it listed before the callback ran and fails on the text the
@@ -368,6 +362,7 @@ images_contours_and_fields/tricontour_smooth_delaunay$ | ^value\[refine_field\]:
 # is told to expect.
 generated/reentry/(agg_filter|artist-draw|colormap-call|formatter|locator-call|locator-tick_values|norm-call|path_effect|scale-transform|scale-transform-set_xscale|transform-non_affine)--(clear|remove)$ | ^exception\[draw\]: missing AttributeError$ | matplotlib draws a text the callback removed from the figure during this draw and fails reading its figure's dpi; pltrs draws what the Axes still hold
 
+# topic: warnings-and-error-messages
 # Programs of nonsense values whose difference is an accident of the order
 # in which matplotlib computes with them (TAIL1, 2026-11-15; the exact
 # emulation of matplotlib's errors and warnings for nonsense input is
@@ -377,7 +372,6 @@ generated/reentry/(agg_filter|artist-draw|colormap-call|formatter|locator-call|l
 hostile/axes3d(_variant_vertical)?_26$ | ^exception\[draw\]: TypeError -> RuntimeError$ | the 3-D line of a dates errorbar: matplotlib's draw multiplies its projection matrix by the dates (`np.dot(M, vec.data)` on an object array in proj3d._proj_transform_vec_clip) and raises numpy's TypeError; pltrs (Rust) refuses the dates where they reach its draw; both refuse that draw
 hostile/axes3d(_variant(_vertical)?)?_26$ | ^warning missing: RuntimeWarning: invalid value encountered in (divide|dot)$ | numpy dividing by w = 0 (`product[:3] / product[3]` in proj3d._scale_proj_transform_vectors) and multiplying the infinities of the dates errorbar's segments, which pltrs (Rust) projects without numpy
 hostile/axes3d(_variant(_vertical)?)?_27$ | ^warning missing: UserWarning: Warning: converting a masked element to nan\.$ | numpy's warning when matplotlib 3.11's check of the 3-D scales (art3d._scale_invalid_mask, `np.asarray` in Scale.val_in_range) converts the masked segments of a stem plotted from masked data; pltrs (Rust) checks the scales without numpy
-hostile/axis_artist_ticklabels_variant(_floating)?_11$ | ^warning extra: WARNING: findfont: Font family \['…'\] not found\. Falling back to DejaVu Sans\.$ | the tick labels of an axis artist given the font name '' (`set_name('')`): pltrs (Python) looks the font up once more by `findfont`, which logs about the family no font has; the font drawn is the same
 hostile/axisartist_axes_variant(_log)?_0$ | ^identity\[set\]: the same object where matplotlib returns a new one$ @ ^9(50|46):0\[0\]\[0\]$ | the second tick `set(yticks=[0.5, 0.5])` makes asks the left spine for its transform, whose position the program's earlier calls left unset: matplotlib sets it then (Spine._ensure_position_is_set), which resets the axis' ticks (Spine.set_position calls reset_ticks), so the first tick returned is a new one; pltrs keeps the axis' ticks
 hostile/axisartist_axes_variant_0$ | ^warning missing: RuntimeWarning: invalid value encountered in (cos|sin)$ | numpy's cosine and sine of an infinite angle where matplotlib's curvilinear grid maps the limits of `new_floating_axis(0, inf)` (PolarTransform.transform_non_affine in grid_helper_curvelinear's update_lim), which pltrs (Rust) maps without numpy
 hostile/bbox_image(_variant)?_2$ | ^exception\[draw\]: missing TypeError$ | `set_resample('False')`: matplotlib's draw hands the string to its C++ resampler, whose pybind11 signature takes a bool (an object with `__bool__`, which a str has not) and refuses it with a message repeating the arrays; pltrs (Rust) takes the value for its truth
@@ -397,6 +391,7 @@ api/module_matplotlib_pyplot_0$ | ^warning missing: RuntimeWarning: overflow enc
 # and the figures match matplotlib's). Programs of members libraries override
 # publicly stay out of the list (open).
 
+# topic: your-subclasses-and-callbacks
 ^generated/overrides/(GridSpec-get_subplot_params|Normalize-__call__|XAxis-get_view_interval)$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | the program changing the override's result (its -changed variant) is clean: pltrs calls the override where it matters and uses what it returns; only how often it calls it differs
 ^generated/overrides/(Affine2D-_iter_break_from_left_to_right|Affine2DBase-_iter_break_from_left_to_right|Axes-_process_unit_info|Axes-_request_autoscale_view|Axes-_set_artist_props|Axes-_update_transScale|Collection-_get_default_antialiased|Collection-_get_default_edgecolor|Colorbar-_draw_all|Colorbar-_extend_lower|Colorbar-_extend_upper|Colorbar-_set_scale)$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | a private member of matplotlib's that at most one library of spec/diff/overrides_census.json overrides; the override's values and the figures match matplotlib's, only how often pltrs (Rust) calls it, where it does its work natively, differs
 ^generated/overrides/(Colorbar-_short_axis|Colormap-_ensure_inited|Colormap-_init|Colormap-_update_lut_extremes|FancyArrowPatch-_get_path_in_displaycoord|Figure-_internal_update|Formatter-_set_locator|LambertAxes-_get_affine_transform|LambertAxes-_get_core_transform|LambertAxes-_process_unit_info|LambertAxes-_request_autoscale_view|LambertAxes-_set_lim_and_transforms)$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | a private member of matplotlib's that at most one library of spec/diff/overrides_census.json overrides; the override's values and the figures match matplotlib's, only how often pltrs (Rust) calls it, where it does its work natively, differs
@@ -416,6 +411,7 @@ api/module_matplotlib_pyplot_0$ | ^warning missing: RuntimeWarning: overflow enc
 ^generated/overrides/(XAxis-clear|XAxis-draw|XAxis-get_figure|XAxis-get_major_locator|XAxis-get_major_ticks|XAxis-get_minor_ticks|XAxis-get_tightbbox|XAxis-pchanged|XAxis-set_minor_locator|XAxis-set_tick_params|XTick-get_children|XTick-get_figure)$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | no library of spec/diff/overrides_census.json overrides this member on this class; the override's values and the figures match matplotlib's, only how often pltrs (Rust) calls it, where it does its work natively, differs
 ^generated/overrides/(XTick-pchanged)$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | no library of spec/diff/overrides_census.json overrides this member on this class; the override's values and the figures match matplotlib's, only how often pltrs (Rust) calls it, where it does its work natively, differs
 
+# topic: where-matplotlib-fails-and-pltrs-does-not
 # A figure whose callback redraws it while it is being drawn is drawn once.
 # A callback of the program's that matplotlib's draw calls (a formatter, a
 # locator, a scale's or an artist's transform, a norm or colormap, a path
@@ -441,10 +437,12 @@ api/module_matplotlib_pyplot_0$ | ^warning missing: RuntimeWarning: overflow enc
 # draw and print) are matplotlib's.
 (generated/reentry/(agg_filter|artist-draw|colormap-call|formatter|locator-call|locator-tick_values|locator-tick_values-3d|locator-tick_values-polar|norm-call|path_effect|scale-transform|transform-affine|transform-non_affine|xlim_changed-stale)--draw_idle-at-save|corpus/librosa/docs/tutorials/(01-intro/05-onsets|03-advanced/plot_dynamic_beat))$ | ^image: RMS > 1$ | a callback that matplotlib's draw calls redraws the canvas: matplotlib paints that draw into the buffer of the draw under way and paints the rest of the figure over it again; pltrs draws the figure once, the image matplotlib gives when the callback draws nothing
 
+# topic: values-that-differ-between-any-two-runs
 # matplotlib warns that a legend at loc="best" can be slow when its search
 # for the place took more than a second (`Legend._find_best_position`).
 corpus/librosa/docs/tutorials/03-advanced/plot_dynamic_beat$ | ^warning missing: UserWarning: Creating legend with loc="best" can be slow with large amounts of data\.$ | matplotlib's search for the legend's place over the tempogram's 1,000-point curves takes 0.85 to 1.33 s a time (timed on MS-02, loaded or not: one search past the second, two under load), and warns when one passes the second; pltrs (Rust) saves the whole figure in 0.04 s, its search included (task CORP14)
 
+# topic: your-subclasses-and-callbacks
 # The same, for members a library overrides publicly (GEN8): the library's
 # own figures are the same under both (images plain and tight, the values
 # read), checked with target/gen7/t/libprobe.py's cases.
@@ -455,7 +453,6 @@ corpus/librosa/docs/tutorials/03-advanced/plot_dynamic_beat$ | ^warning missing:
 ^generated/overrides/(AxesImage-can_composite|Collection-get_paths|Spine-set_position)$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | cartopy's map (a feature artist, a raster source that refuses compositing, an image, gridlines) is the same under both, plain and tight; GeoSpine.set_position is called by neither; only how often the overrides are called differs
 ^generated/overrides/Axes-update_datalim$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | mne's topomap (its _NoOpAxes) is the same under both, plain and tight, with the same limits; only how often update_datalim is called differs
 ^generated/overrides/Text-get_usetex$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | MetPy's TextCollection (scattertext), the class overriding get_usetex, fails to draw under matplotlib 3.11 itself (its draw unpacks four values from Text._get_layout, which returns three) and fails the same under pltrs
-^generated/overrides/Text-get_text$ | ^(value\[(take|distinct)\]: list length|callback\[[^]]+\]: runs another number of times)$ | ultraplot's curved polar labels (CurvedText, whose get_text answers the curve's text while it holds " ") draw and measure the same figure under both, plain and tight, now that pltrs draws and measures a text as its class' getters answer; only how often get_text is called differs
 
 # The generated families `overrides` and `patches` (GEN9). Members no
 # library of spec/diff/overrides_census.json (or patches_census.json)
@@ -496,13 +493,18 @@ corpus/librosa/docs/tutorials/03-advanced/plot_dynamic_beat$ | ^warning missing:
 # `contains` at the data point and the unpickled copy's image (figure 2)
 # follow from the limits.
 ^generated/overrides/PathCollection-(get_edgecolor|get_facecolor|get_hatchcolor|get_figure|get_paths|get_transforms|pchanged|set_sizes)$ | ^value\[(take|distinct)\]: list length$ | no library of spec/diff/overrides_census.json overrides these members on PathCollection (cartopy's Collection.get_paths is proven above): matplotlib's PathCollection.draw sets the sizes again at the figure's dpi and reads the class' getters at every draw and tight save, pltrs (Rust) draws the collection it holds without asking them; the values and figures match
+# topic: where-matplotlib-fails-and-pltrs-does-not
 ^generated/overrides/PathCollection- | ^value\[contains\]: bool$ @ ^112:0$ | matplotlib's limits of a directly made PathCollection with transData offsets are in display pixels (x 99..1341 for data in 1..9, an empty Axes); pltrs keeps the data's, so the point the program asks about is inside the collection under pltrs only
 ^generated/overrides/PathCollection- | ^image: RMS > 1$ @ ^figure 2$ | the unpickled copy autoscales to matplotlib's limits in display pixels (an empty Axes) and to the data's under pltrs
+# topic: the-look-of-figures
 # Corpus round 11 (CORP11): pltrs' looks and backend, listed with matplotlib's.
 corpus/dataviz-course/2\. Style sheets$ | ^value\[sorted\]: list length$ | the notebook sorts style.available, which lists pltrs' two looks (pltrs-modern, pltrs-modern-dark) with matplotlib's sheets
+# topic: your-subclasses-and-callbacks
 corpus/matplotlib-docs/doc/release/prev_whats_new/whats_new_3\.4\.0$ | ^callback\[x\]: runs another number of times$ | the FuncNorm's forward runs 185 times under matplotlib, 184 under pltrs: the one more is matplotlib's transform tree recomputing a TransformedBbox through the colorbar's FuncNorm scale in one draw of the tight print (get_points < bounds < get_matrix < get_affine, as its caches were invalidated), where pltrs (Rust) computes the box natively; the values, the norm's results and the images are matplotlib's (task CORP14)
+# topic: windows-and-backends
 corpus/matplotlib-docs/doc/release/prev_whats_new/whats_new_3\.9\.0$ | ^value\[list_all\]: list length$ | backend_registry.list_all() lists pltrs' own backend, 'pltrs', after matplotlib's built-in ones
 
+# topic: files-pltrs-writes
 # The written family (corpus `written`, spec/diff/written, task USR1).
 written/saving/bytesio_buffer$ | ^value\[getvalue\]: bytes length$ @ ^15:0$ | the PNG written into a BytesIO: its decoded pixels are identical (320x200 RGBA, largest difference 0); the bytes differ only in the Software tEXt chunk ("Matplotlib version3.11.2, https://matplotlib.org/" against "pltrs v0.1.0") and in the IDAT's DEFLATE stream of those pixels, each encoder's own (5346 against 4825 bytes); IHDR and pHYs are the same
 written/saving/bytesio_buffer$ | ^value\[getvalue\]: str$ @ ^23:0$ | the SVG text differs only in the dc:title of its cc:Agent, the software that wrote it (matplotlib names itself, pltrs itself); every other line is the same
@@ -511,10 +513,13 @@ written/vector_output/(svg_gid_url_hashsalt|svg_fonttype_none)$ | ^value\[read\]
 written/zorder_layers/rasterization_zorder$ | ^value\[read\]: str$ | the SVG read back differs in the dc:title of its cc:Agent (the software that wrote it) and in the base64 of the embedded PNG of the rasterized points, whose decoded pixels are the same and whose DEFLATE stream is each encoder's own (as generated/rcparams/svg_v1's image ids)
 written/vector_output/pdf_fonttype_42$ | ^value\[read\]: bytes length$ | the PDF files read back differ in the Creator and Producer entries (the software writing them), in the lengths of their compressed content streams (each encoder's own DEFLATE of the same operators) and, for pdf.fonttype 42, in the embedded TrueType program: the same 14 glyphs with the same outlines, advance widths and cmap, which pltrs' subsetter packs with DejaVu Sans' full name table, a long loca, a format-3 post table and no layout tables (pltrs-font's subset module), where fontTools prunes the names, keeps a short loca and post format 2 and subsets GDEF, GPOS, GSUB and MATH
 written/pickle_copy/pickle_pyplot_state$ | ^value\[dumps\]: bytes length$ | a pickled figure holds each implementation's own state (pltrs' native archive), so its length is its own; what it unpickles to is compared by the program and is the same
+# topic: where-matplotlib-fails-and-pltrs-does-not
 written/pickle_copy/(pickle_bytes_many_artists|pickle_dates_categories)$ | ^(stdout|calls\[[^]]+\]: (never runs|runs only under pltrs)|image: (RMS > 1|written PNG RMS > 1))$ | pltrs' category UnitData pickles (since 607ebf70), where matplotlib's holds an itertools.count, which Python 3.14 no longer pickles (as generated/pickling/unpicklable): the program's except branch, which remakes or removes the categorical Axes, runs under matplotlib only, so what it prints and draws afterwards follows
+# topic: files-pltrs-writes
 written/combo_export_pipeline/html_export_embed_png_base64$ | ^value\[(decode|to_b64|constant)\]: str$|^value\[write\]: int$ | the base64 text of PNGs written into BytesIO (and the HTML and its length built from it): their decoded pixels are identical (150x100 RGBA, largest difference 0); the PNG bytes differ only in the Software tEXt chunk and in the IDAT's DEFLATE stream of those pixels, each encoder's own (as written/saving/bytesio_buffer)
 written/combo_export_pipeline/pickle_then_modify_and_export$ | ^value\[dumps\]: bytes length$ | a pickled figure holds each implementation's own state (pltrs' native archive), so its length is its own; the two copies the program unpickles and modifies are compared by what they print and draw, which is the same
 
+# topic: numbers-on-other-machines
 # The program names matplotlib's own DejaVuSans.ttf (in the reference venv)
 # with its case swapped, which exists only on a file system that ignores
 # case (Windows', macOS'): both implementations open it there, and
@@ -522,6 +527,7 @@ written/combo_export_pipeline/pickle_then_modify_and_export$ | ^value\[dumps\]: 
 # gives the later calls; pltrs' findfont gives its own copy of the font.
 hostile/module_matplotlib_font_manager_1$ | ^identity\[get_font\]: (a new object where matplotlib returns the same|another object than matplotlib's)$ | get_font of matplotlib's font file by a case-swapped name, which a case-insensitive file system resolves; matplotlib's later findfont names the same file, pltrs' its own copy
 
+# topic: values-that-differ-between-any-two-runs
 # ultraplot places subplots with kiwisolver (UltraLayout), whose solution
 # for the same constraints differs in its last bits from run to run: it
 # depends on the addresses of the solver's objects. Under matplotlib, nine
@@ -566,4 +572,5 @@ corpus/ultraplot/docs/stats$ | ^image: RMS > 1$ @ ^figure 2$ | the saved figure 
 # The programs opening a toolkit's window (spec/diff/gui.txt, gui_shim.py).
 user_interfaces/(pylab_with_gtk3|pylab_with_gtk4|gtk4_spreadsheet)_sgskip$ | ^value\[connect\]: int$ | GObject numbers signal handlers in the order they are connected, GTK's own connections inside the widgets included, which vary from run to run: matplotlib run twice gives 261 and 267 (pylab_with_gtk3), 199 and 202 (pylab_with_gtk4), 147 and 149 (gtk4_spreadsheet); the connections made from Python are the same, in the same order, under both
 user_interfaces/embedding_in_qt_sgskip$ | ^(callback\[(sin|set_data|draw_idle)\]: runs another number of times|image: RMS > 1)$ | the dynamic canvas redraws every 50 ms from time.time() until the shim ends the loop, so the number of frames and the last one follow the clock: matplotlib run twice differs in exactly these rows (set_data 985 and 999 times, sin 10080 and 11196, the window's figure at RMS 21.9)
+# topic: files-pltrs-writes
 user_interfaces/mathtext_wx_sgskip$ | ^value\[getvalue\]: bytes length$ | the PNG of each formula, which the program loads into a wx.Bitmap: its decoded pixels are identical (85x21, 48x28, 90x21, 61x21 RGBA, as the window's figure is); the bytes differ only in the Software tEXt chunk and in the IDAT's DEFLATE stream of those pixels, each encoder's own (as written/saving/bytesio_buffer's)

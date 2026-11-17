@@ -30,7 +30,7 @@ from ._wheel import archive_date, normalise
 INCLUDED = (
     "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rustfmt.toml",
     "clippy.toml", "pyproject.toml", "README.md", "LICENSE-MIT", "LICENSE-APACHE",
-    "THIRD_PARTY.md", "RELEASING.md",
+    "THIRD_PARTY.md", "RELEASING.md", "DIFFERENCES.md",
     ".cargo", "LICENSES", "crates", "python/pltrs", "python/alias", "python/backend",
     "python/share",
     "python/tests", "python/tools", "python/DESIGN.md",

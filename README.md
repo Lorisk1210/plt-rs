@@ -399,8 +399,13 @@ pltrs (Python) is measured against matplotlib in these ways:
   caught. A Python exception is fine; a crash is a bug.
 
 What pltrs (Python) does otherwise than matplotlib, on purpose or not
-yet, is listed in
-[`CHANGELOG.md`](https://github.com/Lorisk1210/plt-rs/blob/main/CHANGELOG.md).
+yet, is listed by topic in
+[`DIFFERENCES.md`](https://github.com/Lorisk1210/plt-rs/blob/main/DIFFERENCES.md),
+which the package carries too (`pltrs/DIFFERENCES.md`). Each of the
+measures above leaves out what its lists declare intended, and each
+entry of those lists is told there. The look follows the name under
+which the package is first imported in a process: matplotlib's under
+`matplotlib`, pltrs' modern look under `pltrs`.
 How it is built, and how to extend it, is in
 [`python/DESIGN.md`](https://github.com/Lorisk1210/plt-rs/blob/main/python/DESIGN.md).
 

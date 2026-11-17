@@ -6,8 +6,9 @@
 //! ask for them, in a temporary directory removed afterwards
 //! (`programs`): a distiller with `ps.usedistiller` (`distill`), and
 //! with `text.usetex` LaTeX with `psfrag`, `dvips` and Ghostscript
-//! (`psfrag`). A missing program fails the save with matplotlib's
-//! message.
+//! (`psfrag`). A missing LaTeX or `dvips` fails the save with
+//! matplotlib's message; a missing Ghostscript or `pdftops` skips the
+//! distillation with its logged warning (`_try_distill`).
 
 mod distill;
 mod programs;
@@ -15,7 +16,7 @@ mod psfrag;
 
 use pltrs_render::{Metadata, PsOptions, PsOutput, PsRenderer};
 
-use self::distill::{Distillation, WorkFile, gs_distill, xpdf_distill};
+use self::distill::{Distillation, WorkFile, gs_distill, try_distill, xpdf_distill};
 pub(crate) use self::programs::{Executable, Workspace};
 use self::psfrag::{Layout, print_figure_tex};
 use super::Figure;
@@ -148,11 +149,13 @@ impl Figure {
             bbox: Some(document.bbox),
             rotated: false,
         };
-        if rc.ps_usedistiller == Distiller::Xpdf {
-            xpdf_distill(&file, &distillation)?;
-        } else {
-            gs_distill(&file, &distillation, rc.ps_distiller_res)?;
-        }
+        try_distill(|| {
+            if rc.ps_usedistiller == Distiller::Xpdf {
+                xpdf_distill(&file, &distillation)
+            } else {
+                gs_distill(&file, &distillation, rc.ps_distiller_res)
+            }
+        })?;
         Ok(file.contents()?)
     }
 
@@ -168,8 +171,9 @@ impl Figure {
     /// # Errors
     ///
     /// When some artists cannot be drawn or a font cannot be embedded; with
-    /// `ps.usedistiller` or `text.usetex`, when a program matplotlib runs
-    /// there (LaTeX, `dvips`, Ghostscript, `pdftops`) is missing or fails.
+    /// `text.usetex`, when LaTeX or `dvips` is missing or fails, and with
+    /// either, when the distiller fails; a distiller missing Ghostscript or
+    /// `pdftops` is skipped with matplotlib's logged warning.
     pub fn to_ps_with(&self, options: SaveOptions) -> Result<String, SaveError> {
         self.postscript(&options, false).map(latin1)
     }
@@ -368,12 +372,16 @@ mod tests {
                 }
                 return;
             };
+            if program == "ghostscript" {
+                // matplotlib's `_try_distill` skips the step and logs it.
+                assert!(first.is_ok(), "{first:?}");
+                return;
+            }
             let err = first.expect_err("a program is missing").to_string();
             let expected = match program.as_str() {
                 "dvips" if cfg!(windows) => "[WinError 2] ",
                 "dvips" => "[Errno 2] No such file or directory: 'dvips'",
                 "the psfrag package" => "psfrag.sty",
-                "ghostscript" => "Failed to find a Ghostscript installation",
                 _ => "",
             };
             assert!(err.contains(expected), "{program}: {err}");

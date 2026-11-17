@@ -49,9 +49,10 @@ impl TextDrawError {
 
 /// The kind of draw error a text that cannot be laid out makes, wherever
 /// it is drawn (a text artist, an offset box's text area): see
-/// [`TextDrawError::kind`]; a font file that is not there is matplotlib's
-/// `FileNotFoundError`, and a font size `FreeType` refuses, a TeX program
-/// failing on the text or not installed its `RuntimeError`.
+/// [`TextDrawError::kind`]; a font file or TeX file that is not there is
+/// matplotlib's `FileNotFoundError`, and a font size `FreeType` refuses, a
+/// TeX program failing on the text, not installed or not starting its
+/// `RuntimeError`.
 pub(crate) fn layout_error_kind(err: &TextError) -> DrawErrorKind {
     match err {
         TextError::Math(_)
@@ -60,11 +61,13 @@ pub(crate) fn layout_error_kind(err: &TextError) -> DrawErrorKind {
         | TextError::Tex(TexError::NoType1Font { .. } | TexError::Measuring { .. }) => {
             DrawErrorKind::InvalidValue
         }
-        TextError::MissingFontFile(_) => DrawErrorKind::FileNotFound,
-        TextError::FontSize(_)
-        | TextError::Tex(TexError::Failed { .. } | TexError::Missing { .. }) => {
-            DrawErrorKind::Library
+        TextError::MissingFontFile(_) | TextError::Tex(TexError::NotFound { .. }) => {
+            DrawErrorKind::FileNotFound
         }
+        TextError::FontSize(_)
+        | TextError::Tex(
+            TexError::Failed { .. } | TexError::Missing { .. } | TexError::Unstartable { .. },
+        ) => DrawErrorKind::Library,
         _ => DrawErrorKind::Other,
     }
 }

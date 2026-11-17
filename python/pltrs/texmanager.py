@@ -74,7 +74,9 @@ class TexManager:
         Return a file path based on a hash of the string, fontsize, and dpi.
         """
         from pathlib import Path
-        return Path(_texmanager.base_path(tex, _fontsize(fontsize), dpi))
+        # Here and below, *tex* is formatted into the source as matplotlib's
+        # template formats it (any object, as `str`).
+        return Path(_texmanager.base_path(f"{tex}", _fontsize(fontsize), dpi))
 
     @classmethod
     def get_basefile(cls, tex, fontsize, dpi=None):  # Kept for backcompat.
@@ -98,7 +100,7 @@ class TexManager:
     @classmethod
     def _get_tex_source(cls, tex, fontsize):
         """Return the complete TeX source for processing a TeX string."""
-        return _texmanager.tex_source(tex, _fontsize(fontsize))
+        return _texmanager.tex_source(f"{tex}", _fontsize(fontsize))
 
     @classmethod
     def make_tex(cls, tex, fontsize):
@@ -107,7 +109,7 @@ class TexManager:
 
         Return the file name.
         """
-        return _texmanager.make_tex(tex, _fontsize(fontsize))
+        return _texmanager.make_tex(f"{tex}", _fontsize(fontsize))
 
     @classmethod
     def make_dvi(cls, tex, fontsize):
@@ -116,7 +118,7 @@ class TexManager:
 
         Return the file name.
         """
-        return _texmanager.make_dvi(tex, _fontsize(fontsize))
+        return _texmanager.make_dvi(f"{tex}", _fontsize(fontsize))
 
     @classmethod
     def make_png(cls, tex, fontsize, dpi):
@@ -125,7 +127,7 @@ class TexManager:
 
         Return the file name.
         """
-        return _texmanager.make_png(tex, _fontsize(fontsize), dpi)
+        return _texmanager.make_png(f"{tex}", _fontsize(fontsize), dpi)
 
     @classmethod
     def get_grey(cls, tex, fontsize=None, dpi=None):
@@ -135,7 +137,7 @@ class TexManager:
         key = cls._get_tex_source(tex, fontsize), dpi
         alpha = cls._grey_arrayd.get(key)
         if alpha is None:
-            grey = _texmanager.grey(tex, fontsize, dpi)
+            grey = _texmanager.grey(f"{tex}", fontsize, dpi)
             cls._grey_arrayd[key] = alpha = grey.astype(np.float32) / 255
         return alpha
 

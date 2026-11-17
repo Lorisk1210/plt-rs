@@ -17,7 +17,7 @@ import numbers
 import numpy as np
 
 from ... import _docstring
-from ... import _api, _lazy_imports, cbook, image as mimage, lines as mlines, mlab
+from ... import _api, _lazy_imports, _values, cbook, image as mimage, lines as mlines, mlab
 from ... import collections as mcoll
 from ..._artist_kwargs import check_known
 from ..._native import plotting as _plotting
@@ -787,6 +787,12 @@ class SpectralMixin:
                 scale_by_freq, reference_mode),
             True)
         im = wrap(self, native, mimage.AxesImage)
+        # matplotlib's imshow keeps the extent as the list of *xextent* (or
+        # the times' ends) and the frequencies' ends, numpy floats.
+        extent = list(map(np.float64, im._extent_now()))
+        if xextent is not None:
+            extent[:2] = xextent
+        _values.remember(im, "extent", extent)
         shown = spec
         if scale == 'dB':
             shown = (10 if mode == 'psd' else 20) * np.log10(spec)

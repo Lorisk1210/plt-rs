@@ -407,6 +407,25 @@ fn numpy_ndarray(py: Python<'_>) -> PyResult<Bound<'_>> {
     Ok(NDARRAY.get_or_init(|| class.unbind()).bind(py))
 }
 
+/// A number Python receives as a `numpy.float64` scalar: what matplotlib
+/// hands the program's code where it read the number off an array (a
+/// tick location, a limit of its boxes).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct NumpyFloat(pub(crate) f64);
+
+impl IntoPy for NumpyFloat {
+    fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
+        static FLOAT64: OnceLock<Owned> = OnceLock::new();
+        let class = if let Some(class) = FLOAT64.get() {
+            class.bind(py)
+        } else {
+            let class = numpy(py)?.getattr("float64")?;
+            FLOAT64.get_or_init(|| class.unbind()).bind(py)
+        };
+        class.call(&[self.0.into_py(py)?], &[])
+    }
+}
+
 /// `numpy.empty`, imported once.
 fn numpy_empty(py: Python<'_>) -> PyResult<Bound<'_>> {
     static EMPTY: OnceLock<Owned> = OnceLock::new();

@@ -172,6 +172,7 @@ impl ScaleFunction for NormSpacing {
             let form = ArrayForm {
                 shape: &shape,
                 masked: layout == ArrayLayout::MaskedRow,
+                single: false,
             };
             let normalized = self.with_norm(|norm| norm.normalize_shaped(&data, None, form));
             normalized.ok().map(|mapped| {

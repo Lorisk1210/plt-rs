@@ -393,6 +393,12 @@ class Patch(Artist):
         super().update_from(other)
         _patches.update_style_from(self._native, other._native)
         self._linestyle = linestyle
+        # matplotlib copies the colours as *other* keeps them (as given).
+        given_color = getattr(other, "_given_color", None)
+        for name in ("facecolor", "edgecolor") if given_color is not None else ():
+            color = given_color(name)
+            if color is not _values.NONE_GIVEN:
+                _values.remember(self, name, color)
 
     def _process_radius(self, radius):
         """The tolerance of a containment test: *radius*, else a number
@@ -499,15 +505,12 @@ class Patch(Artist):
         if color is not _values.NONE_GIVEN:
             _values.remember(self, name, color)
 
-    def _rgba_as_given(self, name, alpha):
-        """
-        The colour *name* as matplotlib keeps it, ``to_rgba(color, alpha)``
-        of the colour given (the rcParam of `_rc_colors` for None; the
-        rcParam of `_made_colors`, else the class' default, for none, the
-        rcParam of `_rc_colors` for an edge then), while pltrs (Rust)
-        holds that colour; else pltrs (Rust)'s.
-        """
-        native = self._get(name)
+    def _given_color(self, name):
+        """The colour *name* as matplotlib's patch keeps what it was given
+        (``_original_facecolor``): the colour given, the rcParam of
+        `_rc_colors` for None; the rcParam of `_made_colors`, else the
+        class' default, for none, the rcParam of `_rc_colors` for an edge
+        then; `_values.NONE_GIVEN` where none applies."""
         color = self.__dict__.get("_given_values", {}).get(name, _values.NONE_GIVEN)
         if color is _values.NONE_GIVEN and name in self._made_colors:
             color = _rcParams()[self._made_colors[name]]
@@ -518,6 +521,18 @@ class Patch(Artist):
             # their faces, and leave their edges to `_set_edgecolor(None)`.)
             key = self._rc_colors.get(name)
             color = _values.NONE_GIVEN if key is None else _rcParams()[key]
+        return color
+
+    def _rgba_as_given(self, name, alpha):
+        """
+        The colour *name* as matplotlib keeps it, ``to_rgba(color, alpha)``
+        of the colour given (the rcParam of `_rc_colors` for None; the
+        rcParam of `_made_colors`, else the class' default, for none, the
+        rcParam of `_rc_colors` for an edge then), while pltrs (Rust)
+        holds that colour; else pltrs (Rust)'s.
+        """
+        native = self._get(name)
+        color = self._given_color(name)
         if color is _values.NONE_GIVEN:
             return native
         try:
@@ -1010,6 +1025,14 @@ class Rectangle(Patch):
 
     #: The names of `_fields`.
     _FIELDS = ("x", "y", "width", "height", "angle", "rotation_point")
+
+    def _typed_sticky_edges(self, index, edges):
+        # A bar's edge on its base, which matplotlib's `bar` puts there as
+        # the bar's corner coordinate was given (an int stays one).
+        given = self.__dict__.get("_given_values", {}).get("xy"[index], _values.NONE_GIVEN)
+        if given is not _values.NONE_GIVEN and len(edges) == 1 and edges[0] == given:
+            return [given]
+        return edges
 
     def get_path(self):
         """Return the vertices of the rectangle."""

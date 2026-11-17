@@ -252,7 +252,8 @@ class ContourLabeler:
             (None if levels is None else [float(lev) for lev in levels],
              None if fontsize is None else float(fontsize), bool(inline),
              _spacing_number(inline_spacing), colors, positions),
-            fmt, (bool(rightside_up), None if zorder is None else float(zorder),
+            _values.numpy_argument(fmt),
+            (bool(rightside_up), None if zorder is None else float(zorder),
                   bool(use_clabeltext)), self._splitter(inline_spacing))
         self._labelled_all_levels = levels is None
         self._type_placed_labels()
@@ -1357,7 +1358,9 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         for kind, color, *style in entries:
             if kind == "line":
                 linewidth, dashes = style
-                artists.append(Line2D([], [], color=color, linewidth=linewidth,
+                # matplotlib's line is given the row of the edge colours.
+                artists.append(Line2D([], [], color=np.asarray(color, float),
+                                      linewidth=linewidth,
                                       linestyle=dashes))
             else:
                 (hatch,) = style

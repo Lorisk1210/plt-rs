@@ -124,6 +124,14 @@ pub trait Norm: fmt::Debug + NormClone + std::any::Any {
         self.autoscale_none(data);
     }
 
+    /// [`autoscale_none`](Self::autoscale_none) of `values` handed over as
+    /// a plain array (a norm of the program's sees what matplotlib hands
+    /// it: a contour set's levels).
+    fn autoscale_none_plain(&mut self, values: &[f64]) {
+        let data: Vec<Option<f64>> = values.iter().copied().map(Some).collect();
+        self.autoscale_none(&data);
+    }
+
     /// [`autoscale_none`](Self::autoscale_none) of `values` without the
     /// entries `mask` flags. Norms that only need the range of the data
     /// find it without building the masked data.
@@ -199,13 +207,17 @@ pub trait Norm: fmt::Debug + NormClone + std::any::Any {
 
 /// How values are handed to a norm of the program's (see
 /// [`Norm::normalize_shaped`]): as an array of `shape`, their order
-/// row-major, masked or plain.
+/// row-major, masked or plain, of `float64` or of `float32`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ArrayForm<'a> {
     /// The shape of the array.
     pub shape: &'a [usize],
     /// Whether it is a masked array (its masked values those of the data).
     pub masked: bool,
+    /// Whether the values are an image's data resampled in single
+    /// precision (matplotlib's `float32` `scaled_dtype`, for `float32`,
+    /// integer and boolean data).
+    pub single: bool,
 }
 
 /// Why normalisation failed.

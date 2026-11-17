@@ -29,6 +29,46 @@ def _plain(*values):
                for value in values)
 
 
+class _Points:
+    """
+    The program's *inside* handed points as matplotlib's code hands them
+    (pltrs (Rust) calls it with pairs of floats): the points of a
+    bisection as tuples of numpy floats (``tuple(bz(t))``), and, when
+    *vertices_first*, the vertices of a path first, as arrays
+    (``ctl_points[-2:]``), until one lies on the other side of the first,
+    as `split_path_inout` walks them.
+    """
+
+    def __init__(self, inside, vertices_first=False):
+        self.inside = inside
+        self.vertices = vertices_first
+        self.first = None
+
+    def __call__(self, xy):
+        if not self.vertices:
+            return self.inside(tuple(map(np.float64, xy)))
+        result = self.inside(np.array(xy, float))
+        if self.first is None:
+            self.first = result
+        elif result != self.first:
+            self.vertices = False
+        return result
+
+
+def _as_given(beta, left, right):
+    """The control points *left* and *right* pltrs (Rust) split *beta*
+    into, typed as matplotlib's de Casteljau steps make them: the end
+    points are rows of *beta* itself, the others in the type its
+    arithmetic with a float gives."""
+    beta = np.asarray(beta)
+    if beta.dtype == float:
+        return list(left), list(right)
+    kind = np.result_type(beta, 1.0)
+    left, right = list(left.astype(kind)), list(right.astype(kind))
+    left[0], right[-1] = beta[0], beta[-1]
+    return left, right
+
+
 def _real_roots_in_01(coeffs):
     """
     Find real roots of a polynomial in the interval [0, 1].
@@ -116,10 +156,10 @@ def split_de_casteljau(beta, t):
         left_beta = [beta[0] for beta in beta_list]
         right_beta = [beta[-1] for beta in reversed(beta_list)]
         return left_beta, right_beta
-    beta = np.asarray(beta, float)
+    given, beta = beta, np.asarray(beta, float)
     left, right = _bezier.split_de_casteljau(beta.reshape((len(beta), -1)), t)
     # Lists of control points, as matplotlib's.
-    return list(left), list(right)
+    return _as_given(given, left, right)
 
 
 def _de_casteljau1(beta, t):
@@ -167,7 +207,7 @@ def find_bezier_t_intersecting_with_closedpath(
     """
     if _plain(t0, t1, tolerance):
         return _bezier.find_t_intersecting(
-            lambda t: tuple(bezier_point_at_t(t)), inside_closedpath, (t0, t1),
+            lambda t: tuple(bezier_point_at_t(t)), _Points(inside_closedpath), (t0, t1),
             tolerance)
     start = bezier_point_at_t(t0)
     end = bezier_point_at_t(t1)
@@ -221,12 +261,14 @@ class BezierSegment:
     """
 
     def __init__(self, control_points):
-        self._N, self._d = np.asarray(control_points).shape
-        self._cpoints = np.asarray(control_points, float)
+        # matplotlib keeps the points as given (ints stay ints).
+        self._cpoints = np.asarray(control_points)
+        self._N, self._d = self._cpoints.shape
+        self._floats = self._cpoints.astype(float)
         # pltrs (Rust) computes with curves of one control point or more;
         # matplotlib's formulas make a curve of none 0 everywhere, without
         # extrema, and fail to expand it into a polynomial.
-        self._native = _bezier.segment(self._cpoints) if self._N else None
+        self._native = _bezier.segment(self._floats) if self._N else None
 
     def __call__(self, t):
         """
@@ -244,8 +286,9 @@ class BezierSegment:
         """
         t = np.asarray(t)
         # matplotlib's first arithmetic on the points, which fails as it
-        # does on what are no numbers.
-        1 - t  # noqa: B018
+        # does on what are no numbers; the type of its polynomial's value
+        # (powers by an array of int64 orders, times the points).
+        kind = np.result_type(1 - t, np.int64, self._cpoints)
         t = t.astype(float)
         if self._native is None:
             return np.zeros(t.shape + (self._d,))
@@ -255,10 +298,10 @@ class BezierSegment:
             orders = np.arange(self._N)
             coefficients = [math.comb(self._N - 1, i) for i in range(self._N)]
             return (np.power.outer(1 - t, orders[::-1]) * np.power.outer(t, orders)) \
-                @ (np.asarray(coefficients)[:, None] * self._cpoints)
+                @ (np.asarray(coefficients)[:, None] * self._floats)
         values = _bezier.segment_eval(self._native, np.atleast_1d(t))
         # One point per value of *t*, as matplotlib's ``np.power.outer``.
-        return values.reshape(t.shape + (self._d,))
+        return values.reshape(t.shape + (self._d,)).astype(kind, copy=False)
 
     @_api.deprecated(
         "3.11", alternative="Call the BezierSegment object with an argument.")
@@ -363,9 +406,9 @@ def split_bezier_intersecting_with_closedpath(
         _left, _right = split_de_casteljau(bezier, (t0 + t1) / 2.)
         return _left, _right
     left, right = _bezier.split_intersecting(
-        np.asarray(bezier, float), inside_closedpath, tolerance)
+        np.asarray(bezier, float), _Points(inside_closedpath), tolerance)
     # Lists of control points, as matplotlib's `split_de_casteljau`.
-    return list(left), list(right)
+    return _as_given(bezier, left, right)
 
 
 def split_path_inout(path, inside, tolerance=0.01, reorder_inout=False):
@@ -378,7 +421,8 @@ def split_path_inout(path, inside, tolerance=0.01, reorder_inout=False):
         # matplotlib takes the path's first segment first (none: a path of
         # no finite point stops the iteration).
         next(path.iter_segments())
-        first, second = _bezier.split_inout(path, inside, tolerance, reorder_inout)
+        first, second = _bezier.split_inout(
+            path, _Points(inside, vertices_first=True), tolerance, reorder_inout)
         return Path(*first), Path(*second)
     path_iter = path.iter_segments()
 

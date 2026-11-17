@@ -281,8 +281,11 @@ class RendererPS(PsArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
     def get_text_width_height_descent(self, s, prop, ismath):
         # docstring inherited
         _api.check_in_list(["TeX", True, False], ismath=ismath)
-        return _text_overrides.measure_ps(s, FontManager._props(prop), ismath,
-                                          72.0)
+        measured = _text_overrides.measure_ps(s, FontManager._props(prop), ismath, 72.0)
+        if ismath is True:
+            # matplotlib's math parse measures in numpy's floats.
+            return tuple(map(np.float64, measured))
+        return measured
 
     # The drawing methods of `._native_drawing.DocumentDrawingMixin`, which
     # pltrs (Rust) draws, as the renderer's own (matplotlib's renderers each

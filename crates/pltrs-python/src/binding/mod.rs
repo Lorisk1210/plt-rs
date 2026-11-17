@@ -63,7 +63,7 @@ mod watched;
 
 pub(crate) use after_call::install as install_after_call;
 pub(crate) use blocking::releasing_gil;
-pub(crate) use buffer::{Element, FloatArray, NdArray, with_item_bytes};
+pub(crate) use buffer::{Element, FloatArray, NdArray, NumpyFloat, with_item_bytes};
 pub(crate) use callback::{
     Callback, current_call, failed as callback_failed, forgive, report, setting_failure_aside,
 };

@@ -32,6 +32,27 @@ pltrs_core::archive_enum!(ScalarKind {
     Boolean,
 });
 
+impl ScalarKind {
+    /// Whether matplotlib resamples data of this kind holding `values`
+    /// in `float32` (its `scaled_dtype`): `float32` data, and integer and
+    /// boolean data spanning no more than 1e8.
+    pub(crate) fn scaled_in_single(self, values: &[Option<f64>]) -> bool {
+        match self {
+            Self::Float => false,
+            Self::Float32 | Self::Boolean => true,
+            Self::Integer => {
+                let (low, high) = values
+                    .iter()
+                    .flatten()
+                    .fold((f64::INFINITY, f64::NEG_INFINITY), |(low, high), &v| {
+                        (low.min(v), high.max(v))
+                    });
+                high - low <= 1e8 || low > high
+            }
+        }
+    }
+}
+
 /// The precision numpy computes in: `float64` or `float32` arrays.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Precision {

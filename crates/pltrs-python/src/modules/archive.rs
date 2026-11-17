@@ -56,8 +56,8 @@ use super::path::{PyPath, path_arrays};
 use super::projections::PyProjection;
 use super::scale::{PyScale, python_scale};
 use super::transforms::{PyPointMap, map_values};
-use crate::binding::lookup;
 use crate::binding::prelude::*;
+use crate::binding::{NumpyFloat, lookup};
 
 impl From<ArchiveError> for PyErr {
     /// matplotlib's `TypeError` for what cannot be pickled, `ValueError`
@@ -214,12 +214,18 @@ fn box_outline(callback: Callback) -> impl Fn(f64, f64, f64, f64, f64) -> Path +
     }
 }
 
+/// A point as matplotlib hands it to a connection style: the array of
+/// its two coordinates (as its transforms map it).
+fn point_array(point: Point) -> NdArray {
+    NdArray::from_vec(vec![point.x, point.y])
+}
+
 /// `f(posA, posB)`, the path connecting the points; no path when it
 /// raised.
 fn connection(callback: Callback) -> impl Fn(Point, Point) -> Path + 'static {
     move |a, b| {
         callback
-            .call::<PyPath>(((a.x, a.y), (b.x, b.y)))
+            .call::<PyPath>((point_array(a), point_array(b)))
             .map(|path| path.path)
             .unwrap_or_default()
     }
@@ -230,7 +236,7 @@ fn connection(callback: Callback) -> impl Fn(Point, Point) -> Path + 'static {
 fn route(callback: Callback) -> impl Fn((Point, Point), (f64, f64)) -> Path + 'static {
     move |(a, b), (shrink_a, shrink_b)| {
         callback
-            .call::<PyPath>(((a.x, a.y), (b.x, b.y), shrink_a, shrink_b))
+            .call::<PyPath>((point_array(a), point_array(b), shrink_a, shrink_b))
             .map(|path| path.path)
             .unwrap_or_default()
     }
@@ -301,7 +307,7 @@ pub(crate) fn program_arrow(callable: &Bound<'_>) -> PyResult<ProgramArrow> {
 fn tick_labels(callback: Callback) -> impl Fn(f64, Option<usize>) -> String + Send + 'static {
     move |value, position| {
         callback
-            .call::<String>((value, position))
+            .call::<String>((NumpyFloat(value), position))
             .unwrap_or_default()
     }
 }

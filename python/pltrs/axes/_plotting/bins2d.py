@@ -27,10 +27,17 @@ _REDUCTIONS = {
 }
 
 
-def _reduction(function):
+def _reduction(function, C=None, marginals=False):
     """The reduction *function* as the native side takes it: the name of
-    one pltrs (Rust) has, else the function itself."""
-    return _REDUCTIONS.get(function, function)
+    one pltrs (Rust) has, else the function itself, which matplotlib's
+    hexagons hand lists of the items of *C* (numpy scalars of its type;
+    its marginals hand arrays, as pltrs (Rust) does)."""
+    if function in _REDUCTIONS:
+        return _REDUCTIONS[function]
+    if C is None or marginals:
+        return function
+    kind = np.asarray(C).dtype.type
+    return lambda values: function(list(values.astype(kind)))
 
 
 def _range(limits):
@@ -136,7 +143,7 @@ def _native_hexbin(axes, x, y, C, gridsize, bins, xscale, yscale, extent, cmap,
             raise ValueError("In extent, ymax must be greater than ymin")
         extent = tuple(map(float, extent))
     # matplotlib reduces values only where there are values to reduce.
-    reduction = (_reduction(reduce_C_function) if C is not None or marginals
+    reduction = (_reduction(reduce_C_function, C, marginals) if C is not None or marginals
                  else "mean")
     native = _plotting.hexbin(
         axes._native, (x, y),

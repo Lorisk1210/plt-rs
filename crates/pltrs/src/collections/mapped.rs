@@ -377,6 +377,7 @@ fn normalize_shaped(
     let form = ArrayForm {
         shape: shape.unwrap_or(&flat),
         masked: true,
+        single: false,
     };
     let normalized = norm.normalize_shaped(values, None, form);
     normalized.map_err(|err| err.to_string())

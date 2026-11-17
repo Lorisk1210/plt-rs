@@ -35,6 +35,7 @@ fn normalize_shaped(
                 let form = ArrayForm {
                     shape: &[rows, columns],
                     masked: true,
+                    single: kind.scaled_in_single(values),
                 };
                 mappable.normalize_shaped(values, form)
             }

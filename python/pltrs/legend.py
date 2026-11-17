@@ -658,6 +658,8 @@ class Legend(Artist):
         if takes_from_program(type(self), "set_loc"):
             # matplotlib's constructor places the legend through it.
             self.set_loc(given_loc)
+        else:
+            self._remember_point(given_loc)
         self._made_handles = made.returned
         self._entry_handles = kept_handles
         _legend_label_colors.remember(self, labelcolor)
@@ -1046,6 +1048,13 @@ class Legend(Artist):
         %(_legend_kw_set_loc_doc)s
         """
         _legend.set_loc(self._native, self._validated_loc(loc))
+        self._remember_point(loc)
+
+    def _remember_point(self, loc):
+        """Keep a point *loc* the legend is placed at as matplotlib keeps it
+        (``tuple(loc)``, its numbers as given)."""
+        if np.iterable(loc) and not isinstance(loc, str):
+            _values.remember(self, "loc", tuple(loc))
 
     def _set_loc(self, loc):
         """Place the legend at *loc*, a location code or a point in its

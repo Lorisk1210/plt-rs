@@ -12,7 +12,7 @@ use crate::artist::{AggFilter, ArtistId};
 use super::axis_artists::AxisGids;
 use super::axis_label::{AxisLabel, label_font};
 use super::axis_pick::AxisPicking;
-use super::tick_set::TickSet;
+use super::tick_set::{Labelling, TickSet};
 use super::tick_updates::ProgramTicked;
 use super::ticks::{Sides, TickStyle};
 use super::{TickLabelProps, TickLineProps};
@@ -365,6 +365,22 @@ pub(crate) struct AxisState {
     /// transform their spine gave them until they are made anew
     /// (`reset_ticks`); `None` follows the spine of the side.
     pub(crate) kept_tick_sides: [Option<Transform>; 2],
+    /// What the last tick update that labelled the major (or minor) level
+    /// gave its formatter, kept while ticks computed since for another
+    /// purpose replace those it placed: matplotlib's formatter keeps what
+    /// it computed until its next update (see [`KeptLabelling`]).
+    pub(crate) kept_labelling: [Option<KeptLabelling>; 2],
+}
+
+/// What a tick update gave the formatter of a level (see
+/// [`AxisState::kept_labelling`]), and that formatter: a formatter put in
+/// its place since got nothing from it.
+#[derive(Clone, Debug)]
+pub(crate) struct KeptLabelling {
+    /// The formatter the update labelled with.
+    pub(crate) formatter: Rc<dyn Formatter>,
+    /// What it gave it.
+    pub(crate) labelling: Labelling,
 }
 
 pltrs_core::archive_struct!(AxisState {
@@ -407,7 +423,7 @@ pltrs_core::archive_struct!(AxisState {
     scaled_view,
     program_view,
     program_update
-} skip { program_ticked, kept_tick_sides });
+} skip { program_ticked, kept_tick_sides, kept_labelling });
 
 impl AxisState {
     /// A linear axis configured from `rc`.
@@ -492,6 +508,7 @@ impl AxisState {
             program_view: false,
             program_update: false,
             kept_tick_sides: [None, None],
+            kept_labelling: [None, None],
         }
     }
 
@@ -610,6 +627,17 @@ impl AxisState {
         self.major_formatter = tickers.major_formatter;
         self.minor_locator = tickers.minor_locator;
         self.minor_formatter = tickers.minor_formatter;
+        self.forget_labelling(false);
+        self.forget_labelling(true);
+    }
+
+    /// Forgets what tick updates gave the formatter of the major (or
+    /// `minor`) level, which another formatter replaces.
+    fn forget_labelling(&mut self, minor: bool) {
+        self.kept_labelling[usize::from(minor)] = None;
+        if let Ok(ticks) = &mut self.ticks {
+            ticks.forget_labelling(minor);
+        }
     }
 
     /// The shared scale object.
@@ -679,12 +707,14 @@ impl AxisState {
     pub(crate) fn set_major_formatter(&mut self, formatter: Rc<dyn Formatter>) {
         self.major_formatter = formatter;
         self.defaults.major.formatter = false;
+        self.forget_labelling(false);
     }
 
     /// Replaces the minor formatter.
     pub(crate) fn set_minor_formatter(&mut self, formatter: Rc<dyn Formatter>) {
         self.minor_formatter = formatter;
         self.defaults.minor.formatter = false;
+        self.forget_labelling(true);
     }
 
     /// Takes over the [`unit_data`](UnitState::unit_data) of another

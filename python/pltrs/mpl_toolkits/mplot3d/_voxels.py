@@ -254,5 +254,6 @@ class VoxelsMixin:
         for cell, native in made:
             poly = _handles.wrap(native, art3d.Poly3DCollection, self.figure)
             poly._internal_update(kwargs)
-            polygons[cell] = poly
+            # matplotlib's keys are the cells' indices as numpy ints.
+            polygons[tuple(map(np.int64, cell))] = poly
         return polygons

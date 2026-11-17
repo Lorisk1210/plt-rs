@@ -4,10 +4,11 @@
 //! ones.
 
 use std::any::Any;
+use std::rc::Rc;
 
-use super::axis::{AxisGeometry, AxisRole, AxisState};
+use super::axis::{AxisGeometry, AxisRole, AxisState, KeptLabelling};
 use super::axis_handle::Axis;
-use super::tick_set::{Tick, TickSet};
+use super::tick_set::{Labelling, Tick, TickSet};
 use super::{AxesState, TickLevels};
 use crate::artist::{ArtistHandle, ArtistLookup};
 use crate::figure::FigureState;
@@ -165,7 +166,10 @@ impl AxisState {
         if let (Ok(ticks), Ok(before)) = (&ticks, &self.ticks) {
             ticks.succeed(before);
         }
-        self.ticks = ticks;
+        let before = std::mem::replace(&mut self.ticks, ticks);
+        if let Ok(before) = &before {
+            self.keep_labelling(before);
+        }
         let Ok(ticks) = &self.ticks else {
             return;
         };
@@ -187,6 +191,45 @@ impl AxisState {
                 _ => self.overrides_mut(minor).make_ticks(count),
             }
         }
+    }
+
+    /// Keeps what the update that placed `ticks` gave the formatter of
+    /// each level it labelled (see [`AxisState::kept_labelling`]).
+    fn keep_labelling(&mut self, ticks: &TickSet) {
+        for minor in [false, true] {
+            if let Some(labelling) = ticks.labelling(minor) {
+                let formatter = Rc::clone(if minor {
+                    &self.minor_formatter
+                } else {
+                    &self.major_formatter
+                });
+                self.kept_labelling[usize::from(minor)] = Some(KeptLabelling {
+                    formatter,
+                    labelling,
+                });
+            }
+        }
+    }
+
+    /// What the last tick update that labelled the major (or `minor`)
+    /// level gave its formatter, if that formatter is still the level's:
+    /// the ticks in place, or those an update placed before them (see
+    /// [`AxisState::kept_labelling`]).
+    pub(crate) fn last_labelling(&self, minor: bool) -> Option<Labelling> {
+        let placed = self
+            .ticks
+            .as_ref()
+            .ok()
+            .and_then(|ticks| ticks.labelling(minor));
+        placed.or_else(|| {
+            let kept = self.kept_labelling[usize::from(minor)].as_ref()?;
+            let formatter = if minor {
+                &self.minor_formatter
+            } else {
+                &self.major_formatter
+            };
+            Rc::ptr_eq(&kept.formatter, formatter).then(|| kept.labelling.clone())
+        })
     }
 
     /// The major tick locations for the view of `geometry`, and what tick

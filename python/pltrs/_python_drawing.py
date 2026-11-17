@@ -416,9 +416,20 @@ def effect_draw_path(effect, target, gc_spec, geometry):
     renderer = _renderer_for(target, None)
     with _figure_drawn(), _recording(renderer, target[5]) as drawing:
         gc = gc_from_native(gc_spec, renderer.new_gc())
-        effect.draw_path(renderer, gc, Path(vertices, codes),
+        effect.draw_path(renderer, gc, _as_drawn(Path(vertices, codes)),
                          mtransforms.Affine2D(matrix), rgbFace)
     return drawing, native_gc(gc)
+
+
+def _as_drawn(path):
+    """*path*, which pltrs (Rust) draws, as the path matplotlib hands a
+    path effect: the shared unit square or circle of a patch (read-only)
+    where it is one of them, else a path of its own."""
+    for unit in (Path.unit_rectangle(), Path.unit_circle()):
+        if (np.array_equal(path.vertices, unit.vertices)
+                and np.array_equal(path.codes, unit.codes)):
+            return unit
+    return path
 
 
 def _tight_box(artist, renderer, for_layout_only):

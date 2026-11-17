@@ -474,6 +474,9 @@ class ScatterMixin:
         if alphas is not None:
             # The array of alphas comes back, as `set_alpha` keeps it.
             collection._array_alpha = np.asarray(alphas)
+        elif alpha is not None:
+            # The alpha as given (``1``), as `set_alpha` keeps it.
+            _values.remember(collection, "alpha", alpha)
         if made is not None:
             collection._attach_native_mapping(colorizer=made)
         if given_linewidths is not None or (widths_as_given is not None

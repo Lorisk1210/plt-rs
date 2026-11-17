@@ -30,6 +30,7 @@ matplotlib's would.
 """
 
 import contextlib
+import math
 import weakref
 
 import numpy as np
@@ -416,10 +417,16 @@ class _LocatorAdapter(_Adapter):
             locator.tick_values(vmin, vmax)))
 
     def nonsingular(self, v0, v1, info):
+        # matplotlib's autoscaling hands the data limits it read off its
+        # box (numpy floats), or Python's infinities when there are none.
+        v0, v1 = (_limit(v) for v in (v0, v1))
         return self._call(info, (v0, v1), lambda locator: tuple(
             map(float, locator.nonsingular(v0, v1))))
 
     def view_limits(self, dmin, dmax, info):
+        # matplotlib's autoscaling hands what its scale's inverse
+        # transform made of the margins: numpy floats.
+        dmin, dmax = np.float64(dmin), np.float64(dmax)
         return self._call(info, (dmin, dmax), lambda locator: tuple(
             map(float, locator.view_limits(dmin, dmax))))
 
@@ -456,6 +463,12 @@ class _FormatterAdapter(_Adapter):
 
 def _adapter(kind, helper):
     return (_LocatorAdapter if kind == "locator" else _FormatterAdapter)(helper)
+
+
+def _limit(value):
+    """A limit as matplotlib's autoscaling hands it to a locator: a numpy
+    float read off a box, Python's infinity where there is no data."""
+    return value if math.isinf(value) else np.float64(value)
 
 
 def _floats(values):

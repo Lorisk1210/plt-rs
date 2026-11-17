@@ -3,6 +3,7 @@
 use std::fmt;
 
 use pltrs_core::Point;
+use pltrs_core::pyfmt::repr;
 
 use super::GridAxis;
 use crate::colors::{ColorizerError, NormError};
@@ -93,11 +94,13 @@ impl fmt::Display for StreamplotError {
             Self::InvalidScale { name, value } => {
                 write!(f, "The value of {name} must be > 0, got {value}")
             }
+            // matplotlib writes the points as numpy floats (`10.0`).
             Self::StartPointOutside(p) => {
                 write!(
                     f,
                     "Starting point ({}, {}) outside of data boundaries",
-                    p.x, p.y
+                    repr(p.x),
+                    repr(p.y)
                 )
             }
             Self::Colorizer(err) => err.fmt(f),

@@ -681,8 +681,21 @@ class Colorbar:
         self._link_axes()
         self._take_contour_values()
         self._adopt_solids()
+        self._mesh_norm_limits()
         self.stale = True
         del self._placing
+
+    def _mesh_norm_limits(self):
+        """Leave the norm's limits as matplotlib's ``_mesh`` leaves them: it
+        maps the colorbar's own limits through the norm set to them and
+        back (``cbook._setattr_cm``), which turns a Python int the norm held
+        into a float where the two differ (``_sanitize_extrema``)."""
+        norm = self.norm
+        if (isinstance(norm, (colors.BoundaryNorm, colors.NoNorm))
+                or self.boundaries is not None):
+            return
+        with norm.callbacks.blocked(), cbook._setattr_cm(norm, vmin=self.vmin, vmax=self.vmax):
+            pass
 
     def _take_contour_values(self):
         """Give the colorbar of a contour set the contour set's
@@ -822,12 +835,21 @@ class Colorbar:
     def _boundaries(self):
         """The edges of the colour blocks, in data units (the given
         *boundaries*, or those the norm and colormap make)."""
+        if self.values is not None and self.boundaries is not None:
+            # matplotlib's array of them, as given (ints stay ints).
+            return np.array(self.boundaries)
         return _colorbar.boundaries(self._native)
 
     @property
     def _values(self):
         """The value at the middle of each colour block."""
-        return _colorbar.values(self._native)
+        if self.values is not None:
+            return np.array(self.values)
+        values = _colorbar.values(self._native)
+        if isinstance(self.norm, colors.NoNorm):
+            # matplotlib's colour indices.
+            return (values + 0.00001).astype(np.int16)
+        return values
 
     def _forward_boundaries(self, x):
         """Map the boundaries evenly between 0 and 1 (the forward function
@@ -1044,6 +1066,7 @@ class Colorbar:
         # ``set_ticklabels`` or ``minorticks_on`` set there.
         self.update_ticks()
         self._adopt_solids()
+        self._mesh_norm_limits()
         self.stale = True
 
     def _shown(self):
@@ -1134,8 +1157,31 @@ class Colorbar:
         """
         if minor:
             return self.long_axis.get_minorticklocs()
-        else:
-            return self.long_axis.get_majorticklocs()
+        locs = self.long_axis.get_majorticklocs()
+        if not isinstance(self.long_axis.get_major_locator(), ticker.FixedLocator):
+            return locs
+        given = self._given_bounds()
+        if given is not None and given.dtype.kind in "iu" and np.isin(locs, given).all():
+            # matplotlib ticks a colorbar of given boundaries with a
+            # `.FixedLocator` of their array, in its dtype.
+            return np.asarray(locs).astype(given.dtype)
+        return locs
+
+    def _given_bounds(self):
+        """The boundaries the program gave, through *boundaries* or a
+        `.BoundaryNorm`, as matplotlib's colorbar ticks them; None for
+        others."""
+        # (Read where matplotlib reads nothing but the axis: a mappable or
+        # norm a program replaced may hold anything.)
+        try:
+            norm = self.norm
+        except AttributeError:
+            return None
+        if isinstance(norm, colors.BoundaryNorm):
+            return np.asarray(norm.boundaries)
+        if self.boundaries is not None:
+            return self._boundaries
+        return None
 
     def minorticks_on(self):
         """

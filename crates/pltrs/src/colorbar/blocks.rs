@@ -399,6 +399,7 @@ fn normalized(
     let form = ArrayForm {
         shape: &[values.len()],
         masked: false,
+        single: false,
     };
     Ok(norm
         .normalize_shaped(&data, clip, form)?

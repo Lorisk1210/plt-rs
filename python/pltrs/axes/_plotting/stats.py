@@ -114,6 +114,20 @@ def _keep_at_positions(lines, positions, orientation):
             keep_data(line, xs, np.asarray([position] * len(xs)))
 
 
+def _keep_typed_values(lines, values, orientation):
+    """Have each of the caps or fliers *lines* of `~.Axes.bxp` keep its
+    values (one of *values*, of the statistics) as matplotlib plots them,
+    in their own type (``np.full(2, whislo)``, ``stats['fliers']``), where
+    that is not float64; their positions as made."""
+    for line, value in zip(lines, values):
+        if np.asarray(value).dtype == np.float64:
+            continue
+        if orientation == "vertical":
+            keep_data(line, _lines.get_xdata(line._native), value)
+        else:
+            keep_data(line, value, _lines.get_ydata(line._native))
+
+
 def _native_patch_props(props, cls):
     """
     The properties *props* of patches of class *cls* (aliases resolved)
@@ -772,11 +786,16 @@ class StatsMixin:
             _keep_at_positions(whiskers, np.repeat(positions, 2), orientation)
             if not meanline:
                 _keep_at_positions(means, positions, orientation)
-        return dict(whiskers=whiskers,
-                    caps=wrap_all(self, caps, mlines.Line2D), boxes=boxes,
+        caps = wrap_all(self, caps, mlines.Line2D)
+        fliers = wrap_all(self, fliers, mlines.Line2D)
+        if showcaps:
+            _keep_typed_values(caps, [np.full(2, stats[end]) for stats in bxpstats
+                                      for end in ("whislo", "whishi")], orientation)
+        if showfliers:
+            _keep_typed_values(fliers, [stats["fliers"] for stats in bxpstats], orientation)
+        return dict(whiskers=whiskers, caps=caps, boxes=boxes,
                     medians=wrap_all(self, medians, mlines.Line2D),
-                    fliers=wrap_all(self, fliers, mlines.Line2D),
-                    means=means)
+                    fliers=fliers, means=means)
 
     @_api.make_keyword_only("3.10", "vert")
     @_preprocess_data(replace_names=["dataset"])
@@ -1278,6 +1297,10 @@ class StatsMixin:
             # takes as a mapping: a template of no conversion is its text.
             text = autopct.replace('%%', '%')
             autopct = lambda pct: text  # noqa: E731
+        # matplotlib hands *autopct* each percentage, ``100. * frac`` of
+        # the items of *x* (normalized).
+        autopct = _values.numpy_argument(
+            autopct, np.result_type(x / sx if normalize else x, 1.0))
         textprops = dict(textprops or {})
         shadow_spec = None
         if shadow:

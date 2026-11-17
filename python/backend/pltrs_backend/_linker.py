@@ -44,8 +44,11 @@ ZIG_ARCHITECTURES = {
     "riscv64gc": "riscv64", "loongarch64": "loongarch64",
 }
 
-#: The flags of a musl extension: musl's C library loaded dynamically.
-MUSL_RUSTFLAGS = ("-C", "target-feature=-crt-static", "-C", "link-self-contained=no")
+#: The flags of a musl extension: musl's C library loaded dynamically, and
+#: every function on a 64-byte boundary as ``.cargo/config.toml`` gives
+#: every build, since these replace the flags it gives.
+MUSL_RUSTFLAGS = ("-C", "target-feature=-crt-static", "-C", "link-self-contained=no",
+                  "-C", "llvm-args=-align-all-functions=6")
 
 #: The link of an MSVC extension: a deterministic image, whose time stamps
 #: and debug GUID are a hash of its contents.

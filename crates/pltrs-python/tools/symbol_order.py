@@ -15,8 +15,8 @@ and the rest only where a program runs it.
 The tool runs the benchmark scripts (``benchmarks/python``, their imports
 of matplotlib read as pltrs's), each saving a PNG (the animation its
 JavaScript player, ``line`` and ``mid_size`` also SVG, PDF, PostScript and
-EPS), with the extension built in ``python/pltrs`` (``cargo xtask python
---release``), and records which of its code pages each run reads. For that each run loads a copy of the
+EPS), and a run that only imports ``pltrs.pyplot``, with the extension
+built in ``python/pltrs`` (``cargo xtask python --release``), and records which of its code pages each run reads. For that each run loads a copy of the
 extension that is in no page cache, with read-ahead turned off
 (``MADV_RANDOM``), so that the pages the process maps are those it ran,
 and reads them from ``/proc/self/pagemap``. The functions on those pages
@@ -181,13 +181,21 @@ def order(library, traces):
     return [known[index][2] for index in sorted(uses, key=lambda i: (-uses[i], known[i][0]))]
 
 
+#: A run that only imports, beside the scripts: every script imports too,
+#: so the code of the import is read by one run more than the drawing code
+#: all scripts share, and lies first and together rather than among it.
+IMPORT_ONLY = "import numpy, PIL.Image, dateutil.parser\nimport pltrs.pyplot\n"
+
+
 def _scripts():
-    """The benchmark scripts with pltrs's imports, in ``WORK/scripts``."""
+    """The benchmark scripts with pltrs's imports, and the run that only
+    imports (`IMPORT_ONLY`), in ``WORK/scripts``."""
     scripts = WORK / "scripts"
     scripts.mkdir(parents=True, exist_ok=True)
     for path in sorted((ROOT / "benchmarks/python").glob("*.py")):
         text = path.read_text().replace("import matplotlib", "import pltrs")
         (scripts / path.name).write_text(text.replace("from matplotlib", "from pltrs"))
+    (scripts / "import_only.py").write_text(IMPORT_ONLY)
     return [path for path in sorted(scripts.glob("*.py")) if path.stem != "_common"]
 
 

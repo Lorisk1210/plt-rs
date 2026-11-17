@@ -94,15 +94,18 @@ impl<K, V: Clone> Memo<K, V> {
     }
 }
 
-/// A fingerprint of a font request (its families, style, size, generic
-/// lists and rendering options) and of `extra`.
+/// A fingerprint of a font request (its families, style, size and
+/// rendering options) and of `extra`. The generic families' preference
+/// lists are left out: every request of a figure shares the same ones, and
+/// hashing their five lists of names on every lookup took a quarter of the
+/// time of laying out a constrained 8×8 grid; the memos compare whole
+/// requests, so two that differ only there are still told apart.
 pub(crate) fn fingerprint(request: &FontRequest, extra: impl Hash) -> u64 {
     let mut hasher = DefaultHasher::new();
     let query = &request.query;
     query.families.hash(&mut hasher);
     (query.style, query.variant, query.weight, query.stretch).hash(&mut hasher);
     query.size.to_bits().hash(&mut hasher);
-    request.generics.hash(&mut hasher);
     (request.last_resort, request.hinting).hash(&mut hasher);
     extra.hash(&mut hasher);
     hasher.finish()

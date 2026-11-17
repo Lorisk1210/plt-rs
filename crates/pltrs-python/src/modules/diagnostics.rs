@@ -1,7 +1,8 @@
 //! `_native.diagnostics`: what pltrs keeps alive in the process, for the
 //! leak harness (`python/tests/leaks`): native objects Python holds,
 //! figure states and the removed artists figures keep (see
-//! `pltrs::diagnostics`).
+//! `pltrs::diagnostics`); and how the extension was built, for the check
+//! of the order of its functions.
 
 use std::collections::BTreeMap;
 
@@ -23,8 +24,17 @@ fn live_counts() -> PyResult<BTreeMap<String, usize>> {
     ]))
 }
 
+/// The cargo profile the extension was built with, as the directory cargo
+/// builds it in: `extension` for `cargo xtask python --release` and the
+/// wheels, the builds the order of its functions (`symbol-order.txt`) is
+/// written for and checked on (`python/tests/test_startup_work.py`).
+fn build_profile() -> PyResult<String> {
+    Ok(env!("PLTRS_BUILD_PROFILE").to_owned())
+}
+
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
-    module.add("live_counts", live_counts)
+    module.add("live_counts", live_counts)?;
+    module.add("build_profile", build_profile)
 }
 
 #[cfg(test)]

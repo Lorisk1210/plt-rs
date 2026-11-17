@@ -66,6 +66,9 @@ pub fn unseen<R>(changes: impl FnOnce() -> R) -> R {
 pub(crate) struct FreshArtists {
     fresh: RefCell<BTreeSet<ArtistId>>,
     draws: RefCell<BTreeMap<ArtistId, Draws>>,
+    /// The artists marked stale since the program last took them, when
+    /// it asked for them (see `stale_reports`).
+    pub(super) reports: Option<super::stale_reports::StaleReports>,
 }
 
 /// The draws of an artist: how many, and the tick the last ended at.
@@ -103,6 +106,7 @@ impl Archive for FreshArtists {
         Ok(Self {
             fresh: RefCell::new(fresh),
             draws: RefCell::new(draws),
+            reports: None,
         })
     }
 }
@@ -157,12 +161,14 @@ impl FigureState {
     /// figure (matplotlib's `artist.stale = True`). A change the program's
     /// code asked for while a figure was drawn leaves the artists whose
     /// draw ended after it fresh (see `drawn_changes`), and one made
-    /// [`unseen`] marks nothing.
+    /// [`unseen`] marks nothing. The artist is reported to a program that
+    /// asked for the changes (see [`Figure::report_stale`](super::Figure::report_stale)).
     pub(crate) fn mark_stale(&mut self, id: ArtistId) {
         if UNSEEN.get() {
             return;
         }
-        let FreshArtists { fresh, draws } = &mut self.fresh;
+        self.fresh.report(id);
+        let FreshArtists { fresh, draws, .. } = &mut self.fresh;
         let (fresh, draws) = (fresh.get_mut(), draws.get_mut());
         let mut changed = |id: ArtistId| {
             let kept = draws

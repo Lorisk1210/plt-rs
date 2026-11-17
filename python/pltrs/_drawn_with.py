@@ -37,6 +37,11 @@ class DrawnWith:
         _artist.set_stale(self._native, bool(val))
         self._went_stale(val)
 
+    #: The changes pltrs (Rust) makes to its alpha, clipping and snapping
+    #: do not reach what draws it: it goes stale through its setter
+    #: (`.Artist.set_alpha`), which runs its stale callback.
+    _staled_by_setters = True
+
     def _follow_drawer(self):
         """Make the artist fresh if its drawer drew it since this was
         last checked."""

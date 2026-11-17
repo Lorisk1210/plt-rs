@@ -59,6 +59,7 @@ import weakref
 
 import numpy as np
 
+from . import _mirrors
 from ._native import artist as _artist
 from .path import Path
 
@@ -503,7 +504,7 @@ def sync(artist):
     if taken and "_mirror" in artist.__dict__:
         # A mirror (an Axes' background patch of the program's, say) gives
         # the part it stands for what it took, as its setters do.
-        artist._mirror.push(artist)
+        _mirrors.push(artist._mirror, artist)
 
 
 def sync_figure(figure):

@@ -28,7 +28,8 @@ import importlib
 import numpy as np
 from numpy import ma
 
-from . import _api, _docstring, _lazy_imports, _program_classes, colors, cbook, artist, scale
+from . import (_api, _artist_staleness, _docstring, _lazy_imports, _program_classes, colors, cbook,
+               artist, scale)
 from ._native import artist as _artist
 
 _own_state = _lazy_imports.module(globals(), "._own_state")
@@ -700,7 +701,11 @@ class _ScalarMappable(_ColorizerInterface):
         Call this whenever the mappable is changed to notify all the
         callbackSM listeners to the 'changed' signal.
         """
-        self._mapping_changed()
+        if _artist_staleness.reporting:
+            # Staled below, once, as matplotlib's mappable is.
+            _artist.unreported(type(self)._mapping_changed, self)
+        else:
+            self._mapping_changed()
         self.callbacks.process('changed', self)
         self.stale = True
 

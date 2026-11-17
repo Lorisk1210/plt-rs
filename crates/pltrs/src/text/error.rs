@@ -51,8 +51,8 @@ impl TextDrawError {
 /// it is drawn (a text artist, an offset box's text area): see
 /// [`TextDrawError::kind`]; a font file or TeX file that is not there is
 /// matplotlib's `FileNotFoundError`, and a font size `FreeType` refuses, a
-/// TeX program failing on the text, not installed or not starting its
-/// `RuntimeError`.
+/// TeX program failing on the text, not installed or not starting (the PGF
+/// backend's measuring) its `RuntimeError`.
 pub(crate) fn layout_error_kind(err: &TextError) -> DrawErrorKind {
     match err {
         TextError::Math(_)

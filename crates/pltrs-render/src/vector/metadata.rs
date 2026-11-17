@@ -158,6 +158,11 @@ pub struct Metadata {
     pub modified: Option<Timestamp>,
     /// Whether the document is trapped (PDF `Trapped`).
     pub trapped: Option<Trapped>,
+    /// A PDF document's information dictionary as the program wrote it,
+    /// in place of the entries above: each key with its value written as
+    /// a PDF object (matplotlib's `pdfRepr` of the dictionary
+    /// `_create_pdf_info_dict` makes, keys it warns about included).
+    pub pdf_info: Option<Vec<(String, Vec<u8>)>>,
     /// The further Dublin Core entries of SVG documents.
     pub svg: SvgMetadata,
     /// The text entries of PNG files.
@@ -194,6 +199,7 @@ impl Metadata {
             keywords: None,
             modified: None,
             trapped: None,
+            pdf_info: None,
             svg: SvgMetadata::none(),
             png: PngMetadata::none(),
         }

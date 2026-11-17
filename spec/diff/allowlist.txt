@@ -22,6 +22,13 @@ users_explain/axes/axes_units$ | ^image: RMS > 1$ @ ^figure 12$ | figure 12 writ
 (misc/multipage_pdf|api/pdf_pages_0)$ | ^value\[infodict\]: str$ | the PDF Creator entry names pltrs, the software writing the file, where matplotlib names itself
 rcparams/pgf_v[01]$ | ^value\[read_text\]: str$ | the PGF file's comment header names pltrs, the software writing it ("%% Creator: pltrs, PGF backend", "%% pltrs used the following preamble"), where matplotlib names itself; the rest of the file is the same
 
+# pltrs writes WebP losslessly: pltrs-codec has a VP8 (lossy) decoder but no
+# encoder. matplotlib's print_webp saves through Pillow's defaults, which are
+# lossy (USR2's reduction webp_print_pixels: the decoded pixels differ from
+# the canvas by up to 56 under matplotlib, by 0 under pltrs); pil_kwargs go
+# through Pillow under both. The PNG size is pltrs' DEFLATE's (2026-11-07).
+corpus/written2/custom_backend/canvas_print_methods_direct$ | ^stdout$ | the program prints the byte sizes of the files print_png and print_webp write: pltrs' WebP is lossless where Pillow's default is lossy, and its PNG is compressed by pltrs' DEFLATE
+
 # topic: values-that-differ-between-any-two-runs
 # matplotlib salts the ids of its SVG elements with a random uuid unless
 # svg.hashsalt is set, so they differ between two runs of matplotlib too.

@@ -138,12 +138,14 @@ pub trait ArtistHandle {
     }
 
     /// Makes mouse presses and scrolls on the artist fire pick events
-    /// (matplotlib's `set_picker`); `None` makes it unpickable again.
+    /// (matplotlib's `set_picker`); `None` makes it unpickable again. As
+    /// in matplotlib, nothing drawn changes: the artist stays as fresh as
+    /// it was.
     fn set_picker(&self, picker: Option<Picker>) -> &Self
     where
         Self: Sized,
     {
-        self.raw().with_base_mut(|b| b.picker = picker);
+        self.raw().with_base_mut_unmarked(|b| b.picker = picker);
         self
     }
 
@@ -363,12 +365,15 @@ pub trait ArtistHandle {
         self.raw().with_base(|b| b.path_effects.clone())
     }
 
-    /// Requests rasterization of this artist in vector output.
+    /// Requests rasterization of this artist in vector output, leaving it
+    /// as fresh as it was (matplotlib's `set_rasterized` makes nothing
+    /// stale).
     fn set_rasterized(&self, rasterized: bool) -> &Self
     where
         Self: Sized,
     {
-        self.raw().with_base_mut(|b| b.rasterized = rasterized);
+        self.raw()
+            .with_base_mut_unmarked(|b| b.rasterized = rasterized);
         self
     }
 
@@ -433,12 +438,15 @@ pub trait ArtistHandle {
         self
     }
 
-    /// Includes or excludes the artist from layout computations.
+    /// Includes or excludes the artist from layout computations, leaving
+    /// it as fresh as it was (matplotlib's `set_in_layout` makes nothing
+    /// stale).
     fn set_in_layout(&self, in_layout: bool) -> &Self
     where
         Self: Sized,
     {
-        self.raw().with_base_mut(|b| b.in_layout = in_layout);
+        self.raw()
+            .with_base_mut_unmarked(|b| b.in_layout = in_layout);
         self
     }
 
@@ -496,13 +504,14 @@ pub trait ArtistHandle {
         self.raw().with_base(|b| b.sketch)
     }
 
-    /// Sets the group id used in vector output.
+    /// Sets the group id used in vector output, leaving the artist as
+    /// fresh as it was (matplotlib's `set_gid` makes nothing stale).
     fn set_gid(&self, gid: impl Into<String>) -> &Self
     where
         Self: Sized,
     {
         let gid = gid.into();
-        self.raw().with_base_mut(|b| b.gid = Some(gid));
+        self.raw().with_base_mut_unmarked(|b| b.gid = Some(gid));
         self
     }
 
@@ -516,7 +525,7 @@ pub trait ArtistHandle {
     where
         Self: Sized,
     {
-        self.raw().with_base_mut(|b| b.gid = None);
+        self.raw().with_base_mut_unmarked(|b| b.gid = None);
         self
     }
 
@@ -525,17 +534,18 @@ pub trait ArtistHandle {
     where
         Self: Sized,
     {
-        self.raw().with_base_mut(|b| b.url = None);
+        self.raw().with_base_mut_unmarked(|b| b.url = None);
         self
     }
 
-    /// Sets the hyperlink used in vector output.
+    /// Sets the hyperlink used in vector output, leaving the artist as
+    /// fresh as it was (matplotlib's `set_url` makes nothing stale).
     fn set_url(&self, url: impl Into<String>) -> &Self
     where
         Self: Sized,
     {
         let url = url.into();
-        self.raw().with_base_mut(|b| b.url = Some(url));
+        self.raw().with_base_mut_unmarked(|b| b.url = Some(url));
         self
     }
 

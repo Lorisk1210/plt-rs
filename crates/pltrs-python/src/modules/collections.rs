@@ -115,9 +115,11 @@ fn set_linewidths(collection: Collection, widths: Vec<f64>) -> PyResult<()> {
     Ok(())
 }
 
-/// Sets the edge line styles.
+/// Sets the edge line styles, which leaves the collection as fresh as it
+/// was (matplotlib's `Collection.set_linestyle` makes nothing stale).
 fn set_linestyles(collection: Collection, styles: Vec<PyLineStyle>) -> PyResult<()> {
-    collection.set_linestyles(styles.into_iter().map(|style| style.0).collect());
+    let styles = styles.into_iter().map(|style| style.0).collect();
+    pltrs::figure::unseen(|| collection.set_linestyles(styles));
     Ok(())
 }
 
@@ -175,23 +177,25 @@ fn set_hatch_linewidth(collection: Collection, width: f64) -> PyResult<()> {
     Ok(())
 }
 
-/// Sets the cap style of the edges.
+/// Sets the cap style of the edges, which leaves the collection as fresh
+/// as it was (as matplotlib's `set_capstyle` does).
 fn set_capstyle(collection: Collection, name: Owned) -> PyResult<()> {
     let cap = Python::with_gil(|py| cap_style(&name.bind(py)))?;
-    collection.set_capstyle(cap);
+    pltrs::figure::unseen(|| collection.set_capstyle(cap));
     Ok(())
 }
 
-/// Sets the join style of the edges.
+/// Sets the join style of the edges, which leaves the collection as fresh
+/// as it was (as matplotlib's `set_joinstyle` does).
 fn set_joinstyle(collection: Collection, name: Owned) -> PyResult<()> {
     let join = Python::with_gil(|py| join_style(&name.bind(py)))?;
-    collection.set_joinstyle(join);
+    pltrs::figure::unseen(|| collection.set_joinstyle(join));
     Ok(())
 }
 
-/// Sets the pick radius in pixels.
+/// Sets the pick radius in pixels, which changes nothing drawn.
 fn set_pickradius(collection: Collection, radius: f64) -> PyResult<()> {
-    collection.set_pickradius(radius);
+    pltrs::figure::unseen(|| collection.set_pickradius(radius));
     Ok(())
 }
 

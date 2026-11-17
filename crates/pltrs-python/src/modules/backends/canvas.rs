@@ -41,10 +41,16 @@ fn rgba_array(width: usize, height: usize, data: Vec<u8>) -> PyResult<NdArray<u8
 }
 
 /// Draws the whole figure onto its canvas, leaving out animated artists
-/// (`FigureCanvasAgg.draw`); a line whose `markevery` does not fit it
-/// raises matplotlib's `ValueError`.
-fn draw(figure: Figure) -> PyResult<()> {
-    let drawn = figure.canvas().draw();
+/// unless the canvas is `saving` (`FigureCanvasAgg.draw`, while
+/// `canvas.is_saving()`); a line whose `markevery` does not fit it raises
+/// matplotlib's `ValueError`.
+fn draw(figure: Figure, saving: bool) -> PyResult<()> {
+    let canvas = figure.canvas();
+    let drawn = if saving {
+        canvas.draw_saving()
+    } else {
+        canvas.draw()
+    };
     raised(&figure, drawn)
 }
 
@@ -217,7 +223,7 @@ mod tests {
             buffer_rgba(figure.clone()).unwrap().is_none(),
             "not drawn yet"
         );
-        draw(figure.clone()).unwrap();
+        draw(figure.clone(), false).unwrap();
         let pixels = buffer_rgba(figure.clone()).unwrap().unwrap();
         assert_eq!(pixels.shape, [50, 100, 4]);
         let region = copy_from_bbox(figure.clone(), (0.0, 0.0, 10.0, 10.0)).unwrap();
@@ -237,7 +243,7 @@ mod tests {
     fn single_artists_draw_over_the_canvas() {
         let figure = Figure::with_size(2.0, 1.0, 50.0);
         let ax = figure.subplot();
-        draw(figure.clone()).unwrap();
+        draw(figure.clone(), false).unwrap();
         let before = buffer_rgba(figure.clone()).unwrap().unwrap().data;
         let line = ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
         draw_artist(figure.clone(), line.raw().clone()).unwrap();

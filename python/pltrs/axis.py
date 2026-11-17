@@ -2025,6 +2025,10 @@ class Axis(DrawnWith, Artist):
             # No size: the labels' `set_fontsize(None)`, which takes
             # rcParams['font.size'] as it is now.
             native['labelsize'] = self._rc('font.size')
+        for name in ('grid_linestyle', 'grid_ls'):
+            if name in native:
+                # As matplotlib's gridlines check it (`Line2D.set_linestyle`).
+                mlines._check_linestyle(native[name])
         if 'grid_path_effects' in native:
             native['grid_path_effects'] = [
                 effect._native_spec() for effect in native['grid_path_effects']]

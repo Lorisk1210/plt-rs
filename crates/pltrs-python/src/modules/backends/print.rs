@@ -52,7 +52,9 @@ fn pad_inches(object: &Bound<'_>) -> PyResult<PadInches> {
 /// records every entry as a text chunk; the vector formats record those of
 /// PDF's document information dictionary they hold (`Title`, `Author`,
 /// `Subject`, `Keywords`, `Creator`, `Producer`, and the dates, given as
-/// whole seconds since the Unix epoch).
+/// whole seconds since the Unix epoch). An entry given as `bytes` is one
+/// of a PDF document's information dictionary as the package wrote it
+/// (`Metadata::pdf_info`, matplotlib's `pdfRepr` of the value).
 fn metadata(object: &Bound<'_>) -> PyResult<Metadata> {
     metadata_over(Metadata::default(), object)
 }
@@ -63,6 +65,10 @@ fn metadata_over(base: Metadata, object: &Bound<'_>) -> PyResult<Metadata> {
     let mut metadata = base;
     for (key, value) in dict_items(object)? {
         let key: String = key.extract()?;
+        if let Ok(Bytes(written)) = value.extract::<Bytes>() {
+            (metadata.pdf_info.get_or_insert_with(Vec::new)).push((key, written));
+            continue;
+        }
         let date = match key.as_str() {
             "CreationDate" => Some(&mut metadata.date),
             "Date" if value.is_none() => Some(&mut metadata.date),

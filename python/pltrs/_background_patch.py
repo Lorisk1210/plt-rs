@@ -93,6 +93,9 @@ class _ShapedAxesBackground(_AxesBackground):
 class _FigureBackground(_Background):
     """The background of a (sub)figure."""
 
+    #: matplotlib's figure gives its patch its stale callback.
+    stales_owner = True
+
     def figure(self, patch, root=False):
         return self.owner.get_figure(root=True) if root else self.owner
 

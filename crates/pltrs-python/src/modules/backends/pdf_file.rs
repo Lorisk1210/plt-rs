@@ -444,38 +444,6 @@ fn pdf_file_close(document: Native<PdfDocument>) -> PyResult<Bytes> {
     Ok(Bytes(file.close().map_err(pdf_error)?))
 }
 
-/// One entry of the document information: its key, and its text or its
-/// date in seconds since the epoch.
-type InfoEntry = (String, Option<String>, Option<i64>);
-
-/// The document information the file will write, in matplotlib's order.
-fn pdf_file_info(document: Native<PdfDocument>) -> PyResult<Vec<InfoEntry>> {
-    with_file(&document, |file| {
-        let info = file.metadata_mut();
-        let text = |key: &str, value: &Option<String>| {
-            value
-                .clone()
-                .map(|value| (key.to_owned(), Some(value), None))
-        };
-        let date = |key: &str, value: Option<pltrs_render::Timestamp>| {
-            value.map(|date| (key.to_owned(), None, Some(date.0)))
-        };
-        Ok([
-            text("Creator", &info.creator),
-            text("Producer", &info.producer),
-            date("CreationDate", info.date),
-            text("Title", &info.title),
-            text("Author", &info.author),
-            text("Subject", &info.subject),
-            text("Keywords", &info.keywords),
-            date("ModDate", info.modified),
-        ]
-        .into_iter()
-        .flatten()
-        .collect())
-    })
-}
-
 /// Sets the document information to the entries of the dict `info` (as
 /// `savefig(metadata=...)` gives them, without pltrs' defaults).
 fn pdf_file_set_info(document: Native<PdfDocument>, info: DocumentInfo) -> PyResult<()> {
@@ -614,7 +582,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("pdf_file_write_deferred", pdf_file_write_deferred)?;
     module.add("pdf_file_dvi_font_used", pdf_file_dvi_font_used)?;
     module.add("pdf_file_close", pdf_file_close)?;
-    module.add("pdf_file_info", pdf_file_info)?;
     module.add("pdf_file_set_info", pdf_file_set_info)?;
     module.add("pdf_file_font_name", pdf_file_font_name)?;
     module.add("pdf_file_core_font_name", pdf_file_core_font_name)?;

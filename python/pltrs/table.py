@@ -604,7 +604,7 @@ substring of 'BRTL'
                 or kwargs.get("rotation_point", absent) is not absent or len(args) > 2):
             # The ``angle`` and ``rotation_point`` properties rotate the cell
             # as `set_angle` does.
-            self._mirror.push(self)
+            _mirrors.push(self._mirror, self)
 
     def get_bbox(self):
         """Return the `.Bbox` of the cell: at its corner (`get_xy`), as

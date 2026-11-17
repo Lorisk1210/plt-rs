@@ -16,8 +16,8 @@ import logging
 import numpy as np
 
 from . import _docstring
-from . import (_api, _lazy_imports, _live_transforms, _mirrors, _own_state, _unusable,
-               _values, cbook, units)
+from . import (_api, _artist_staleness, _lazy_imports, _live_transforms, _mirrors,
+               _own_state, _unusable, _values, cbook, units)
 from ._artist_kwargs import check_known, native_artist_kwargs
 from ._native import artist as _artist, lines as _lines
 from . import _program_classes
@@ -223,19 +223,63 @@ _DATA = ("data", "xdata", "ydata")
 def _after_kwargs(kwargs):
     """The keyword arguments of *kwargs* a line is given through its
     setters once made (see `_NATIVE_PROPERTIES`; an alias stands for its
-    property). The clip box is not one of them: `.keep_python_kwargs`
-    gives it, clipped as matplotlib's add method leaves the line."""
+    property), and a dash pattern pltrs (Rust) cannot hold, which the
+    line keeps (`Line2D._keeps_dashes`). The clip box is not one of them:
+    `.keep_python_kwargs` gives it, clipped as matplotlib's add method
+    leaves the line. Without either, nothing (a set comparison)."""
+    if kwargs.keys() <= _MADE_WITH and not _unheld_style(kwargs):
+        return {}
     to_property = Line2D._alias_to_prop
     return {name: value for name, value in kwargs.items()
-            if to_property.get(name, name) not in _NATIVE_PROPERTIES
-            and name not in _DATA and name != "clip_box"}
+            if (to_property.get(name, name) not in _NATIVE_PROPERTIES
+                and name not in _DATA and name != "clip_box")
+            or _unheld_style({name: value})}
+
+
+def _check_linestyle(style):
+    """Refuse the line style *style* as matplotlib's `Line2D.set_linestyle`
+    does (None: the default)."""
+    if isinstance(style, str):
+        _api.check_in_list([*Line2D._lineStyles, *cbook.ls_mapper_r],
+                           ls='None' if style in (' ', '', 'none') else style)
+    elif style is not None:
+        _get_dash_pattern(style)
+
+
+def _unheld_style(kwargs):
+    """Whether the line style or dash list of *kwargs* (by any name) has a
+    dash pattern pltrs (Rust) cannot hold (see `_unheld_dashes`)."""
+    for name, value in kwargs.items():
+        prop = Line2D._alias_to_prop.get(name, name)
+        if prop == "linestyle" and isinstance(value, tuple):
+            dashes = value[1] if len(value) == 2 else None
+        elif prop == "dashes" and value is not None and value != (None, None):
+            dashes = value
+        else:
+            continue
+        if _unheld_dashes(dashes):
+            return True
+    return False
+
+
+def _unheld_dashes(dashes):
+    """Whether pltrs (Rust) cannot hold the dash list *dashes*: no
+    positive value, a negative or a non-finite one (matplotlib keeps it,
+    and its graphics context refuses it as it draws the line)."""
+    if dashes is None or not np.iterable(dashes) or not len(dashes):
+        return False
+    try:
+        values = np.asarray(dashes, dtype=float)
+    except (TypeError, ValueError):
+        return False
+    return not (np.isfinite(values).all() and (values >= 0).all() and (values > 0).any())
 
 
 def _set_after(line, kwargs):
     """Give *line*, made natively with *kwargs*, those of them pltrs (Rust)
     makes no line with (see `_NATIVE_PROPERTIES`); returns *line*, which
     may be None (no line made)."""
-    after = not kwargs.keys() <= _MADE_WITH and _after_kwargs(kwargs)
+    after = _after_kwargs(kwargs)
     if after and line is not None:
         line._internal_update(after)
     return line
@@ -254,10 +298,11 @@ def _native_kwargs(kwargs, holder=None):
     for *holder*, the root figure the line is made in (see
     `._live_transforms.to_native`).
     """
-    after = not kwargs.keys() <= _MADE_WITH and _after_kwargs(kwargs)
+    after = _after_kwargs(kwargs)
     if after:
         check_known(Line2D, after)
         kwargs = {name: value for name, value in kwargs.items() if name not in after}
+    _check_linestyle(kwargs.get("linestyle"))
     for name in ("color", "gapcolor"):
         if kwargs.get(name) is not None:
             # As matplotlib's `set_color` and `set_gapcolor` check them.
@@ -674,9 +719,10 @@ class Line2D(Artist):
             (x, y), = args
         else:
             x, y = args
-        if {"set_xdata", "set_ydata"} & self._program_setters:
+        if _artist_staleness.reporting or {"set_xdata", "set_ydata"} & self._program_setters:
             # matplotlib's sets each through its setter, which a class of
-            # the program's overrides.
+            # the program's overrides, and whose change each runs the
+            # program's stale callbacks.
             self.set_xdata(x)
             self.set_ydata(y)
         else:
@@ -713,6 +759,10 @@ class Line2D(Artist):
             return
         _unusable.drop(self, "data")
         _deferred_data[self._native] = numbers
+        if _artist_staleness.reporting:
+            # The numbers reach pltrs (Rust) at once, which runs the
+            # program's stale callbacks as matplotlib's setter does.
+            _artist.get_stale(self._native)
 
     def _forget_drawn_data(self):
         """Forget the array of the numbers drawn and the path handed out
@@ -1037,11 +1087,9 @@ class Line2D(Artist):
         positive value, a negative or non-finite one): matplotlib keeps it,
         and its graphics context refuses the negative and the all-zero
         ones as it draws the line (`_draw_dashes`). Whether it is kept."""
-        if dashes is None or not len(dashes):
+        if not _unheld_dashes(dashes):
             return False
         values = np.asarray(dashes, dtype=float)
-        if np.isfinite(values).all() and (values >= 0).all() and (values > 0).any():
-            return False
         _unusable.keep(self, "dashes", values, self._draw_dashes, measured=False)
         self.stale = True
         return True
@@ -1366,10 +1414,10 @@ class Line2D(Artist):
         """
         self._take_markevery(every)
         self._keep_markevery(every)
-        self.stale = True
 
     def _take_markevery(self, every):
-        """Hand pltrs (Rust) the markers to draw, *every*."""
+        """Hand pltrs (Rust) the markers to draw, *every*; the line goes
+        stale."""
         try:
             self._set_native(markevery=every)
         except ValueError:
@@ -1377,6 +1425,7 @@ class Line2D(Artist):
             # on it as it draws the markers (`_mark_every_path`).
             _unusable.keep(self, "markevery", every, self._draw_markevery,
                            measured=False)
+            self.stale = True
         else:
             _unusable.drop(self, "markevery")
 

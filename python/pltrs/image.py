@@ -23,7 +23,8 @@ import numpy as np
 import PIL.Image
 import PIL.PngImagePlugin
 
-from . import (_api, _artist_clipping, _image, _lazy_imports, _live_transforms, _named,
+from . import (_api, _artist_clipping, _artist_staleness, _image, _lazy_imports,
+               _live_transforms, _named,
                _own_state, _program_classes, _unusable, _values, cbook,
                colorizer as mcolorizer, colors as mcolors)
 from . import _docstring, artist as martist
@@ -296,8 +297,15 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         Call this whenever the mappable is changed so observers can update.
         """
         replaced = self._handing_norm()
-        _native_image.set_mapping(self._native, self.cmap, self._colorizer.norm,
-                                  replaced)
+
+        def hand(image):
+            _native_image.set_mapping(image._native, image.cmap, image._colorizer.norm, replaced)
+
+        if _artist_staleness.reporting:
+            # Staled once, below, as matplotlib's image is.
+            _artist.unreported(hand, self)
+        else:
+            hand(self)
         super().changed()
 
     def _drawn_clim(self):

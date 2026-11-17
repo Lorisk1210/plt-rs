@@ -2039,6 +2039,24 @@ boxes inside an offset box with the box added) reads as fresh once the
 artist drawing it drew since it went stale (`_drawn_with.DrawnWith`,
 through `_native.artist.draw_count` of its `_drawer()`).
 
+A program's own `stale_callback` (on any artist, the figure included)
+sees the changes pltrs (Rust) makes, which set no `stale` in Python: the
+root figure of the artist it is put on reports (`Figure::report_stale`,
+`_artist_staleness.watch`) the artists its changes mark stale, the
+innermost of each change, or the figure itself when it went stale with
+none (a scale, the subplot parameters, its size). At the end of the
+thread's outermost native call the binding hands them to
+`_artist_staleness.stale_reported`, which sets each stale as matplotlib's
+setters do, running the chain of callbacks up to the program's. What
+the program sets stale itself, and what a mirror hands its part
+(`_mirrors.push`: matplotlib's part has no callback of its own), is not
+reported (`_artist.unreported`). Every change that stales the figure calls its
+callback at least once; how often matplotlib calls it (its `set_title`
+11 times, each draw dozens of times as ticks update) is not followed.
+Setters matplotlib leaves fresh (`gid`, `url`, `picker`, `rasterized`,
+`in_layout`, `navigate`, a text's `wrap` and `bbox`, a collection's line
+and cap styles) leave pltrs (Rust)'s artists fresh too.
+
 ### Warnings
 
 pltrs (Rust) issues its warnings through `pltrs::warnings` (data cast to

@@ -101,6 +101,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
         text_helpers::log_mathtext_messages,
         ticker::report_scalar_formatters,
         transforms::sync_watched,
+        artist::deliver_stale_reports,
     ]);
     annotation::register(&module.submodule("annotation")?)?;
     archive::register(&module.submodule("archive")?)?;

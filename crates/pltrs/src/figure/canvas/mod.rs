@@ -197,6 +197,21 @@ impl FigureCanvas {
         drawn.map_err(CanvasError::Draw)
     }
 
+    /// Draws the whole figure onto the canvas as [`draw`](Self::draw)
+    /// does, its animated artists included, as matplotlib's `canvas.draw()`
+    /// draws them while the canvas is saving (`canvas.is_saving()`, which
+    /// an animation's `save` sets around the frames its writer grabs).
+    ///
+    /// # Errors
+    ///
+    /// As [`draw`](Self::draw).
+    pub fn draw_saving(&self) -> Result<(), CanvasError> {
+        let was = std::mem::replace(&mut self.figure.state_mut().saving, true);
+        let drawn = self.draw();
+        self.figure.state_mut().saving = was;
+        drawn
+    }
+
     /// Sends [`Event::Draw`] for a raster print with `printed`, the figure
     /// drawn for it, as the canvas (matplotlib's raster prints draw into
     /// the canvas's own renderer, `FigureCanvasAgg.draw`), and returns the

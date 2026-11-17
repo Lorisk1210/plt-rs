@@ -338,11 +338,18 @@ class ErrorbarMixin:
         n = len(x)
         xconv, yconv = line_data(self, x, y)
         bounds = {}
-        for dep_axis, dep, depconv, err, convert in [
-                ("x", x, xconv, xerr, self.convert_xunits),
-                ("y", y, yconv, yerr, self.convert_yunits)]:
-            if err is not None:
-                bounds[dep_axis] = _error_bounds(dep_axis, dep, err, convert, depconv)
+        try:
+            for dep_axis, dep, depconv, err, convert in [
+                    ("x", x, xconv, xerr, self.convert_xunits),
+                    ("y", y, yconv, yerr, self.convert_yunits)]:
+                if err is not None:
+                    bounds[dep_axis] = _error_bounds(dep_axis, dep, err, convert, depconv)
+        except ValueError:
+            # matplotlib adds the data line before it checks the errors
+            # (`add_line`, which asks for no autoscaling).
+            if fmt.lower() != 'none':
+                self.plot(x, y, fmt, scalex=False, scaley=False, **kwargs)
+            raise
         flags = [np.broadcast_to(lims, n).astype(bool).tolist()
                  for lims in (lolims, uplims, xlolims, xuplims)]
         if refused is not None:

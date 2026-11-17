@@ -426,7 +426,7 @@ class FigureCanvasAgg(FigureCanvasBase):
                 _figure_draws.draw(
                     self.figure,
                     (lambda: _backends.draw_replacing(native, self.renderer, replaced))
-                    if replaced else (lambda: _backends.draw(native)),
+                    if replaced else (lambda: _backends.draw(native, self._is_saving)),
                     lambda: self.renderer)
             DrawEvent("draw_event", self, self.renderer)._process()
             # A GUI class may be need to update a window using this draw, so

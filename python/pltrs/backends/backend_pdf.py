@@ -39,9 +39,8 @@ from ..font_manager import (
 from ..path import Path
 from ..text import _drawing_with
 from ..transforms import BboxBase
-from ._backend_pdf_ps import RendererPDFPSBase
+from ._backend_pdf_ps import RendererPDFPSBase, _in_points
 from . import _pdf_kept
-from ._source_date import source_date
 from ._native_drawing import DocumentDrawingMixin, affine_matrix, native_gc
 from ._pdf_arguments import PdfArgumentsMixin
 from .backend_mixed import MixedModeRenderer
@@ -91,6 +90,8 @@ def _create_pdf_info_dict(backend, metadata):
     }
     info = {k: v for (k, v) in info.items() if v is not None}
     _check_info(info)
+    if 'Trapped' in info:
+        info['Trapped'] = Name(info['Trapped'])
     return info
 
 
@@ -109,6 +110,8 @@ _is_date.text_for_warning = "an instance of datetime.datetime"
 
 
 def _check_trapped(x):
+    if isinstance(x, Name):
+        return x.name in (b'True', b'False', b'Unknown')
     return x in ('True', 'False', 'Unknown')
 
 
@@ -130,8 +133,8 @@ _INFO_CHECKS = {
 
 def _check_info(info):
     """Warn about the unknown keys and the values of the wrong type of the
-    information dictionary *info*; return the keys that pass."""
-    valid = []
+    information dictionary *info*, as matplotlib does (it writes them all
+    the same)."""
     for k in info:
         if k not in _INFO_CHECKS:
             _api.warn_external(f'Unknown infodict keyword: {k!r}. '
@@ -140,30 +143,15 @@ def _check_info(info):
             _api.warn_external(f'Bad value for infodict keyword {k}. '
                                f'Got {info[k]!r} which is not '
                                f'{_INFO_CHECKS[k].text_for_warning}.')
-        else:
-            valid.append(k)
-    return valid
 
 
 def _native_info(metadata):
-    """The document *metadata* of a PDF document for pltrs (Rust), checked
-    as matplotlib checks it: the entries it warns about are left out, dates
-    are seconds since the epoch and None removes an entry. Its default
-    creation date is ``SOURCE_DATE_EPOCH``'s, read first as matplotlib's
-    `_create_pdf_info_dict` reads it."""
+    """The document information dictionary of a PDF document whose
+    ``savefig`` (or `PdfPages`) is given *metadata*, as pltrs (Rust) takes
+    it (see `_native_info_of`): matplotlib's `_create_pdf_info_dict`."""
     if metadata is None:
         return None
-    date = source_date()
-    if date is not None:
-        metadata = {'CreationDate': date, **metadata}
-    given = {k: v for k, v in metadata.items() if v is not None}
-    native = {k: None for k, v in metadata.items() if v is None}
-    for key in _check_info(given):
-        value = given[key]
-        native[key] = (int(value.timestamp())
-                       if isinstance(value, datetime)
-                       else value)
-    return native
+    return _native_info_of(_create_pdf_info_dict('pdf', metadata))
 
 
 def _datetime_to_pdf(d):
@@ -518,30 +506,15 @@ def _bytes(data):
     return data
 
 
-def _info_of(entries):
-    """
-    The document information pltrs (Rust) writes, as ``PdfFile.infoDict``
-    holds it: text, and the dates in UTC.
-    """
-    return {key: text if date is None else
-            datetime.fromtimestamp(date, timezone.utc)
-            for key, text, date in entries}
-
-
 def _native_info_of(info):
     """
-    The entries of the information dictionary *info* pltrs (Rust) writes:
-    text, names (``Trapped``) and dates (as seconds since the epoch).
+    The information dictionary *info* as pltrs (Rust) writes it: each value
+    written as a PDF object (`pdfRepr`, which writes a date as
+    `_datetime_to_pdf` does), in order, and pltrs (Rust)'s own defaults
+    left out (None), so that a dictionary without them writes none.
     """
-    native = {}
-    for key, value in info.items():
-        if isinstance(value, datetime):
-            native[key] = int(value.timestamp())
-        elif isinstance(value, Name):
-            native[key] = value.name.decode('ascii')
-        elif isinstance(value, str):
-            native[key] = value
-    return native
+    return {**dict.fromkeys(("Creator", "Producer", "CreationDate")),
+            **{key: pdfRepr(value) for key, value in info.items()}}
 
 
 def _rgba_pixels(image):
@@ -586,8 +559,8 @@ class PdfFile:
         super().__init__()
         self._filename = filename
         self._document_file = _DocumentFile(filename)
-        self._native = _backends.pdf_pages_new(_native_info(metadata or {}))
-        self.infoDict = _info_of(_backends.pdf_file_info(self._native))
+        self.infoDict = _create_pdf_info_dict('pdf', metadata or {})
+        self._native = _backends.pdf_pages_new(_native_info_of(self.infoDict))
         self._dviFontInfo = {}   # maps pdf names to dvifonts
         self._image_objects = {}  # images by id: (image, name)
         self._given = _pdf_kept.Given()
@@ -1556,7 +1529,7 @@ class FigureCanvasPdf(FigureCanvasBase):
 
     def print_pdf(self, filename, *, bbox_inches_restore=None, metadata=None):
         settings = dict(bbox_inches_restore=bbox_inches_restore)
-        with _drawing_with(self.figure, self._print_renderer()):
+        with _drawing_with(self.figure, self._print_renderer()), _in_points(self.figure):
             if isinstance(filename, PdfPages):
                 with self._program_drawing(bbox_inches_restore):
                     _backends.pdf_pages_savefig(

@@ -71,7 +71,7 @@ pub(crate) use containers::{dict_items, dict_value, new_dict, tuple};
 pub(crate) use convert::{Bytes, FromPy, IntoPy};
 pub(crate) use deferred::install as install_deferred;
 pub(crate) use error::{ExceptionKind, PyErr, PyResult, runtime_warning};
-pub(crate) use gil::Python;
+pub(crate) use gil::{Python, outermost_call};
 pub(crate) use home::{set_loop_waker, wake_loop};
 pub(crate) use init::init_module;
 pub(crate) use module::Module;

@@ -20,6 +20,20 @@ from .._native import ft2font as _ft2font
 from ..backend_bases import RendererBase
 
 
+@contextmanager
+def _in_points(figure):
+    """Print *figure* as matplotlib's vector print methods do, which set
+    its ``dpi`` to 72 (points per inch) and leave it so: a program calling
+    them gets 72. Within `print_figure` (its ``_print_options``), which
+    puts the dpi back before the figure's observers hear of the print's
+    end, it stays."""
+    try:
+        yield
+    finally:
+        if not figure.canvas._print_options:
+            figure.dpi = 72
+
+
 @functools.lru_cache(50)
 def _cached_get_afm_from_fname(fname):
     """The `AFM` metrics of the file *fname*, read once."""

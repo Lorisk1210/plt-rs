@@ -42,7 +42,10 @@ CALLS = {
     "artist.axes": _on(("scatter",), axes=lambda artist: artist.axes),
     "artist.id": _on(("scatter",), axes=lambda artist: artist.axes),
     "artist.draw_count": _on(("scatter",), set_sizes=lambda artist: artist.set_sizes([30.0])),
-    "artist.set_stale": _on(_ANY, set_zorder=lambda artist: artist.set_zorder(4)),
+    # (The setter of `stale` itself: pltrs (Rust) marks the artist stale in
+    # `set_zorder`, which no longer comes back through Python's flag.)
+    "artist.set_stale": _on(
+        _ANY, set_zorder=lambda artist: (artist.set_zorder(4), setattr(artist, "stale", True))),
     "artist.get_visible": _on(("scatter",), get_visible=lambda artist: artist.get_visible()),
     "artist.set_visible": _on(_ANY, set_visible=lambda artist: artist.set_visible(False)),
     "artist.get_zorder": _on(("scatter",), get_zorder=lambda artist: artist.get_zorder()),

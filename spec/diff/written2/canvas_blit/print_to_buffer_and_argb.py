@@ -1,0 +1,31 @@
+# Compare print_to_buffer, buffer_rgba, tostring_argb of one canvas: the same pixels in three layouts, checked by numpy.
+import numpy as np
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+fig = Figure(figsize=(2.5, 2), dpi=80)
+canvas = FigureCanvasAgg(fig)
+ax = fig.add_subplot()
+ax.imshow(np.arange(12).reshape(3, 4), cmap="viridis")
+ax.set_axis_off()
+canvas.draw()
+w, h = canvas.get_width_height()
+rgba = np.asarray(canvas.buffer_rgba()).copy()
+raw, (bw, bh) = canvas.print_to_buffer()
+from_buffer = np.frombuffer(raw, np.uint8).reshape(bh, bw, 4)
+argb = np.frombuffer(canvas.tostring_argb(), np.uint8).reshape(h, w, 4)
+print((w, h), (bw, bh), rgba.shape)
+print(np.array_equal(rgba, from_buffer), np.array_equal(np.roll(argb, -1, axis=2), rgba))
+print(rgba[h // 2, w // 2].tolist(), argb[h // 2, w // 2].tolist())
+renderer = canvas.get_renderer()
+print(type(renderer).__name__, renderer.width, renderer.height, len(bytes(renderer.buffer_rgba())))
+region = canvas.copy_from_bbox(ax.bbox)
+print(type(region).__name__, [int(v) for v in region.get_extents()])
+fig.set_dpi(40)
+canvas.draw()
+w2, h2 = canvas.get_width_height()
+print((w2, h2), np.asarray(canvas.buffer_rgba()).shape, canvas.get_width_height(physical=True))
+img = np.asarray(canvas.buffer_rgba())
+print(int(img[..., 3].min()), int(img[..., 3].max()))
+canvas.restore_region(region)
+print(np.asarray(canvas.buffer_rgba()).shape)

@@ -1721,6 +1721,12 @@ path = "spec/diff/written"
 licence = "MIT OR Apache-2.0 (the repository's)"
 programs = ["*/*.py"]
 
+[written2]
+title = "Programs of the kind experts write, about 40 topics of the machinery under the charts, written for pltrs (task USR2)"
+path = "spec/diff/written2"
+licence = "MIT OR Apache-2.0 (the repository's)"
+programs = ["*/*.py"]
+
 # The corpora of task CORP10 (2026-11-15): libraries' own documentation,
 # galleries and tutorials.
 

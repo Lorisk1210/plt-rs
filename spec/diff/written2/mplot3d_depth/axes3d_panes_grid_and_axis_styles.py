@@ -1,0 +1,32 @@
+# Style the 3-D panes, grid lines and axis lines through the axis objects and rcParams; read the properties back.
+import matplotlib
+matplotlib.use("agg")
+import matplotlib.pyplot as plt
+
+with plt.rc_context({"axes3d.grid": False, "axes3d.xaxis.panecolor": (1, 0.9, 0.9, 0.5), "axes3d.automargin": True}):
+    fig = plt.figure(figsize=(5, 5), dpi=60)
+    ax = fig.add_subplot(projection="3d")
+    ax.plot([0, 1], [0, 1], [0, 1])
+    fig.canvas.draw()
+    print(ax._draw_grid, ax.xaxis.pane.get_facecolor())
+    print([round(v, 3) for v in ax.get_xlim()])
+ax.xaxis.set_pane_color((0.8, 0.8, 1, 1))
+ax.yaxis.pane.set_edgecolor("r")
+ax.zaxis.pane.set_alpha(0.2)
+ax.grid(True)
+ax.xaxis._axinfo["grid"].update(color="g", linewidth=0.5, linestyle=":")
+ax.zaxis.line.set_color("m")
+ax.set_axis_off()
+fig.canvas.draw()
+print(ax.axison, ax._draw_grid, ax.xaxis.pane.get_facecolor(), ax.yaxis.pane.get_edgecolor())
+print(sorted(ax.xaxis._axinfo.keys()))
+print(ax.xaxis._axinfo["grid"]["color"], ax.zaxis.line.get_color())
+ax.set_axis_on()
+ax.xaxis.set_ticks_position("upper")
+ax.yaxis.set_label_position("lower")
+ax.zaxis.set_rotate_label(False)
+ax.set_zlabel("vertical", rotation=90)
+fig.canvas.draw()
+print(ax.xaxis.get_ticks_position(), ax.yaxis.get_label_position(), ax.zaxis.get_rotate_label(""), ax.zaxis.label.get_rotation())
+print([type(a).__name__ for a in (ax.xaxis, ax.yaxis, ax.zaxis)])
+fig.savefig("panes.png")

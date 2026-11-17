@@ -1,0 +1,31 @@
+# switch_backend with figures open: what happens to them, their canvases after switching between agg/pdf/svg, and saving each.
+import io
+import matplotlib
+matplotlib.use("agg")
+import matplotlib.pyplot as plt
+
+f1 = plt.figure()
+f1.add_subplot().plot([1, 2])
+print(type(f1.canvas).__name__, plt.get_fignums())
+plt.switch_backend("pdf")
+print(matplotlib.get_backend(), plt.get_fignums(), type(f1.canvas).__name__)
+f2 = plt.figure()
+f2.add_subplot().plot([2, 1])
+print(type(f2.canvas).__name__, plt.get_fignums())
+buf = io.BytesIO()
+f2.savefig(buf, format="png")
+print(buf.getvalue()[:4], type(f2.canvas).__name__)
+buf = io.BytesIO()
+f2.savefig(buf, metadata={"CreationDate": None}, format="pdf")
+print(buf.getvalue()[:5])
+plt.switch_backend("svg")
+f3 = plt.figure()
+print(type(f3.canvas).__name__, plt.get_fignums(), matplotlib.get_backend())
+f3.savefig("f3.svg", metadata={"Date": None})
+f3.savefig("f3.png")
+print(open("f3.svg", "rb").read(5), open("f3.png", "rb").read(4))
+plt.switch_backend("agg")
+print(plt.get_fignums(), matplotlib.rcParams["backend"])
+f4 = plt.figure()
+print(type(f4.canvas).__name__)
+plt.close("all")

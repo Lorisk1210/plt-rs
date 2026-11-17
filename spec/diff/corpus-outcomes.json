@@ -4411,10 +4411,34 @@
      "ran": 0
     }
    }
+  },
+  "written2": {
+   "clean": 312,
+   "failed_imports": {},
+   "programs": 400,
+   "ran": 400,
+   "runs": {
+    "ended, drew": {
+     "clean": 260,
+     "ran": 339
+    },
+    "ended, no figure": {
+     "clean": 52,
+     "ran": 61
+    },
+    "raised, drew": {
+     "clean": 0,
+     "ran": 0
+    },
+    "raised, no figure": {
+     "clean": 0,
+     "ran": 0
+    }
+   }
   }
  },
  "total": {
-  "clean": 5245,
+  "clean": 5557,
   "failed_imports": {
    "CBE30338": 1,
    "ControlSlycot: can't find slycot module sb01bd": 1,
@@ -4501,16 +4525,16 @@
    "utils": 3,
    "watermark": 2
   },
-  "programs": 6408,
-  "ran": 5454,
+  "programs": 6808,
+  "ran": 5854,
   "runs": {
    "ended, drew": {
-    "clean": 3626,
-    "ran": 3756
+    "clean": 3886,
+    "ran": 4095
    },
    "ended, no figure": {
-    "clean": 601,
-    "ran": 640
+    "clean": 653,
+    "ran": 701
    },
    "raised, drew": {
     "clean": 705,

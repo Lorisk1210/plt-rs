@@ -1,0 +1,31 @@
+# The polar Axes' transform pieces (transProjection, transAffine, transShift) applied by hand to angles and radii.
+import numpy as np
+import matplotlib
+matplotlib.use("agg")
+import matplotlib.pyplot as plt
+
+fig = plt.figure(figsize=(4, 4), dpi=100)
+ax = fig.add_subplot(projection="polar")
+ax.set_rmax(2)
+ax.set_theta_offset(np.pi / 2)
+ax.set_theta_direction(-1)
+fig.canvas.draw()
+pts = np.array([[0.0, 1.0], [np.pi / 2, 1.0], [np.pi, 2.0]])
+display = ax.transData.transform(pts)
+print(np.round(display, 4).tolist())
+proj = ax.transProjection.transform(pts)
+print(type(ax.transProjection).__name__, np.round(proj, 6).tolist())
+back = ax.transData.inverted().transform(display)
+print(np.round(back, 6).tolist())
+print(type(ax.transScale).__name__, type(ax.transShift).__name__, np.round(ax.transShift.get_matrix(), 6).tolist())
+ax.plot(pts[:, 0], pts[:, 1], "o-")
+r_axis = ax.get_rlabel_position()
+print(round(float(r_axis), 6), ax.get_rorigin(), [round(v, 6) for v in ax.get_ylim()])
+fig.savefig("polar_pieces.png")
+ax.set_theta_zero_location("E")
+ax.set_theta_direction(1)
+fig.canvas.draw()
+print(np.round(ax.transData.transform(pts), 4).tolist())
+ax.set_rorigin(-0.5)
+fig.canvas.draw()
+print(np.round(ax.transData.transform(pts), 4).tolist(), ax.get_rorigin())

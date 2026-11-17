@@ -1,0 +1,31 @@
+# quiver, barbs and streamplot on polar axes: offsets in (theta, r), arrow directions in display space, and limits.
+import numpy as np
+import matplotlib
+matplotlib.use("agg")
+import matplotlib.pyplot as plt
+
+fig = plt.figure(figsize=(8, 3), dpi=50)
+th = np.linspace(0, 2 * np.pi, 8, endpoint=False)
+r = np.ones_like(th)
+ax1 = fig.add_subplot(1, 3, 1, projection="polar")
+q = ax1.quiver(th, r, np.cos(th), np.sin(th), angles="xy", scale=10)
+ax2 = fig.add_subplot(1, 3, 2, projection="polar")
+b = ax2.barbs(th, r * 2, 10 * np.cos(th), 10 * np.sin(th), length=5)
+ax3 = fig.add_subplot(1, 3, 3, projection="polar")
+T, R = np.meshgrid(np.linspace(0, 2 * np.pi, 30), np.linspace(0.1, 1, 20))
+sp = ax3.streamplot(T, R, np.ones_like(T), np.zeros_like(R), density=0.4)
+fig.canvas.draw()
+print(q.get_offsets()[:2].round(4).tolist(), [round(v, 3) for v in ax1.get_ylim()])
+print(len(b.get_paths()), [round(v, 3) for v in ax2.get_ylim()])
+print(len(sp.lines.get_segments()) > 0, [round(v, 3) for v in ax3.get_ylim()], [round(v, 3) for v in ax3.get_xlim()])
+disp = ax1.transData.transform(q.get_offsets())
+print(np.round(disp[:2], 1).tolist())
+print(type(q.get_offset_transform()).__name__, q.get_offset_transform() is ax1.transData)
+ax1.set_rlim(0, 3)
+fig.canvas.draw()
+print(np.round(ax1.transData.transform(q.get_offsets())[:2], 1).tolist())
+fig.savefig("polar_vectors.png")
+ax2.set_theta_zero_location("N")
+ax2.set_theta_direction(-1)
+fig.canvas.draw()
+print(np.round(ax2.transData.transform(b.get_offsets())[:2], 1).tolist())

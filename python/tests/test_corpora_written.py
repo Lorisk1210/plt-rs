@@ -41,11 +41,12 @@ def _manifest(tmp_path, body):
     return manifest
 
 
-def test_the_written_family_is_a_corpus_of_the_repository(corpora):
-    written = next(corpus for corpus in corpora.load() if corpus.name == "written")
-    assert written.path == "spec/diff/written"
+@pytest.mark.parametrize("name", ["written", "written2"])
+def test_the_written_families_are_corpora_of_the_repository(corpora, name):
+    written = next(corpus for corpus in corpora.load() if corpus.name == name)
+    assert written.path == f"spec/diff/{name}"
     assert (written.repository, written.commit, written.fetch, written.sha256) == ("", "", (), "")
-    assert written.tree(pathlib.Path("/nowhere")) == ROOT / "spec/diff/written"
+    assert written.tree(pathlib.Path("/nowhere")) == ROOT / "spec/diff" / name
 
 
 def test_a_path_corpus_runs_its_files_unfetched(corpora, tmp_path):

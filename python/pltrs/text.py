@@ -890,6 +890,62 @@ class Text(Artist):
         _text.set_wrap(self._native, bool(wrap))
         _values.remember(self, "wrap", wrap)
 
+    def _get_wrap_line_width(self):
+        """
+        Return the maximum line width for wrapping text based on the current
+        orientation.
+        """
+        x0, y0 = self.get_transform().transform(self.get_position())
+        figure_box = self.get_figure().get_window_extent()
+
+        # Calculate available width based on text alignment
+        alignment = self.get_horizontalalignment()
+        self.set_rotation_mode('anchor')
+        angle = self.get_rotation()
+
+        left = self._get_dist_to_box(angle, x0, y0, figure_box)
+        right = self._get_dist_to_box(
+            (180 + angle) % 360, x0, y0, figure_box)
+
+        if alignment == 'left':
+            line_width = left
+        elif alignment == 'right':
+            line_width = right
+        else:
+            line_width = 2 * min(left, right)
+
+        return line_width
+
+    def _get_dist_to_box(self, rotation, x0, y0, figure_box):
+        """
+        Return the distance from the given points to the boundaries of a
+        rotated box, in pixels.
+        """
+        if rotation > 270:
+            quad = rotation - 270
+            h1 = (y0 - figure_box.y0) / math.cos(math.radians(quad))
+            h2 = (figure_box.x1 - x0) / math.cos(math.radians(90 - quad))
+        elif rotation > 180:
+            quad = rotation - 180
+            h1 = (x0 - figure_box.x0) / math.cos(math.radians(quad))
+            h2 = (y0 - figure_box.y0) / math.cos(math.radians(90 - quad))
+        elif rotation > 90:
+            quad = rotation - 90
+            h1 = (figure_box.y1 - y0) / math.cos(math.radians(quad))
+            h2 = (x0 - figure_box.x0) / math.cos(math.radians(90 - quad))
+        else:
+            h1 = (figure_box.x1 - x0) / math.cos(math.radians(rotation))
+            h2 = (figure_box.y1 - y0) / math.cos(math.radians(90 - rotation))
+
+        return min(h1, h2)
+
+    def _get_xy_display(self):
+        """
+        Get the (possibly unit converted) transformed x, y in display coords.
+        """
+        x, y = self.get_unitless_position()
+        return self.get_transform().transform((x, y))
+
     def _get_wrapped_text(self):
         """
         Return a copy of the text string with new lines added so that the

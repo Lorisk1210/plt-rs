@@ -1,0 +1,33 @@
+# Axis-level tick API: get_majorticklocs, get_ticklocs(minor), get_tick_space, set_tick_params, get_major_ticks(numticks) and caching.
+import matplotlib
+matplotlib.use("agg")
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(4, 3), dpi=60)
+ax.set_xlim(0, 100)
+fig.canvas.draw()
+xa = ax.xaxis
+print(xa.get_majorticklocs().tolist(), xa.get_ticklocs(minor=True).tolist()[:3], xa.get_tick_space())
+ticks = xa.get_major_ticks()
+print(len(ticks), type(ticks[0]).__name__, [t.get_loc() for t in ticks][:3])
+print(len(xa.get_major_ticks(numticks=3)), len(xa.get_minor_ticks(numticks=2)))
+fig.set_size_inches(8, 3)
+fig.canvas.draw()
+print(xa.get_tick_space(), xa.get_majorticklocs().tolist())
+xa.set_tick_params(which="major", labelcolor="g", length=12)
+fig.canvas.draw()
+print(ticks[0].label1.get_color(), round(ticks[0].tick1line.get_markersize(), 2))
+print(xa.get_ticks_position(), ax.yaxis.get_ticks_position())
+xa.set_ticks_position("both")
+ax.yaxis.set_ticks_position("right")
+fig.canvas.draw()
+print(xa.get_ticks_position(), ax.yaxis.get_ticks_position(), ax.yaxis.get_label_position())
+xa.set_ticks_position("none")
+print(xa.get_ticks_position(), ticks[0].tick1line.get_visible())
+print(xa.get_ticks_direction().tolist()[:2], xa.get_tightbbox(fig.canvas.get_renderer()) is not None)
+print(xa.get_scale(), xa.get_view_interval().tolist(), xa.get_data_interval().tolist())
+xa.set_view_interval(10, 90, ignore=True)
+print(ax.get_xlim(), xa.get_inverted())
+xa.set_inverted(True)
+print(ax.get_xlim())
+fig.savefig("axis_ticks.png")

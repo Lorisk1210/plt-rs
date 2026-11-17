@@ -149,6 +149,12 @@ impl ConnectionPatch {
         }
     }
 
+    /// The axes the patch was added to, which places ends given no axes
+    /// of their own; `None` for a patch of a figure.
+    fn parent_axes(layout: LayoutContext<'_>, parent: Option<ArtistId>) -> Option<ArtistId> {
+        parent.filter(|&parent| layout.axes_extent(parent).is_some())
+    }
+
     /// Whether `point` (an end in `coords`) passes the annotation clip
     /// test (`ConnectionPatch._check_xy`).
     fn visible(
@@ -164,6 +170,8 @@ impl ConnectionPatch {
 }
 
 impl PatchShape for ConnectionPatch {
+    const REBUILDS_PATH: bool = true;
+
     const MAPS_OUTLINE_ALONE: bool = false;
 
     const EDGE_DEFAULT: bool = true;
@@ -181,21 +189,24 @@ impl PatchShape for ConnectionPatch {
         base.clip_on = false;
     }
 
+    /// Skipped while an end fails the annotation clip test (matplotlib's
+    /// `ConnectionPatch.draw` checks `_check_xy` first); its outline and
+    /// extent are measured all the same.
+    fn skips_draw(&self, layout: LayoutContext<'_>, parent: Option<ArtistId>) -> bool {
+        [&self.a, &self.b].into_iter().any(|end| {
+            let axes = end.axes.or_else(|| Self::parent_axes(layout, parent));
+            Self::position(end, layout, axes, parent)
+                .is_ok_and(|point| !self.visible(end, point, layout, axes))
+        })
+    }
+
     fn display_paths(&self, frame: &ShapeFrame<'_>) -> Result<Vec<DisplayPath>, PatchError> {
         let layout = frame.layout;
-        let parent_axes = frame
-            .parent
-            .filter(|&parent| layout.axes_extent(parent).is_some());
-        let locate = |end: &ConnectionEnd| -> Result<(Point, bool), PatchError> {
-            let axes = end.axes.or(parent_axes);
-            let point = Self::position(end, layout, axes, frame.parent)?;
-            Ok((point, self.visible(end, point, layout, axes)))
+        let parent_axes = Self::parent_axes(layout, frame.parent);
+        let locate = |end: &ConnectionEnd| {
+            Self::position(end, layout, end.axes.or(parent_axes), frame.parent)
         };
-        let (pos_a, show_a) = locate(&self.a)?;
-        let (pos_b, show_b) = locate(&self.b)?;
-        if !(show_a && show_b) {
-            return Ok(Vec::new());
-        }
+        let (pos_a, pos_b) = (locate(&self.a)?, locate(&self.b)?);
         let dpi_cor = frame.dpi_cor;
         let path = self
             .spec
@@ -242,8 +253,26 @@ mod tests {
                 ConnectionEnd::new((5.0, 5.0), Coords::Data, None),
             )
         };
-        assert_eq!(ax.add_artist(link(None)).window_extent(), None);
-        assert!(ax.add_artist(link(Some(false))).window_extent().is_some());
+        let hidden = ax.add_artist(link(None));
+        let shown = ax.add_artist(link(Some(false)));
+        // Measured all the same, as matplotlib measures its path.
+        assert_eq!(hidden.window_extent(), shown.window_extent());
+        shown.set_visible(false);
+        let blank = fig.to_png().expect("drawn");
+        shown.set_visible(true);
+        hidden.set_visible(false);
+        assert_ne!(
+            fig.to_png().expect("drawn"),
+            blank,
+            "the unclipped patch draws"
+        );
+        hidden.set_visible(true);
+        shown.set_visible(false);
+        assert_eq!(
+            fig.to_png().expect("drawn"),
+            blank,
+            "the clipped one does not"
+        );
     }
 
     #[test]

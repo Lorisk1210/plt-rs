@@ -9,7 +9,7 @@ use pltrs_core::{Affine2D, Bbox, Path, Point};
 use pltrs_text::HAlign;
 
 use super::{ArtistRef, OffsetBox, OffsetBoxError, Placement};
-use crate::artist::{ArtistLookup, LayoutContext};
+use crate::artist::{ArtistHandle, ArtistLookup, ClipPathSpec, LayoutContext, RawHandle};
 use crate::image::BboxImageArtist;
 use crate::text::TextArtist;
 use crate::transforms::Transform;
@@ -77,14 +77,7 @@ impl<A> DrawingArea<A> {
         A: Clone,
     {
         let scale = ctx.measuring_points_to_pixels(1.0);
-        let clip = self.clip.then(|| {
-            Path::polyline(vec![
-                Point::new(0.0, 0.0),
-                Point::new(0.0, self.height),
-                Point::new(self.width, self.height),
-                Point::new(self.width, 0.0),
-            ])
-        });
+        let clip = self.clip.then(|| area_outline(self.width, self.height));
         Placement::Artists {
             artists: self.artists.clone(),
             transform: Transform::Affine(
@@ -92,6 +85,39 @@ impl<A> DrawingArea<A> {
             ),
             clip,
         }
+    }
+}
+
+/// The outline a clipped area of `width` by `height` points gives its
+/// artists, in points from its origin (matplotlib's `DrawingArea.draw`
+/// makes it unclosed, of four vertices).
+fn area_outline(width: f64, height: f64) -> Path {
+    Path::polyline(vec![
+        Point::new(0.0, 0.0),
+        Point::new(0.0, height),
+        Point::new(width, height),
+        Point::new(width, 0.0),
+    ])
+}
+
+/// Whether `path` is the outline of a clipped area (see
+/// [`DrawingArea::placement`]), which its artists keep from the area's
+/// first draw on, rather than a clip path of the program's.
+pub(crate) fn is_area_outline(path: &Path) -> bool {
+    match path.vertices() {
+        [_, _, corner, _] => *path == area_outline(corner.x, corner.y),
+        _ => false,
+    }
+}
+
+/// The outline of the clipped [`DrawingArea`] that clips `artist`, in
+/// points from the area's origin: the clip path matplotlib's
+/// `DrawingArea.draw` gives an artist with no clip of its own, of the
+/// area's size at its first draw; `None` when no area clips it.
+pub fn area_clip_outline(artist: &RawHandle) -> Option<Path> {
+    match artist.clip_path()? {
+        ClipPathSpec::Path { path, .. } if is_area_outline(&path) => Some(path),
+        _ => None,
     }
 }
 

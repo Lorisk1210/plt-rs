@@ -910,6 +910,10 @@ class Legend(Artist):
         if not self.stale:
             # Drawn with the legend, as matplotlib's draw draws its box.
             _fresh(box)
+            draws = _artist.draw_count(self._native)
+            if draws and self.__dict__.get("_legend_box_placed") != draws:
+                self._legend_box_placed = draws
+                _place_inner(box, self.get_figure(root=True)._get_renderer())
         return box
 
     def _made_boxes(self):
@@ -1258,6 +1262,20 @@ class Legend(Artist):
         _legend.set_bbox_to_anchor(self._native, bounds,
                                    _live_transforms.to_native(transform))
         self._anchored = (anchored, bounds)
+
+
+def _place_inner(box, renderer):
+    """Give the boxes inside the laid-out packer *box* the offsets
+    matplotlib's draw of the legend gives them (``PackerBase.draw``: each
+    visible child at the packer's offset plus its own), measured with
+    *renderer*."""
+    from .offsetbox import PackerBase
+    bbox, offsets = box._get_bbox_and_child_offsets(renderer)
+    px, py = box.get_offset(bbox, renderer)
+    for child, (ox, oy) in zip(box.get_visible_children(), offsets):
+        child._offset = (px + ox, py + oy)
+        if isinstance(child, PackerBase):
+            _place_inner(child, renderer)
 
 
 def _fresh(box):

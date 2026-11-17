@@ -10,6 +10,8 @@ of another figure, or outside any, clips with its outline as it is when
 it is given.
 """
 
+import weakref
+
 from . import _api, _background_patch, _lazy_imports, _live_transforms, _mirrors
 from ._native import artist as _artist
 from ._native import transforms as _transforms
@@ -187,6 +189,48 @@ def clip_path_spec(path, transform=None):
     raise TypeError(
         "Invalid arguments to set_clip_path, of type "
         f"{type(path).__name__} and {type(transform).__name__}")
+
+
+#: The `.DrawingArea` each artist was added to, by the artist's id, whose
+#: draw clips it to its outline when it clips its children
+#: (`area_clip_path`).
+_AREAS = {}
+
+
+def add_to_area(artist, area):
+    """Record that *artist* was added to the `.DrawingArea` *area* (for as
+    long as the artist lives)."""
+    if id(artist) not in _AREAS:
+        weakref.finalize(artist, _AREAS.pop, id(artist), None)
+    _AREAS[id(artist)] = weakref.ref(area)
+
+
+def _no_area():
+    """No area (what `_AREAS` gives an artist added to none)."""
+
+
+def follow_area(artist):
+    """Bring the transforms of the `.DrawingArea` *artist* was added to
+    where pltrs (Rust) last laid the area out, as matplotlib's draw sets
+    them (the clip path the area gave goes through them)."""
+    area = _AREAS.get(id(artist), _no_area)()
+    if area is not None:
+        area._follow_layout()
+
+
+def area_clip_path(artist):
+    """
+    The clip path matplotlib's ``DrawingArea.draw`` gives *artist*, a child
+    without a clip box or clip path of its own, once a clipped area drew it:
+    the outline of the area of its size then, a `.TransformedPath` through
+    the area's transform, which the artist keeps as set (None until then).
+    """
+    area = _AREAS.get(id(artist), _no_area)()
+    outline = None if area is None else _artist.area_clip_outline(artist._native)
+    if outline is None:
+        return None
+    artist._clippath = TransformedPath(Path(outline), area.get_transform())
+    return artist._clippath
 
 
 class ClippingMixin:
@@ -383,10 +427,16 @@ class ClippingMixin:
     def get_clip_path(self):
         """Return the clip path."""
         if "_clippath" in self.__dict__:
+            if _AREAS and id(self) in _AREAS:
+                follow_area(self)
             return self._clippath
         mirrored = _mirrors.ask(self, "clip_path")
         if mirrored is not _mirrors.OWN:
             return mirrored
+        if _AREAS and id(self) in _AREAS:
+            clip = area_clip_path(self)
+            if clip is not None:
+                return clip
         axes = self._patch_clipping_axes()
         return None if axes is None else patch_clip_path(self, axes)
 

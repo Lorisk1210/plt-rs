@@ -1968,6 +1968,11 @@ def _native_arrowprops(arrowprops):
             given.pop(key, None)
     props = cbook.normalize_kwargs(arrowprops, FancyArrowPatch)
     props.pop("frac", None)
+    for key in _arrow_extras(arrowprops):
+        if not callable(getattr(FancyArrowPatch, f"set_{key}", None)):
+            raise AttributeError(
+                f"FancyArrowPatch.set() got an unexpected keyword argument {key!r}")
+        del props[key]
     if "arrowstyle" in props:
         props["arrowstyle"] = _native_spec(props["arrowstyle"], ArrowStyle)
     if "connectionstyle" in props:
@@ -1982,6 +1987,27 @@ def _native_arrowprops(arrowprops):
             mirror = patch.__dict__.get("_mirror")
             props[key] = (mirror.text if isinstance(mirror, _TextBox) else patch)._native
     return props
+
+
+#: The keys of ``arrowprops`` pltrs (Rust) makes an annotation's arrow
+#: with (as `.cbook.normalize_kwargs` names them).
+_NATIVE_ARROW_KEYS = frozenset({
+    "arrowstyle", "connectionstyle", "relpos", "shrinkA", "shrinkB",
+    "mutation_scale", "mutation_aspect", "patchA", "patchB", "frac",
+    "width", "headwidth", "headlength", "shrink",
+    "alpha", "antialiased", "capstyle", "clip_on", "color", "edgecolor",
+    "facecolor", "fill", "hatch", "hatchcolor", "joinstyle", "label",
+    "linestyle", "linewidth", "visible", "zorder"})
+
+
+def _arrow_extras(arrowprops):
+    """The properties *arrowprops* give the arrow that pltrs (Rust) does
+    not make it with (``path_effects``, ``picker``, ``gid``...), which
+    matplotlib's ``FancyArrowPatch(**arrowprops)`` sets as any property:
+    they are set on the arrow's patch once the annotation is made."""
+    from .patches import FancyArrowPatch
+    props = cbook.normalize_kwargs(arrowprops, FancyArrowPatch)
+    return {key: value for key, value in props.items() if key not in _NATIVE_ARROW_KEYS}
 
 
 class _AnnotationBase(CoordsMixin):
@@ -2278,6 +2304,8 @@ or callable, default: value of *xycoords*
         self._textcoords = xycoords if textcoords is None else textcoords
         self._keep_given(xy, position)
         self.arrowprops = arrowprops
+        if arrowprops is not None and (extras := _arrow_extras(arrowprops)):
+            self.arrow_patch._internal_update(extras)
         self._draggable = None
         self._init_properties(kwargs)
         self._track_coords()

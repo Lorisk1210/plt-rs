@@ -223,10 +223,7 @@ impl AxesState {
                 let outline = ctx
                     .layout()
                     .background_outline(base.id())
-                    .unwrap_or_else(|| ClipPath {
-                        path: self.patch_path(),
-                        transform: unit_to_bbox(&extent),
-                    });
+                    .unwrap_or_else(|| ClipPath::new(self.patch_path(), unit_to_bbox(&extent)));
                 let drawn = ctx.draw_artist(false, |ctx| {
                     with_path_effects(ctx, &base.path_effects, |ctx| {
                         paint.paint(gc.clone(), |gc, face| {

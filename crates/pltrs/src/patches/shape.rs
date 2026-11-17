@@ -21,6 +21,13 @@ pub trait PatchShape: Debug + Clone + 'static {
     /// see [`set_shared_rectangle_steps`](super::set_shared_rectangle_steps)).
     const SHARES_UNIT_PATH: bool = false;
 
+    /// Whether matplotlib builds a new outline at every `get_path` (fancy
+    /// boxes and arrows, the boxes and connectors of `inset_locator`),
+    /// so that a clip to the patch is a new path at each draw (see
+    /// [`ClipPath::rebuilt`](pltrs_render::ClipPath::rebuilt)); other
+    /// shapes keep theirs.
+    const REBUILDS_PATH: bool = false;
+
     /// The outline, in the shape's own coordinates.
     fn path(&self) -> Path;
 
@@ -80,6 +87,13 @@ pub trait PatchShape: Debug + Clone + 'static {
     /// with numpy (an arrow's heads). None by default.
     fn warn_making_path(&self) {}
 
+    /// Whether the patch, added to `parent`, is not drawn in `layout`
+    /// although it is visible and measured (a connection patch whose end
+    /// lies outside its axes). Never by default.
+    fn skips_draw(&self, _layout: LayoutContext<'_>, _parent: Option<ArtistId>) -> bool {
+        false
+    }
+
     /// Whether the shape is degenerate and should not affect autoscaling.
     fn skips_autoscale(&self) -> bool {
         false
@@ -116,13 +130,15 @@ pub trait PatchShape: Debug + Clone + 'static {
 
     /// The points the shape counts in the data limits of `axes`, in its
     /// data coordinates, when it is placed by `transform` in the figure
-    /// `ctx` as it is now and its edge is `linewidth` points wide: `None`
-    /// for those bounding its outline, which most shapes make in their own
+    /// `ctx` as it is now, its edge is `linewidth` points wide and its
+    /// sizes in points are `dpi_cor` pixels each: `None` for those
+    /// bounding its outline, which most shapes make in their own
     /// coordinates; a shape made in display space (an arrow) gives its own.
     fn limit_outline(
         &self,
         _transform: &Transform,
         _linewidth: f64,
+        _dpi_cor: f64,
         _ctx: &dyn TransformContext,
         _axes: ArtistId,
     ) -> Option<Vec<Point>> {

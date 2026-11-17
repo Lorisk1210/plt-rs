@@ -272,10 +272,10 @@ mod tests {
     #[test]
     fn glyphs_ignore_clip_paths_but_not_clip_rectangles() {
         let nowhere = pltrs_core::Bbox::from_extents(100.0, 100.0, 101.0, 101.0);
-        let clip_path = Some(crate::gc::ClipPath {
-            path: Path::unit_rectangle(),
-            transform: Affine2D::identity().translate(100.0, 100.0),
-        });
+        let clip_path = Some(crate::gc::ClipPath::new(
+            Path::unit_rectangle(),
+            Affine2D::identity().translate(100.0, 100.0),
+        ));
         let path_clipped = GraphicsContext {
             clip_path,
             ..GraphicsContext::default()

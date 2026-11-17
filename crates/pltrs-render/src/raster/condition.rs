@@ -128,7 +128,8 @@ impl RasterRenderer {
     /// Makes the clip mask of `gc` current, rasterizing it with the
     /// rasterizer clip box `rect` (`None`: unclipped) unless the same clip
     /// path and transform were rasterized last (matplotlib's
-    /// `render_clippath`). Returns whether a clip path applies.
+    /// `render_clippath`; an outline [rebuilt](crate::ClipPath::rebuilt) for each
+    /// draw is never the same). Returns whether a clip path applies.
     pub(super) fn prepare_clip_mask(
         &mut self,
         gc: &GraphicsContext,
@@ -137,10 +138,11 @@ impl RasterRenderer {
         let Some(clip) = gc.clip_path.as_ref().filter(|c| !c.path.is_empty()) else {
             return false;
         };
-        if self
-            .clip_cache
-            .as_ref()
-            .is_some_and(|cached| cached.key == *clip)
+        if !clip.rebuilt
+            && self
+                .clip_cache
+                .as_ref()
+                .is_some_and(|cached| cached.key == *clip)
         {
             return true;
         }

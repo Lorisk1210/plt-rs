@@ -140,6 +140,7 @@ impl Axes {
         let outline = patch.shape.outline_data_points(
             transform,
             look.width,
+            1.0,
             &*self.raw().figure_state().borrow(),
             self.id(),
         );

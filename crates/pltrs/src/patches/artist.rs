@@ -114,6 +114,9 @@ impl<S: PatchShape> PatchParts<'_, S> {
     /// (unless the shape needs more of the figure than its transform).
     pub(crate) fn paint(&self, ctx: &mut DrawContext<'_>) -> Result<(), PatchError> {
         let layout = ctx.layout();
+        if self.program_path.is_none() && self.shape.skips_draw(layout, self.base.parent) {
+            return Ok(());
+        }
         let dpi_cor = layout.points_to_pixels(1.0);
         if let Some(drawn) = self.drawn {
             drawn.record(dpi_cor);
@@ -168,34 +171,21 @@ impl<S: PatchShape> PatchParts<'_, S> {
             .reduce(|a, b| a.union(&b))
     }
 
-    /// The outline as a clip region.
-    pub(crate) fn outline(&self, layout: LayoutContext<'_>) -> Option<ClipPath> {
-        self.outline_at(layout, layout.points_to_pixels(1.0))
-    }
-
-    /// The outline as measured, which hit tests use (matplotlib's
-    /// `Patch.contains` reads `get_path`, whose arrows keep the size of
-    /// their last draw).
+    /// The outline as measured, which clips, hit tests and obstacles use
+    /// (matplotlib's `Patch.contains`, `TransformedPatchPath` and
+    /// `Legend._auto_legend_data` read `get_path`, whose arrows keep the
+    /// size of their last draw): [rebuilt](ClipPath::rebuilt) for each
+    /// draw where the shape's is (see [`PatchShape::REBUILDS_PATH`]).
     pub(crate) fn measured_outline(&self, layout: LayoutContext<'_>) -> Option<ClipPath> {
-        self.outline_at(layout, self.measured_dpi_cor(layout))
-    }
-
-    /// The outline as a clip region, arrow sizes at `dpi_cor` pixels per
-    /// point.
-    fn outline_at(&self, layout: LayoutContext<'_>, dpi_cor: f64) -> Option<ClipPath> {
-        let mut paths = self.display_paths(layout, dpi_cor).ok()?;
-        if paths.len() == 1 {
+        let mut paths = self.measured_display_paths(layout).ok()?;
+        let outline = if paths.len() == 1 {
             let only = paths.remove(0);
-            return Some(ClipPath {
-                path: only.path,
-                transform: only.affine,
-            });
-        }
-        let displayed: Vec<Path> = paths.iter().map(DisplayPath::to_display).collect();
-        Some(ClipPath {
-            path: Path::compound(&displayed),
-            transform: Affine2D::IDENTITY,
-        })
+            ClipPath::new(only.path, only.affine)
+        } else {
+            let displayed: Vec<Path> = paths.iter().map(DisplayPath::to_display).collect();
+            ClipPath::new(Path::compound(&displayed), Affine2D::IDENTITY)
+        };
+        Some(outline.with_rebuilt(S::REBUILDS_PATH && self.program_path.is_none()))
     }
 }
 
@@ -442,7 +432,7 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
     }
 
     fn outline(&self, ctx: &LayoutContext<'_>) -> Option<ClipPath> {
-        self.parts().outline(*ctx)
+        self.parts().measured_outline(*ctx)
     }
 
     fn limits_run_program(&self) -> bool {
@@ -475,7 +465,12 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
             return LimitPoints::through(transform, axes, || points);
         }
         let linewidth = self.style.linewidth.unwrap_or(self.rc.patch_linewidth);
-        match self.shape.limit_outline(transform, linewidth, ctx, axes) {
+        // matplotlib's `get_path` sizes an arrow at its last draw.
+        let dpi_cor = self.dpi_cor.last().unwrap_or(1.0);
+        match self
+            .shape
+            .limit_outline(transform, linewidth, dpi_cor, ctx, axes)
+        {
             Some(points) => Some(LimitPoints {
                 points,
                 directions: transform.data_directions(axes),

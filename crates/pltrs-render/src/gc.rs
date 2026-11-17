@@ -181,6 +181,31 @@ pub struct ClipPath {
     pub path: Path,
     /// Maps `path` to display coordinates.
     pub transform: Affine2D,
+    /// Whether the outline is made anew each time a renderer is handed
+    /// it, as matplotlib's fancy boxes and arrows build a new `Path` at
+    /// every `get_path`: a renderer that keeps the last clip path it
+    /// rasterized (matplotlib's Agg, which knows a path by its vertex
+    /// array) never finds such an outline among those it kept.
+    pub rebuilt: bool,
+}
+
+impl ClipPath {
+    /// A clip region that is the same path each time it is handed over.
+    #[must_use]
+    pub fn new(path: Path, transform: Affine2D) -> Self {
+        Self {
+            path,
+            transform,
+            rebuilt: false,
+        }
+    }
+
+    /// The region, made anew each time it is handed over when `rebuilt`
+    /// (see the field [`rebuilt`](Self::rebuilt)).
+    #[must_use]
+    pub fn with_rebuilt(self, rebuilt: bool) -> Self {
+        Self { rebuilt, ..self }
+    }
 }
 
 /// Snapping behaviour for rectilinear paths.

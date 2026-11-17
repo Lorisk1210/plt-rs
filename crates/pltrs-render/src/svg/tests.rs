@@ -128,10 +128,7 @@ fn clips_and_hatches_are_defined_at_the_end() {
     };
     r.draw_path(&gc, &square(), &Affine2D::IDENTITY, Some(Rgba::WHITE));
     let clipped = GraphicsContext {
-        clip_path: Some(ClipPath {
-            path: square(),
-            transform: Affine2D::IDENTITY,
-        }),
+        clip_path: Some(ClipPath::new(square(), Affine2D::IDENTITY)),
         ..GraphicsContext::default()
     };
     r.draw_path(&clipped, &square(), &Affine2D::IDENTITY, None);

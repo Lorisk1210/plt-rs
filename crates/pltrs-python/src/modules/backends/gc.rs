@@ -79,12 +79,7 @@ impl FromPy<'_> for PyGc {
             },
             clip_rect: clip_rect.map(|(x0, y0, x1, y1)| Bbox::from_extents(x0, y0, x1, y1)),
             clip_path: clip_path
-                .map(|(path, matrix)| {
-                    Ok::<_, PyErr>(ClipPath {
-                        path: path.path,
-                        transform: affine(&matrix)?,
-                    })
-                })
+                .map(|(path, matrix)| Ok::<_, PyErr>(ClipPath::new(path.path, affine(&matrix)?)))
                 .transpose()?,
             hatch: pattern
                 .map(|pattern| {

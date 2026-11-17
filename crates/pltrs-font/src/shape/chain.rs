@@ -6,7 +6,7 @@ use crate::db::{FontDatabase, FontId};
 use crate::error::Result;
 use crate::face::Face;
 use crate::hinting::{HintedFace, Hinter, Hinting};
-use crate::scale::{Scaler, Size};
+use crate::scale::{Scaler, Size, UnscaledAdvances};
 use crate::shape::{ShapeOptions, shape_text};
 use crate::types::{GlyphId, Rect};
 
@@ -135,52 +135,62 @@ impl<'a> FontChain<'a> {
             .iter()
             .map(|face| Size::checked(face, points, dpi))
             .collect::<Result<Vec<Size>, _>>()?;
-        self.lay_out(text, &sizes, options, hinting, false)
+        self.lay_out(text, &sizes, options, hinting, None)
     }
 
     /// Lays out one line of `text` like [`layout`](Self::layout) for a
     /// font whose size was never set (matplotlib's `FT2Font.set_text`
     /// before `set_size`): FreeType then loads the glyphs unscaled and
-    /// unhinted ("undefined scale means no scale"), so that positions,
-    /// advances and boxes are in font units, and HarfBuzz scales every
-    /// positioning value by the font's scale, which is zero: no kerning,
-    /// no mark offsets.
+    /// unhinted ("undefined scale means no scale"), so that the glyphs'
+    /// boxes are in font units; the advances are those FreeType gives for
+    /// the load flags (`advances`), and HarfBuzz scales every positioning
+    /// value by the font's scale, which is zero: no kerning, no mark
+    /// offsets.
     ///
     /// ```
-    /// use pltrs_font::{Face, FontChain, Hinting, ShapeOptions, bundled_font_data};
+    /// use pltrs_font::{Face, FontChain, ShapeOptions, UnscaledAdvances, bundled_font_data};
     /// let data = bundled_font_data("DejaVuSans.ttf").expect("bundled");
     /// let face = Face::parse(data, 0)?;
     /// let chain = FontChain::new(vec![face.clone()]);
-    /// let unscaled = chain.layout_unscaled("AV", &ShapeOptions::default())?;
+    /// let options = ShapeOptions::default();
+    /// let unhinted = chain.layout_unscaled("AV", &options, UnscaledAdvances::Zero)?;
+    /// assert_eq!((unhinted.glyphs[1].x, unhinted.width), (0, 0));
+    /// let hinted = chain.layout_unscaled("AV", &options, UnscaledAdvances::FontUnits)?;
     /// let a = face.glyph_index('A').expect("mapped");
-    /// assert_eq!(unscaled.glyphs[1].x, i32::from(face.glyph_advance(a)));
-    /// let points = f64::from(face.units_per_em()) / 64.0;
-    /// let kerned = chain.layout("AV", points, 72.0, &ShapeOptions::default(), Hinting::None)?;
-    /// assert!(kerned.glyphs[1].x < unscaled.glyphs[1].x);
+    /// assert_eq!(hinted.glyphs[1].x, i32::from(face.glyph_advance(a)));
+    /// let v = face.glyph_index('V').expect("mapped");
+    /// let ink = face.glyph_bbox(v)?.expect("an outline");
+    /// assert_eq!(unhinted.height, ink.y_max - ink.y_min);
     /// # Ok::<(), pltrs_font::FontError>(())
     /// ```
     ///
     /// # Errors
     ///
     /// As [`layout`](Self::layout).
-    pub fn layout_unscaled(&self, text: &str, options: &ShapeOptions) -> Result<TextLayout> {
+    pub fn layout_unscaled(
+        &self,
+        text: &str,
+        options: &ShapeOptions,
+        advances: UnscaledAdvances,
+    ) -> Result<TextLayout> {
         let sizes: Vec<Size> = self
             .faces
             .iter()
             .map(|face| Size::new(face, f64::from(face.units_per_em()) / 64.0, 72.0))
             .collect();
-        self.lay_out(text, &sizes, options, Hinting::None, true)
+        self.lay_out(text, &sizes, options, Hinting::None, Some(advances))
     }
 
     /// The layout of [`layout`](Self::layout) at the size `sizes` gives
-    /// each face, positioned with the font's scale unless `unscaled`.
+    /// each face, positioned with the font's scale unless `unscaled` (then
+    /// with the advances it says).
     fn lay_out(
         &self,
         text: &str,
         sizes: &[Size],
         options: &ShapeOptions,
         hinting: Hinting,
-        unscaled: bool,
+        unscaled: Option<UnscaledAdvances>,
     ) -> Result<TextLayout> {
         let mut layout = TextLayout::default();
         if self.faces.is_empty() {
@@ -232,10 +242,10 @@ impl<'a> FontChain<'a> {
                 }
             })
             .collect();
-        let scaler = |face: usize| match &hinted[face] {
-            _ if unscaled => Scaler::Unscaled(sizes[face]),
-            Some(hinted) => Scaler::Hinted(sizes[face], hinted),
-            None => Scaler::Pixels(sizes[face]),
+        let scaler = |face: usize| match (&hinted[face], unscaled) {
+            (_, Some(advances)) => Scaler::Unscaled(sizes[face], advances),
+            (Some(hinted), None) => Scaler::Hinted(sizes[face], hinted),
+            (None, None) => Scaler::Pixels(sizes[face]),
         };
         let mut bbox: Option<Rect> = None;
         let mut pen = 0i32;

@@ -26,7 +26,8 @@ _register("warn_on_missing_glyph", warn_on_missing_glyph)
 
 #: Where matplotlib keeps the AFM fonts of each kind of lookup of one
 #: (`report_font_lookup`), in its data.
-_AFM_DIRECTORIES = {"afm": "fonts/afm", "core fonts": "fonts/pdfcorefonts"}
+_AFM_DIRECTORIES = {"afm": "fonts/afm", "core fonts": "fonts/pdfcorefonts",
+                    "core font name": "fonts/pdfcorefonts"}
 
 
 def report_font_lookup(kind, family, style, variant, weight, stretch, size,
@@ -50,13 +51,15 @@ def report_font_lookup(kind, family, style, variant, weight, stretch, size,
                           math_fontfamily=math_fontfamily)
     if kind in _AFM_DIRECTORIES:
         # The font a PostScript or PDF renderer measures and draws the
-        # text in (``_get_font_afm``); the PDF renderer looks the fonts up
-        # once more to name the one it writes (``fontName``).
+        # text in (``_get_font_afm``); where the PDF renderer draws it, it
+        # looks the fonts up once more to name the one it writes
+        # (``fontName``).
         from . import cbook
         directory = cbook._get_data_path(_AFM_DIRECTORIES[kind])
-        fontManager.findfont(prop, fontext="afm", directory=directory)
-        if kind == "core fonts":
+        if kind == "core font name":
             fontManager._find_fonts_by_props(prop, fontext="afm", directory=directory)
+        else:
+            fontManager.findfont(prop, fontext="afm", directory=directory)
         return
     find = (fontManager._find_fonts_by_props if kind == "fonts"
             else fontManager.findfont)

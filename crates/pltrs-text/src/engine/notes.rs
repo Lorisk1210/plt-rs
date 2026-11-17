@@ -107,4 +107,11 @@ impl TextEngine {
     pub fn note_afm_lookup(&self, request: &FontRequest, directory: AfmDirectory) {
         request.note(LookupKind::Afm(directory), &[]);
     }
+
+    /// Records the lookup of `request`'s font among the PDF core fonts the
+    /// PDF renderer makes where it draws a text in one, to name it (see
+    /// [`LookupKind::PdfFontName`]).
+    pub fn note_pdf_font_name_lookup(&self, request: &FontRequest) {
+        request.note(LookupKind::PdfFontName, &[]);
+    }
 }

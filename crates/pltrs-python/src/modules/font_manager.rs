@@ -196,6 +196,23 @@ fn remove_entry(entry: PyFontEntry) -> PyResult<bool> {
     Ok(FontManager::global().remove_entry(&entry.0)?)
 }
 
+/// Fits the font list to the look figures take: in matplotlib's, the
+/// fonts of pltrs' modern look (Inter) are left out of it, as matplotlib
+/// ships none. Whether they were.
+fn fit_font_list_to_look() -> PyResult<bool> {
+    let matplotlib = pltrs::look::appearance().figures == pltrs::look::FigureLook::Matplotlib;
+    if matplotlib {
+        FontManager::global().leave_out_modern_look_fonts();
+    }
+    Ok(matplotlib)
+}
+
+/// Whether the bundled font file `file_name` is one of pltrs' modern look
+/// (Inter).
+fn is_modern_look_font(file_name: String) -> PyResult<bool> {
+    Ok(pltrs_text::is_modern_look_font(&file_name))
+}
+
 /// The fonts of the TrueType (`"ttf"`) or AFM (`"afm"`) font list, the
 /// files of AFM fonts as their paths in the data directory.
 fn font_list(fontext: String) -> PyResult<Vec<EntryTuple>> {
@@ -431,6 +448,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("best_font", best_font)?;
     module.add("best_afm_font", best_afm_font)?;
     module.add("font_list", font_list)?;
+    module.add("fit_font_list_to_look", fit_font_list_to_look)?;
+    module.add("is_modern_look_font", is_modern_look_font)?;
     module.add("font_names", font_names)?;
     module.add("add_entry", add_entry)?;
     module.add("remove_entry", remove_entry)?;

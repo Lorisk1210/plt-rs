@@ -56,6 +56,7 @@ fn report_lookup(py: Python<'_>, run: &LookupRun) -> PyResult<()> {
         LookupKind::Font => "font",
         LookupKind::Afm(AfmDirectory::PostScript) => "afm",
         LookupKind::Afm(AfmDirectory::PdfCore) => "core fonts",
+        LookupKind::PdfFontName => "core font name",
     };
     let weight = match font.weight_keyword {
         Some(keyword) => keyword.into_py(py)?,

@@ -8,6 +8,16 @@
 
 use super::query::FontStyle;
 
+/// The bundled fonts of pltrs' modern look (Inter), which matplotlib does
+/// not ship.
+pub(crate) const MODERN_LOOK_FONTS: [&str; 5] = [
+    "Inter-Bold.ttf",
+    "Inter-BoldItalic.ttf",
+    "Inter-Italic.ttf",
+    "Inter-Regular.ttf",
+    "Inter-SemiBold.ttf",
+];
+
 /// A font embedded in the crate, with what the catalogue knows of it.
 #[derive(Debug)]
 pub(crate) struct BundledFont {

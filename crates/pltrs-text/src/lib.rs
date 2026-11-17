@@ -61,8 +61,8 @@ pub use pltrs_font::{
     GenericFamilies, GlyphId, Hinting, LanguageRange, LanguageTag, ParseFeatureError,
     RegistryReader, Stretch, Type1Effects, Type1Encoding, Type1Face, Type1Font, Type1Glyph, Weight,
     bundled_afm_files, bundled_font_data, bundled_font_files, catalogue_file_name,
-    read_registry_with, score_family, score_size, score_stretch, score_style, score_variant,
-    score_weight,
+    is_modern_look_font, read_registry_with, score_family, score_size, score_stretch, score_style,
+    score_variant, score_weight,
 };
 pub use run::{GlyphChars, PlacedGlyph, TextAnchor, TextRun, TextSource};
 pub use shaping::{Language, Shaping};

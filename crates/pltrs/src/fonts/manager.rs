@@ -231,6 +231,27 @@ impl FontManager {
         Ok(())
     }
 
+    /// Leaves the fonts of pltrs' modern look (Inter) out of the TrueType
+    /// font list, which then matches no text to them, as matplotlib's font
+    /// manager has none: for programs drawing in matplotlib's look.
+    /// Returns how many entries were left out.
+    pub fn leave_out_modern_look_fonts(self) -> usize {
+        let database = self.engine.database();
+        let modern: Vec<FontEntry> = database
+            .entries()
+            .iter()
+            .filter(|entry| {
+                matches!(database.source(entry.font),
+                    Some(FontSource::Bundled(name)) if pltrs_text::is_modern_look_font(name))
+            })
+            .cloned()
+            .collect();
+        modern
+            .iter()
+            .filter(|entry| self.engine.remove_font_entry(entry))
+            .count()
+    }
+
     /// Removes the first TrueType font-list entry equal to `entry`
     /// (matplotlib's `ttflist.remove`); whether there was one.
     ///

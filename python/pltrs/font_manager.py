@@ -347,7 +347,20 @@ def findSystemFonts(fontpaths=None, fontext='ttf'):
     for path in fontpaths:
         fontfiles.update(map(os.path.abspath, list_fonts(path, fontexts)))
 
-    return [fname for fname in fontfiles if os.path.exists(fname)]
+    found = [fname for fname in fontfiles if os.path.exists(fname)]
+    if _MODERN_FONTS_LEFT_OUT:
+        # In matplotlib's look the font list holds none of the fonts of
+        # pltrs' modern look (`_load_fontmanager`), and the data directory
+        # is searched as matplotlib's, which ships none: a program (and
+        # matplotlib's own test of the font names) finds the same fonts
+        # there as the font manager lists.
+        found = [fname for fname in found if not _is_bundled_modern_font(fname)]
+    return found
+
+
+#: Whether the fonts of pltrs' modern look (Inter) are left out of the font
+#: list, as they are while figures take matplotlib's look (`_load_fontmanager`).
+_MODERN_FONTS_LEFT_OUT = False
 
 
 # To maintain backwards-compatibility with the current code we need to continue to
@@ -1581,6 +1594,10 @@ def _load_fontmanager():
     cache (``json_dump`` to ``fontlist-v<version>.json``, as ultraplot
     keeps the fonts it ships), which matplotlib's manager is loaded from.
     """
+    # In matplotlib's look the font list is matplotlib's: the fonts of
+    # pltrs' modern look (Inter) are left out of it.
+    global _MODERN_FONTS_LEFT_OUT
+    modern_left_out = _MODERN_FONTS_LEFT_OUT = _font_manager.fit_font_list_to_look()
     fm = FontManager()
     path = Path(get_cachedir(), f"fontlist-v{FontManager.__version__}.json")
     if not path.is_file():
@@ -1592,10 +1609,19 @@ def _load_fontmanager():
     known = {entry.fname for entry in fm.ttflist}
     for entry in cached:
         if (isinstance(entry, FontEntry) and entry.fname not in known
-                and os.path.isfile(entry.fname)):
+                and os.path.isfile(entry.fname)
+                and not (modern_left_out and _is_bundled_modern_font(entry.fname))):
             fm.ttflist.append(entry)
             known.add(entry.fname)
     return fm
+
+
+def _is_bundled_modern_font(fname):
+    """Whether *fname* is a font of pltrs' modern look in the data
+    directory (as a cache written in that look lists it)."""
+    path = Path(fname)
+    return (_font_manager.is_modern_look_font(path.name)
+            and path == Path(_data_font_path(path.name)))
 
 
 fontManager = _load_fontmanager()

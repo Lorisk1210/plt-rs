@@ -483,26 +483,22 @@ corpus/librosa/docs/tutorials/03-advanced/plot_dynamic_beat$ | ^warning missing:
 ^generated/patches/class-PathCollection-__init__$ | ^(callback\[call\]: never runs|value\[distinct\]: list length)$ | mplcursors, the one library of patches_census.json replacing PathCollection.__init__, records there the path collections scatter did not make, and its replaced Axes.scatter removes scatter's again: pltrs's scatter, which makes its collection without calling the class' __init__, leaves it unrecorded as mplcursors does; mplcursors' suite passes alike under both (69 passed, 1 skipped, spec/ecosystem)
 ^generated/patches/class-RendererBase-new_gc$ | ^(callback\[call\]: runs another number of times|value\[take\]: list length)$ | rougier-book's windmap replaces RendererBase.new_gc to give every graphics context round caps: pltrs starts every artist it draws from the program's graphics context, so the figures are the same (the program's images are), only how often new_gc is called differs
 # A collection made directly with data-coordinate offsets and added to an
-# Axes keeps sensible limits where matplotlib computes limits in pixels.
-# matplotlib's `Collection.get_datalim` takes, for a collection whose
-# transform contains transData (`add_collection` gives it transData) and
-# whose offsets are in transData, its paths scaled by its item transforms
-# (the sizes at 72 dpi) and its offsets mapped through transData's whole
-# affine at the view of the moment, in display pixels. Constructions
-# reaching it: a PathCollection made directly (with or without sizes), a
-# PolyCollection or a LineCollection given offsets, each with its default
-# transform; for data in 1..9 matplotlib's limits are x 99..1341 and y
-# 163..787 (the like for each), and every one of its images is an empty
-# Axes. pltrs keeps the data's limits. scatter, EllipseCollection,
-# CircleCollection, RegularPolyCollection, collections without offsets
-# and the gallery's collections (offsets in data, paths in pixels) are
-# equal under both. The overrides programs build such a PathCollection:
-# `contains` at the data point and the unpickled copy's image (figure 2)
-# follow from the limits.
+# Axes gets data limits in display pixels under both. matplotlib's
+# `Collection.get_datalim` takes, for a collection whose transform contains
+# transData (`add_collection` gives it transData) and whose offsets are in
+# transData, its paths scaled by its item transforms (the sizes at 72 dpi)
+# and its offsets mapped through transData's whole affine at the view of
+# the moment, in display pixels. Constructions reaching it: a
+# PathCollection made directly (with or without sizes), a PolyCollection
+# or a LineCollection given offsets, each with its default transform.
+# pltrs follows it (COLL1), at another moment of the layout: for points
+# from 1 to 9 its x limits are 376.5 to 4743.5 against matplotlib's 372.7
+# to 4747.3 (ALLOW2's probe). The overrides programs build such a
+# PathCollection: the unpickled copy's image (figure 2) follows from the
+# limits.
 ^generated/overrides/PathCollection-(get_edgecolor|get_facecolor|get_hatchcolor|get_figure|get_paths|get_transforms|pchanged|set_sizes)$ | ^value\[(take|distinct)\]: list length$ | no library of spec/diff/overrides_census.json overrides these members on PathCollection (cartopy's Collection.get_paths is proven above): matplotlib's PathCollection.draw sets the sizes again at the figure's dpi and reads the class' getters at every draw and tight save, pltrs (Rust) draws the collection it holds without asking them; the values and figures match
-# topic: where-matplotlib-fails-and-pltrs-does-not
-^generated/overrides/PathCollection- | ^value\[contains\]: bool$ @ ^112:0$ | matplotlib's limits of a directly made PathCollection with transData offsets are in display pixels (x 99..1341 for data in 1..9, an empty Axes); pltrs keeps the data's, so the point the program asks about is inside the collection under pltrs only
-^generated/overrides/PathCollection- | ^image: RMS > 1$ @ ^figure 2$ | the unpickled copy autoscales to matplotlib's limits in display pixels (an empty Axes) and to the data's under pltrs
+# topic: values-pltrs-computes-otherwise
+^generated/overrides/PathCollection- | ^image: RMS > 1$ @ ^figure 2$ | the unpickled copy autoscales to limits in display pixels under both (an Axes showing a sliver of the collection), taken at another moment of the layout, so a few pixels apart (RMS 15)
 # topic: the-look-of-figures
 # Corpus round 11 (CORP11): pltrs' looks and backend, listed with matplotlib's.
 corpus/dataviz-course/2\. Style sheets$ | ^value\[sorted\]: list length$ | the notebook sorts style.available, which lists pltrs' two looks (pltrs-modern, pltrs-modern-dark) with matplotlib's sheets

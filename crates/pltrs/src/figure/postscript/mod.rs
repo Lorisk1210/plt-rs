@@ -285,9 +285,9 @@ mod tests {
 
     /// matplotlib's `test_savefig_to_stringio` with the distillers: the
     /// `xpdf` document names its letter paper (or does not), Ghostscript's
-    /// records the paper options it was run with; where a distiller cannot
-    /// run, the save fails with matplotlib's message (where matplotlib's
-    /// test skips).
+    /// records the paper options it was run with; where a distiller's
+    /// program is missing, the save leaves the document as pltrs wrote it
+    /// (matplotlib's `_try_distill`; its test skips there).
     #[test]
     fn distillers_rewrite_the_document() {
         for (distiller, name) in [
@@ -304,8 +304,11 @@ mod tests {
                     let saved = saved(&fig, false, paper, orientation);
                     let document = match (check_distiller(distiller), saved) {
                         (Ok(()), Ok(document)) => document,
-                        (Err(missing), Err(SaveError::Program(err))) => {
-                            assert_eq!(err, missing);
+                        (Err(_), Ok(document)) => {
+                            assert!(
+                                document.contains("%%Creator: pltrs"),
+                                "{distiller:?} {paper} {orientation:?}"
+                            );
                             continue;
                         }
                         (check, saved) => panic!("{distiller:?}: {check:?} but {saved:?}"),

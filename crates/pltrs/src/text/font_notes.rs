@@ -168,8 +168,9 @@ fn draws_noted(measured: bool) -> usize {
 
 /// Runs `measure`, which measures texts again for what matplotlib keeps
 /// from its last measure of them (a text area's baseline, the box a
-/// legend's draw located), noting nothing: matplotlib does not look their
-/// fonts up again there.
+/// legend's draw located), noting nothing and looking no line up in the
+/// renderer's text metrics cache: matplotlib does not look their fonts up
+/// again there, nor ask its renderer.
 pub(crate) fn unnoted<R>(measure: impl FnOnce() -> R) -> R {
     let before = UNNOTED.replace(true);
     let result = measure();
@@ -215,7 +216,7 @@ pub(crate) fn text_area_layouts<R>(times: usize, lay_out: impl FnOnce() -> R) ->
 }
 
 /// Whether texts measured now note what matplotlib's measures note.
-fn noting() -> bool {
+pub(super) fn noting() -> bool {
     !UNNOTED.get()
 }
 

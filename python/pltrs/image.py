@@ -23,8 +23,8 @@ import numpy as np
 import PIL.Image
 import PIL.PngImagePlugin
 
-from . import (_api, _image, _lazy_imports, _live_transforms, _named, _own_state,
-               _program_classes, _unusable, _values, cbook,
+from . import (_api, _artist_clipping, _image, _lazy_imports, _live_transforms, _named,
+               _own_state, _program_classes, _unusable, _values, cbook,
                colorizer as mcolorizer, colors as mcolors)
 from . import _docstring, artist as martist
 from ._program_classes import takes_any_from_program, takes_from_program
@@ -583,9 +583,16 @@ class _ImageBase(mcolorizer.ColorizingArtist):
 
     @martist.allow_rasterization
     def draw(self, renderer):
-        # docstring inherited; pltrs (Rust) draws the image, unless a class
-        # of the program's computes its pixels (``_computed``), whose
-        # ``make_image`` then gives them, as matplotlib's ``draw`` takes them.
+        # docstring inherited
+        self._draw(renderer)
+
+    def _draw(self, renderer):
+        """Draw the image through *renderer* (`draw`, which matplotlib's
+        image classes share: a class of pltrs' that draws otherwise
+        overrides this, so that ``draw`` stays `_ImageBase`'s as it is
+        matplotlib's). pltrs (Rust) draws the image, unless a class of the
+        program's computes its pixels (``_computed``), whose ``make_image``
+        then gives them, as matplotlib's ``draw`` takes them."""
         if not any(takes_from_program(type(self), name) for name in self._computed):
             return super().draw(renderer)
         if not self.get_visible() or mcolorizer._array_of(self).size == 0:
@@ -943,6 +950,27 @@ class AxesImage(_ImageBase):
         changed in place: drawn from the next draw, the data limits left as
         they are."""
         _native_image.assign_extent(self._native, tuple(map(float, extent)))
+
+    def _draw(self, renderer):
+        # docstring inherited
+        if (self.get_figure(root=True) is not None or not self.get_visible()
+                or mcolorizer._array_of(self).size == 0):
+            return super()._draw(renderer)
+        # matplotlib makes the image within its clip box, else its Axes'
+        # box, and unclipped within its figure's box (`make_image`), which
+        # an image drawn by the program without a figure fails to read.
+        if not self.get_clip_on():
+            raise AttributeError("'NoneType' object has no attribute 'bbox'")
+        if self.get_clip_box() is not None:
+            return super()._draw(renderer)
+        box = Bbox(self.axes.bbox.get_points())
+        # The box clips pltrs (Rust)'s drawing for this draw only: the
+        # program reads no clip box, as from matplotlib's image.
+        _artist.set_clip_region(self._native, _artist_clipping.clip_box_spec(box))
+        try:
+            super()._draw(renderer)
+        finally:
+            _artist.set_clip_box(self._native, None)
 
     def get_window_extent(self, renderer=None):
         x0, x1, y0, y1 = self._extent_now()

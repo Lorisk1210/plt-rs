@@ -1548,9 +1548,11 @@ class _CollectionWithSizes(Collection):
     @allow_rasterization
     def draw(self, renderer):
         # matplotlib's draw sets the sizes anew at the figure's resolution
-        # first, which makes the collection stale, and its Axes and figure
-        # with it: drawn alone (``draw_artist``, blitting), it leaves them
-        # stale.
+        # first (failing without a figure, visible or not), which makes the
+        # collection stale, and its Axes and figure with it: drawn alone
+        # (``draw_artist``, blitting), it leaves them stale.
+        if self.get_figure(root=True) is None:
+            raise AttributeError("'NoneType' object has no attribute 'dpi'")
         self.stale = True
         super().draw(renderer)
 
@@ -2638,7 +2640,28 @@ class EllipseCollection(Collection):
     @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
+        # matplotlib's draw scales the ellipses by what their units name
+        # first (``_set_transforms``), failing on the Axes or figure the
+        # collection does not have.
+        missing = _ellipse_units_missing(self)
+        if missing is not None:
+            raise AttributeError(f"'NoneType' object has no attribute {missing!r}")
         super().draw(renderer)
+
+
+def _ellipse_units_missing(collection):
+    """What the units of the `EllipseCollection` *collection* make
+    matplotlib's ``_set_transforms`` read first of an Axes or a figure
+    the collection does not have (None when it has them): the Axes' box,
+    its data transform for ``'xy'``, the figure's resolution."""
+    units = collection._units
+    if collection.axes is None and units in ("x", "y", "width", "height"):
+        return "bbox"
+    if collection.axes is None and units == "xy":
+        return "transData"
+    if collection.get_figure(root=False) is None and units in ("inches", "points"):
+        return "dpi"
+    return None
 
 
 #: The keywords of `Collection` its constructor sets through a setter,

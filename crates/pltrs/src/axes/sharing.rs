@@ -5,6 +5,7 @@ use std::rc::Rc;
 use super::{Axes, AxesState, AxisName, PlotError};
 use crate::artist::{ArtistHandle, ArtistId, ArtistLookup, RawHandle};
 use crate::mplot3d::SharedAxes;
+use crate::projections::InitialShares;
 
 impl Axes {
     /// Shares the x axis with `other`: both then show the same x range
@@ -34,6 +35,27 @@ impl Axes {
     /// ([`Axes::shared_across`]).
     pub fn share_x(&self, other: &Self) -> Result<&Self, PlotError> {
         self.share(AxisName::X, other)
+    }
+
+    /// Records the axes this axes is made sharing, `shares`, without
+    /// joining their groups yet, as matplotlib's `__init__` keeps
+    /// `sharex=` and `sharey=` until its first clear joins them: the
+    /// [`clear`](Axes::clear) that follows joins them (axes made outside
+    /// the figure for a class' constructor, which the class then clears).
+    /// Partners of another figure are left to share later.
+    pub fn give_shares(&self, shares: &InitialShares) {
+        let figure = self.raw().figure_state();
+        let partner = |other: &Option<SharedAxes>| {
+            other
+                .as_ref()
+                .map(SharedAxes::raw)
+                .filter(|raw| Rc::ptr_eq(figure, raw.figure_state()))
+                .map(RawHandle::id)
+        };
+        let (x, y) = (partner(&shares.x), partner(&shares.y));
+        self.raw.with_mut::<AxesState, _>(|state| {
+            state.shares = (x.or(state.shares.0), y.or(state.shares.1));
+        });
     }
 
     /// Shares the y axis with `other` (matplotlib's `sharey`); see

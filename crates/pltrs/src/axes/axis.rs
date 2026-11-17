@@ -17,6 +17,7 @@ use super::tick_updates::ProgramTicked;
 use super::ticks::{Sides, TickStyle};
 use super::{TickLabelProps, TickLineProps};
 use crate::dates::YearLocator;
+use crate::fonts::FontProperties;
 use crate::polar::{RadialLocator, theta_tickers};
 use crate::rc::RcParams;
 use crate::scale::{AxisTickers, LinearScale, Scale};
@@ -312,10 +313,11 @@ pub(crate) struct AxisState {
     pub(crate) offset_valign: VAlign,
     /// Whether the offset text is drawn.
     pub(crate) offset_visible: bool,
-    /// The font size of the offset text in points: the tick label size
-    /// when the axis was made or cleared (matplotlib's `xtick.labelsize`
-    /// or `ytick.labelsize` then), which the tick parameters leave.
-    pub(crate) offset_size: f64,
+    /// The font of the offset text: the rcParams' when the axis was made
+    /// or cleared, at the tick label size then (matplotlib's
+    /// `xtick.labelsize` or `ytick.labelsize`), which the tick parameters
+    /// leave.
+    pub(crate) offset_font: FontProperties,
     /// Whether minor ticks on major ticks are dropped.
     pub(crate) remove_overlapping_locs: bool,
     /// Whether, and how, presses pick the axis.
@@ -394,7 +396,7 @@ pltrs_core::archive_struct!(AxisState {
     offset_side,
     offset_valign,
     offset_visible,
-    offset_size,
+    offset_font,
     remove_overlapping_locs,
     picking,
     gids,
@@ -438,7 +440,10 @@ impl AxisState {
             label_size: None,
             autolimit_mode: None,
             ticks: Ok(TickSet::default()),
-            offset_size: major_style.label_size,
+            offset_font: FontProperties {
+                size: major_style.label_size,
+                ..FontProperties::from_rc(rc)
+            },
             major_style,
             minor_style: TickStyle::from_rc(name, false, rc),
             major_overrides: TickOverrides::default(),

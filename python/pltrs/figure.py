@@ -105,6 +105,21 @@ def _constructed(projection_class):
             and any(takes_from_program(projection_class, name) for name in _CONSTRUCTION_CALLS))
 
 
+def _initial_shares(projection_class, kwargs):
+    """The native axes a new Axes of *projection_class* made with *kwargs*
+    shares its x and y axes with as pltrs (Rust) makes it: matplotlib's
+    polar Axes join them in the first clear of their ``__init__``, before
+    the polar clear sets the scale of an axis they do not share (the
+    sharing itself, refusals included, is ``sharex``'s and ``sharey``'s)."""
+    from .axes import _base
+    from .projections._program import native_name
+    if native_name(projection_class) != "polar":
+        return None, None
+    return tuple(
+        other._native if isinstance(other, _base._AxesBase) else None
+        for other in (kwargs.get("sharex"), kwargs.get("sharey")))
+
+
 class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
                  InteractionMixin, FrameMixin, Artist):
     """
@@ -537,8 +552,9 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             native = _figure.add_axes(self._native, rect)
         else:
             from .projections._program import native_name
-            native = _figure.add_axes_projection(self._native, rect,
-                                                 native_name(projection_class))
+            native = _figure.add_axes_projection(
+                self._native, rect, native_name(projection_class),
+                _initial_shares(projection_class, pkw))
         return self._new_axes(native, projection_class, pkw)
 
     @_docstring.interpd
@@ -681,7 +697,8 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         else:
             from .projections._program import native_name
             native = _figure.add_subplot_spec_projection(
-                self._native, spec, native_name(projection_class))
+                self._native, spec, native_name(projection_class),
+                _initial_shares(projection_class, pkw))
         ax = self._new_axes(native, projection_class, pkw)
         # The spec given, as matplotlib's Axes keeps it (``_subplotspec``).
         ax._place_on(subplotspec)

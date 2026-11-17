@@ -202,8 +202,10 @@ class TreeOwner:
         both, and takes them back as they were."""
         given = self.__dict__.get("_removed") or (
             # Only given its figure (`set_figure`), it joins the figure as
-            # made for it (an Axes would give it the Axes' coordinates).
-            self.__dict__.get("_only_given_figure") and parent is self.get_figure(root=False))
+            # made for it (an Axes would give it the Axes' coordinates), and
+            # only given an Axes, that Axes.
+            self.__dict__.get("_only_given_figure") and parent is self.get_figure(root=False)
+        ) or (self.__dict__.get("_only_given_axes") and parent is self.axes)
         return (bool(given) and "_tree_handle" in self.__dict__
                 and self._figure is parent.get_figure(root=True))
 

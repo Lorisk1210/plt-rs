@@ -621,8 +621,10 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
         if not self.get_visible():
             return
 
-        # save original and adjust some properties
-        with _mirrors.detached(self):
+        # save original and adjust some properties; detached from its part,
+        # the label still has the figure it is drawn in.
+        known = self.get_figure(root=True) is not None
+        with _mirrors.detached(self), self._figure_known(known):
             tr = self.get_transform()
             angle_orig = self.get_rotation()
             color_orig = mtext.Text.get_color(self)

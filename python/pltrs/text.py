@@ -719,6 +719,12 @@ class Text(Artist):
         draws = None if self._figure is None else _artist.draw_count(self._native)
         self._measured_with = (renderer, draws)
 
+    def __getstate__(self):
+        state = super().__getstate__()
+        # matplotlib's text pickles no renderer (``_renderer`` is None).
+        state.pop("_measured_with", None)
+        return state
+
     #: What matplotlib's ``draw`` reads that a class of the program's may
     #: compute (`_push_computed`): the rotation (``_rotation`` as a
     #: property: matplotlib-label-lines turns its labels with the line as
@@ -1118,8 +1124,29 @@ class Text(Artist):
         # matplotlib draws no empty text, which it returns from before it
         # converts the position.
         if self.get_text() != '':
+            if (self.get_visible() and self.get_figure(root=True) is None
+                    and not self.__dict__.get("_stand_in")
+                    and not self.__dict__.get("_figure_known")):
+                # matplotlib lays the text out at its figure's resolution
+                # (a stand-in pltrs measures apart has no figure).
+                raise AttributeError("'NoneType' object has no attribute 'dpi'")
             with self._as_class_reads():
                 super().draw(renderer)
+
+    @contextlib.contextmanager
+    def _figure_known(self, known=True):
+        """Have `draw` take the text, while *known*, as having the figure
+        matplotlib gives it where pltrs keeps that figure elsewhere: the
+        box a text area's text is in (`.offsetbox.TextArea.draw`), the part
+        an axis artist's label is drawn detached from."""
+        if not known:
+            yield
+            return
+        self.__dict__["_figure_known"] = True
+        try:
+            yield
+        finally:
+            self.__dict__.pop("_figure_known", None)
 
     def _draws_snapped(self):
         # docstring inherited: matplotlib draws each line of a text that is
@@ -2266,8 +2293,23 @@ or callable, default: value of *xycoords*
 
     def draw(self, renderer):
         # docstring inherited
+        if self.get_visible() and (self.get_figure(root=True) is None or self.axes is None):
+            self._fail_as_drawn_apart(renderer)
         # (Its arrow is drawn whatever its text, not `Text.draw`.)
         Artist.draw(self, renderer)
+
+    def _fail_as_drawn_apart(self, renderer):
+        """Fail as matplotlib's draw fails for an annotation without the
+        figure or the Axes it reads: the check of the annotated point and
+        the text's coordinates (``update_positions``) read the Axes and the
+        figure their coordinate systems name, then the text's extent for
+        the arrow and its layout read the figure's resolution."""
+        if not self._check_xy(renderer):
+            return
+        self._get_xy_transform(renderer, self.anncoords)
+        if self.get_figure(root=True) is None and (
+                self.arrowprops is not None or self.get_text() != ''):
+            raise AttributeError("'NoneType' object has no attribute 'dpi'")
 
     def _text_extent(self):
         # The text alone, without the arrow (``Text.get_window_extent``).

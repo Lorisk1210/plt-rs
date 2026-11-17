@@ -36,14 +36,20 @@ impl IntoPy for Axes {
     }
 }
 
+/// What matplotlib's geographic Axes raise as a `TypeError` when their
+/// limits are to change (`GeoAxes.set_xlim`, which sharing an axis calls).
+const GEOGRAPHIC_LIMITS: &str = "Changing axes limits of a geographic projection is not supported.  Please consider using Cartopy.";
+
 impl From<PlotError> for PyErr {
     /// matplotlib's `ValueError` for data it cannot plot (with its message
-    /// for limits, which names no axis), and the errors statistics raise
-    /// for their problems.
+    /// for limits, which names no axis), its geographic Axes' `TypeError`
+    /// for an axis of theirs to share, and the errors statistics raise for
+    /// their problems.
     fn from(err: PlotError) -> Self {
         match err {
             PlotError::Stats(err) => err.into(),
             PlotError::NonFiniteLimit(_) => PyErr::value_error("Axis limits cannot be NaN or Inf"),
+            PlotError::FixedLimits(_) => PyErr::type_error(GEOGRAPHIC_LIMITS),
             other => PyErr::value_error(other.to_string()),
         }
     }

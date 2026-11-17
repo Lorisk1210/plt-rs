@@ -144,7 +144,10 @@ pub(super) fn with_cache<R>(cache: Rc<MetricsCache>, measure: impl FnOnce() -> R
 }
 
 /// The metrics of `line` through the thread's cache if one is installed,
-/// else those `measure` gives.
+/// else those `measure` gives. A line measured again for what matplotlib
+/// keeps from an earlier measure (see [`font_notes::unnoted`]) is not
+/// looked up: matplotlib's renderer is not asked for it, so its cache
+/// neither counts nor holds it.
 pub(super) fn cached(
     line: &str,
     font: &FontProperties,
@@ -153,8 +156,8 @@ pub(super) fn cached(
     measure: impl FnOnce() -> Result<LineMetrics, TextError>,
 ) -> Result<LineMetrics, TextError> {
     match CURRENT.with_borrow(Clone::clone) {
-        Some(cache) => cache.get_or_measure(line, font, kind, dpi, measure),
-        None => measure(),
+        Some(cache) if font_notes::noting() => cache.get_or_measure(line, font, kind, dpi, measure),
+        _ => measure(),
     }
 }
 

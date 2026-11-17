@@ -5,7 +5,11 @@
 
 use std::any::Any;
 
-use super::{AxesOutline, Projection, ProjectionError, ProjectionSpec, SharedOptions, registry};
+use super::initial_shares::note_second_polar_clear;
+use super::{
+    AxesOutline, InitialShares, Projection, ProjectionError, ProjectionSpec, SharedOptions,
+    registry,
+};
 use crate::artist::{ArtistHandle, DrawError};
 use crate::axes::projection::ProjectionState;
 use crate::axes::{Axes, AxesState, ProjectionKind};
@@ -57,16 +61,37 @@ impl Projector {
     /// Turns the freshly made rectilinear `axes` into axes of this
     /// projection; axes a projection fails to set up are removed.
     pub(crate) fn apply(self, axes: Axes) -> Result<Axes, ProjectionError> {
+        self.apply_shared(axes, &InitialShares::default())
+    }
+
+    /// [`apply`](Self::apply) to axes made sharing `shares`: polar axes
+    /// join them before they are set up, as matplotlib's first clear joins
+    /// them before the polar clear sets the scale of each axis it does not
+    /// share; axes of the other projections join them once set up (a
+    /// geographic one refuses, as matplotlib's does).
+    pub(crate) fn apply_shared(
+        self,
+        axes: Axes,
+        shares: &InitialShares,
+    ) -> Result<Axes, ProjectionError> {
+        let polar = matches!(self, Self::Polar);
+        if polar {
+            shares.join(&axes)?;
+        }
+        let axes = self.set_up(axes)?;
+        if !polar {
+            shares.join(&axes)?;
+        }
+        Ok(axes)
+    }
+
+    /// Sets up the fresh `axes` as axes of this projection.
+    fn set_up(self, axes: Axes) -> Result<Axes, ProjectionError> {
         match self {
             Self::Rectilinear => {}
             Self::Polar => {
                 PolarAxes::convert(axes.clone());
-                // matplotlib's `PolarAxes.__init__` clears the axes once
-                // more: each axis is cleared, then set linear again, each
-                // time with a default formatter.
-                for _ in 0..2 * 2 {
-                    crate::scale::note_default_formatter(crate::scale::ScaleName::Linear);
-                }
+                note_second_polar_clear(&axes);
             }
             Self::Geo(projection) => {
                 GeoAxes::convert(axes.clone(), projection);
@@ -198,8 +223,27 @@ impl Figure {
         spec: &SubplotSpec,
         projection: impl Into<ProjectionSpec>,
     ) -> Result<Axes, ProjectionError> {
+        self.add_subplot_spec_sharing(spec, projection, &InitialShares::default())
+    }
+
+    /// [`Figure::add_subplot_spec_with_projection`] for axes that share
+    /// the axes of `shares` (matplotlib's `fig.add_subplot(gs[...],
+    /// projection=..., sharex=...)`), which they join as matplotlib's
+    /// `__init__` joins them.
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::add_subplot_spec_with_projection`], and
+    /// [`ProjectionError::Share`] when the axes cannot share one (they are
+    /// removed).
+    pub fn add_subplot_spec_sharing(
+        &self,
+        spec: &SubplotSpec,
+        projection: impl Into<ProjectionSpec>,
+        shares: &InitialShares,
+    ) -> Result<Axes, ProjectionError> {
         let projector = Projector::new(&projection.into())?;
-        projector.apply(self.add_subplot_spec(spec)?)
+        projector.apply_shared(self.add_subplot_spec(spec)?, shares)
     }
 
     /// Adds axes with `projection` occupying `[left, bottom, width,
@@ -216,8 +260,26 @@ impl Figure {
         rect: [f64; 4],
         projection: impl Into<ProjectionSpec>,
     ) -> Result<Axes, ProjectionError> {
+        self.add_axes_sharing(rect, projection, &InitialShares::default())
+    }
+
+    /// [`Figure::add_axes_with_projection`] for axes that share the axes of
+    /// `shares` (matplotlib's `fig.add_axes(rect, projection=...,
+    /// sharex=...)`), which they join as matplotlib's `__init__` joins them.
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::add_axes_with_projection`], and
+    /// [`ProjectionError::Share`] when the axes cannot share one (they are
+    /// removed).
+    pub fn add_axes_sharing(
+        &self,
+        rect: [f64; 4],
+        projection: impl Into<ProjectionSpec>,
+        shares: &InitialShares,
+    ) -> Result<Axes, ProjectionError> {
         let projector = Projector::new(&projection.into())?;
-        projector.apply(self.add_axes(rect)?)
+        projector.apply_shared(self.add_axes(rect)?, shares)
     }
 
     /// Axes with `projection` occupying `[left, bottom, width, height]` in

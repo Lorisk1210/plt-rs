@@ -25,7 +25,7 @@ from . import (_api, _artist_clipping, _artist_effects, _live_transforms, _mirro
 from ._native import artist as _artist, axis as _axis, text as _text
 from .artist import Artist, allow_rasterization
 from .lines import Line2D
-from .text import Text, _check_metrics_renderer
+from .text import Text, _check_metrics_renderer, _measured_by
 from .transforms import Bbox, IdentityTransform, blended_transform_factory
 
 
@@ -89,7 +89,12 @@ class _AxisPart(_mirrors.Mirroring):
             # tick's line holds matplotlib's data and transform, from
             # which `.Line2D` measures itself as matplotlib's does.
             return _mirrors.OWN
-        if renderer is not None and artist.get_visible() and artist.get_text() != '':
+        if (artist.get_visible() and artist.get_text() == ''
+                and not self.owner._shows_unread(artist)):
+            # matplotlib's empty text measures as nothing at its position,
+            # laid out with no renderer.
+            return _mirrors.OWN
+        if renderer is not None and artist.get_visible():
             # matplotlib's `.Text.get_window_extent` lays the text out with
             # the renderer given.
             _check_metrics_renderer(renderer)
@@ -97,12 +102,25 @@ class _AxisPart(_mirrors.Mirroring):
             # Measured at another resolution as matplotlib's text is: where
             # its transform puts it then.
             return self.alone(artist).get_window_extent(renderer, dpi=dpi)
-        extent = self.owner._extent(artist)
+        extent = self._measured(artist, renderer)
         if extent is None:
-            # matplotlib's empty text measures as nothing at its position.
-            return _mirrors.OWN if artist.get_visible() and artist.get_text() == '' else Bbox.unit()
+            return Bbox.unit()
         x0, y0, x1, y1 = extent
         return Bbox([[x0, y0], [x1, y1]])
+
+    def _measured(self, artist, renderer):
+        """The display box of the text *artist* mirrors, measured as
+        matplotlib's `.Text.get_window_extent` measures it: through the
+        text metrics cache of *renderer*, else of the renderer the text
+        was last measured with unless it was drawn since, else of its
+        figure's (``Text._renderer``), so that a line the draw or an
+        earlier measure measured is not measured again."""
+        figure = artist.get_figure(root=True)
+        if figure is None or not artist.get_visible():
+            return self.owner._extent(artist)
+        renderer = artist._measuring_renderer(renderer, figure, weakly=False)
+        with _measured_by(renderer, figure.dpi):
+            return self.owner._extent(artist)
 
     def tight_box(self, artist, renderer=None):
         # A label measures as matplotlib's `.Text.get_tightbbox`: as nothing
@@ -544,6 +562,11 @@ class Tick(Artist):
             return super().get_clip_path()
         return _artist_clipping.patch_clip_path(self, self.axes)
 
+    def _shows_unread(self, part):
+        """Whether the tick shows a text where its label *part* reads
+        none: never, a tick's labels follow each draw (`_follow_draw`)."""
+        return False
+
     def _extent(self, part):
         """The display box of the label *part* as drawn, if it is."""
         if part is not self.label1 and part is not self.label2:
@@ -936,6 +959,11 @@ class _AxisText:
     def _extent(self, text):
         return type(self)._extent_native(*self._args())
 
+    def _shows_unread(self, text):
+        """Whether the axis shows a text where its mirror *text* reads
+        none: never for a label, which is the program's."""
+        return False
+
     def _transform_of(self, text):
         """matplotlib's transform of the text: x in the Axes' fractions and
         y in pixels for an x-axis (y, x for a y-axis label), as its axis
@@ -1006,3 +1034,33 @@ class OffsetText(_AxisText):
     _push_native = _axis.push_offset_text
     _extent_native = _axis.offset_text_extent
     _START = {"x": (1, 0), "y": (0, 0.5)}
+
+    def _synced(self):
+        self._drawn = self._draw_count()
+        return super()._synced()
+
+    def _refresh(self, text):
+        """matplotlib's draw of the axis sets the text and the position of
+        its offset text (``_update_ticks``, ``_update_offset_text_position``):
+        a mirror filled before the axis' last draw reads them as that draw
+        left them, all else it holds staying."""
+        drawn = self._draw_count()
+        if drawn == self.__dict__.get("_drawn"):
+            return
+        self._drawn = drawn
+        fresh = Text(0, 0, '')
+        type(self)._sync_native(*self._args(), fresh._native)
+        _text.set_text(text._native, _text.get_text(fresh._native))
+        _text.set_position(text._native, *_text.get_position(fresh._native))
+
+    def _shows_unread(self, text):
+        # After a draw through a renderer handed to `.Figure.draw`, the
+        # mirror reads no offset text where the axis drew one (mplhep
+        # moves its label by the width of that text): the extent is then
+        # the axis' own. Before any draw the offset text is empty, as
+        # matplotlib's is, whatever the axis would show.
+        return self._draw_count() > 0 and self._extent(text) is not None
+
+    def _draw_count(self):
+        """How many times the Axes of the axis were drawn."""
+        return _artist.draw_count(self.axis.axes._native)

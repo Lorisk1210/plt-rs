@@ -11,6 +11,7 @@ use super::axis::{AxisState, TickHelperKind, TickerDefaults};
 use super::{Axes, AxesState, TickParams};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
+use crate::fonts::FontProperties;
 use crate::ticker::{AxisName, Formatter, Locator, TickerError};
 
 /// One axis of an axes, from [`Axes::xaxis`], [`Axes::yaxis`] or
@@ -381,13 +382,26 @@ impl Axis {
     /// assert_eq!(ax.yaxis().offset_text_size(), size);
     /// ```
     pub fn offset_text_size(&self) -> f64 {
-        self.read(|axis| axis.offset_size)
+        self.read(|axis| axis.offset_font.size)
     }
 
     /// Sets the font size of the offset (or scale) text in points
     /// (matplotlib's `offsetText.set_fontsize`).
     pub fn set_offset_text_size(&self, size: f64) -> &Self {
-        self.update(|axis| axis.offset_size = size);
+        self.update(|axis| axis.offset_font.size = size);
+        self
+    }
+
+    /// The font of the offset (or scale) text: families, size, weight,
+    /// style and the rest (matplotlib's `offsetText.get_fontproperties()`).
+    pub fn offset_text_font(&self) -> FontProperties {
+        self.read(|axis| axis.offset_font.clone())
+    }
+
+    /// Sets the font of the offset (or scale) text, every property of it
+    /// (matplotlib's `offsetText.set_fontproperties`).
+    pub fn set_offset_text_font(&self, font: FontProperties) -> &Self {
+        self.update(|axis| axis.offset_font = font);
         self
     }
 

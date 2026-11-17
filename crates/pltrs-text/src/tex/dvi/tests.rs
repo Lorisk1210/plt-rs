@@ -1,5 +1,5 @@
 use super::*;
-use crate::tex::test_support::{DEJAVU_SANS, DviWriter, files, sample_dvi};
+use crate::tex::test_support::{DviWriter, dejavu_sans, files, sample_dvi};
 use crate::tex::tfm::tests::tfm_bytes;
 
 #[test]
@@ -85,14 +85,15 @@ fn native_fonts_of_xetex_and_luatex() {
         slant: Some(0.25),
         ..NativeEffects::default()
     };
-    let xetex = DviFont::from_xetex(10 << 16, DEJAVU_SANS.as_bytes(), 0, effects, &files).unwrap();
-    assert_eq!(xetex.texname(), format!("[{DEJAVU_SANS}]").as_bytes());
+    let xetex =
+        DviFont::from_xetex(10 << 16, dejavu_sans().as_bytes(), 0, effects, &files).unwrap();
+    assert_eq!(xetex.texname(), format!("[{}]", dejavu_sans()).as_bytes());
     let native = xetex.native_font().expect("a native font");
     assert_eq!((native.subfont, native.effects), (0, effects));
     assert_eq!(xetex.widths(), Vec::<i64>::new());
     let luatex = DviFont::from_luatex(
         10 << 16,
-        format!("[{DEJAVU_SANS}]:index=0").into_bytes(),
+        format!("[{}]:index=0", dejavu_sans()).into_bytes(),
         &files,
     )
     .unwrap();
@@ -162,7 +163,7 @@ fn xetex_native_fonts_set_glyphs_at_their_offsets() {
     let mut dvi = DviWriter::dvi();
     dvi.bop();
     // `define_native_font` 5 at 10 pt: face 0 of DejaVu Sans, slanted.
-    let name = DEJAVU_SANS.as_bytes();
+    let name = dejavu_sans().as_bytes();
     dvi.op(252).u4(5).u4(10 << 16).u2(0x2000);
     dvi.u1(u8::try_from(name.len()).expect("a short path"));
     dvi.0.extend_from_slice(name);
@@ -183,7 +184,7 @@ fn xetex_native_fonts_set_glyphs_at_their_offsets() {
     let (a, g) = (ten_point(1401), ten_point(1300));
     assert_eq!(text, [(0, 0, 36, a), (500, -7, 74, g), (1010, 0, 36, a)]);
     let font = &pages[0].text[0].font;
-    assert_eq!(font.texname(), format!("[{DEJAVU_SANS}]").as_bytes());
+    assert_eq!(font.texname(), format!("[{}]", dejavu_sans()).as_bytes());
     assert_eq!(font.size(), 10.0 * 72.0 / 72.27);
     let native = font.native_font().expect("a native font");
     assert_eq!(native.effects.slant, Some(0.25));
@@ -213,7 +214,7 @@ fn xetex_glyphs_are_set_in_the_current_font() {
 
 #[test]
 fn luatex_native_fonts_are_defined_by_their_names() {
-    let name = format!("[{DEJAVU_SANS}]:embolden=16384");
+    let name = format!("[{}]:embolden=16384", dejavu_sans());
     let mut dvi = DviWriter::dvi();
     dvi.op(243).u1(3).u4(0x4c75_6146).u4(10 << 16).u4(10 << 16);
     dvi.u1(0)

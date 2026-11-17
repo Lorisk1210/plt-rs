@@ -13,8 +13,10 @@ name pltrs instead of matplotlib.
 """
 
 import ast
+import os
 import pathlib
 import random
+import shutil
 import subprocess
 import sys
 
@@ -44,16 +46,25 @@ STRESS = [
 def load(directory):
     """The differential tester's programs by family (lists of programs),
     written into *directory* (once, with the reference venv) and read
-    from there; none without the reference venv. They are written aside and moved in place once
-    all are, so that a generation that failed is made again."""
+    from there; none without the reference venv. They are written aside,
+    by each process into a directory of its own, and moved in place once
+    all are, so that a generation that failed is made again and runs from
+    one tree at once (the release rehearsal's Pythons) do not write into
+    each other's: the first in place is kept."""
     corpus = directory / "corpus"
     if not corpus.is_dir():
         if not REFERENCE_PYTHON.exists():
             return []
-        written = directory / "corpus.partial"
+        written = directory / f"corpus.partial-{os.getpid()}"
+        shutil.rmtree(written, ignore_errors=True)
         subprocess.run([str(REFERENCE_PYTHON), str(ROOT / "spec" / "diff" / "generate.py"),
                         str(written)], cwd=directory, check=True, capture_output=True)
-        written.rename(corpus)
+        try:
+            written.rename(corpus)
+        except OSError:
+            if not corpus.is_dir():
+                raise
+            shutil.rmtree(written)
     families = {}
     for path in sorted(corpus.rglob("*.py")):
         families.setdefault(path.parent.name, []).append(path.read_text(encoding="utf-8"))

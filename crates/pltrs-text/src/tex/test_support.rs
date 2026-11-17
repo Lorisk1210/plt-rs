@@ -1,15 +1,34 @@
 //! Building DVI, VF and TFM files for tests.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use super::files::{MemoryFinder, TexFiles};
 use super::tfm::tests::tfm_bytes;
 
-/// A TrueType font on disk, for the native fonts of XeTeX and LuaTeX.
-pub(crate) const DEJAVU_SANS: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../pltrs-font/fonts/DejaVuSans.ttf"
-);
+/// A TrueType font on disk, for the native fonts of XeTeX and LuaTeX: the
+/// bundled `DejaVuSans.ttf`, written on first use to one file of the temporary
+/// directory (the same file for every run, rewritten when it holds
+/// anything else), since the crate's package holds no font files.
+pub(crate) fn dejavu_sans() -> &'static str {
+    static PATH: OnceLock<String> = OnceLock::new();
+    PATH.get_or_init(|| {
+        let bytes = crate::bundled_font_data("DejaVuSans.ttf").expect("a bundled font");
+        let directory = std::env::temp_dir().join("pltrs-text-tests");
+        let path = directory.join("DejaVuSans.ttf");
+        if std::fs::read(&path).ok().as_deref() != Some(bytes) {
+            std::fs::create_dir_all(&directory).expect("a temporary directory");
+            // Written aside, then renamed: other test processes may read it.
+            let written: PathBuf = directory.join(format!("DejaVuSans.{}.ttf", std::process::id()));
+            std::fs::write(&written, bytes).expect("a writable temporary directory");
+            std::fs::rename(&written, &path).expect("a writable temporary directory");
+        }
+        path.into_os_string()
+            .into_string()
+            .expect("a temporary directory named in UTF-8")
+    })
+}
 
 /// Writes DVI opcodes.
 #[derive(Debug, Default)]

@@ -388,12 +388,21 @@ its signature into native arguments, the logic belongs in Rust.
 
 ### The look
 
-pltrs (Python) draws in pltrs' modern look by default, as pltrs (Rust)
-does: the `pltrs-modern` style sheet, Inter, constrained layout (see
-`pltrs::look`). `PLTRS_LOOK=matplotlib` (or `PLTRS_FIGURE_LOOK`) selects
-matplotlib's look, in which the output is matplotlib's. The extension
-does not choose: `modules::register` only starts the parameters
-from the look pltrs (Rust) resolves from the environment. `rcParams` then
+pltrs (Python) imported as `pltrs` draws in pltrs' modern look by
+default, as pltrs (Rust) does: the `pltrs-modern` style sheet, Inter,
+constrained layout (see `pltrs::look`). Imported as `matplotlib` (the
+alias, or matplotlib's suite loading the package under that name), it
+draws in matplotlib's look, in which the output is matplotlib's. The
+name of the first import decides, once per process: the extension
+loads once, as `pltrs._native` or as `matplotlib._native`, and
+`modules::register` reads that name, puts matplotlib's appearance
+under the environment's choices for `matplotlib._native`
+(`pltrs::look::set_default`), and starts the parameters from the look
+in force. The toolkits and `pylab` import `pltrs` by name, which the
+alias then serves from the package already loaded, so they cannot
+decide it. `PLTRS_LOOK`, `PLTRS_FIGURE_LOOK` and `PLTRS_CHROME_LOOK`
+choose over the name, as in pltrs (Rust); code that needs a look reads
+the look in force, never the variables. `rcParams` then
 holds the look's parameters (`rcParamsOrig` keeps them), while
 `rcParamsDefault`, `rcdefaults()` and `style.use("default")` are
 matplotlib's defaults, as `pltrs::rc::reset` is. What compares with

@@ -16,8 +16,12 @@ use pltrs_font::{
     OutlineRecorder, ShapeOptions, Size, Type1Cipher, Type1Effects, Type1Encoding, Type1Face,
     Type1Font, Type1Parts, face_count, shape, subset,
 };
-use pltrs_text::{FontDatabase, FontQuery, FontRequest, TextEngine, bundled_font_data};
+use pltrs_text::{
+    AfmDirectory, FontDatabase, FontQuery, FontRequest, TextEngine, bundled_afm_files,
+    bundled_font_data,
+};
 
+use crate::font_fixtures::font_fixture;
 use crate::harness::{Corruption, Gen, fuzz};
 use crate::scratch::Scratch;
 use crate::support::{FORMATS, render};
@@ -32,7 +36,7 @@ type Font = (&'static str, Vec<u8>);
 
 /// The fonts corrupted: small bundled ones, `DejaVu Sans` (with `GSUB`,
 /// `GPOS` and `kern`), and the synthetic CFF, collection and cursive
-/// fonts of `pltrs-font`'s tests.
+/// fonts of `pltrs-font`'s tests (in the repository).
 fn corpus() -> Vec<Font> {
     let bundled = [
         "cmr10.ttf",
@@ -46,20 +50,10 @@ fn corpus() -> Vec<Font> {
             bundled_font_data(name).expect("a bundled font").to_vec(),
         )
     });
-    let fixtures = ["synthetic-cff.otf", "synthetic.ttc", "arabic-cursive.ttf"].map(|name| {
-        (
-            name,
-            std::fs::read(font_fixture(name)).expect("a pltrs-font fixture"),
-        )
-    });
+    let fixtures = ["synthetic-cff.otf", "synthetic.ttc", "arabic-cursive.ttf"]
+        .into_iter()
+        .filter_map(|name| Some((name, font_fixture(name)?)));
     bundled.into_iter().chain(fixtures).collect()
-}
-
-/// The path of a font fixture of `pltrs-font`'s tests.
-fn font_fixture(name: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../pltrs-font/tests/fixtures")
-        .join(name)
 }
 
 /// The `(offset, length)` of every table in the directory of `data` (the
@@ -281,13 +275,9 @@ fn adding_corrupted_fonts_to_the_catalogue() {
 
 /// The AFM files of the PDF core fonts.
 fn afm_corpus() -> Vec<(String, Vec<u8>)> {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../pltrs-font/fonts/pdfcorefonts");
-    ["Helvetica.afm", "Courier-Bold.afm", "Symbol.afm"]
-        .iter()
-        .map(|name| {
-            let bytes = std::fs::read(dir.join(name)).expect("a bundled AFM file");
-            ((*name).to_owned(), bytes)
-        })
+    bundled_afm_files(AfmDirectory::PdfCore)
+        .filter(|(name, _)| ["Helvetica.afm", "Courier-Bold.afm", "Symbol.afm"].contains(name))
+        .map(|(name, bytes)| (name.to_owned(), bytes.to_vec()))
         .collect()
 }
 
@@ -315,17 +305,13 @@ fn corrupted_afm_files() {
     );
 }
 
-/// The Type 1 fixtures of `pltrs-font`'s tests.
+/// The Type 1 fixtures of `pltrs-font`'s tests, none outside the
+/// repository.
 fn type1_corpus() -> Vec<Font> {
     ["cmr10.pfb", "Courier10PitchBT-Bold.pfb"]
-        .map(|name| {
-            let path = font_fixture(&format!("type1/{name}"));
-            (
-                name,
-                std::fs::read(path).expect("a pltrs-font Type 1 fixture"),
-            )
-        })
-        .into()
+        .into_iter()
+        .filter_map(|name| Some((name, font_fixture(&format!("type1/{name}"))?)))
+        .collect()
 }
 
 /// Every reading and rewriting of a Type 1 font: matplotlib's edits for
@@ -361,6 +347,9 @@ fn exercise_type1(font: &Type1Font) {
 #[test]
 fn corrupted_type1_fonts() {
     let corpus = type1_corpus();
+    if corpus.is_empty() {
+        return;
+    }
     fuzz(
         "type1 fonts",
         300,
@@ -385,6 +374,9 @@ fn corrupted_type1_private_dictionaries() {
         .into_iter()
         .map(|(name, data)| (name, Type1Font::from_bytes(&data).expect("a fixture")))
         .collect();
+    if fonts.is_empty() {
+        return;
+    }
     fuzz(
         "type1 private dictionaries",
         300,

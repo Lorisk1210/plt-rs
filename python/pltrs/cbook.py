@@ -369,8 +369,16 @@ class CallbackRegistry:
             if signal is not None:
                 raise ValueError(
                     "signal cannot be specified when disconnecting by cid")
-            for sig, proxy in self._func_cid_map:
-                if self._func_cid_map[sig, proxy] == cid_or_func:
+            # A copy of the keys, where matplotlib iterates the map itself:
+            # a collection during the loop runs `_remove_proxy` for a dead
+            # method's proxy, which changes the map under the loop
+            # (RuntimeError: dictionary changed size during iteration).
+            for sig, proxy in list(self._func_cid_map):
+                try:
+                    found = self._func_cid_map[sig, proxy]
+                except KeyError:  # collected since the copy
+                    continue
+                if found == cid_or_func:
                     break
             else:  # Not found
                 return

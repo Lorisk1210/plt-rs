@@ -291,7 +291,7 @@ fn font_error(path: &Path, err: &pltrs_font::FontError) -> TexError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tex::test_support::DEJAVU_SANS;
+    use crate::tex::test_support::dejavu_sans;
 
     #[test]
     fn luatex_names_give_the_file_face_and_effects() {
@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn faces_measure_glyphs_in_tex_units() {
-        let face = NativeFace::open(Path::new(DEJAVU_SANS), 0).expect("on disk");
+        let face = NativeFace::open(Path::new(dejavu_sans()), 0).expect("on disk");
         // `A` advances 1401 of 2048 units and rises 1493: exact in 12.20.
         let a = face.metrics(36).expect("glyph");
         assert_eq!((a.width, a.height, a.depth), (1401 << 9, 1493 << 9, 0));
@@ -357,8 +357,8 @@ mod tests {
         assert!(face.metrics(-1).is_err());
         assert!(face.metrics(1 << 20).is_err());
         assert!(face.glyph_name(70_000).is_err());
-        assert!(NativeFace::open(Path::new(DEJAVU_SANS), 1).is_err());
-        let directory = Path::new(DEJAVU_SANS).parent().expect("a directory");
+        assert!(NativeFace::open(Path::new(dejavu_sans()), 1).is_err());
+        let directory = Path::new(dejavu_sans()).parent().expect("a directory");
         assert!(NativeFace::open(directory, 0).is_err(), "not a font file");
         assert!(matches!(
             NativeFace::open(Path::new("/no/such/font.ttf"), 0),

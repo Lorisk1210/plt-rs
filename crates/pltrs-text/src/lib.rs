@@ -34,15 +34,10 @@ mod run;
 mod shaping;
 pub mod tex;
 
-/// The harness of pltrs's fuzz tests (`crates/pltrs/tests/fuzz`), driving the
+/// The harness of pltrs's fuzz tests (`pltrs_core::fuzz`), driving the
 /// unit tests that fuzz TeX's file formats.
 #[cfg(test)]
-#[allow(
-    dead_code,
-    reason = "pltrs's fuzz tests use every generator, these unit tests only some"
-)]
-#[path = "../../pltrs/tests/fuzz/harness.rs"]
-mod fuzz;
+use pltrs_core::fuzz;
 
 pub use block::{
     BlockLayout, BlockStyle, FontHeightMetrics, HAlign, LineMetrics, LinePlacement, LineSpacing,

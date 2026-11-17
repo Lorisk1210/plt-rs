@@ -520,8 +520,12 @@ mod tests {
 
     #[test]
     fn type1_fonts_by_path() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../pltrs-font/tests/fixtures/type1/cmr10.pfb");
+        let Some(bytes) = crate::font_fixtures::font_fixture("type1/cmr10.pfb") else {
+            return;
+        };
+        let scratch = crate::scratch::Scratch::new("type1-by-path");
+        let path = scratch.path("cmr10.pfb");
+        std::fs::write(&path, bytes).unwrap();
         let face = FontManager::bundled().type1_face(&path).unwrap();
         assert_eq!(face.family_name(), Some("Computer Modern"));
         assert!(

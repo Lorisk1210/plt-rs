@@ -21,6 +21,8 @@
 //! * [`archive`] — values written to bytes and read back exactly (what
 //!   pickling a figure rests on).
 //! * [`bezier`] — evaluation, subdivision and extrema of Bézier curves.
+//! * `fuzz` (with the feature `fuzzing`) — the harness of the workspace's
+//!   robustness tests.
 //! * [`hatch`] — matplotlib's hatch patterns.
 //! * [`interned`] — run-time strings kept as `&'static str`.
 //! * [`json`] — JSON values, read as Python's `json` module writes them
@@ -55,6 +57,8 @@ pub mod archive;
 mod bbox;
 pub mod bezier;
 mod color;
+#[cfg(feature = "fuzzing")]
+pub mod fuzz;
 pub mod hatch;
 mod intern;
 pub mod json;

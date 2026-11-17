@@ -24,12 +24,18 @@ dependencies, in two faces:
   where the name is matplotlib's: libraries that import `matplotlib`
   (pandas, seaborn, ...) run on pltrs unchanged.
 * **pltrs (Rust)**, the crate `pltrs` with matplotlib's model in typed
-  Rust: option structs, enums and `Result`s. The crates are not on
-  crates.io yet.
+  Rust: option structs, enums and `Result`s, on crates.io with the eight
+  crates it is built from (`pltrs-core`, `pltrs-codec`, `pltrs-font`,
+  `pltrs-raster`, `pltrs-platform`, `pltrs-text`, `pltrs-render`,
+  `pltrs-ui`). They are released together, at one version, and each
+  requires the others at exactly that version.
 
-Both draw in pltrs' own modern look by default. In matplotlib's look
-(`PLTRS_LOOK=matplotlib`) the output is matplotlib's: PNG pixel for pixel,
-and SVG, PDF, PostScript and PGF documents drawing the same items.
+Imported as `pltrs`, and in Rust, figures and windows take pltrs' own
+modern look by default; imported as `matplotlib`, matplotlib's look (the
+first import of a process decides, and `PLTRS_LOOK=matplotlib` or
+`PLTRS_LOOK=modern` chooses over it). In matplotlib's look the output is
+matplotlib's: PNG pixel for pixel, and SVG, PDF, PostScript and PGF
+documents drawing the same items.
 Interactive figures open in pltrs' own windows (Wayland, X11, macOS,
 Windows) or in a browser (WebAgg). pltrs (Python) also runs in Jupyter
 (inline, nbAgg, ipympl) and with matplotlib's Qt, GTK 3 and 4, Tk, wx and
@@ -38,6 +44,34 @@ Cairo backends.
 pltrs is MIT OR Apache-2.0. The code it ports from matplotlib and the
 libraries under it keeps their permissive licences (`THIRD_PARTY.md`,
 `LICENSES/`).
+
+### Where it runs
+
+* Python <!--fact:python.minimum-->3.12 or later: CPython 3.12, 3.13 and 3.14 are tested, through one
+  stable-ABI wheel per platform, also with the lowest versions of the
+  requirements (numpy 1.26, cycler 0.10, Pillow 10.1, python-dateutil
+  2.7, packaging 20.0).
+* Linux, x86_64 and aarch64, with glibc 2.17 or later (CentOS 7, Ubuntu
+  14.04 and newer) or musl 1.2 or later (Alpine 3.13 and newer); figure
+  windows on Wayland and X11.
+* macOS 10.12 or later on Intel, 11 or later on Apple silicon, in one
+  `universal2` wheel.
+* Windows 10 or later, 64-bit (`win_amd64`).
+* Other systems and CPUs build from the sdist with Rust 1.99 or later
+  (the version `rust-toolchain.toml` names) and nothing else; pltrs
+  (Rust) needs the same toolchain.
+
+### What 0.1.0 is not
+
+* Not a stable Rust API: pltrs (Rust) follows matplotlib's model, and
+  any 0.x release may change its types and functions. pltrs (Python)'s
+  API is matplotlib 3.11's and changes with it.
+* Not matplotlib in every byte: in matplotlib's look the figures match
+  matplotlib's, but what differs, on purpose or not yet, is listed in
+  `DIFFERENCES.md` (below).
+* Not a replacement for matplotlib's own wheels on PyPI: the
+  distribution named `matplotlib` is attached to the GitHub release
+  only.
 
 ### How it is measured
 
@@ -63,105 +97,7 @@ libraries under it keeps their permissive licences (`THIRD_PARTY.md`,
 ### Known differences from matplotlib
 
 What pltrs (Python) does otherwise than matplotlib 3.11.2, on purpose or
-not yet. The differential tester's intended differences are in
-`spec/diff/allowlist.txt`, `types-allowlist.txt` and
-`private-allowlist.txt`, each with its proof.
-
-**Defaults you will notice**
-
-* Figures take pltrs' modern look (Inter, constrained layout, a palette
-  checked for colour-vision deficiencies) unless `PLTRS_LOOK=matplotlib`
-  is set. `rcdefaults()`, `rcParamsDefault` and `style.use("default")`
-  are matplotlib's defaults in either look.
-* The interactive backend chosen by default is pltrs' own windows
-  (`pltrs`, or `macosx` on macOS), before Qt, GTK, Tk and wx. The backend
-  registry lists `pltrs` among matplotlib's backends, and so do the
-  errors naming the valid ones.
-* `style.available` lists two more sheets, `pltrs-modern` and
-  `pltrs-modern-dark`, and the font lists hold Inter.
-* The configuration directory is `PLTRSCONFIGDIR` (else the XDG
-  directories), and the rc file `pltrsrc`; `MPLCONFIGDIR` and
-  `matplotlibrc` files are read too. `get_data_path()` is pltrs' data
-  directory there, and `matplotlib_fname()` names its `pltrsrc`.
-
-**Files written**
-
-* PDF and PGF files name pltrs as the software that wrote them.
-* An SVG's embedded images can have other ids than matplotlib's: the ids
-  are hashed from the images' PNG bytes, which pltrs' encoder writes
-  itself. AVIF is saved through Pillow, as matplotlib saves it.
-* A pickled figure holds pltrs' own archive of it. pltrs loads the
-  pickles pltrs writes, but pickles do not cross between pltrs and
-  matplotlib in either direction: loading one fails.
-
-**Objects**
-
-* A figure's `artists`, `lines`, `patches`, `texts` and `legends` are
-  list subclasses (`isinstance(fig.lines, list)` holds).
-* The classes of matplotlib's C++ modules (`ft2font.FT2Font`, the `_tri`
-  classes, `BufferRegion`) are Python classes: `pybind11_object` is not
-  among their bases.
-* matplotlib's type stubs ship with pltrs. Where stubtest reads pltrs
-  otherwise (instance attributes kept by pltrs (Rust) behind a property,
-  trees built on first read), reading and assigning behave as matplotlib's.
-* Private names libraries use (`ax._get_lines`, `text._color`, ...) work
-  as matplotlib's, but for values matplotlib only computes when it draws
-  (pltrs computes them at every layout, so they read differently before
-  the first draw), integers pltrs (Rust) keeps as floats, and private
-  helpers with no state in pltrs (a polar spine's circle, a 3-D
-  collection's faces, an axis artist's tick update).
-* A program's code is called as often as matplotlib calls it, with two
-  exceptions: an offset box of the program's inside a box pltrs lays out
-  is measured once per layout (matplotlib asks again in each parent's
-  `get_bbox`, `get_offset` and `draw`), and a projection's axis transforms
-  are asked once per side rather than once per tick.
-* Where matplotlib 3.11.2 raises or crashes because of a bug of its own,
-  pltrs draws or answers: `set_mouseover` on a figure,
-  `draw_path_collection` with an identity transform and offsets,
-  `BoxStyle.register`, an annotation's arrow from a text at a non-finite
-  position, a negative `FT2Image` size (a crash in matplotlib), a polar
-  line drawn after its radial limits change, a callback that clears its
-  Axes while they are drawn.
-* `backend_webagg` imports and serves without Tornado, where matplotlib
-  raises `RuntimeError`. Without contourpy installed, a contour set's
-  `_contour_generator` is pltrs' own object.
-* pltrs' windows give a program matplotlib's QtAgg input events, but
-  compose dead keys and pass Shift+Tab to the canvas, as matplotlib's GTK
-  and Tk backends do.
-
-**Numbers on other machines**
-
-pltrs follows what numpy and matplotlib's wheels compute on the machine
-it runs on: numpy's processor level (the order `argsort` leaves ties in),
-fused multiply-adds on arm64, Apple's Accelerate. Not followed, and seen
-in last bits or in ill-conditioned results only:
-
-* numpy's OpenBLAS kernels, which differ by processor (long sums, LAPACK);
-* numpy's SVML maths on Linux with AVX-512, in pltrs (Rust) alone (pltrs
-  (Python) asks numpy where a last bit decides a tick or a pixel);
-* on Apple silicon, Accelerate's products of shapes other than 3×3 and
-  4×4 and its LAPACK, and the sign of rounding noise in numpy's FFT;
-* on aarch64 Linux, Gouraud-shaded colours;
-* with numpy older than 2.3 on an AVX-512 processor, `argsort` orders
-  ties beyond 256 values as numpy 2.5 does.
-
-**Not done yet**
-
-* On musl (Alpine), where Python gives threads other than the main one
-  musl's 128 KiB stack (the interpreters of the pypa images), such a
-  thread draws, but a draw started inside a draw (a callback saving its
-  figure) raises `RecursionError` there; the message names
-  `threading.stack_size`.
-* The corpora's programs that still differ from matplotlib somewhere are
-  listed by `cargo xtask diff --corpus` (`spec/diff/corpus-outcomes.json`).
-* Private state a program assigns and pltrs does not draw from, or
-  pickle, as matplotlib does (a path assigned to a colorbar's outline
-  spine, a legend's `_fontsize`, a formatter's `_format` across a pickle):
-  each is listed with its reason in `spec/diff/private-allowlist.txt`.
-* Overrides pltrs does not call yet: an unpickled Axes' class
-  `_set_lim_and_transforms`, `update_datalim`, `use_sticky_edges`,
-  `AxesImage.can_composite`, tick labels under an overridden axis
-  transform.
-* pltrs (Rust) has no counterpart for what only Python has: `data=`
-  keywords, pandas objects, backends of other Python packages, the Sphinx
-  plot directive (`spec/reference/not_applicable.txt`).
+not yet, is listed by topic in [`DIFFERENCES.md`](DIFFERENCES.md), which
+the package carries too (`pltrs/DIFFERENCES.md`); what is not built yet
+is under its "Not built". Imported as `matplotlib`, pltrs draws in
+matplotlib's look; imported first as `pltrs`, in its modern look.

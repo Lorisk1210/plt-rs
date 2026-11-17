@@ -42,10 +42,6 @@ DROPPED_MEMBERS = ("crates/pltrs-spec", "xtask", "examples/rust")
 #: Names never included, wherever they are.
 EXCLUDED_NAMES = {"target", "__pycache__", ".pytest_cache", "result_images"}
 
-#: The licences at the root, which each crate's files of the same names
-#: link to.
-LICENCES = ("LICENSE-MIT", "LICENSE-APACHE")
-
 
 def _included(root):
     """The files of the sdist, relative to *root*, sorted."""
@@ -63,14 +59,6 @@ def _included(root):
                 os.path.join(directory, name) for name in names
                 if not name.endswith(".pyc") and not name.startswith("_native."))
     return sorted(os.path.relpath(file, root).replace(os.sep, "/") for file in files)
-
-
-def _contents(root, name):
-    """The bytes of the file *name*: a crate's licence is the root's, which
-    it links to (a checkout without symbolic links, Windows' by default,
-    has the link as a text file naming its target)."""
-    base = name.rsplit("/", 1)[-1]
-    return (root / (base if base in LICENCES else name)).read_bytes()
 
 
 def _executable(path, data):
@@ -143,7 +131,7 @@ def write_sdist(project, directory):
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w", format=tarfile.PAX_FORMAT) as archive:
         for name in _included(project.root):
-            data = _contents(project.root, name)
+            data = (project.root / name).read_bytes()
             executable = _executable(project.root / name, data)
             if name in rewrites:
                 data = rewrites[name](data.decode("utf-8"), dropped).encode("utf-8")

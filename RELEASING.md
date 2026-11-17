@@ -1,41 +1,63 @@
-# Releasing pltrs (Python)
+# Releasing pltrs
 
-A release publishes the distribution `pltrs` to PyPI: its sdist and one
-wheel per platform, all tagged `cp312-abi3`, so one wheel serves CPython
-3.12 and every later version:
+A release of version `X.Y.Z` publishes, all from one tagged commit:
+
+* **pltrs (Python)** on PyPI, the distribution `pltrs`: its sdist and one
+  wheel per platform, all tagged `cp312-abi3`, so one wheel serves CPython
+  3.12 and every later version. The workflow `.github/workflows/wheels.yml`
+  builds, tests and uploads them.
+* **pltrs (Rust)** on crates.io: the crate `pltrs` and the eight crates it
+  is built from, all at the version of `Cargo.toml`, published by hand
+  with `cargo publish` (below).
+* A GitHub release holding every archive, among them the wheel of the
+  second distribution, `matplotlib` (pltrs as matplotlib, `pip install .
+  -C distribution=matplotlib`). That distribution is not published on
+  PyPI, where the name is matplotlib's.
 
 | wheel | runs on |
 |-------|---------|
 | `manylinux_2_17_x86_64.manylinux2014_x86_64`, `manylinux_2_17_aarch64.manylinux2014_aarch64` | Linux with glibc 2.17 or later (CentOS 7, Ubuntu 14.04, Debian 8 and newer) |
 | `musllinux_1_2_x86_64`, `musllinux_1_2_aarch64` | Linux with musl 1.2 or later (Alpine 3.13 and newer) |
-| `macosx_10_12_universal2` | macOS 10.12 or later on Intel, macOS 11 or later on Apple silicon |
+| `macosx_10_12_universal2` | macOS 10.12 or later on Intel, macOS 11 or later on Apple silicon (the Intel half runs first in the workflow's job `macos-intel`) |
 | `win_amd64` (`win_arm64` when asked for) | 64-bit Windows 10 and later |
 
-The second distribution of the tree, `matplotlib` (pltrs as matplotlib,
-`pip install . -C distribution=matplotlib`), is not published: on PyPI
-the name is matplotlib's. Its wheel goes with the GitHub release.
+The crates, in the order they are published (each needs the ones
+before it): `pltrs-core`, `pltrs-codec`, `pltrs-font`, `pltrs-raster`,
+`pltrs-platform`, `pltrs-text`, `pltrs-render`, `pltrs-ui`, `pltrs`.
+`pltrs-python`, `pltrs-spec`, `xtask` and `pltrs-examples` are never
+published (`publish = false`).
 
-Everything runs in the workflow `.github/workflows/wheels.yml`, which
-starts only by hand or for a tag `v<version>`: never for pushes of
-branches or pull requests, as every run costs Actions minutes.
+The workflow starts only by hand or for a tag `v<version>`: never for
+pushes of branches or pull requests, as every run costs Actions minutes.
 
 ## Once, before the first release
 
-1. **pltrs' licence** is chosen: MIT OR Apache-2.0 (`LICENSE-MIT`,
-   `LICENSE-APACHE`). Cargo.toml's `[workspace.package]` gives it to
-   every crate (each links the two files, which `cargo package` takes
-   in), and `pyproject.toml` to both distributions: `license` in
-   `[tool.pltrs-backend.pltrs]` and `[tool.pltrs-backend.matplotlib]`
-   (the backend writes it as `License-Expression`), and the two files in
-   `license-files` beside the notices of `THIRD_PARTY.md`.
-   `python/tests/test_build_backend.py` checks that the three agree.
-2. **Decide what the PyPI page links to.** `pyproject.toml`'s `urls` (and
-   Cargo.toml's `repository`) point at the GitHub repository, which is
-   private: visitors of the PyPI page would find nothing. Make it public,
-   or point the links elsewhere. The README is the page's text; its
-   links to files of the tree (`python/DESIGN.md`, `RELEASING.md`, ...)
-   are absolute GitHub URLs, which work only once the repository is
-   public.
+1. **pltrs' licence** is MIT OR Apache-2.0 (`LICENSE-MIT`,
+   `LICENSE-APACHE`).
+   * `Cargo.toml`'s `[workspace.package]` gives it to every crate.
+   * `pyproject.toml` gives it to both distributions: `license` in
+     `[tool.pltrs-backend.pltrs]` and `[tool.pltrs-backend.matplotlib]`
+     (the backend writes it as `License-Expression`), and the two files
+     in `license-files`, beside the notices of `THIRD_PARTY.md`.
+   * A crate is packaged from its own directory, so each published crate
+     holds copies of the two files, and the rows of `THIRD_PARTY.md` and
+     the texts of `LICENSES/` that concern it. After changing
+     `THIRD_PARTY.md` or `LICENSES/`, run
+     `python python/tools/crate_notices.py`, which writes them.
+   * `python/tests/test_crates_io.py` and `python/tests/test_build_backend.py`
+     check that all of these agree.
+2. **Decide what the PyPI page and crates.io link to.** The links all
+   point at the GitHub repository, which is private: visitors would find
+   nothing. They are:
+   * `pyproject.toml`'s `urls`;
+   * `Cargo.toml`'s `repository`, on every crate's page on crates.io and
+     docs.rs (no crate sets `documentation`: crates.io then links to
+     docs.rs);
+   * the README's links to files of the tree (`python/DESIGN.md`,
+     `RELEASING.md`, ...), which are absolute GitHub URLs. The README is
+     the text of the PyPI page and of the crate `pltrs`' page.
+
+   Make the repository public, or point the links elsewhere.
 3. **PyPI**: with an account that has two-factor authentication, add a
    *pending trusted publisher* (https://pypi.org/manage/account/publishing/):
    PyPI project name `pltrs`, owner `Lorisk1210`, repository `plt-rs`,
@@ -44,7 +66,18 @@ branches or pull requests, as every run costs Actions minutes.
    do the same on https://test.pypi.org and add
    `repository-url: https://test.pypi.org/legacy/` to the publish step
    for that run.
-4. **GitHub**, in the repository's *Settings*:
+4. **crates.io**:
+   * Sign in to https://crates.io with GitHub, and verify the account's
+     e-mail address (crates.io refuses to publish without one).
+   * Make an API token at https://crates.io/settings/tokens with the
+     scopes `publish-new` and `publish-update`, limited to the crates
+     `pltrs*`. On the machine you publish from (Linux or macOS), store
+     it with `cargo login`, which asks for it. The token stays on that
+     machine (`~/.cargo/credentials.toml`), never in the repository or
+     in GitHub.
+   * The names of the nine crates were free on 2026-11-17. The first
+     upload of each makes the account its owner.
+5. **GitHub**, in the repository's *Settings*:
    * *Environments*: create `pypi`, with yourself as a *required
      reviewer* and *deployment branches and tags* limited to the tag
      pattern `v*`. The publish job waits for your approval there.
@@ -57,118 +90,335 @@ branches or pull requests, as every run costs Actions minutes.
      `windows-11-arm` and `WINDOWS_ARM64_RUNNER`, when `win_arm64` is
      built (the run's input `win_arm64`, or the variable `WIN_ARM64`
      set to `true` for tag runs).
-5. **Minutes.** A full run costs roughly 6 hours of billed minutes:
-   about 75 Linux minutes, 35 Windows minutes (billed twice) and 25
-   macOS minutes (billed ten times). The extension's build (fat LTO,
-   one codegen unit) peaks at about 4.8 GB of memory (4.5 GiB) for
-   x86_64 and 6.0 GB (5.6 GiB) for aarch64 on Linux, within a standard
-   runner's 7 GB. With MSVC it peaked higher, at 8.5 to 9.0 GiB committed
-   for the fat LTO (desktop-r1t0nt5, 2026-11-15), while the release
-   profile's line tables (`debug = "line-tables-only"`) went through the
-   LTO until the link stripped them. The backend leaves them out of the
-   extension's build (a wheel ships without them), which brings MSVC's
-   peak to 2 to 2.3 GiB.
+6. **Minutes.** A full run costs roughly 10 hours of billed
+   minutes: about 75 Linux minutes, 35 Windows minutes (billed twice),
+   25 macOS minutes on arm64 for the universal2 wheel, and, since
+   2026-11-17, an estimated 15 to 25 minutes on an Intel Mac
+   (`macos-15-intel`) that tests the wheel's x86_64 half natively (all
+   macOS minutes are billed ten times; the Intel job has not run yet).
+   * **Linux memory:** the extension's build (fat LTO, one codegen unit)
+     peaks at about 4.8 GB of memory (4.5 GiB) for x86_64 and 6.0 GB
+     (5.6 GiB) for aarch64, within a standard runner's 7 GB.
+   * **MSVC memory:** with MSVC the build peaked higher, at 8.5 to
+     9.0 GiB committed for the fat LTO (desktop-r1t0nt5, 2026-11-15),
+     while the release profile's line tables
+     (`debug = "line-tables-only"`) went through the LTO until the link
+     stripped them. The backend now leaves them out of the extension's
+     build (a wheel ships without them), which brings MSVC's peak to 2
+     to 2.3 GiB.
 
 ## Rehearsing
 
-* On this host: `cargo xtask python wheels` builds the sdist, the
-  alias and the four Linux wheels into `target/wheels/` (Zig links
-  them against glibc 2.17 and musl: `python/tools/zig.sh install`
-  first, and `rustup target add aarch64-unknown-linux-gnu
-  aarch64-unknown-linux-musl`), and checks them. Then, for each Python
-  to try:
+Nothing here publishes anything.
 
-  ```sh
-  python python/tools/check_dist.py --install --python python3.12 \
-      target/wheels/pltrs-*manylinux*x86_64.whl target/wheels/matplotlib-*.whl
-  python python/tools/check_dist.py --install --lowest --python python3.12 \
-      target/wheels/pltrs-*manylinux*x86_64.whl
-  python python/tools/check_dist.py --install target/wheels/pltrs-*.tar.gz
-  ```
+### The crates
 
-  On a Mac, `cargo xtask python wheels` builds `arm64`, `x86_64` and
-  `universal2` wheels; check them natively and with an x86_64 Python
-  under Rosetta.
+From the root of the tree, on Linux or macOS:
 
-  On Windows, `cargo xtask python wheels` builds the `win_amd64` wheel,
-  the sdist and the alias with MSVC (Visual Studio's C++ build tools;
-  `aarch64-pc-windows-msvc` given cross-builds `win_arm64`, to try on an
-  arm64 Windows). The toolchain of `rust-toolchain.toml` is the one of
-  rustup's default host: where that is `x86_64-pc-windows-gnu`, set
+```sh
+python python/tools/crate_notices.py --check
+cargo publish --dry-run -p pltrs-core -p pltrs-codec -p pltrs-font -p pltrs-raster \
+    -p pltrs-platform -p pltrs-text -p pltrs-render -p pltrs-ui -p pltrs
+```
+
+* **What the dry run does:** cargo packages the nine crates in
+  dependency order, builds each from its package alone (the others come
+  from a local registry of the packages just made), and stops before
+  uploading ("aborting upload due to dry run"). With uncommitted
+  changes, add `--allow-dirty`.
+* **Name the nine:** `cargo publish --workspace` would try to package
+  `xtask` too, and fail.
+* **Sizes:** the packages are in `target/package/*.crate`. crates.io
+  takes at most 10 MB per crate; `pltrs-font`, the largest for its
+  fonts, packs to about 6 MB.
+
+### pltrs (Python) on Linux
+
+1. **Once: the tools.** Zig, which links the Linux wheels against glibc
+   2.17 and musl, and the two aarch64 Rust targets:
+
+   ```sh
+   python/tools/zig.sh install
+   rustup target add aarch64-unknown-linux-gnu aarch64-unknown-linux-musl
+   ```
+
+2. **Build.** `cargo xtask python wheels` builds the sdist, the alias and
+   the four Linux wheels into `target/wheels/`, and checks each archive
+   as an index would (each wheel's fat LTO build took 8 to 10 minutes on
+   a 32-core machine under other load, 2026-11-17).
+
+3. **Check** each Python to try (`check_dist.py --help`; each run makes
+   its venvs under `target/check-dist`, or the directory given with
+   `--work`):
+
+   ```sh
+   python python/tools/check_dist.py --install --python python3.12 \
+       target/wheels/pltrs-*manylinux*x86_64.whl target/wheels/matplotlib-*.whl
+   python python/tools/check_dist.py --install --lowest --python python3.12 \
+       target/wheels/pltrs-*manylinux*x86_64.whl
+   python python/tools/check_dist.py --install target/wheels/pltrs-*.tar.gz
+   ```
+
+   * **Time:** each check took about 10 minutes, most of it pltrs' smoke
+     tests (about 3,560), which run serially.
+   * **Several at once:** checks of several Pythons may run at the same
+     time from one tree, each with its own `--work`.
+   * **Memory:** the sdist's check builds it (pip runs cargo with fat
+     LTO), which takes about 4.5 GiB.
+
+### pltrs (Python) on a Mac
+
+1. **Build.** `cargo xtask python wheels` builds the `arm64`, `x86_64`
+   and `universal2` wheels, the sdist and the alias, and audits all
+   five (16 minutes on an M2 Max). The x86_64 wheel is cross-compiled:
+   building runs no x86_64 code.
+
+2. **Check the `arm64` and `universal2` wheels natively**, with an
+   arm64 Python of each version to try (about 3 minutes each):
+
+   ```sh
+   python python/tools/check_dist.py --install --python <arm64 python3.12|3.13|3.14> \
+       target/wheels/pltrs-*macosx_11_0_arm64.whl target/wheels/matplotlib-*.whl
+   python python/tools/check_dist.py --install --python <arm64 python3.12|3.13|3.14> \
+       target/wheels/pltrs-*universal2.whl target/wheels/matplotlib-*.whl
+   python python/tools/check_dist.py --install --lowest --python <arm64 python3.12> \
+       target/wheels/pltrs-*macosx_11_0_arm64.whl
+   python python/tools/check_dist.py --install --python <arm64 python3.14> \
+       target/wheels/pltrs-*.tar.gz
+   ```
+
+   **Memory:** the sdist's check builds it (pip runs cargo with fat LTO),
+   which needs more than 4 GB of memory. A run limited to 4 GB per
+   process was killed; one limited to 12 GB passed.
+
+3. **Check the x86_64 code statically only.** Do not run an x86_64
+   Python under Rosetta on the project's Mac: on 2026-11-11 a native
+   stack overflow inside a Python run under Rosetta left its processes
+   unkillable, and every other x86_64 program on that Mac hung at launch
+   for hours. In the unpacked `universal2` wheel (and the `x86_64` one):
+
+   ```sh
+   lipo -archs pltrs/_native.abi3.so            # x86_64 arm64
+   otool -l pltrs/_native.abi3.so | grep -A4 -E 'LC_VERSION_MIN_MACOSX|LC_BUILD_VERSION'
+   otool -L pltrs/_native.abi3.so               # system libraries only
+   nm -gU pltrs/_native.abi3.so | grep PyInit   # the module's entry point
+   ```
+
+   The x86_64 code runs in the workflow's job `macos-intel`, natively on
+   GitHub's Intel runner `macos-15-intel`, or on an Intel Mac.
+
+### pltrs (Python) on Windows
+
+`cargo xtask python wheels` builds the `win_amd64` wheel, the sdist and
+the alias with MSVC (Visual Studio's C++ build tools;
+`aarch64-pc-windows-msvc` given cross-builds `win_arm64`, to try on an
+arm64 Windows).
+
+* **The toolchain:** the toolchain of `rust-toolchain.toml` is the one
+  of rustup's default host. Where that is `x86_64-pc-windows-gnu`, set
   `RUSTUP_TOOLCHAIN=1.99-x86_64-pc-windows-msvc`, so that the wheel is
-  linked as the workflow links it (and the `-gnu` toolchain to try the
-  sdist with gnu, as a user of that host builds it). Every interpreter
-  is `python.exe`, so name each by its path:
+  linked as the workflow links it, and the `-gnu` toolchain to try the
+  sdist with gnu, as a user of that host builds it.
+* **The interpreters:** every one is `python.exe`, so name each by its
+  path:
 
   ```sh
   python python/tools/check_dist.py --install --python C:/.../3.12/python.exe \
       target/wheels/pltrs-*win_amd64.whl target/wheels/matplotlib-*.whl
   ```
-* On GitHub: *Actions > wheels > Run workflow*. Everything runs but
-  publishing: the archives are the run's artifacts (`pltrs-*` and
-  `alias`), to download and try.
-* `python python/tools/check_workflows.py` checks the workflow itself
-  after any change to it.
+
+### On GitHub
+
+*Actions > wheels > Run workflow*. Everything runs but publishing: the
+archives are the run's artifacts (`pltrs-*` and `alias`), to download
+and try. Run `python python/tools/check_workflows.py`, which checks the
+workflow itself, after any change to it.
 
 ## Releasing
 
-1. If native code changed since the order of the extension's functions
-   was last written, write it again and commit it: the x86_64 Linux
-   wheel is linked in that order (`crates/pltrs-python/symbol-order.txt`),
-   and code the file does not name lies among code no program runs,
-   which costs every process memory. Twice, as the tool's docstring
-   says: `cargo xtask python --release`, then
-   `.venv-pltrs/bin/python crates/pltrs-python/tools/symbol_order.py`.
-   `python/tests/test_startup_work.py` then holds what a small program
-   maps against its ceilings.
-2. Set the version in `Cargo.toml`'s `[workspace.package]`: the one
-   source of the crates', the wheels' and the alias' versions (the
-   alias is `<matplotlib version>+pltrs.<version>`). Give `CHANGELOG.md`
-   the version's section (its heading names the version, which
-   `python/tests/test_readme_facts.py` holds against `Cargo.toml`, as it
-   holds the README's and the changelog's numbers against the tree).
-   Commit and push.
-3. Tag the commit and push the tag:
+The commands, in order, for version `0.1.0`; for another version, replace
+it everywhere. They run from a clone of the repository on Linux or
+macOS, with `origin` the GitHub repository and the crates.io token
+stored (`cargo login`). **Each command marked PUBLISHES cannot be undone:
+a version uploaded to PyPI or crates.io can never be uploaded again,
+even after it is deleted or yanked.**
+
+1. **The symbol order, if native code changed** since the order of the
+   extension's functions was last written. The x86_64 Linux wheel is
+   linked in that order (`crates/pltrs-python/symbol-order.txt`), and
+   code the file does not name lies among code no program runs, which
+   costs every process memory. Run it twice, as the tool's docstring
+   says, then commit the file; `python/tests/test_startup_work.py` then
+   holds what a small program maps against its ceilings:
+
+   ```sh
+   cargo xtask python --release
+   .venv-pltrs/bin/python crates/pltrs-python/tools/symbol_order.py
+   cargo xtask python --release
+   .venv-pltrs/bin/python crates/pltrs-python/tools/symbol_order.py
+   git add crates/pltrs-python/symbol-order.txt
+   git commit -m "pltrs-python: the symbol order of the release"
+   ```
+
+2. **The version.** `Cargo.toml`'s `[workspace.package] version` is the
+   one source of the crates', the wheels' and the alias' versions (the
+   alias is `<matplotlib version>+pltrs.<version>`).
+   * **A new version** also changes the nine crates' requirements on
+     each other in `[workspace.dependencies]`
+     (`version = "=0.1.0"`), which must name it exactly.
+   * **The changelog:** `CHANGELOG.md`'s section heading names the
+     version (`python/tests/test_readme_facts.py` holds it against
+     `Cargo.toml`). Replace its `(unreleased)` by the date.
+   * **Check, then commit and push `main`:**
+
+   ```sh
+   git switch main && git pull --ff-only
+   python python/tools/crate_notices.py --check
+   cargo publish --dry-run -p pltrs-core -p pltrs-codec -p pltrs-font -p pltrs-raster \
+       -p pltrs-platform -p pltrs-text -p pltrs-render -p pltrs-ui -p pltrs
+   git commit -am "pltrs 0.1.0"
+   git push origin main
+   ```
+
+3. **A rehearsal run of the workflow: the user decides.** It costs the
+   minutes of a full run and publishes nothing:
+
+   ```sh
+   gh workflow run wheels.yml --ref main          # add -f win_arm64=true for win_arm64
+   gh run watch --exit-status $(gh run list --workflow wheels.yml --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')
+   ```
+
+   It verifies what no machine of the project has run:
+   * the x86_64 half of the macOS wheel, installed and tested natively
+     on an Intel Mac (`macos-15-intel`): until then it has only been
+     read statically;
+   * the aarch64 Linux wheels on arm64 hardware (`ubuntu-24.04-arm`, or
+     the runner `LINUX_ARM64_RUNNER` names): here they ran under qemu
+     only;
+   * the Windows wheel built and tested on GitHub's runner with MSVC,
+     and, with `win_arm64=true`, the `win_arm64` wheel on an arm64
+     Windows (`windows-11-arm`), which has never been built or run;
+   * the workflow itself, which has never run: its runners, actions,
+     artifacts and permissions.
+
+   Without it, the tag's run does all of this before anything is
+   published, and a failure costs a deleted tag and a new one (below).
+
+4. **The tag**, which starts the workflow. This publishes nothing yet,
+   but the run costs the minutes of a full run:
 
    ```sh
    git tag -a v0.1.0 -m "pltrs 0.1.0"
    git push origin v0.1.0
+   gh run watch --exit-status $(gh run list --workflow wheels.yml --event push --limit 1 --json databaseId --jq '.[0].databaseId')
    ```
 
-4. The workflow runs: it first checks that the tag is `v` followed by
-   Cargo.toml's version, then builds every archive, installs and tests each
-   on its platform (pltrs alone against matplotlib alone, pltrs' smoke
-   tests and a matplotlib program, on Python 3.12 and 3.14, on the oldest
-   glibc and musl the tags allow, and with the lowest versions of the
-   requirements). Nothing is published unless all of that passes.
-5. Approve the `pypi` deployment when the publish job asks. It checks
-   the archives once more and uploads them to PyPI through trusted
-   publishing.
-6. A draft GitHub release then holds every archive, the alias wheel
-   included. Write its notes (the version's section of `CHANGELOG.md`)
-   and publish it.
+   * **What the run does first:** it checks that the tag is `v`
+     followed by `Cargo.toml`'s version.
+   * **Then the archives:** it builds every archive and installs and
+     tests each on its platform: pltrs alone against matplotlib alone,
+     pltrs' smoke tests and a matplotlib program, on Python 3.12 and
+     3.14, on the oldest glibc and musl the tags allow, and with the
+     lowest versions of the requirements.
+   * **Nothing is published unless all of that passes.**
 
-If any job fails, nothing reaches PyPI. Fix the cause on `main`, delete
-the tag (`git push --delete origin v0.1.0; git tag -d v0.1.0`), tag
-again and push. A version that reached PyPI can never be uploaded again,
-even after deleting it: release the fix as the next version.
+5. **PyPI. PUBLISHES.** When the publish job waits, approve it: on the
+   run's page (*Actions > wheels > the run*), *Review deployments*, tick
+   `pypi`, *Approve and deploy*. It checks the archives once more and
+   uploads them through trusted publishing. Then
+   https://pypi.org/project/pltrs/0.1.0/ lists the sdist and the six
+   (or seven) wheels.
+
+6. **crates.io. PUBLISHES,** each command one crate. From a clean
+   checkout of the tag, one command at a time, in this order:
+
+   ```sh
+   git switch --detach v0.1.0
+   git status --porcelain              # must print nothing
+   cargo publish -p pltrs-core
+   cargo publish -p pltrs-codec
+   cargo publish -p pltrs-font
+   cargo publish -p pltrs-raster
+   cargo publish -p pltrs-platform
+   cargo publish -p pltrs-text
+   cargo publish -p pltrs-render
+   cargo publish -p pltrs-ui
+   cargo publish -p pltrs
+   git switch main
+   ```
+
+   * **The wait between crates:** each `cargo publish` builds the crate
+     from its package, uploads it, and waits until crates.io's index
+     lists it (up to a minute), so the next command finds it. Run them
+     one after the other. If cargo says it timed out waiting, wait a
+     minute before the next command.
+   * **A refusal:** crates.io limits how many new crates an account
+     creates in a short time. If a command answers `429 Too Many
+     Requests` ("published too many new crates"), nothing of that
+     crate was published: wait as long as the message says, then run
+     the same command again, and go on.
+   * **Publish from Linux or macOS:** a Windows checkout may convert
+     line endings (`core.autocrlf`), and the packages would then differ
+     from the tag.
+
+7. **The GitHub release. PUBLISHES.** After the publish job, a draft
+   release holds every archive, the alias wheel included. Give it the
+   version's section of `CHANGELOG.md` as its notes and publish it:
+
+   ```sh
+   awk '/^## .*0\.1\.0/{on=1; next} /^## /{on=0} on' CHANGELOG.md > target/release-notes.md
+   gh release edit v0.1.0 --notes-file target/release-notes.md --draft=false
+   ```
+
+If a job of the workflow fails, nothing reaches PyPI:
+
+1. Fix the cause on `main`.
+2. Delete the tag: `git push --delete origin v0.1.0; git tag -d v0.1.0`.
+3. Tag again and push.
+
+Once a version is on PyPI or crates.io, it cannot be uploaded again,
+even after it is deleted: release the fix as the next version. If PyPI
+has the version but a crate failed to publish, fix the crate and publish
+it as the next version of every crate (the nine always share one).
 
 ## Checking the release
 
-* https://pypi.org/project/pltrs/ lists the sdist and the six (or
-  seven) wheels above, and shows the README.
-* In fresh venvs on Linux, macOS and Windows:
+* **The pages:**
+  * https://pypi.org/project/pltrs/ lists the sdist and the six (or
+    seven) wheels above, and shows the README.
+  * https://crates.io/crates/pltrs and the eight others show version
+    0.1.0.
+  * https://docs.rs/pltrs shows the documentation once docs.rs has
+    built it from the upload (it queues builds), for the systems of
+    `[package.metadata.docs.rs]`: Linux, macOS on Apple silicon,
+    Windows.
+* **pltrs (Python)**, in fresh venvs on Linux, macOS and Windows:
 
   ```sh
   python -m pip install pltrs
   python -c "import pltrs.pyplot as plt; plt.plot([1, 3, 2]); plt.savefig('check.png')"
   ```
 
-* From the sdist, with Rust installed: `python -m pip install
-  --no-binary pltrs pltrs`.
-* pltrs as matplotlib, from the release's alias wheel: `python -m pip
-  install pltrs matplotlib-<version>+pltrs.<version>-py3-none-any.whl`,
-  then run a matplotlib program unchanged.
+  On a Mac without a window server, or to keep windows away, set
+  `MPLBACKEND=agg` (the default backend there is `macosx`).
 
-A broken release is *yanked* on PyPI (the project's *Manage* page):
-pip then no longer picks it, unless asked for that exact version.
+* **From the sdist,** with Rust installed (and, on a Mac, Xcode's
+  command-line tools, for the linker): `python -m pip install
+  --no-binary pltrs pltrs`.
+* **pltrs as matplotlib,** from the release's alias wheel: `python -m pip
+  install pltrs matplotlib-<version>+pltrs.<version>-py3-none-any.whl`,
+  then run a matplotlib program unchanged. It draws in matplotlib's look.
+* **pltrs (Rust)**, in a new crate:
+
+  ```sh
+  cargo new check && cd check && cargo add pltrs@0.1.0
+  cargo run   # with a main drawing a figure, as the README's first example
+  ```
+
+A broken release is *yanked*:
+
+* **On PyPI**, on the project's *Manage* page: pip then no longer picks
+  it, unless asked for that exact version.
+* **On crates.io**, with `cargo yank --version 0.1.0 <crate>` for each
+  crate: new projects no longer pick it, and those whose `Cargo.lock`
+  names it keep building.

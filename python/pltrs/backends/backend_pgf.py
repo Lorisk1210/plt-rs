@@ -27,6 +27,7 @@ from .._pylab_helpers import Gcf
 from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase, RendererBase
 from ..figure import Figure
 from ..font_manager import FontManager
+from ..text import Text
 from ._native_drawing import DocumentDrawingMixin
 from .backend_mixed import MixedModeRenderer
 from .backend_pdf import _create_pdf_info_dict, _datetime_to_pdf
@@ -353,6 +354,11 @@ class RendererPgf(DocumentDrawingMixin, RendererBase):
         super().draw_text(gc, x, y, s, prop, angle, ismath, mtext)
 
 
+def _measured_text(artist):
+    """Whether *artist* is a text the PGF renderer measures in a draw."""
+    return isinstance(artist, Text) and artist.get_visible() and bool(artist.get_text())
+
+
 class FigureCanvasPgf(FigureCanvasBase):
     filetypes = {"pgf": "LaTeX PGF picture",
                  "pdf": "LaTeX compiled PGF picture",
@@ -435,6 +441,13 @@ class FigureCanvasPgf(FigureCanvasBase):
         return RendererPgf(self.figure, None)
 
     def draw(self):
+        # matplotlib's draw measures the figure's texts with its renderer,
+        # whose TeX system starts at the first text (a visible Axes'
+        # tick labels, made as it draws): one that cannot start fails
+        # the draw there as here.
+        if (any(ax.get_visible() for ax in self.figure.axes)
+                or self.figure.findobj(_measured_text, include_self=False)):
+            LatexManager._get_cached_or_new()
         self.figure.draw_without_rendering()
         return super().draw()
 

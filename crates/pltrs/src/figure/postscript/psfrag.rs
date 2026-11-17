@@ -11,7 +11,7 @@ use pltrs_core::pyfmt;
 use pltrs_render::{PageOrientation, Paper, PsfragFigure};
 use pltrs_text::tex::usepackage_if_not_loaded;
 
-use super::distill::{Distillation, WorkFile, gs_distill};
+use super::distill::{Distillation, WorkFile, gs_distill, try_distill};
 use super::programs::ProgramError;
 use crate::figure::save::SaveError;
 use crate::rc::RcParams;
@@ -141,7 +141,7 @@ pub(super) fn print_figure_tex(
         bbox: Some(figure.bbox),
         rotated,
     };
-    gs_distill(&file, &distillation, rc.ps_distiller_res)?;
+    try_distill(|| gs_distill(&file, &distillation, rc.ps_distiller_res))?;
     Ok(file.contents()?)
 }
 

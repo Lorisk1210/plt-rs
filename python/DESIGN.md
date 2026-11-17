@@ -2285,6 +2285,19 @@ drawn (malformed mathtext, an infinite line through two identical
 points), else a `RuntimeError` naming them all. `draw_without_rendering`
 draws with a renderer that paints nothing, so it raises them too.
 
+**An external program that is missing** fails where matplotlib fails, with
+its exception: TeX for usetex text is `RuntimeError("Failed to process
+string with tex because latex could not be found")` from every path that
+typesets (`TexError::Missing` through `From<TextError>`, and the draw error
+kind `Library`), a TeX file kpathsea cannot find `FileNotFoundError` in
+`dviread`'s words, the PGF backend's TeX system its `RuntimeError` (the PGF
+canvas' `draw` starts it where matplotlib's draw measures a text). A
+renderer's `draw_tex` typesets before it reads its other arguments, as
+matplotlib's does. A distiller of `ps.usedistiller` missing Ghostscript or
+`pdftops` is skipped with matplotlib's logged warning (`_try_distill`),
+the file written undistilled. `python/tests/test_allow1.py` checks each in
+a process whose `PATH` holds none of these programs.
+
 ### What a draw did before it failed
 
 matplotlib's draw stops at the first artist that raises: what the artists

@@ -69,6 +69,7 @@ def test_the_two_distributions():
     files = dict(pltrs.package_files())
     assert "pltrs/__init__.py" in files and "pltrs/pyplot.py" in files
     assert {"pltrs/py.typed", "pltrs/pyplot.pyi", "pltrs/axes/_axes.pyi"} <= set(files)
+    assert files["pltrs/DIFFERENCES.md"] == ROOT / "DIFFERENCES.md"
     assert not [path for path in files if "_native." in path or "__pycache__" in path]
     aliases = dict(alias.package_files())
     checked = dict(alias.checked_sources())

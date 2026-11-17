@@ -1,7 +1,11 @@
 # Intended differences of `cargo xtask diff --private` (spec/diff/private.py):
 # `<owner:name regex> | <cause regex> | why`, matched against a census row's
 # key and the cause of its difference.
+# Each entry stands below a `# topic: <anchor>` line naming the section
+# of DIFFERENCES.md that tells users about it
+# (python/tests/test_differences.py checks that each does).
 
+# topic: private-attributes
 :_isinit$ | value | pltrs (Rust) maps colours without the Python lookup table, so a colormap's `_lut` is made when first read (`Colormap.__getattr__`), not by the draws; `_isinit` tells only whether it was read yet, and libraries reading it call `_init()` when it is False, which then makes the same table
 :_shared_axes$ | ^value | each value answers `cbook.Grouper`'s protocol (`join`, `joined`, `get_siblings`, iteration) over the groups pltrs (Rust) keeps, as a class of its own (`_SharedAxes`), not a `Grouper` of Python sets; read the groups through `get_shared_x_axes()`/`get_shared_y_axes()`, which answer as matplotlib's
 :_twinned_axes$ | ^type Grouper -> _TwinnedAxes | `cbook.Grouper`'s protocol over the twins pltrs (Rust) keeps, as a class of its own
@@ -62,11 +66,13 @@ GridSpecBase:_n(rows|cols)$|^\(receiver unknown\):_format$ | ^write: unpickled v
 Artist:_remove_method$ | ^type | a function removing the artist from what holds it, as matplotlib's (a partial or bound method there); call `artist.remove()` rather than the field
 _AxesBase:_(left|right)_title$|^\(receiver unknown\):_(left|right)_title$ | ^identity$ | a geo Axes made alone lists its children in another order (its titles after its spines); the titles are the same objects
 XAxis:_update_label_position$ | ^signature$ | a 3-D axis keeps the 2-D axes' `_update_label_position(renderer)`; matplotlib's 3-D axis changes the signature to edge points
+# topic: not-built
 # Not ported: matplotlib's private helpers and fields with no state in
 # pltrs (Rust): a fill-between collection's box, a polar spine's circle,
 # a 3-D collection's faces and a 3-D patch's segment, a contour set's
 # argument processing, an axis artist's tick update.
 ^\(receiver unknown\):_(bbox|center|width|faces|update_ticks)$|QuadContourSet:_process_args$|Patch3D:_segment3d$ | ^missing \(AttributeError\)$ | matplotlib's field or helper that pltrs (Rust) has no state for (a fill-between box, a polar spine's circle, 3-D faces and segments, contour argument processing, an axis artist's tick update)
+# topic: private-attributes
 # Staleness of the objects pltrs (Python) makes when they are read
 # (mirrors, a legend's packers, an Axes' parts): a figure's and an Axes'
 # background patch is stale until its owner's first draw after it changed

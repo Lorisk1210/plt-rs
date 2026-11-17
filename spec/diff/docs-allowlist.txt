@@ -6,7 +6,11 @@
 # its group (`doc: docstring differs`, `names: missing`), lists the matches
 # as intended, and `--strict` does not count them. Anything else is a
 # difference to fix.
+# Each entry stands below a `# topic: <anchor>` line naming the section
+# of DIFFERENCES.md that tells users about it
+# (python/tests/test_differences.py checks that each does).
 
+# topic: installation-configuration-and-data-files
 # pltrs does not depend on fontTools, which matplotlib requires: the pltrs
 # venv has no fontTools, so the names cannot be read there. Where fontTools
 # is installed, both modules give it on first read (`_lazy_imports.getter`);

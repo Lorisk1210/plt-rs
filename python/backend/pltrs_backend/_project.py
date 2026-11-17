@@ -29,6 +29,10 @@ import tomllib
 #: The distributions, by the name ``-C distribution=...`` gives.
 DISTRIBUTIONS = ("pltrs", "matplotlib")
 
+#: Documents of the tree's root pltrs' package carries, by their path in
+#: it: what pltrs does otherwise than matplotlib, for whoever installed it.
+PACKAGE_DOCUMENTS = (("pltrs/DIFFERENCES.md", "DIFFERENCES.md"),)
+
 
 class Project:
     """The source tree at *root*, and the distribution *name* of it."""
@@ -118,7 +122,8 @@ class Project:
         """
         The files the distribution installs, as ``(archive path, file)``
         pairs, sorted: pltrs' package without byte code or a built
-        extension (its stubs and ``py.typed`` included), or the alias'
+        extension (its stubs and ``py.typed`` included) and with the
+        documents of `PACKAGE_DOCUMENTS`, or the alias'
         modules (with matplotlib's stubs and ``py.typed``) and the sources
         type checkers read of pltrs under matplotlib's name
         (`checked_sources`).
@@ -138,6 +143,8 @@ class Project:
                 for path in files if path.is_file() and _is_source(path))
         if self.name == "matplotlib":
             found.extend(self.checked_sources())
+        else:
+            found.extend((archive, self.root / source) for archive, source in PACKAGE_DOCUMENTS)
         return sorted(found)
 
     def checked_sources(self):

@@ -4,7 +4,11 @@
 # (`spec/diff/stubs.py`) matches the name (`matplotlib.module.Owner.name`)
 # and stubtest's message, lists the matches as intended, and `--strict` does
 # not count them. Anything else is a difference to fix.
+# Each entry stands below a `# topic: <anchor>` line naming the section
+# of DIFFERENCES.md that tells users about it
+# (python/tests/test_differences.py checks that each does).
 
+# topic: classes-and-types
 # Instance attributes built lazily. The class holds a non-data descriptor
 # (`_transform_trees.TreeAttribute`) that builds the figure's or the Axes'
 # transform trees on the first read and then steps aside: the value lives in

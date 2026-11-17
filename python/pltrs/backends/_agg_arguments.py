@@ -16,7 +16,7 @@ import math
 
 import numpy as np
 
-from .. import _pybind
+from .. import _pybind, rcParams
 from ..font_manager import fontManager, get_font
 from ..mathtext import MathTextParser
 
@@ -119,8 +119,14 @@ class AggArgumentsMixin:
 
     def _tex_arguments(self, gc, x, y, s, prop, angle):
         """The arguments of ``draw_tex`` as matplotlib reads them (before
-        TeX typesets *s*, and with the glyphs it typesets)."""
-        prop.get_size_in_points()
+        TeX typesets *s*, and with the glyphs it typesets): TeX runs
+        first, so that a missing TeX fails before the other arguments."""
+        size = prop.get_size_in_points()
+        texmanager = self.get_texmanager()
+        if rcParams["text.latex.engine"] == "latex+dvipng":
+            texmanager.get_grey(s, size, self.dpi)
+        else:
+            texmanager.make_dvi(s, size)
         self._glyph_arguments(gc, x, y, angle, (0.0, 0.0) if f"{s}" else None)
 
 

@@ -11,16 +11,25 @@ use pltrs::fonts::{
     FontExt, FontListEntry, FontManager, FontProperties, FontStretch, FontWeight,
     FontconfigPattern, parse_math_fontfamily, parse_style, parse_variant,
 };
+use pltrs_text::tex::TexError;
 use pltrs_text::{AfmDirectory, AfmFont, FontSource, TextError};
 
 use crate::binding::prelude::*;
 
 impl From<TextError> for PyErr {
     /// `ValueError` for fonts that cannot be found or read; matplotlib's
-    /// `RuntimeError` for a font size `FreeType` refuses.
+    /// `RuntimeError` for a font size `FreeType` refuses; for TeX that is
+    /// not installed, fails on the text or lacks a file, the exception
+    /// matplotlib's `TexManager` and `dviread` raise (`RuntimeError`,
+    /// `FileNotFoundError`).
     fn from(err: TextError) -> Self {
         match err {
             TextError::FontSize(_) => PyErr::runtime_error(err.to_string()),
+            TextError::Tex(
+                tex @ (TexError::Missing { .. }
+                | TexError::Failed { .. }
+                | TexError::NotFound { .. }),
+            ) => tex.into(),
             err => PyErr::value_error(err.to_string()),
         }
     }

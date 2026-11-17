@@ -5,7 +5,11 @@
 # (spec/reference, crates/pltrs-spec/src) names it; `--strict` fails when a
 # test is neither ported nor listed here, or when a line names a test that
 # no longer exists or that the spec ports.
+# Each entry stands below a `# topic: <anchor>` line naming the section
+# of DIFFERENCES.md that tells users about it
+# (python/tests/test_differences.py checks that each does).
 
+# topic: pltrs-rust
 # --- test_api.py: matplotlib's private `_api` helpers ----------------------
 test_api.py::test_check_in_list_numpy: `_api.check_in_list` on numpy arrays; pltrs validates choices with enums
 test_api.py::test_check_shape: `_api.check_shape`, numpy shape validation; pltrs takes typed grids and point lists

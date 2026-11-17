@@ -89,7 +89,7 @@ fn get_text_path(
         text_path_shaped(at, &s, size, &props.0, &shaping, math)
     };
     set_metrics_cache(installed);
-    path_arrays(&path.map_err(|err| PyErr::value_error(err.to_string()))?)
+    path_arrays(&path?)
 }
 
 /// A glyph of `get_glyphs_tex`: the PostScript name of its font, its index
@@ -116,8 +116,7 @@ fn get_glyphs_tex(
     Vec<TexGlyphPath>,
     Vec<(f64, f64, f64, f64)>,
 )> {
-    let (glyphs, boxes) =
-        tex_glyphs(&s, &props.0).map_err(|err| PyErr::value_error(err.to_string()))?;
+    let (glyphs, boxes) = tex_glyphs(&s, &props.0)?;
     let mut seen = HashSet::new();
     let mut fields = Vec::with_capacity(glyphs.len());
     let mut paths = Vec::new();

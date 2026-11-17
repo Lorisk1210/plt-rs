@@ -426,16 +426,46 @@ impl<S: OutlineSink> OutlineSink for PixelSink<'_, S> {
 /// arithmetic at a [`Size`], or that arithmetic with the hinted advances
 /// and extents HarfBuzz reads from FreeType under hinting load flags
 /// (`GPOS` values still scale unhinted). `Unscaled` is HarfBuzz over a
-/// FreeType face whose size was never set: the advances and extents
-/// FreeType loads unscaled (in font units, which the [`Size`] of one
-/// pixel per font unit gives), and positioning values scaled by the
-/// font's scale of zero.
+/// FreeType face whose size was never set: the extents FreeType loads
+/// unscaled (in font units, which the [`Size`] of one pixel per font unit
+/// gives), the advances FreeType gives for the load flags (see
+/// [`UnscaledAdvances`]), and positioning values scaled by the font's
+/// scale of zero.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Scaler<'h> {
     Units,
     Pixels(Size),
     Hinted(Size, &'h HintedFace<'h, 'h>),
-    Unscaled(Size),
+    Unscaled(Size, UnscaledAdvances),
+}
+
+/// The advances HarfBuzz reads from a FreeType face that loads glyphs
+/// unscaled (its size never set, or `FT_LOAD_NO_SCALE`), which depend on
+/// the load flags (`FT_Get_Advance`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UnscaledAdvances {
+    /// FreeType's fast path (unhinted or light-hinted loads) scales the
+    /// advances in font units by the face's scale, which is zero: every
+    /// glyph stands at the origin.
+    Zero,
+    /// FreeType loads the glyph (hinting load flags), unscaled: its
+    /// advance in font units.
+    FontUnits,
+    /// `FT_LOAD_NO_SCALE`: the advance in font units, which HarfBuzz takes
+    /// for a 16.16 value and rounds to 26.6 (divided by 1024).
+    NoScale,
+}
+
+impl UnscaledAdvances {
+    /// The advance of `glyph` of `face` HarfBuzz reads.
+    fn advance(self, face: &Face<'_>, glyph: GlyphId) -> i32 {
+        let units = i32::from(face.glyph_advance(glyph));
+        match self {
+            Self::Zero => 0,
+            Self::FontUnits => units,
+            Self::NoScale => (units + 512) >> 10,
+        }
+    }
 }
 
 impl Scaler<'_> {
@@ -443,21 +473,22 @@ impl Scaler<'_> {
     /// units).
     const fn size(&self) -> Option<&Size> {
         match self {
-            Self::Units | Self::Unscaled(_) => None,
+            Self::Units | Self::Unscaled(..) => None,
             Self::Pixels(size) | Self::Hinted(size, _) => Some(size),
         }
     }
 
     /// Whether positioning values scale to zero (see `Unscaled`).
     const fn zero_scale(&self) -> bool {
-        matches!(self, Self::Unscaled(_))
+        matches!(self, Self::Unscaled(..))
     }
 
     pub(crate) fn advance(&self, face: &Face<'_>, glyph: GlyphId) -> i32 {
         match self {
             Self::Units => i32::from(face.glyph_advance(glyph)),
-            Self::Pixels(size) | Self::Unscaled(size) => size.advance(face, glyph),
+            Self::Pixels(size) => size.advance(face, glyph),
             Self::Hinted(_, hinted) => hinted.advance(glyph),
+            Self::Unscaled(_, advances) => advances.advance(face, glyph),
         }
     }
 
@@ -465,7 +496,7 @@ impl Scaler<'_> {
     pub(crate) fn extents(&self, face: &Face<'_>, glyph: GlyphId) -> Result<Option<Rect>> {
         match self {
             Self::Units => face.glyph_bbox(glyph),
-            Self::Pixels(size) | Self::Unscaled(size) => size.glyph_cbox(face, glyph),
+            Self::Pixels(size) | Self::Unscaled(size, _) => size.glyph_cbox(face, glyph),
             Self::Hinted(_, hinted) => hinted.extents(glyph),
         }
     }

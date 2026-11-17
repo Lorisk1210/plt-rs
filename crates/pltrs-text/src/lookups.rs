@@ -31,9 +31,12 @@ pub enum LookupKind {
     Font,
     /// The best of the AFM fonts of a directory, for a text a PostScript
     /// or PDF renderer measures and draws in them (matplotlib's
-    /// `findfont(fontext="afm", directory=...)` in `_get_font_afm`; the
-    /// PDF renderer looks its core fonts up once more to name the font).
+    /// `findfont(fontext="afm", directory=...)` in `_get_font_afm`).
     Afm(AfmDirectory),
+    /// The PDF core fonts looked up once more where the PDF renderer
+    /// draws a text in them, to name the font it writes (matplotlib's
+    /// `fontName`, `_find_fonts_by_props` among the AFM fonts).
+    PdfFontName,
 }
 
 /// A font lookup matplotlib's font manager logs about.
@@ -138,7 +141,10 @@ pub(crate) fn note(lookup: FontLookup, found: &[Option<u16>]) {
         .iter()
         .any(|found| found.is_none_or(|found| found != weight));
     // (What the font manager says of an AFM font is its to find out.)
-    if !(logged || EVERY.get() || matches!(lookup.kind, LookupKind::Afm(_))) {
+    if !(logged
+        || EVERY.get()
+        || matches!(lookup.kind, LookupKind::Afm(_) | LookupKind::PdfFontName))
+    {
         return;
     }
     keep(FontNote::Lookup(LookupRun { lookup, times: 1 }));

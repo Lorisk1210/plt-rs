@@ -355,6 +355,21 @@ class TextPath(Path):
             readonly=True)
         self._should_simplify = False
 
+    @classmethod
+    def _of_outline(cls, vertices, codes):
+        """The text path at the origin, of the default font size, whose
+        outline at that size pltrs (Rust) typeset (*vertices*, *codes*):
+        `TextPath` ``(xy=(0, 0), s)`` for the text it typeset."""
+        path = cls.__new__(cls)
+        size = FontProperties().get_size_in_points()
+        path._xy = (0, 0)
+        path.set_size(size)
+        path._cached_vertices = None
+        Path.__init__(path, np.asarray(vertices, float) * (text_to_path.FONT_SCALE / size),
+                      codes, readonly=True)
+        path._should_simplify = False
+        return path
+
     def set_size(self, size):
         """Set the text size."""
         self._size = size

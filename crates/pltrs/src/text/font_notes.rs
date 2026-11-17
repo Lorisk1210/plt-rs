@@ -21,7 +21,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use pltrs_text::{TextEngine, TextError, TextRun, TextSource};
+use pltrs_text::{AfmDirectory, TextEngine, TextError, TextRun, TextSource};
 
 use super::layout::Typesetting;
 use super::math::Line;
@@ -55,6 +55,20 @@ thread_local! {
     /// Whether the texts laid out now are those of text areas measured
     /// (see [`text_area_layouts`]).
     static IN_TEXT_AREA: Cell<bool> = const { Cell::new(false) };
+    /// Whether the texts laid out now are laid out for their outlines
+    /// (see [`outlined`]).
+    static OUTLINED: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Runs `outline`, which lays text out for its outline (matplotlib's
+/// `TextToPath.get_text_path`, as `TextPath` makes it): the lookups of its
+/// fonts are noted, but not the characters no font has, as matplotlib's
+/// layout of a text path (`_text_helpers.layout`) warns about none.
+pub(crate) fn outlined<R>(outline: impl FnOnce() -> R) -> R {
+    let before = OUTLINED.replace(true);
+    let result = outline();
+    OUTLINED.set(before);
+    result
 }
 
 /// Runs `draw`, a draw without rendering (matplotlib's
@@ -272,8 +286,10 @@ pub(super) fn note_layout(
 
 /// Notes what measuring the plain line `line` of `run`, uncached, notes in
 /// matplotlib (`get_text_width_height_descent`): the lookup of its fonts
-/// and the characters none has. Math lines are measured by mathtext, which
-/// notes neither, but parses them (see [`math_parses`]).
+/// and the characters none has; in the AFM fonts of the PDF and
+/// PostScript backends, the lookup of the AFM font alone (`_get_font_afm`).
+/// Math lines are measured by mathtext, which notes neither, but parses
+/// them (see [`math_parses`]).
 ///
 /// # Errors
 ///
@@ -293,8 +309,14 @@ pub(super) fn note_measured(
     let engine = TextEngine::global();
     let request = font.drawn_request();
     for _ in 0..draws_noted(true) {
+        if let Some(directory) = metrics::afm_directory() {
+            engine.note_afm_lookup(&request, directory);
+            continue;
+        }
         engine.note_font_lookup(&request)?;
-        engine.note_missing_glyphs(run, text.as_ref(), &request)?;
+        if !OUTLINED.get() {
+            engine.note_missing_glyphs(run, text.as_ref(), &request)?;
+        }
     }
     Ok(())
 }
@@ -311,8 +333,10 @@ pub(crate) fn through_effects<R>(draw: impl FnOnce() -> R) -> R {
 }
 
 /// Notes the lookup drawing the line `run` makes in matplotlib (its
-/// renderers' `draw_text` prepares the fonts of plain lines): in each of
-/// the draws of a print drawn through path effects, else in the last.
+/// renderers' `draw_text` prepares the fonts of plain lines, the PDF and
+/// PostScript backends their AFM font where they draw in it): in each of
+/// the draws of a print drawn through path effects (whose text paths are
+/// TrueType's), else in the last.
 /// Drawing a math line parses it, with `antialiased` glyphs (see
 /// [`math_parses`]).
 ///
@@ -327,12 +351,16 @@ pub(super) fn note_drawn(run: &TextRun, antialiased: bool) -> Result<(), TextErr
     let Some(TextSource::Plain { font, .. }) = &run.source else {
         return Ok(());
     };
-    let draws = if THROUGH_EFFECTS.get() {
-        draws_of_print()
+    if THROUGH_EFFECTS.get() {
+        for _ in 0..draws_of_print() {
+            TextEngine::global().note_font_lookup(font)?;
+        }
+    } else if let Some(directory) = metrics::afm_directory() {
+        TextEngine::global().note_afm_lookup(font, directory);
+        if directory == AfmDirectory::PdfCore {
+            TextEngine::global().note_pdf_font_name_lookup(font);
+        }
     } else {
-        1
-    };
-    for _ in 0..draws {
         TextEngine::global().note_font_lookup(font)?;
     }
     Ok(())

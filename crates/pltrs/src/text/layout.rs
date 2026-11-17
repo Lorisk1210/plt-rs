@@ -161,7 +161,9 @@ fn line_path(
             shaping: shaping.clone(),
         }
         .layout(TextEngine::global(), TEXT_PATH_FONT_SCALE, TEXT_PATH_DPI),
-        _ => without_hinting(|| line_run(line, &typeset, TEXT_PATH_DPI, &rc, true)),
+        _ => font_notes::outlined(|| {
+            without_hinting(|| line_run(line, &typeset, TEXT_PATH_DPI, &rc, true))
+        }),
     }?;
     let scale = size.unwrap_or(font.size) / TEXT_PATH_FONT_SCALE;
     Ok(run

@@ -818,11 +818,27 @@ class FT2Font:
         """
         return _ft2font.get_ps_font_info(self._native)
 
-    def _missing(self, codepoint):
-        """Warn that no face of the font has *codepoint*."""
+    def _missing(self, codepoint, tried=None):
+        """Warn that *codepoint* has no glyph but in a font only standing in
+        (``_warn_if_used``), naming the fonts looked in: the font and the
+        first *tried* of its fallbacks (all by default) that do not stand
+        in, as matplotlib's ``ft_glyph_warn`` does."""
         from ._text_helpers import warn_on_missing_glyph
-        names = [self.family_name, *(font.family_name for font in self._fallbacks)]
-        warn_on_missing_glyph(codepoint, ", ".join(names))
+        fallbacks = self._fallbacks if tried is None else self._fallbacks[:tried]
+        names = [self.family_name,
+                 *(font.family_name for font in fallbacks if not font._warn_if_used)]
+        warn_on_missing_glyph(codepoint, ", ".join(dict.fromkeys(names)))
+
+    def _warn_missing(self, laid_out):
+        """Warn about each glyph of a layout, *laid_out* as ``(character,
+        face)``, whose character no font of the chain has (face None) or
+        only a stand-in has, naming the fonts the layout looked in
+        (matplotlib's ``set_text``)."""
+        deepest = max((len(self._fallbacks) if face is None else face
+                       for _, face in laid_out), default=0)
+        for codepoint, face in laid_out:
+            if face is None or (face and self._fallbacks[face - 1]._warn_if_used):
+                self._missing(codepoint, deepest)
 
     @_pybind.binds(
         '(self: {module}.FT2Font, '
@@ -861,7 +877,10 @@ class FT2Font:
             # matplotlib's message names the line of ft2font.cpp raising it.
             raise RuntimeError(
                 "charcode loading (ft2font.cpp line 544) failed to find glyph to load")
-        metrics, index, _face = loaded
+        metrics, index, face = loaded
+        if face and self._fallbacks[face - 1]._warn_if_used:
+            # A font only standing in has it: matplotlib warns all the same.
+            self._missing(charcode, face)
         return Glyph._loaded(metrics, index)
 
     @_pybind.binds(
@@ -939,15 +958,11 @@ class FT2Font:
         """
         shaping = _shaping(features, language)
         flags = _flags_value(flags)
-        for codepoint in map(ord, string):
-            if (codepoint > 31 and self.get_char_index(codepoint) == 0
-                    and not any(font.get_char_index(codepoint)
-                                for font in self._fallbacks)):
-                self._missing(codepoint)
         for font in self._fallbacks:
             font.clear()
-        xys = _ft2font.set_text(self._native, string, float(angle), flags,
-                                shaping)
+        xys, laid_out = _ft2font.set_text(self._native, string, float(angle), flags,
+                                          shaping)
+        self._warn_missing(laid_out)
         return np.array(xys, dtype=float).reshape(-1, 2)
 
     @_pybind.binds(

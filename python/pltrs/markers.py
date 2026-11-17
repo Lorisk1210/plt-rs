@@ -164,6 +164,10 @@ class MarkerStyle:
         """Resolve the marker into its paths and transforms (by pltrs (Rust))."""
         if self._spec is None:
             return
+        if self._spec[0] == "math":
+            # The functions pltrs (Rust) reports the formula's font lookups
+            # and missing glyphs through, whatever was imported before.
+            from . import _text_helpers  # noqa: F401
         ((path, mtx), alt, (self._snap_threshold, joinstyle, capstyle,
                             self._filled)) = _markers.resolve(
             self._spec, self._fillstyle,
@@ -172,6 +176,12 @@ class MarkerStyle:
         kind, given = self._spec
         if kind == "path":
             self._path = given
+        elif kind == "math" and len(path[0]):
+            # matplotlib's marker holds the text path it measured itself by
+            # (`_set_mathtext_path`): the outline pltrs (Rust) typeset, the
+            # formula not typeset again.
+            from .textpath import TextPath
+            self._path = TextPath._of_outline(*path)
         else:
             self._path = (_builtin_path if kind in _BUILTIN_KINDS else Path)(*path)
         self._transform = Affine2D(mtx)

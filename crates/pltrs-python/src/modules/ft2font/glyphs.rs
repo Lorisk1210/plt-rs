@@ -130,7 +130,9 @@ pub(super) struct TextBox {
 pub(super) struct Glyphs {
     /// Every glyph loaded since the last `clear`.
     pub(super) loaded: Vec<Loaded>,
-    /// The glyph slot: the last glyph loaded, for `get_path`.
+    /// The glyph slot of the font's own face: the last glyph loaded from
+    /// it, for `get_path` (a glyph loaded from a fallback goes to that
+    /// fallback's face, as `FreeType` loads into the face it comes from).
     slot: Option<Loaded>,
     pub(super) text: TextBox,
     /// The bitmap `draw_glyphs_to_bitmap` drew: `(rows, columns, pixels)`.
@@ -141,6 +143,14 @@ pub(super) struct Glyphs {
 }
 
 impl Glyphs {
+    /// Makes `glyph` the one in the glyph slot if it comes from the font's
+    /// own face.
+    pub(super) fn load_into_slot(&mut self, glyph: Loaded) {
+        if glyph.face == 0 {
+            self.slot = Some(glyph);
+        }
+    }
+
     /// Forgets the loaded glyphs, the text's extent and the faces the
     /// characters came from (matplotlib's `FT2Font::clear`, which leaves
     /// the glyph slot and the image).
@@ -324,7 +334,7 @@ fn load(
     };
     let loaded = Loaded::new(face_index, glyph, (size, hinting), (0, 0), 0.0);
     font.glyphs.loaded.push(loaded);
-    font.glyphs.slot = Some(loaded);
+    font.glyphs.load_into_slot(loaded);
     Ok((metrics, font.glyphs.loaded.len() - 1, face_index))
 }
 
@@ -374,8 +384,27 @@ fn clear(font: Native<Ft2Font>) -> PyResult<()> {
     Ok(())
 }
 
-/// `get_path()`: the outline of the glyph last loaded, `(vertices,
-/// codes)` with matplotlib's path codes, empty before any.
+impl Ft2Font {
+    /// The outline of `glyph` as `FreeType` loads it, untransformed, in
+    /// pixels.
+    pub(super) fn outline(&self, glyph: &Loaded) -> PyResult<pltrs_core::Path> {
+        let face = self.chain_face(glyph.face)?;
+        let size = glyph.size.of(&face);
+        let mut sink = PathSink::default();
+        match self.load_hinted(glyph.face, &face, &size, glyph.glyph, glyph.hinting)? {
+            Some(hinted) => hinted.outline(&mut sink),
+            None => size
+                .outline(&face, glyph.glyph, &mut sink)
+                .map_err(|err| ft_error("load glyph", &err))?,
+        }
+        Ok(sink.finish())
+    }
+}
+
+/// `get_path()`: the outline of the glyph in the font's glyph slot (the
+/// last glyph `load_char`, `load_glyph` or `set_text` loaded from its own
+/// face), `(vertices, codes)` with matplotlib's path codes, empty before
+/// any.
 fn get_path(font: Native<Ft2Font>) -> PyResult<(NdArray, NdArray<u8>)> {
     let font = font.borrow();
     let Some(glyph) = font.glyphs.slot else {
@@ -384,16 +413,7 @@ fn get_path(font: Native<Ft2Font>) -> PyResult<(NdArray, NdArray<u8>)> {
             NdArray::from_vec(Vec::new()),
         ));
     };
-    let face = font.chain_face(glyph.face)?;
-    let size = glyph.size.of(&face);
-    let mut sink = PathSink::default();
-    match font.load_hinted(glyph.face, &face, &size, glyph.glyph, glyph.hinting)? {
-        Some(hinted) => hinted.outline(&mut sink),
-        None => size
-            .outline(&face, glyph.glyph, &mut sink)
-            .map_err(|err| ft_error("load glyph", &err))?,
-    }
-    let path = sink.finish();
+    let path = font.outline(&glyph)?;
     let vertices: Vec<f64> = path.vertices().iter().flat_map(|p| [p.x, p.y]).collect();
     let codes = path.codes().map_or_else(Vec::new, |codes| {
         codes

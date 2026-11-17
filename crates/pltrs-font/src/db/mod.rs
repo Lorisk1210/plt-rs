@@ -40,7 +40,7 @@ use crate::shape::FontChain;
 use crate::tables::directory::face_count;
 use afm_system::Described;
 use arena::Arena;
-use bundled::{BUNDLED_FONTS, LAST_RESORT};
+use bundled::{BUNDLED_FONTS, LAST_RESORT, MODERN_LOOK_FONTS};
 use held::HeldFile;
 use memo::LookupMemo;
 
@@ -51,6 +51,17 @@ pub fn bundled_font_data(file_name: &str) -> Option<&'static [u8]> {
         .iter()
         .find(|font| font.file == file_name)
         .map(|font| font.data)
+}
+
+/// Whether the bundled font file `file_name` is one of pltrs' modern
+/// look (Inter), which matplotlib does not ship.
+///
+/// ```
+/// assert!(pltrs_font::is_modern_look_font("Inter-Regular.ttf"));
+/// assert!(!pltrs_font::is_modern_look_font("DejaVuSans.ttf"));
+/// ```
+pub fn is_modern_look_font(file_name: &str) -> bool {
+    MODERN_LOOK_FONTS.contains(&file_name)
 }
 
 /// `(file name, contents)` of every bundled font file, for writing them

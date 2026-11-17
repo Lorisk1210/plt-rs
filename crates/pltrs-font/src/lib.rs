@@ -83,8 +83,9 @@ pub use db::{
     AfmChoice, AfmDirectory, AfmEntry, AfmFont, AfmStyle, CatalogueReport, CatalogueState,
     FaceStyle, FontDatabase, FontEntry, FontId, FontQuery, FontSource, FontStyle, FontVariant,
     GenericFamilies, GenericFamily, RegistryReader, Stretch, Weight, alternative_family_names,
-    bundled_font_data, bundled_font_files, catalogue_file_name, face_style, read_registry_with,
-    score_family, score_size, score_stretch, score_style, score_variant, score_weight,
+    bundled_font_data, bundled_font_files, catalogue_file_name, face_style, is_modern_look_font,
+    read_registry_with, score_family, score_size, score_stretch, score_style, score_variant,
+    score_weight,
 };
 pub use error::{FontError, Result};
 pub use face::{Face, StyleFlags};
@@ -94,7 +95,7 @@ pub use hinting::{
 };
 pub use layout::feature::{Feature, ParseFeatureError};
 pub use outline::{OutlineRecorder, OutlineSink, PathCommand};
-pub use scale::{KerningMode, Size, SizeError};
+pub use scale::{KerningMode, Size, SizeError, UnscaledAdvances};
 pub use scan::{Dropouts, ScanOutline, ScanPoint, ScanPointKind, ScanRules};
 pub use sfnt::FaceFlags;
 pub use shape::{

@@ -19,6 +19,12 @@ from ._own_state import State, comparable, content, note_paths
 from .path import Path
 
 
+def mcolors():
+    """The `colors` module (imported when first needed)."""
+    from . import colors
+    return colors
+
+
 def _rcParams():
     """The global rcParams (imported when first needed)."""
     from . import rcParams
@@ -201,6 +207,18 @@ def _take_facecolors(collection, colors):
 FACECOLORS = State(
     "facecolors", lambda collection: collection._read_facecolor(), _take_facecolors,
     version=_mapping_drawn)
+
+
+def _take_given_facecolors(collection, colors):
+    if collection.__dict__.get("_original_facecolor") is colors:
+        _collections.set_facecolors(collection._native, _colors(mcolors().to_rgba_array(colors)))
+
+
+#: The array of colours `~.Collection.set_facecolor` was given
+#: (matplotlib's ``_original_facecolor``), which matplotlib's first draw
+#: resolves again.
+GIVEN_FACECOLORS = State("facecolors given", lambda collection: None, _take_given_facecolors,
+                         until_drawn=True)
 
 
 def shown_until_drawn(collection, name, native):

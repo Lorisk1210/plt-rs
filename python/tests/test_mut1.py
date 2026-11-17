@@ -26,7 +26,7 @@ import pltrs.pyplot as plt
 from pltrs import collections, colors, patches, transforms
 from pltrs.path import Path
 
-from mutability import runner, scenes, setters
+from mutability import runner, scenes, setters, threed
 
 #: Whether the tests run on matplotlib itself (through the alias), where
 #: no row may differ.
@@ -34,7 +34,8 @@ ON_MATPLOTLIB = pltrs.__name__ == "matplotlib"
 
 REFERENCE = runner.recorded()
 EXPECTED = {} if ON_MATPLOTLIB else runner.expected()
-GROUPS = runner.groups(REFERENCE["surface"])
+FOUND = runner.found_in(REFERENCE)
+GROUPS = runner.groups(FOUND)
 
 
 @pytest.fixture(autouse=True)
@@ -49,7 +50,7 @@ def matplotlib_defaults():
 @pytest.mark.parametrize("group", sorted(GROUPS))
 def test_changes_in_place_follow_matplotlib(group):
     names = GROUPS[group]
-    ours = runner.measure_here(REFERENCE["surface"], names)
+    ours = runner.measure_here(FOUND, names)
     differing = runner.differing(ours, REFERENCE["outcomes"])
     expected = {name: EXPECTED[name] for name in names if name in EXPECTED}
     unexpected = {name: keys for name, keys in differing.items()
@@ -884,3 +885,270 @@ def test_a_lines_columns_are_views_of_its_numbers_while_they_are_held():
     assert line._y.tolist() == [0.0, 3.0, 0.0] and line._y.base is line._xy
     assert pickle.loads(pickle.dumps(fig)).axes[0].lines[0]._y.tolist() == [0.0, 3.0, 0.0]
 
+
+def axes3d():
+    """A small figure and its 3-D Axes, with a fixed view."""
+    fig = plt.figure(figsize=(3, 3), dpi=40)
+    ax = fig.add_subplot(projection="3d")
+    return fig, ax
+
+
+def test_line_collections_a_3d_axes_makes_keep_their_segments():
+    # (USR2: `quiver` and `plot_wireframe` returned collections without.)
+    fig, ax = axes3d()
+    arrows = ax.quiver([0.0], [0.0], [0.0], [1.0], [1.0], [1.0], length=1, arrow_length_ratio=0.3)
+    xs, ys = np.meshgrid([0.0, 1.0], [0.0, 1.0])
+    wires = ax.plot_wireframe(xs, ys, xs + ys)
+    threed.frame(ax)
+    segments = arrows._segments3d
+    assert type(segments) is list and len(segments) == 3
+    assert np.round(segments[0], 3).tolist() == [[1.0, 1.0, 1.0], [0.0, 0.0, 0.0]]
+    assert arrows._segments3d is segments
+    assert len(wires._segments3d) == 4
+    assert np.asarray(wires._segments3d[0]).tolist() == [[0.0, 0.0, 0.0], [1.0, 0.0, 1.0]]
+    # Changed in place, or assigned, they are drawn.
+    before = pixels(fig)
+    segments[0][0] = (3.0, 3.0, 3.0)
+    moved = pixels(fig)
+    assert (moved != before).any() and arrows._segments3d is segments
+    wires._segments3d = [np.array([[0.0, 0.0, 0.0], [3.0, 3.0, 3.0]])]
+    assert (pixels(fig) != moved).any() and len(wires._segments3d) == 1
+    read_back = pickle.loads(pickle.dumps(fig)).axes[0].collections[0]
+    assert np.asarray(read_back._segments3d[0]).tolist() == np.asarray(segments[0]).tolist()
+
+
+def test_3d_polygons_patches_and_texts_keep_the_fields_of_their_geometry():
+    from pltrs.mpl_toolkits.mplot3d import art3d
+
+    fig, ax = axes3d()
+    xs, ys = np.meshgrid(np.linspace(-1.0, 2.0, 4), np.linspace(-1.0, 1.0, 3))
+    surface = ax.plot_surface(xs, ys, xs + ys)
+    circle = ax.add_patch(patches.Circle((1.0, 1.0), 0.8))
+    art3d.patch_2d_to_3d(circle, z=1.0, zdir="x")
+    label = ax.text(1.0, 1.0, 1.0, "deep", zdir="x")
+    threed.frame(ax)
+    faces = surface._faces
+    assert faces.shape == (6, 4, 3) and surface._faces is faces
+    assert surface._invalid_vertices is False and surface._codes3d is None
+    assert surface._zsortfunc is np.average and surface._closed is True
+    assert surface._axlim_clip is False and circle._axlim_clip is False
+    outline = circle._segment3d
+    assert type(outline) is list and type(outline[0]) is tuple and circle._segment3d is outline
+    assert label._z == 1.0 and label._dir_vec.tolist() == [1, 0, 0]
+    assert not hasattr(surface, "_facecolors2d")
+    before = pixels(fig)
+    # What the projection left: the colours in the order drawn, the path
+    # of the patch.
+    assert surface._facecolors2d.shape == (6, 4) and surface._facecolors2d is surface._facecolors2d
+    assert len(circle._path2d.vertices) == len(outline)
+    faces[:, :, 2] += 1.0
+    lifted = pixels(fig)
+    assert (lifted != before).any() and surface._faces is faces
+    outline[:] = [(1.0, y, z + 1.0) for _, y, z in outline]
+    label._dir_vec = np.array([0, 1, 0])
+    assert (pixels(fig) != lifted).any()
+    assert circle._segment3d is outline and label._dir_vec.tolist() == [0, 1, 0]
+
+
+def test_a_scatter_reads_back_what_its_projection_left():
+    fig, ax = axes3d()
+    points = ax.scatter([0.0, 1.0, 2.0], [0.0, 1.0, 2.0], [2.0, 1.0, 0.0], s=200)
+    threed.frame(ax)
+    assert points._vzs is None and points._z_markers_idx == slice(-1)
+    assert points._offset_zordered is None and not hasattr(points, "_data_scale")
+    assert points._depthshade_minalpha == pltrs.rcParams["axes3d.depthshade_minalpha"]
+    pixels(fig)
+    depths = points._vzs
+    assert depths.shape == (3,) and points._vzs is depths
+    assert sorted(points._z_markers_idx.tolist()) == [0, 1, 2]
+    assert points._z_markers_idx.tolist() == np.ma.argsort(depths)[::-1].tolist()
+    assert points._offset_zordered.shape == (3, 2) and points._data_scale > 0
+    # Colours are new arrays at every call, shaded with depth.
+    assert points.get_facecolor() is not points.get_facecolor()
+    assert points.get_facecolor().shape == (3, 4)
+    pixels(fig)
+    assert points._vzs is not depths
+
+
+def test_what_a_projection_leaves_follows_the_draws_of_the_axes():
+    # matplotlib's 3-D Axes projects its visible collections and patches
+    # before it draws any: also an animated one, which it does not draw.
+    from pltrs.mpl_toolkits.mplot3d import art3d
+    fig, ax = axes3d()
+    faces = ax.add_collection3d(art3d.Poly3DCollection(
+        [[(0, 0, 0), (1, 0, 0), (1, 1, 1)], [(0, 1, 0), (1, 1, 0), (0, 0, 1)]],
+        facecolors=["r", "g"]))
+    threed.frame(ax)
+    faces.set_animated(True)
+    assert faces.get_facecolor().shape == (2, 4)
+    faces.set_facecolor("none")
+    # The colours of the last projection, until the next.
+    assert faces.get_facecolor().shape == (2, 4)
+    pixels(fig)
+    assert faces.get_facecolor().shape == (0, 4)
+    assert faces.get_edgecolor().shape == (0, 4)
+
+
+def test_a_collection_converted_after_a_3d_axes_added_it_is_drawn_in_3d():
+    # (USR2's ``art3d_conversions``: ``ax.add_collection(lines)``, then
+    # ``line_collection_2d_to_3d(lines)``, was drawn flat.)
+    from pltrs.mpl_toolkits.mplot3d import art3d
+
+    def drawn(added_first):
+        fig, ax = axes3d()
+        made = (
+            (collections.LineCollection([[(0, 0), (3, 3)], [(0, 3), (3, 0)]], linewidths=4),
+             art3d.line_collection_2d_to_3d, 1.0),
+            (collections.PolyCollection([[(0.5, 0.5), (2.5, 0.5), (1.5, 3)]], facecolors="C1"),
+             art3d.poly_collection_2d_to_3d, 2.0),
+            (collections.PatchCollection([patches.Circle((2.5, 2.5), 0.6)], facecolors="C2"),
+             art3d.patch_collection_2d_to_3d, 3.0))
+        for collection, convert, z in made:
+            if added_first:
+                ax.add_collection(collection)
+                convert(collection, zs=z)
+            else:
+                convert(collection, zs=z)
+                ax.add_collection(collection)
+        threed.frame(ax)
+        return ax, pixels(fig)
+    ax, after = drawn(True)
+    _, before = drawn(False)
+    assert [type(collection).__name__ for collection in ax.collections] == [
+        "Line3DCollection", "Poly3DCollection", "Patch3DCollection"]
+    assert np.array_equal(after, before)
+    assert (after[:, :, :3] != 255).any()
+
+
+def test_a_3d_path_patch_given_no_path_says_what_it_reads_first():
+    from pltrs.mpl_toolkits.mplot3d import art3d
+    patch = art3d.PathPatch3D(Path([(0, 0), (1, 0), (1, 1)]), zs=(0, 0, 0))
+    with pytest.raises(AttributeError, match="'vertices'"):
+        patch.set_3d_properties(None, 1)
+
+
+def program_arrow():
+    """qiskit's arrow of its Bloch spheres (`mutability.threed`)."""
+    return threed._arrow_class()
+
+
+def test_a_3d_patch_another_class_draws_keeps_its_segment_and_its_head():
+    from pltrs.mpl_toolkits.mplot3d import art3d
+
+    def drawn(style):
+        fig, ax = axes3d()
+        arrow = ax.add_artist(program_arrow()(
+            [0.0, 2.5], [0.0, 2.5], [0.0, 3.0], mutation_scale=40, lw=3, arrowstyle=style,
+            color="red"))
+        threed.frame(ax)
+        return arrow, pixels(fig)
+    arrow, headed = drawn("-|>")
+    _, bare = drawn("-")
+    assert isinstance(arrow, art3d.Patch3D) and isinstance(arrow, patches.FancyArrowPatch)
+    assert [tuple(map(float, point)) for point in arrow._segment3d] == [
+        (0.0, 0.0, 0.0), (2.5, 2.5, 3.0)]
+    assert len(arrow.seen) == 1 and arrow._path2d.vertices.shape == (2, 2)
+    assert threed._red(bare) > 20, "the shaft is drawn"
+    assert threed._red(headed) > 1.2 * threed._red(bare), "and so is the head"
+
+
+def test_a_subclass_projecting_a_3d_collection_is_called_at_every_draw():
+    from pltrs.mpl_toolkits.mplot3d import art3d
+
+    seen = []
+
+    class Lines(art3d.Line3DCollection):
+        def do_3d_projection(self):
+            seen.append(len(self._segments3d))
+            return super().do_3d_projection()
+
+    fig, ax = axes3d()
+    lines = Lines([np.array([[0.0, 0.0, 0.0], [1.0, 2.0, 1.0]])], linewidths=4)
+    ax.add_collection3d(lines)
+    threed.frame(ax)
+    before = pixels(fig)
+    assert seen == [1]
+    lines.set_segments([np.array([[0.0, 0.0, 0.0], [3.0, 3.0, 3.0]]),
+                        np.array([[3.0, 0.0, 0.0], [0.0, 3.0, 3.0]])])
+    assert (pixels(fig) != before).any()
+    assert seen == [1, 2]
+
+
+def test_relim_of_a_3d_axes_leaves_the_projected_lines_in_its_data_limits():
+    fig, ax = axes3d()
+    ax.plot([0.0, 1.0, 2.0], [0.0, 1.0, 2.0], [0.0, 1.0, 0.0])
+    ax.scatter([0.0, 3.0], [0.0, 3.0], [0.0, 3.0])
+    threed.frame(ax)
+    assert ax.dataLim.get_points().tolist() == [[0.0, 0.0], [2.0, 2.0]]
+    pixels(fig)
+    ax.relim()
+    # matplotlib's 2-D relim, inherited: the lines as last drawn, which is
+    # their projection, and nothing of the collections.
+    (x0, y0), (x1, y1) = ax.dataLim.get_points().tolist()
+    assert -0.2 < x0 < x1 < 0.2 and -0.2 < y0 < y1 < 0.2
+
+
+def test_a_bare_patch_has_no_edge_while_it_is_filled():
+    from pltrs.mpl_toolkits.mplot3d import art3d
+    from pltrs.path import Path as PathClass
+
+    patch = patches.Patch(facecolor="red")
+    assert patch.get_edgecolor() == (0.0, 0.0, 0.0, 0.0)
+    patch.set_fill(False)
+    assert patch.get_edgecolor() == (0.0, 0.0, 0.0, 1.0)
+    patch.set_fill(True)
+    assert patch.get_edgecolor() == (0.0, 0.0, 0.0, 0.0)
+    outline = PathClass(np.array([[0.0, 0.0], [2.0, 0.5], [1.0, 2.5], [0.0, 0.0]]))
+    assert art3d.PathPatch3D(outline, zs=1.0).get_edgecolor() == (0.0, 0.0, 0.0, 0.0)
+    assert art3d.PathPatch3D(outline, zs=1.0, edgecolor="blue").get_edgecolor() == (
+        0.0, 0.0, 1.0, 1.0)
+
+
+def test_values_given_are_the_values_handed_back():
+    fig, ax = small_axes()
+    for every in ((3, 7), slice(2, 60, 9), float("0.125"), (0.05, 0.2), [0, 10, 50],
+                  np.arange(101) % 13 == 0):
+        line, = ax.plot(np.arange(101.0), marker="o", markevery=every)
+        assert line.get_markevery() is every
+        line.set_markevery(every)
+        assert line.get_markevery() is every
+    # After `update_from` two artists share the clip box of the first.
+    first, = ax.plot([0, 1], [0, 1])
+    second, = ax.plot([0, 1], [1, 0])
+    assert first.get_clip_box() is not second.get_clip_box()
+    second.update_from(first)
+    assert second.get_clip_box() is first.get_clip_box()
+    assert pickle.loads(pickle.dumps(fig)).axes[0].lines[-1].get_clip_box() is not None
+    # A reset of the tick parameters makes new ticks.
+    fig.canvas.draw()
+    before = ax.xaxis.get_major_ticks()[1]
+    ax.tick_params(axis="x", width=2)
+    assert ax.xaxis.get_major_ticks()[1] is before
+    ax.tick_params(reset=True, axis="x")
+    fig.canvas.draw()
+    assert ax.xaxis.get_major_ticks()[1] is not before
+
+
+def test_what_the_first_draw_reads_follows_a_change_made_before_it():
+    def drawn(change):
+        fig, ax = small_axes()
+        line, = ax.plot([0, 3], [0, 3], lw=30)
+        clip = Path(np.array([[0.5, 0.5], [2.5, 0.5], [2.5, 2.5], [0.5, 2.5], [0.5, 0.5]]))
+        line.set_clip_path(clip, ax.transData)
+        points = ax.scatter([0.5, 2.5], [2.5, 0.5], s=400)
+        colours = np.array([[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]])
+        points.set_facecolor(colours)
+        if change == "before":
+            clip.vertices[:] *= 0.5
+            colours[:, 1] = 1.0
+        first = pixels(fig)
+        if change == "after":
+            clip.vertices[:] *= 0.5
+            colours[:, 1] = 1.0
+        return first, pixels(fig)
+    plain, _ = drawn(None)
+    changed, _ = drawn("before")
+    assert (changed != plain).any()
+    # matplotlib reads both at the first draw, and no more.
+    first, second = drawn("after")
+    assert (first == plain).all() and (second == plain).all()

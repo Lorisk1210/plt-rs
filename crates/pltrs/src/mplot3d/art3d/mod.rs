@@ -92,6 +92,11 @@ impl Path3D {
         debug_assert_eq!(template.len(), vertices.len());
         Self { template, vertices }
     }
+
+    /// The 2-D path whose codes the projected path keeps.
+    pub(crate) fn template(&self) -> &Path {
+        &self.template
+    }
 }
 
 /// A 2-D artist of the projection plane with its 3-D geometry.

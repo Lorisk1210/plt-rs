@@ -21,7 +21,11 @@ from pltrs import text as mtext
 from pltrs._native import artist as _artist, lines as _lines, mplot3d as _mplot3d
 from pltrs._native import patches as _patches
 
+from . import _properties
+
 _draw_problems = _lazy_imports.module(globals(), "._draw_problems")
+_fields3d = _lazy_imports.module(globals(), "._fields3d")
+_program_projection = _lazy_imports.module(globals(), "._program_projection")
 
 
 def _columns(arrays):
@@ -277,6 +281,16 @@ def _gains_projection(artist):
         _draw_problems.record(artist, None)
 
 
+def _lift_added(col):
+    """Have the 3-D axes that added *col* as a 2-D collection take it
+    again, with the 3-D geometry a conversion has just given it: pltrs
+    (Rust) lifts a collection as an axes takes it."""
+    axes = _axes3d(col)
+    if axes is not None and col._pending_key() in col.__dict__:
+        col.remove()
+        axes.add_collection(col, autolim=False)
+
+
 def _faces_3d(verts):
     """
     The (N, 3) float arrays of a sequence of polygons, refused as numpy
@@ -309,6 +323,52 @@ def _segment_points(segments):
     if any(segment.shape[1] < 3 for segment in points):
         return None
     return [segment[:, :3] for segment in points]
+
+
+def _get_axlim_clip(artist):
+    if "_axlim_clip" in artist.__dict__:
+        return artist.__dict__["_axlim_clip"]
+    axes = _axes3d(artist)
+    clip = None if axes is None else _mplot3d.get_axlim_clip(axes._native, artist._native)
+    if clip is None:
+        raise AttributeError(
+            f"'{type(artist).__name__}' object has no attribute '_axlim_clip'",
+            name="_axlim_clip", obj=artist)
+    return clip
+
+
+def _set_axlim_clip(artist, axlim_clip):
+    artist.__dict__["_axlim_clip"] = axlim_clip
+    if "_native" in artist.__dict__ and _lifted(artist) is not None:
+        _mplot3d.set_axlim_clip(artist.axes._native, artist._native, bool(axlim_clip))
+
+
+#: Whether the points of a 3-D artist outside the view limits are hidden
+#: (matplotlib's ``_axlim_clip``, on every `art3d` class): what the artist
+#: was given, else what pltrs (Rust) holds for one it made; assigned, it
+#: is pltrs (Rust)'s too.
+_AXLIM_CLIP = property(_get_axlim_clip, _set_axlim_clip)
+
+
+def _viewlim_mask(xs, ys, zs, axes):
+    """The mask of the points outside the view limits of *axes*
+    (matplotlib 3.11.2's, under the Matplotlib License)."""
+    return np.logical_or.reduce((xs < axes.xy_viewLim.xmin,
+                                 xs > axes.xy_viewLim.xmax,
+                                 ys < axes.xy_viewLim.ymin,
+                                 ys > axes.xy_viewLim.ymax,
+                                 zs < axes.zz_viewLim.xmin,
+                                 zs > axes.zz_viewLim.xmax))
+
+
+def _scale_invalid_mask(xs, ys, zs, axes):
+    """The mask of the points the scales of *axes* cannot place (at or
+    below zero on a log axis; matplotlib 3.11.2's, under the Matplotlib
+    License)."""
+    return np.logical_or.reduce((
+        np.logical_not(axes.xaxis._scale.val_in_range(xs)),
+        np.logical_not(axes.yaxis._scale.val_in_range(ys)),
+        np.logical_not(axes.zaxis._scale.val_in_range(zs))))
 
 
 #: The 3-D data of a `Line3D` (matplotlib's ``_verts3d``) and the 3-D
@@ -351,6 +411,8 @@ class Line3D(lines.Line2D):
         self.set_data_3d(xs, ys, zs)
         self._axlim_clip = axlim_clip
 
+    _axlim_clip = _AXLIM_CLIP
+
     def _add_to_axes(self, axes, kind, autolim=True):
         # docstring inherited
         super()._add_to_axes(axes, kind, autolim)
@@ -370,8 +432,51 @@ class Line3D(lines.Line2D):
 
     @property
     def _verts3d(self):
-        """The x, y and z data."""
+        """The x, y and z data (matplotlib's attribute): the line's own
+        tuple, of its own arrays."""
         return self.get_data_3d()
+
+    @_verts3d.setter
+    def _verts3d(self, verts):
+        # Assigned, the data are drawn from the next draw on and are the
+        # line's own object.
+        self.set_data_3d(verts)
+
+    def _drawn_column(self, name, column):
+        """
+        The x or y numbers drawn (*name* ``"_x"`` or ``"_y"``, *column* 0
+        or 1). A line of a 3-D axes holds the projection of its last draw
+        (new arrays after each, as matplotlib's draw sets the line's 2-D
+        data anew), and until its first draw the 2-D data it was made
+        with; what a program assigned since the last draw is read back
+        until the next one replaces it.
+        """
+        draws = _artist.draw_count(self._native)
+        values = self.__dict__
+        assigned = values.get("_columns_assigned", {}).get(name)
+        if assigned is not None and assigned[0] == draws:
+            return assigned[1]
+        if _lifted(self) is not None:
+            if not draws and values.get("_verts3d_as") == "lists":
+                # (matplotlib makes the caps of ``errorbar`` without 2-D data.)
+                return values.setdefault("_columns_unmade", (np.array([]), np.array([])))[column]
+            if values.get("_columns_drawn") != draws:
+                # The arrays handed out before the draw are the line's no more.
+                values["_columns_drawn"] = draws
+                _own_state.drop(self, "xy")
+                values.pop("_xy_views", None)
+        return (lines.Line2D._y if column else lines.Line2D._x).fget(self)
+
+    def _assign_column(self, name, values):
+        self.__dict__.setdefault("_columns_assigned", {})[name] = (
+            _artist.draw_count(self._native), values)
+
+    _x = property(lambda self: self._drawn_column("_x", 0),
+                  lambda self, values: self._assign_column("_x", values),
+                  doc="The x numbers drawn: the projection of the last draw.")
+    _y = property(lambda self: self._drawn_column("_y", 1),
+                  lambda self, values: self._assign_column("_y", values),
+                  doc="The y numbers drawn: the projection of the last draw.")
 
     def set_3d_properties(self, zs=0, zdir='z', axlim_clip=False):
         """
@@ -432,8 +537,19 @@ class Line3D(lines.Line2D):
         """The 3-D data as given, while pltrs (Rust) holds them, else as it
         holds them."""
         axes = _axes3d(self)
-        native = (self._pending3d if axes is None else tuple(
-            np.array(c) for c in _mplot3d.line_data(axes._native, self._native)))
+        if axes is None:
+            native = self._pending3d
+        else:
+            native = tuple(np.array(c) for c in _mplot3d.line_data(axes._native, self._native))
+            # A line a 3-D axes made, in the containers matplotlib's method
+            # builds: lists of numbers (the caps of ``errorbar``), or
+            # arrays whose z is a read-only view (``stem``'s lines, whose
+            # z matplotlib broadcasts).
+            container = self.__dict__.get("_verts3d_as")
+            if container == "lists":
+                native = tuple(list(column) for column in native)
+            elif container == "broadcast":
+                native[2].flags.writeable = False
         return _values.given(self, "data_3d", native)
 
     def _take_data_3d(self, verts):
@@ -590,6 +706,7 @@ def line_2d_to_3d(line, zs=0, zdir='z', axlim_clip=False):
 # bases, as for matplotlib's.
 class _Loose3D:
 
+    _axlim_clip = _AXLIM_CLIP
     _zsort = None
     _closed = True
     #: What a loose collection keeps for the axes that will add it: the
@@ -661,7 +778,10 @@ class _Loose3D:
             return ("lines", (verts,))
         lifted = self.__dict__.pop('_lifted_from_2d', False)
         faded = self.__dict__.pop('_edges_faded', False)
-        return ("polygons", (verts, self._zsort, bool(self._closed), lifted or faded))
+        # (Polygons lifted from 2-D paths keep their codes, which close
+        # them: matplotlib's ``_closed`` is False for them.)
+        return ("polygons", (verts, self._zsort, lifted or bool(self._closed),
+                             lifted or faded))
 
     def _adopt_into(self, axes, autolim, axlim_clip):
         """Join *axes* (a 3-D axes) with the 3-D geometry; return self."""
@@ -677,11 +797,51 @@ class _Loose3D:
                 [np.asarray(c, np.uint8).tolist() for c in pending.pop('_codes3d')])
         if pending.get('_sort_zpos') is not None:
             self._place_sort_zpos(pending.pop('_sort_zpos'))
+        if _program_classes.takes_from_program(type(self), "do_3d_projection"):
+            _program_projection.follow(axes, self)
         return self
+
+
+def _lift_verts_codes(collection, verts_codes):
+    """Have pltrs (Rust) place the paths of *collection* at the 3-D
+    vertices of *verts_codes* (matplotlib's ``_3dverts_codes``), once a
+    3-D axes holds it."""
+    axes = _axes3d(collection)
+    verts = [np.asarray(verts, dtype=float) for verts, _ in verts_codes]
+    if axes is None:
+        collection._verts3d_pending = verts
+        return
+    clip = bool(collection.__dict__.get("_axlim_clip", False))
+    try:
+        if not verts:
+            # (matplotlib's projection joins the depths of the paths.)
+            raise ValueError("need at least one array to concatenate")
+        try:
+            _mplot3d.lift_paths(axes._native, collection._native, verts, clip)
+        except ValueError:
+            # Other paths than the collection has: matplotlib's projection
+            # makes its paths of the vertices and codes at each draw.
+            from pltrs._native import collections as _collections
+            from pltrs.path import Path
+            _collections.set_paths(collection._native, [
+                Path(np.zeros((len(part), 2)), codes)
+                for part, (_, codes) in zip(verts, verts_codes)])
+            _mplot3d.lift_paths(axes._native, collection._native, verts, clip)
+    except (TypeError, ValueError) as problem:
+        _draw_problems.record(collection, problem)
+    else:
+        _draw_problems.record(collection, None)
 
 
 class Collection3D(_ProjectedPaths, _Loose3D, mcoll.Collection):
     """A collection of 3D paths."""
+
+    #: The 3-D vertices and the codes of each path (matplotlib's
+    #: attribute, a list of pairs): the collection's own list, which pltrs
+    #: (Rust) follows in its vertices when a program changes it in place
+    #: or assigns another.
+    _3dverts_codes = _properties.Field(
+        lambda collection: _fields3d.verts_codes(collection), _lift_verts_codes)
 
     def _native_geometry(self):
         # docstring inherited
@@ -721,21 +881,28 @@ class Line3DCollection(_ProjectedPaths, _Loose3D, mcoll.LineCollection):
     def __init__(self, lines, axlim_clip=False, **kwargs):
         super().__init__([], **kwargs)
         self._axlim_clip = axlim_clip
-        self._keep_segments(lines)
+        self._segments3d = lines
+
+    #: The 3-D segments (matplotlib's attribute): kept as given, or as
+    #: matplotlib's method builds them for a collection a 3-D Axes made;
+    #: the collection's own object, which pltrs (Rust) follows when a
+    #: program changes it in place or assigns another.
+    _segments3d = _properties.Field(
+        lambda collection: _fields3d.segments3d(collection),
+        lambda collection, segments: collection._follow_segments(segments))
 
     def set_segments(self, segments):
         """
         Set 3D segments.
         """
-        self._keep_segments(segments)
+        self._segments3d = segments
         super().set_segments([])
 
-    def _keep_segments(self, segments):
-        """Make *segments* the 3-D segments, kept as given
-        (``_segments3d``): projected by pltrs (Rust) in a 3-D axes (else
-        once one adds the collection), but for segments matplotlib's draw
-        fails to project, on which the axes' draw raises as it does."""
-        self._segments3d = segments
+    def _follow_segments(self, segments):
+        """Have pltrs (Rust) project *segments*, the 3-D segments the
+        collection keeps, in a 3-D axes (else once one adds the
+        collection), but for segments matplotlib's draw fails to project,
+        on which the axes' draw raises as it does."""
         axes = _lifted(self)
         if axes is None:
             self._verts3d_pending = segments
@@ -755,8 +922,8 @@ class Line3DCollection(_ProjectedPaths, _Loose3D, mcoll.LineCollection):
     def _adopt_into(self, axes, autolim, axlim_clip):
         # docstring inherited
         super()._adopt_into(axes, autolim, axlim_clip)
-        _draw_problems.record(
-            self, _draw_problems.segments_problem(self, self._segments3d))
+        _draw_problems.record(self, _draw_problems.segments_problem(
+            self, type(self)._segments3d.peek(self)))
         return self
 
     def do_3d_projection(self):
@@ -780,11 +947,15 @@ class Line3DCollection(_ProjectedPaths, _Loose3D, mcoll.LineCollection):
 
 def line_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
     """Convert a `.LineCollection` to a `.Line3DCollection` object."""
-    segments3d = _lifted_paths(col, zs, zdir, finite=True)
+    # (Lists of points as tuples, as matplotlib's ``_paths_to_3d_segments``
+    # makes them.)
+    segments3d = [list(map(tuple, segment.tolist()))
+                  for segment in _lifted_paths(col, zs, zdir, finite=True)]
     col.__class__ = Line3DCollection
     _gains_projection(col)
-    col._verts3d_pending = col._segments3d = segments3d
+    col._segments3d = segments3d
     col._axlim_clip = axlim_clip
+    _lift_added(col)
 
 
 def _lifted_paths(col, zs, zdir, finite=False):
@@ -815,7 +986,77 @@ def _lifted_paths(col, zs, zdir, finite=False):
 # lifted along an axis (matplotlib's `Patch3DCollection` and
 # `Path3DCollection`): pltrs (Rust) projects the positions and shades the
 # members with depth.
+def _projected_offsets(collection):
+    """
+    The 3-D positions of the members of *collection* through the
+    projection of the last draw of its axes, as matplotlib's
+    ``do_3d_projection`` computes them: masked where a position is, where
+    a scale cannot place it and, with ``_axlim_clip``, outside the view
+    limits. Computed once per projection of the collection, for what the
+    projection leaves behind (`_properties.Left`).
+    """
+    now = _properties.stamp(collection)
+    made = collection.__dict__.get("_projected3d")
+    if made is not None and made[0] == now:
+        return made[1]
+    axes = collection.axes
+    offsets = collection.__dict__.get("_unprojectable")
+    if offsets is None:
+        offsets = collection._read_offsets3d()
+    mask = False
+    for xyz in offsets:
+        if np.ma.isMA(xyz):
+            mask = mask | xyz.mask
+    mask = mask | _scale_invalid_mask(*offsets, axes)
+    if collection._axlim_clip:
+        mask = mask | _viewlim_mask(*offsets, axes)
+    if np.any(mask):
+        mask = np.broadcast_to(mask, (len(offsets), *np.shape(offsets[0])))
+        offsets = np.ma.array(offsets, mask=mask)
+    projected = proj3d._scale_proj_transform_clip(*offsets, axes)[:3]
+    collection.__dict__["_projected3d"] = (now, projected)
+    return projected
+
+
 class _Lifted3DOffsets(_Loose3D):
+
+    #: Whether matplotlib's draw of the collection is running (its sizes
+    #: and widths are then those sorted by depth): never, as pltrs (Rust)
+    #: draws it.
+    _in_draw = False
+
+    #: The depths of the members as last projected, in their own order
+    #: (matplotlib's attribute; None until the first projection).
+    _vzs = _properties.Left(lambda collection: _projected_offsets(collection)[2], None)
+
+    #: The members the colours are taken in: all but the last
+    #: (matplotlib's attribute of a collection of patches, which keeps
+    #: their order).
+    _z_markers_idx = _properties.Left(lambda collection: slice(-1), slice(-1))
+
+    @property
+    def _depthshade_minalpha(self):
+        """The alpha factor of the deepest members (matplotlib's
+        attribute)."""
+        pending = self.__dict__.get("_depthshade_pending")
+        if pending is not None:
+            return _depthshade_minalpha(pending[1])
+        held = _fields3d.kept(self)
+        if held is None or held[5] is None:
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '_depthshade_minalpha'",
+                name="_depthshade_minalpha", obj=self)
+        return held[5]
+
+    @_depthshade_minalpha.setter
+    def _depthshade_minalpha(self, minalpha):
+        _Lifted3DOffsets.set_depthshade(self, self.get_depthshade(), minalpha)
+
+    _depthshade = property(
+        lambda self: self.get_depthshade(),
+        lambda self, depthshade: _Lifted3DOffsets.set_depthshade(
+            self, depthshade, self._depthshade_minalpha),
+        doc="Whether the members fade with depth (matplotlib's attribute).")
 
     def __init__(self, *args, zs=0, zdir="z", depthshade=None,
                  depthshade_minalpha=None, axlim_clip=False, **kwargs):
@@ -1054,10 +1295,12 @@ class Patch3DCollection(_Lifted3DOffsets, mcoll.PatchCollection):
         return super().do_3d_projection()
 
     def get_facecolor(self):
-        return super().get_facecolor()
+        # A new array at each call, as matplotlib's (the colours shaded
+        # with depth).
+        return np.array(self._read_facecolor())
 
     def get_edgecolor(self):
-        return super().get_edgecolor()
+        return np.array(self._read_edgecolor())
 
 
 def patch_collection_2d_to_3d(col, zs=0, zdir="z", depthshade=None,
@@ -1104,6 +1347,35 @@ def patch_collection_2d_to_3d(col, zs=0, zdir="z", depthshade=None,
     _gains_projection(col)
     col._depthshade_pending = (depthshade, depthshade_minalpha)
     col.set_3d_properties(zs, zdir, axlim_clip)
+    _lift_added(col)
+
+
+#: The line widths of a 3-D scatter in the order of its markers
+#: (matplotlib's ``_linewidths3d``, which its projections sort): the
+#: collection's own array.
+_LINEWIDTHS3D = _own_state.State(
+    "linewidths3d", lambda collection: np.array(collection._read_linewidth()),
+    lambda collection, widths: collection._take_linewidths3d(widths))
+
+
+def _get_data_scale(X, Y, Z):
+    """The scale of projected positions (masked arrays) that depth
+    shading fades over: the root of the summed squares of their ranges, 0
+    without any (matplotlib 3.11.2's, under the Matplotlib License)."""
+    if not np.ma.count(X):
+        return 0
+    ptp_x = X.max() - X.min()
+    ptp_y = Y.max() - Y.min()
+    ptp_z = Z.max() - Z.min()
+    return np.sqrt(ptp_x ** 2 + ptp_y ** 2 + ptp_z ** 2)
+
+
+def _zordered_offsets(collection):
+    """The projected positions of the markers of *collection*, deepest
+    first (matplotlib's ``_offset_zordered``)."""
+    vxs, vys, vzs = _projected_offsets(collection)
+    order = np.ma.argsort(vzs)[::-1]
+    return np.ma.column_stack((vxs[order], vys[order]))
 
 
 class Path3DCollection(_Lifted3DOffsets, mcoll.PathCollection):
@@ -1118,8 +1390,25 @@ class Path3DCollection(_Lifted3DOffsets, mcoll.PathCollection):
     #: matplotlib's fields of the projected order, as its ``__init__`` sets
     #: them (its draws set them anew; pltrs (Rust) projects the collection
     #: itself): what programs read and assign back (ultraplot's previews).
-    _offset_zordered = None
-    _z_markers_idx = slice(-1)
+    _offset_zordered = _properties.Left(
+        lambda collection: _zordered_offsets(collection), None)
+    _z_markers_idx = _properties.Left(
+        lambda collection: np.ma.argsort(_projected_offsets(collection)[2])[::-1], slice(-1))
+
+    #: The extent of the projected positions, over which the members fade
+    #: with depth (matplotlib's attribute, there once the collection was
+    #: projected).
+    _data_scale = _properties.Left(
+        lambda collection: _get_data_scale(*_projected_offsets(collection)))
+
+    def _take_linewidths3d(self, widths):
+        """Hand pltrs (Rust) the widths *widths* a program changed in the
+        array of them: matplotlib's projection sorts them into the widths
+        drawn only where there are several; one is kept, and read back."""
+        if len(widths) > 1:
+            self.set_linewidth(np.array(widths))
+        else:
+            self.__dict__["_linewidths3d"] = widths
 
     def __getattr__(self, name):
         # matplotlib's sizes and widths of the items in their given order,
@@ -1127,7 +1416,7 @@ class Path3DCollection(_Lifted3DOffsets, mcoll.PathCollection):
         if name == "_sizes3d":
             return self.get_sizes()
         if name == "_linewidths3d":
-            return np.array(self.get_linewidth())
+            return _own_state.hand_out(self, _LINEWIDTHS3D)
         return super().__getattr__(name)
 
     def __init__(
@@ -1207,6 +1496,8 @@ class Path3DCollection(_Lifted3DOffsets, mcoll.PathCollection):
 
     def set_linewidth(self, lw):
         super().set_linewidth(lw)
+        self.__dict__.pop("_linewidths3d", None)
+        _own_state.drop(self, "linewidths3d")
 
     def get_depthshade(self):
         return super().get_depthshade()
@@ -1235,24 +1526,36 @@ class Path3DCollection(_Lifted3DOffsets, mcoll.PathCollection):
         return super().do_3d_projection()
 
     def get_facecolor(self):
-        return super().get_facecolor()
+        # A new array at each call, as matplotlib's (the colours shaded
+        # with depth, in the order drawn).
+        return np.array(self._read_facecolor())
 
     def get_edgecolor(self):
-        return super().get_edgecolor()
+        return np.array(self._read_edgecolor())
 
 
 #: The face and the edge colours of a `Poly3DCollection`, in polygon order
 #: (matplotlib's ``_facecolor3d`` and ``_edgecolor3d``), which the collection
 #: keeps as arrays of its own (`pltrs._own_state`): changed in place, they
 #: are set as its colours again.
+def _mapped_at(collection):
+    """What tells the arrays of the colours of a collection mapping values
+    apart: matplotlib's projection maps them anew, into new arrays, at
+    each draw and each projection the program asks for (None for a
+    collection that maps none: its arrays stay)."""
+    if mcolorizer._array_of(collection) is None:
+        return None
+    return collection._mapping_draws()
+
+
 _FACECOLOR3D = _own_state.State(
     "facecolor3d",
     lambda collection: _mplot3d.poly_colors(collection.axes._native, collection._native)[0],
-    lambda collection, colors: collection.set_facecolor(np.array(colors)))
+    lambda collection, colors: collection.set_facecolor(np.array(colors)), version=_mapped_at)
 _EDGECOLOR3D = _own_state.State(
     "edgecolor3d",
     lambda collection: _mplot3d.poly_colors(collection.axes._native, collection._native)[1],
-    lambda collection, colors: collection.set_edgecolor(np.array(colors)))
+    lambda collection, colors: collection.set_edgecolor(np.array(colors)), version=_mapped_at)
 
 
 class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
@@ -1368,7 +1671,20 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         the collection's own array (`pltrs._own_state`), so that changed in
         place they colour the polygons (nilearn's contours of surface
         regions)."""
+        if (_properties.stamp(self) == (0, 0) and "_projection_asked" not in self.__dict__
+                and mcolorizer._array_of(self) is not None and "_native" in self.__dict__):
+            # matplotlib maps the values at the first projection: until
+            # then the faces have the one colour of a patch.
+            return self.__dict__.setdefault("_facecolor3d_unmapped", mcolors.to_rgba_array(
+                rcParams['patch.facecolor'], self.get_alpha()))
         return _own_state.hand_out(self, _FACECOLOR3D)
+
+    @_facecolor3d.setter
+    def _facecolor3d(self, colors):
+        # Assigned, the array colours the polygons from the next
+        # projection on, and is the collection's own.
+        _FACECOLOR3D.take(self, colors)
+        _own_state.keep(self, _FACECOLOR3D, colors)
 
     @property
     def _edgecolor3d(self):
@@ -1376,6 +1692,11 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         the collection's own array, so that changed in place they colour
         the edges."""
         return _own_state.hand_out(self, _EDGECOLOR3D)
+
+    @_edgecolor3d.setter
+    def _edgecolor3d(self, colors):
+        _EDGECOLOR3D.take(self, colors)
+        _own_state.keep(self, _EDGECOLOR3D, colors)
 
     @property
     def _facecolors(self):
@@ -1396,14 +1717,16 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
             self.do_3d_projection()
 
     def get_facecolor(self):
-        # docstring inherited; the colours of the last projection.
+        # docstring inherited; the colours of the last projection, the
+        # array it left (``_facecolors2d``).
         self._project_once()
-        return super().get_facecolor()
+        return np.asarray(self._facecolors2d)
 
     def get_edgecolor(self):
-        # docstring inherited; the colours of the last projection.
+        # docstring inherited; the colours of the last projection, the
+        # array it left (``_edgecolors2d``).
         self._project_once()
-        return super().get_edgecolor()
+        return np.asarray(self._edgecolors2d)
 
     def set_facecolor(self, colors):
         # docstring inherited
@@ -1488,54 +1811,144 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         self._sort_zpos = None
         self.stale = True
 
-    def _set_faces(self, faces, closed):
-        """Make the polygons those of the 3-D vertices *faces*."""
-        self.__dict__["_faces_set"] = faces
-        self.__dict__.pop("_faces_made", None)
+    def _set_faces(self, faces, closed, given=None):
+        """Make the polygons those of the 3-D vertices *faces*, of what
+        *given* held: an array of all the faces is the collection's own
+        array of them, as matplotlib keeps the one it is given."""
+        values = self.__dict__
+        for name in ("_faces", "_invalid_vertices"):
+            values.pop(name, None)
+            _own_state.drop(self, name.strip("_"))
+        if isinstance(given, np.ndarray) and given.ndim == 3:
+            values["_faces_as"] = "array"
+            if not isinstance(given, np.ma.MaskedArray) and given.dtype.kind == "f":
+                values["_faces"] = given
+        else:
+            values.pop("_faces_as", None)
         axes = _axes3d(self)
         if axes is None:
             self._verts3d_pending = faces
-            self._closed = closed
+            values["_closed"] = closed
         else:
+            values.pop("_closed", None)
             _mplot3d.set_poly_verts(axes._native, self._native, faces,
                                     bool(closed))
         self.stale = True
 
+    def _pending_faces(self):
+        """matplotlib's array of the faces and its mask, of the faces kept
+        for the 3-D axes that will add the collection."""
+        faces = self.__dict__.get("_verts3d_pending")
+        if faces is None:
+            return _properties.MISSING, _properties.MISSING
+        counts = np.fromiter(map(len, faces), dtype=np.intp, count=len(faces))
+        most = counts.max(initial=0)
+        padded = np.empty((len(faces), most, 3))
+        for index, face in enumerate(faces):
+            padded[index, :len(face)] = face
+        invalid = np.arange(most) >= counts[:, None]
+        if self.__dict__.get("_faces_as") == "array" and not invalid.any():
+            invalid = False
+        return padded, invalid
+
     def _made_faces(self):
         """matplotlib's array of the faces and its mask of the vertices
-        ragged faces lack (``_get_vector``), made once of the vertices last
-        set: one object until they are set again, as matplotlib's is
-        (libraries tell a changed geometry by it). The faces of a
-        collection pltrs (Rust) made itself (a surface) are pltrs
-        (Rust)'s, and no array is made of them."""
-        made = self.__dict__.get("_faces_made")
-        if made is None:
-            faces = self.__dict__.get("_faces_set")
-            if faces is None:
-                raise AttributeError(
-                    f"{type(self).__name__!r} object has no attribute '_faces'",
-                    name="_faces", obj=self)
-            counts = np.fromiter(map(len, faces), dtype=np.intp, count=len(faces))
-            most = counts.max(initial=0)
-            padded = np.empty((len(faces), most, 3))
-            for index, face in enumerate(faces):
-                padded[index, :len(face)] = face
-            invalid = np.arange(most) >= counts[:, None]
-            made = self.__dict__["_faces_made"] = (
-                padded, invalid if invalid.any() else False)
-        return made
+        ragged faces lack (``_get_vector``), of the faces pltrs (Rust)
+        holds, else of those kept for the axes that will add the
+        collection."""
+        made = _fields3d.faces(self)
+        return self._pending_faces() if made is _properties.MISSING else made
 
-    _faces = property(lambda self: self._made_faces()[0],
-                      doc="The faces as matplotlib keeps them: (faces, vertices, 3).")
-    _invalid_vertices = property(
-        lambda self: self._made_faces()[1],
-        doc="Which vertices of matplotlib's array of faces ragged faces lack.")
+    def _take_faces(self, faces):
+        """Hand pltrs (Rust) the array of faces *faces*, which the program
+        changed in place or assigned, without the vertices its mask
+        leaves out."""
+        invalid = type(self)._invalid_vertices.peek(self)
+        if invalid is None:
+            invalid = self._made_faces()[1]
+        faces = np.asarray(faces, dtype=float)
+        if invalid is not _properties.MISSING and np.ndim(invalid) == 0 and invalid:
+            # (A mask of one True hides every vertex.)
+            polygons = [face[:0] for face in faces]
+        elif (invalid is False or invalid is _properties.MISSING
+                or np.shape(invalid) != faces.shape[:2]):
+            polygons = list(faces)
+        else:
+            polygons = [face[~hidden] for face, hidden in zip(faces, np.asarray(invalid))]
+        axes = _axes3d(self)
+        if axes is None:
+            self._verts3d_pending = polygons
+        else:
+            _mplot3d.set_poly_verts(axes._native, self._native, polygons, bool(self._closed))
+
+    #: The faces as matplotlib keeps them, an array ``(faces, vertices,
+    #: 3)``: the collection's own (the array it was given, where it was
+    #: given one), one object until the vertices are set again (libraries
+    #: tell a changed geometry by it), which pltrs (Rust) follows when a
+    #: program changes it in place or assigns another.
+    _faces = _properties.Field(lambda collection: collection._made_faces()[0],
+                             lambda collection, faces: collection._take_faces(faces))
+
+    #: Which vertices of matplotlib's array of faces ragged faces lack:
+    #: False, or a bool array ``(faces, vertices)``; pltrs (Rust) leaves
+    #: out the vertices a program masks in it.
+    _invalid_vertices = _properties.Field(
+        lambda collection: collection._made_faces()[1],
+        lambda collection, invalid: collection._take_faces(collection._faces))
+
+    @property
+    def _closed(self):
+        """Whether the polygons made of the faces are closed (matplotlib's
+        attribute)."""
+        if "_closed" in self.__dict__:
+            return self.__dict__["_closed"]
+        held = _fields3d.kept(self)
+        return True if held is None or held[4] is None else held[4]
+
+    @_closed.setter
+    def _closed(self, closed):
+        self.__dict__["_closed"] = closed
+        axes = _axes3d(self)
+        if axes is not None and "_verts3d_pending" not in self.__dict__:
+            held = _fields3d.kept(self)
+            if held is not None and held[0] == "polys" and not held[2]:
+                _mplot3d.set_poly_verts(axes._native, self._native, held[1], bool(closed))
+                del self.__dict__["_closed"]
+
+    @property
+    def _zsortfunc(self):
+        """The function reducing the depths of the vertices of a polygon
+        to the depth it is sorted by (matplotlib's attribute, one of
+        ``_zsort_functions``)."""
+        name = self.__dict__.get("_zsort") or _fields3d.zsort(self) or type(self)._zsort
+        if name is None:
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '_zsortfunc'",
+                name="_zsortfunc", obj=self)
+        return self._zsort_functions[name]
+
+    @_zsortfunc.setter
+    def _zsortfunc(self, function):
+        for name, known in self._zsort_functions.items():
+            if function is known:
+                self.set_zsort(name)
+                return
+        raise ValueError(
+            "pltrs sorts the polygons of a 3-D collection by the mean, the least or the "
+            f"greatest depth of their vertices (np.average, np.min, np.max), not by "
+            f"{function!r}")
+
+    #: The face and edge colours in the order the last projection drew the
+    #: polygons in, deepest first (matplotlib's attributes, there once the
+    #: polygons were projected).
+    _facecolors2d = _properties.Left(lambda collection: collection._read_facecolor())
+    _edgecolors2d = _properties.Left(lambda collection: collection._read_edgecolor())
 
     @_api.deprecated("3.10")
     def get_vector(self, segments3d):
         if isinstance(segments3d, np.ndarray):
             _api.check_shape((None, None, 3), segments3d=segments3d)
-        self._set_faces(_faces_3d(segments3d), self._closed)
+        self._set_faces(_faces_3d(segments3d), self._closed, segments3d)
 
     def set_verts(self, verts, closed=True):
         """
@@ -1551,35 +1964,67 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
             Whether the polygon should be closed by adding a CLOSEPOLY
             connection at the end.
         """
-        self._set_faces(_faces_3d(verts), closed)
+        self._set_faces(_faces_3d(verts), closed, verts)
 
     def set_verts_and_codes(self, verts, codes):
         """Set 3D vertices with path codes."""
         faces = _faces_3d(verts)
         axes = _axes3d(self)
+        values = self.__dict__
+        _own_state.drop(self, "codes3d")
         if codes is None or not len(codes) or len(codes) < len(faces):
             # matplotlib keeps the codes unchecked: its projection draws
             # without none, and fails indexing too few by face.
-            self._set_faces(faces, False)
-            self._codes3d = codes
+            self._set_faces(faces, False, verts)
+            values["_codes3d"] = codes
             self._codes_problem = _draw_problems.codes_problem(codes, len(faces))
             self._record_projection_problem()
             return
-        self.__dict__.pop("_codes_problem", None)
+        values.pop("_codes_problem", None)
+        for name in ("_faces", "_invalid_vertices"):
+            values.pop(name, None)
+            _own_state.drop(self, name.strip("_"))
+        values.pop("_faces_as", None)
         codes = codes[:len(faces)]
         if axes is None:
             self._verts3d_pending = faces
             self._faces3d = faces
-            self._codes3d = codes
-            self._closed = False
+            values["_codes3d"] = codes
+            values["_closed"] = False
         else:
+            values.pop("_codes3d", None)
+            values.pop("_closed", None)
             _mplot3d.set_poly_verts_and_codes(
                 axes._native, self._native, faces,
                 [np.asarray(c, np.uint8).tolist() for c in codes])
         self.stale = True
 
+    def _take_codes(self, codes):
+        """Hand pltrs (Rust) the codes *codes* of the polygons, which the
+        program changed in place or assigned, with the faces it holds."""
+        held = _fields3d.kept(self)
+        if held is not None and held[0] == "polys":
+            self.set_verts_and_codes(held[1], codes)
+
+    def _read_codes(self):
+        """The codes pltrs (Rust) holds, as matplotlib's list of them."""
+        codes = _fields3d.codes3d(self)
+        if codes is _properties.MISSING or codes is None:
+            # Those of the 2-D paths the polygons were lifted from.
+            return self.__dict__.get("_codes3d_lifted")
+        return [list(np.asarray(path_codes, np.uint8)) for path_codes in codes]
+
+    #: The codes of the polygons (matplotlib's attribute): None for
+    #: polygons made of their vertices, a list of the codes of each for
+    #: polygons lifted from 2-D paths; the collection's own list, which
+    #: pltrs (Rust) follows when a program changes it in place or assigns
+    #: another.
+    _codes3d = _properties.Field(lambda collection: collection._read_codes(),
+                               lambda collection, codes: collection._take_codes(codes))
+
     def set_3d_properties(self, axlim_clip=False):
         self._axlim_clip = axlim_clip
+        self._alpha3d = mcoll.PolyCollection.get_alpha(self)
         axes = _axes3d(self)
         if axes is None:
             self._zsort = 'average'
@@ -1598,6 +2043,9 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         """
         Perform the 3D projection for this object.
         """
+        # (matplotlib maps the values to colours first, also where the
+        # projection then fails.)
+        self.__dict__["_projection_asked"] = True
         return super().do_3d_projection()
 
 
@@ -1621,12 +2069,19 @@ def poly_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
     zs = np.broadcast_to(zs, len(col.get_paths()))
     col.__class__ = Poly3DCollection
     _gains_projection(col)
+    # The codes of the paths, a list per path, as matplotlib keeps them
+    # (``_paths_to_3d_segments_with_codes``).
+    col._codes3d_lifted = [
+        [code for _, code in path.iter_segments(simplify=False, curves=False)]
+        for path in col.get_paths()]
     col._verts3d_pending = _lifted_paths(col, zs, zdir)
     # Its alpha has faded its edges, as that of a 2-D collection does.
     col._lifted_from_2d = True
     col._zsort = 'average'
-    col._closed = True
+    col.__dict__["_closed"] = False
+    col._alpha3d = mcoll.PolyCollection.get_alpha(col)
     col._axlim_clip = axlim_clip
+    _lift_added(col)
 
 
 def _outline_points(segment3d):
@@ -1674,6 +2129,31 @@ def _get_patch_verts(patch):
     return polygons[0] if len(polygons) else np.array([])
 
 
+@_program_classes.class_cache
+def _draws_itself(cls):
+    """
+    Whether patches of the class *cls* are drawn by another patch class
+    mixed with the 3-D one (qiskit's ``Arrow3D`` is a `Patch3D` and a
+    `~matplotlib.patches.FancyArrowPatch`, whose ``draw`` it calls with
+    its ends where its 3-D points project). pltrs (Rust) then draws the
+    patch that other class made and knows nothing of the 3-D outline: the
+    patch keeps it in Python and projects it as matplotlib's code does.
+    """
+    after = cls.__mro__[cls.__mro__.index(Patch3D) + 1:]
+    return any(klass is not mpatches.Patch and issubclass(klass, mpatches.Patch)
+               for klass in after)
+
+
+def _follows3d(patch):
+    """Whether pltrs (Rust) follows the 3-D outline of *patch*: not that
+    of a patch another class draws (`_draws_itself`)."""
+    return not _draws_itself(type(patch))
+
+
+def _no_field(artist):
+    return _properties.MISSING
+
+
 class Patch3D(mpatches.Patch):
     """
     3D patch object.
@@ -1698,37 +2178,113 @@ class Patch3D(mpatches.Patch):
         super().__init__(*args, **kwargs)
         self.set_3d_properties(zs, zdir, axlim_clip)
 
+    _axlim_clip = _AXLIM_CLIP
+
+    #: The outline in 3-D, a list of points (matplotlib's attribute): the
+    #: patch's own list, which pltrs (Rust) follows when a program changes
+    #: it in place or assigns another.
+    _segment3d = _properties.Field(_no_field, lambda patch, segment3d: patch._follow3d(),
+                                 _follows3d)
+
+    @property
+    def _path2d(self):
+        """The outline as last projected (matplotlib's attribute, there
+        once the patch was projected): one path until the next projection
+        makes another. A path a program assigned is read back until then."""
+        made = self.__dict__.get("_path2d_made")
+        if made is not None and (made[0] is None or made[0] == _properties.stamp(self)):
+            return made[1]
+        axes = self.axes
+        if _draws_itself(type(self)) or not (
+                self.__dict__.get("_projections") or _artist.draw_count(self._native)):
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '_path2d'",
+                name="_path2d", obj=self)
+        from pltrs.path import Path
+        if axes is None:
+            # Removed: the path of its last projection.
+            vertices, codes = _patches.get_path(self._native)
+        else:
+            vertices, codes = _mplot3d.patch_path(axes._native, self._native)
+        kept = self.__dict__.get("_code3d")
+        if kept is not None and len(kept) == len(vertices):
+            # matplotlib's path is made of the codes the patch keeps.
+            codes = kept
+        path = Path(vertices, codes)
+        self.__dict__["_path2d_made"] = (_properties.stamp(self), path)
+        return path
+
+    @_path2d.setter
+    def _path2d(self, path):
+        stamp = None if _draws_itself(type(self)) else _properties.stamp(self)
+        self.__dict__["_path2d_made"] = (stamp, path)
+
     def _add_to_axes(self, axes, kind, autolim=True):
         # docstring inherited
         super()._add_to_axes(axes, kind, autolim)
-        if _axes3d(self) is not None and not _restored(self, '_pending3d'):
-            self._settle(*self.__dict__.pop('_pending3d'))
+        if _axes3d(self) is None:
+            return self
+        if _draws_itself(type(self)):
+            _program_projection.follow_patch(self.axes, self)
+        elif not _restored(self, '_pending3d'):
+            del self.__dict__['_pending3d']
+            self._follow3d()
+        if _program_classes.takes_from_program(type(self), "do_3d_projection"):
+            _program_projection.follow(self.axes, self)
+        if kind == "patch" and "_segment3d" in self.__dict__:
+            # matplotlib's `add_patch` reads the path of the patch for the
+            # data limits, which projects a patch never projected.
+            self.get_path()
         return self
+
+    def _geometry3d(self):
+        """What `_lift` takes: the outline and whether it is clipped to
+        the view limits."""
+        return self.__dict__["_segment3d"], self.__dict__.get("_axlim_clip", False)
 
     def _lift(self, segment3d, axlim_clip):
         """Follow the outline *segment3d* in the 3-D axes holding the patch."""
         _mplot3d.patch_2d_to_3d(self.axes._native, self._native,
                                 _outline_points(segment3d), bool(axlim_clip))
 
-    def _settle(self, *geometry):
-        """Lift the patch with *geometry* (its outline last but one) in the
-        3-D axes holding it, recording the problem matplotlib's draws meet
-        projecting the outline."""
+    def _follow3d(self):
+        """Have pltrs (Rust) follow the outline the patch keeps, in the
+        3-D axes holding it (else once one adds it), recording the problem
+        matplotlib's draws meet projecting the outline; nothing for a patch
+        another class draws (`_draws_itself`)."""
+        if _draws_itself(type(self)) or "_segment3d" not in self.__dict__:
+            return
+        if _axes3d(self) is None:
+            self._pending3d = True
+            return
+        geometry = self._geometry3d()
         problem = _draw_problems.patch_problem(self, geometry[-2])
         self._lift(*geometry)
         _draw_problems.record(self, problem)
 
-    def do_3d_projection(self):
-        return _projected_depth(self)
-
-    def _place(self, *geometry):
-        """Lift the patch with *geometry*, or keep it for the 3-D axes
-        that will add the patch."""
-        if _axes3d(self) is None:
-            self._pending3d = geometry
+    def _projected_by_python(self, codes=None):
+        """Project the outline through the projection matrix of the last
+        draw of the axes as matplotlib's ``do_3d_projection`` does, keep
+        the path projected (``_path2d``) and return the depth: for a patch
+        pltrs (Rust) does not follow (`_draws_itself`)."""
+        from pltrs.path import Path
+        s = self._segment3d
+        xs0, ys0, zs0 = zip(*s)
+        mask = _scale_invalid_mask(xs0, ys0, zs0, self.axes)
+        if self._axlim_clip:
+            mask |= _viewlim_mask(xs0, ys0, zs0, self.axes)
+        if np.any(mask):
+            xs, ys, zs = np.ma.array(zip(*s), dtype=float, mask=mask).filled(np.nan)
         else:
-            self._settle(*geometry)
-        self.stale = True
+            xs, ys, zs = xs0, ys0, zs0
+        vxs, vys, vzs, vis = proj3d._scale_proj_transform_clip(xs, ys, zs, self.axes)
+        self._path2d = Path(np.ma.column_stack([vxs, vys]), codes)
+        return min(vzs)
+
+    def do_3d_projection(self):
+        if _draws_itself(type(self)):
+            return self._projected_by_python()
+        return _projected_depth(self)
 
     def set_3d_properties(self, verts, zs=0, zdir='z', axlim_clip=False):
         """
@@ -1749,22 +2305,17 @@ class Patch3D(mpatches.Patch):
             .. versionadded:: 3.10
         """
         zs = np.broadcast_to(zs, len(verts))
-        segment3d = [juggle_axes(x, y, z, zdir)
-                     for ((x, y), z) in zip(verts, zs)]
-        self._place(segment3d, axlim_clip)
+        self.__dict__["_axlim_clip"] = axlim_clip
+        self._segment3d = [juggle_axes(x, y, z, zdir)
+                           for ((x, y), z) in zip(verts, zs)]
 
     def get_path(self):
         # docstring inherited; matplotlib projects a patch never projected
         # in the view of now, which becomes that of the last draw (``M``).
-        from pltrs.path import Path
-        if not (self.__dict__.get("_projections")
-                or _artist.draw_count(self._native)):
+        if not hasattr(self, '_path2d'):
             self.axes.M = self.axes.get_proj()
             self.do_3d_projection()
-        if self.axes is None:
-            # Removed: the path of its last projection (``_path2d``).
-            return Path(*_patches.get_path(self._native))
-        return Path(*_mplot3d.patch_path(self.axes._native, self._native))
+        return self._path2d
 
     def get_patch_transform(self):
         # docstring inherited
@@ -1798,14 +2349,46 @@ class PathPatch3D(Patch3D):
             .. versionadded:: 3.10
         """
         self._native = _patches.new_path_patch(path)
+        # (A `.Patch` has no edge by default; the patch pltrs (Rust) makes
+        # of a path has one.)
+        self._edgeless = True
         mpatches.Patch.__init__(self, **kwargs)
         self.set_3d_properties(path, zs, zdir, axlim_clip)
+
+    #: The codes of the path in 3-D (matplotlib's attribute): the array
+    #: of the path the patch was given, which pltrs (Rust) follows when a
+    #: program changes it in place or assigns another.
+    _code3d = _properties.Field(_no_field, lambda patch, codes: patch._follow3d(), _follows3d)
+
+    def _geometry3d(self):
+        """What `_lift` takes: a path of the codes, the outline and
+        whether it is clipped to the view limits."""
+        from pltrs.path import Path
+        segment3d = self.__dict__["_segment3d"]
+        template = Path(np.zeros((len(segment3d), 2)), self.__dict__.get("_code3d"))
+        return template, segment3d, self.__dict__.get("_axlim_clip", False)
 
     def _lift(self, path, segment3d, axlim_clip):
         """Follow *path*, its vertices at *segment3d*, in the 3-D axes
         holding the patch."""
         _mplot3d.pathpatch_2d_to_3d(self.axes._native, self._native, path,
                                     _outline_points(segment3d))
+        if axlim_clip:
+            _mplot3d.set_axlim_clip(self.axes._native, self._native, True)
+
+    def _follow3d(self):
+        # docstring inherited; codes that do not fit the outline fail
+        # matplotlib's projection, which makes a path of both at the draw.
+        codes = self.__dict__.get("_code3d")
+        segment3d = self.__dict__.get("_segment3d")
+        if (codes is not None and segment3d is not None and len(codes) != len(segment3d)
+                and not _draws_itself(type(self)) and _axes3d(self) is not None):
+            _draw_problems.record(self, ValueError(
+                "'codes' must be a 1D list or array with the same length of 'vertices'. "
+                f"Your vertices have shape ({len(segment3d)}, 2) but your codes have shape "
+                f"({len(codes)},)"))
+            return
+        super()._follow3d()
 
     def set_3d_properties(self, path, zs=0, zdir='z', axlim_clip=False):
         """
@@ -1825,14 +2408,16 @@ class PathPatch3D(Patch3D):
 
             .. versionadded:: 3.10
         """
-        verts = path.vertices
-        zs = np.broadcast_to(zs, len(verts))
-        segment3d = [juggle_axes(x, y, z, zdir)
-                     for ((x, y), z) in zip(verts, zs)]
-        self._place(path, segment3d, axlim_clip)
+        # (matplotlib reads the vertices first: what is no path says so.)
+        vertices = path.vertices
+        self.__dict__["_code3d"] = path.codes
+        Patch3D.set_3d_properties(self, vertices, zs=zs, zdir=zdir,
+                                  axlim_clip=axlim_clip)
 
     def do_3d_projection(self):
-        return super().do_3d_projection()
+        if _draws_itself(type(self)):
+            return self._projected_by_python(self._code3d)
+        return _projected_depth(self)
 
 
 def _change_class(patch, cls):
@@ -1902,6 +2487,42 @@ class Text3D(mtext.Text):
         mtext.Text.__init__(self, x, y, text, **kwargs)
         self.set_3d_properties(z, zdir, axlim_clip)
 
+    _axlim_clip = _AXLIM_CLIP
+
+    @property
+    def _z(self):
+        """The z of the 3-D position (matplotlib's attribute)."""
+        if not self._has_3d():
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '_z'",
+                                 name="_z", obj=self)
+        return self.get_position_3d()[2]
+
+    @_z.setter
+    def _z(self, z):
+        self._set_coordinate(2, z)
+
+    def _read_direction(self):
+        """The direction of the baseline as given, while pltrs (Rust)
+        holds it, else as it holds it (pending, for the axes that will add
+        the text)."""
+        pending = self.__dict__.get("_pending3d")
+        if pending is not None:
+            return pending[1]
+        held = _fields3d.direction(self)
+        if held is _properties.MISSING:
+            return held
+        return _values.given(self, "dir_vec", held, same=np.array_equal)
+
+    def _take_direction(self, direction):
+        self._place3d(self.get_position_3d(), direction)
+        _values.remember(self, "dir_vec", direction)
+
+    #: The direction of the baseline (matplotlib's attribute, an array of
+    #: three): the text's own array, which pltrs (Rust) follows when a
+    #: program changes it in place or assigns another.
+    _dir_vec = _properties.Field(lambda text: text._read_direction(),
+                               lambda text, direction: text._take_direction(direction))
+
     def _add_to_axes(self, axes, kind, autolim=True):
         # docstring inherited
         super()._add_to_axes(axes, kind, autolim)
@@ -1924,6 +2545,7 @@ class Text3D(mtext.Text):
             self.axes._native, self._native,
             (_text_floats(position), tuple(map(float, direction))),
             bool(axlim_clip))
+        _values.remember(self, "dir_vec", direction)
         self._settle(position)
 
     def _settle(self, position):

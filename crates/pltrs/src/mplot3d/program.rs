@@ -54,13 +54,18 @@ impl Axes3D {
         Ok(())
     }
 
-    /// Takes `depth`, what the projection of `artist` (see
-    /// [`Axes3D::project_by_program`]) returned in the draw coming, and
-    /// orders the collections and patches of the axes again with it.
+    /// Takes `depth`, what the projection of `artist` returned in the
+    /// draw coming, and orders the collections and patches of the axes
+    /// again with it: an artist the program projects (see
+    /// [`Axes3D::project_by_program`]), or a 3-D collection or patch of
+    /// these axes whose class of the program's overrides matplotlib's
+    /// `do_3d_projection` and answers for the depth pltrs (Rust)
+    /// computed.
     ///
     /// # Errors
     ///
-    /// When `artist` is not projected by the program on these axes.
+    /// When `artist` is no collection or patch these axes order by
+    /// depth.
     pub fn set_program_depth(
         &self,
         artist: &impl ArtistHandle,
@@ -75,16 +80,19 @@ impl Axes3D {
 }
 
 impl Axes3DState {
-    /// [`Axes3D::set_program_depth`] of artist `id`: whether it is
-    /// projected by the program.
+    /// [`Axes3D::set_program_depth`] of artist `id`: whether it is one
+    /// whose depth orders it (projected by the program, or a collection
+    /// or patch pltrs (Rust) projects whose class of the program's
+    /// answers for its depth).
     fn take_program_depth(&mut self, id: ArtistId, depth: f64, store: &mut ArtistStore) -> bool {
-        let Some(Art3D::Program { depth: kept, .. }) = (self.artists.iter_mut())
-            .find(|artist| artist.id == id)
-            .map(|artist| &mut artist.art)
-        else {
+        let Some(artist) = self.artists.iter_mut().find(|artist| artist.id == id) else {
             return false;
         };
-        *kept = depth;
+        match &mut artist.art {
+            Art3D::Program { depth: kept, .. } => *kept = depth,
+            art if art.sort_kind().is_none() => return false,
+            _ => {}
+        }
         if let Some(entry) = self.depth_order.iter_mut().find(|entry| entry.0 == id) {
             entry.2 = depth;
             self.order_by_depth(store);
@@ -127,6 +135,13 @@ mod tests {
             ax.set_program_depth(&line, 0.0),
             Err(Axes3DError::Not3DArtist)
         );
+        // A collection pltrs (Rust) projects takes the depth a class of
+        // the program's answers for it.
+        let points = ax
+            .scatter([0.0, 1.0], [0.0, 1.0], [0.0, 1.0])
+            .expect("markers");
+        ax.set_program_depth(&points, 5.0)
+            .expect("ordered by depth");
         let foreign = Figure::new().subplot_3d();
         assert_eq!(
             foreign.project_by_program(&near),

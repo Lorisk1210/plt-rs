@@ -278,7 +278,13 @@ class ChartsMixin:
             # As matplotlib's ``plot`` of the data line makes it.
             mlines._set_after(keep_python_kwargs(data_line, kwargs), kwargs)
         errlines = wrap_all(self, errlines, art3d.Line3DCollection)
+        for errline in errlines:
+            # matplotlib makes each of one array of its segments.
+            errline._segments3d_as = "array"
         caplines = wrap_all(self, caplines, art3d.Line3D)
+        for capline in caplines:
+            # matplotlib makes each of lists of its coordinates.
+            capline._verts3d_as = "lists"
         for artists, problem in zip((errlines, caplines), problems):
             if problem is not None:
                 for artist in artists:
@@ -379,11 +385,15 @@ class ChartsMixin:
             float(bottom) if art3d._is_number(bottom) else np.nan, orientation,
             bool(axlim_clip))
         stemlines = wrap(self, stemlines, art3d.Line3DCollection)
+        # matplotlib makes it of lists of points as tuples.
+        stemlines._segments3d_as = "tuples"
         _draw_problems.record(
             stemlines, _draw_problems.segments_problem(stemlines, lines))
-        container = StemContainer(
-            (wrap(self, markerline, art3d.Line3D), stemlines,
-             wrap(self, baseline, art3d.Line3D)), label=label)
+        markerline = wrap(self, markerline, art3d.Line3D)
+        baseline = wrap(self, baseline, art3d.Line3D)
+        # matplotlib's ``plot`` broadcasts their z, a read-only view.
+        markerline._verts3d_as = baseline._verts3d_as = "broadcast"
+        container = StemContainer((markerline, stemlines, baseline), label=label)
         self.add_container(container)
         return container
 

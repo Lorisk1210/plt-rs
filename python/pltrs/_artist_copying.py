@@ -10,6 +10,7 @@ autoscaling reads the sticky edges where it runs, so the lists
 
 from collections import namedtuple
 import copy
+import weakref
 
 from ._native import artist as _artist
 
@@ -222,6 +223,13 @@ class CopyingMixin:
                 # The transform object of *other* (``ax.transData``), which
                 # this artist may not reach from its own figure yet.
                 self._given_transform = other.get_transform()
+            if "_clipbox" not in other.__dict__:
+                # matplotlib copies the attribute: the clip box read off
+                # either is one object from now on, that of *other*, made
+                # when one of them is first asked for it (`get_clip_box`).
+                self.__dict__["_clipbox_of"] = weakref.ref(other)
+            else:
+                self.__dict__.pop("_clipbox_of", None)
         elif self._kept_only:
             # Kept as the objects of *other*, whatever figure they are of,
             # as matplotlib copies them.

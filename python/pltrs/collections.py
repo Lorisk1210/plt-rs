@@ -1339,6 +1339,12 @@ class Collection(mcolorizer.ColorizingArtist):
         self._face_fill = not cbook._str_lower_equal(c, "none")
         if _OWN in self.__dict__:
             _own_state.drop(self, "facecolors")
+            _own_state.drop(self, "facecolors given")
+        if type(c) is np.ndarray and "_native" in self.__dict__:
+            # matplotlib resolves the colours it was given again at the
+            # first draw: what a program changes in the array until then
+            # is drawn.
+            _own_state.keep(self, _state.GIVEN_FACECOLORS, c)
         if unfit is not None:
             # Alphas that do not fit the colours: set, but not resolved.
             raise ValueError(unfit)

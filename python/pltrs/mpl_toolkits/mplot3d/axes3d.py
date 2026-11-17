@@ -2247,6 +2247,21 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             points[:, 0], points[:, 1], points[:, 2]
         return col._adopt_into(self, autolim, axlim_clip)
 
+    def relim(self, visible_only=False):
+        # docstring inherited; matplotlib's 3-D axes inherit the 2-D
+        # method, which leaves in ``dataLim`` (a box the 3-D axes draw
+        # nothing from) the extent of the lines as last drawn, their
+        # projection, and nothing of the collections and patches.
+        super().relim(visible_only=visible_only)
+        box = mtransforms.Bbox.null()
+        for line in self.lines:
+            if visible_only and not line.get_visible():
+                continue
+            vertices = np.asarray(line.get_path().vertices, dtype=float)
+            if len(vertices):
+                box.update_from_data_xy(vertices, ignore=bool(np.isinf(box.get_points()).any()))
+        self.dataLim.set_points(box.get_points())
+
     def add_collection(self, collection, autolim=True):
         # docstring inherited
         # matplotlib's Axes3D adds collections with Axes.add_collection,
@@ -2626,6 +2641,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             self._native, grids, sampling, (color, mapping, fcolors),
             _shading(shade, lightsource), bool(axlim_clip))
         collection = wrap(self, native, art3d.Poly3DCollection)
+        # matplotlib makes it of one array of its faces.
+        collection._faces_as = "array"
         if made is not None:
             collection._attach_native_mapping(colorizer=made)
         collection._internal_update(kwargs)
@@ -2843,6 +2860,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                                 _shading(bool(shade), lightsource),
                                 bool(axlim_clip))
         collection = wrap(self, native, art3d.Poly3DCollection)
+        # matplotlib makes it of one array of its faces.
+        collection._faces_as = "array"
         collection._internal_update(kwargs)
         return collection
 
@@ -3004,6 +3023,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             np.asarray(z, dtype=float).ravel().tolist(), (color, mapping),
             _shading(shade, lightsource), bool(axlim_clip))
         collection = wrap(self, native, art3d.Poly3DCollection)
+        # matplotlib makes it of one array of its faces.
+        collection._faces_as = "array"
         if made is not None:
             collection._attach_native_mapping(colorizer=made)
         collection._internal_update(kwargs)

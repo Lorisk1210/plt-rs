@@ -56,7 +56,17 @@ class EffectsMixin:
                            if _draws(self, effects)), None)
         if made_under is not None:
             return made_under
-        return [] if _draws(self, []) else rc_effects()
+        if not _draws(self, []):
+            return rc_effects()
+        from . import rcParams
+        current = rcParams['path.effects']
+        if not current:
+            # Made under the rcParam as it still is: its very list, the
+            # one matplotlib's artist holds, at every read.
+            return current
+        # Made under an empty list the rcParam no longer is: one list of
+        # the artist's own from here on, as matplotlib's keeps the old one.
+        return self.__dict__.setdefault("_made_without_effects", [])
 
     def set_agg_filter(self, filter_func):
         """

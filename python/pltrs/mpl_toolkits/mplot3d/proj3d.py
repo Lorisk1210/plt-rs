@@ -179,6 +179,53 @@ def proj_transform_clip(xs, ys, zs, M):
             np.ma.masked_array(tzs, ~tis), tis)
 
 
+def _apply_scale_transforms(xs, ys, zs, axes):
+    """The coordinates through the scales of the three axes of *axes*
+    (log, symlog, ...), masked where any of them is (matplotlib 3.11.2's,
+    under the Matplotlib License)."""
+    def transform_coord(coord, axis):
+        coord = np.asanyarray(coord)
+        data = np.ma.getdata(coord).ravel()
+        return axis.get_transform().transform(data).reshape(coord.shape)
+
+    xs_scaled = transform_coord(xs, axes.xaxis)
+    ys_scaled = transform_coord(ys, axes.yaxis)
+    zs_scaled = transform_coord(zs, axes.zaxis)
+    masks = [np.ma.getmask(a) for a in [xs, ys, zs]]
+    if any(m is not np.ma.nomask for m in masks):
+        combined = np.ma.mask_or(np.ma.mask_or(masks[0], masks[1]), masks[2])
+        xs_scaled = np.ma.array(xs_scaled, mask=combined)
+        ys_scaled = np.ma.array(ys_scaled, mask=combined)
+        zs_scaled = np.ma.array(zs_scaled, mask=combined)
+    return xs_scaled, ys_scaled, zs_scaled
+
+
+def _proj_transform_vec_clip(vec, M, focal_length):
+    """The padded points *vec* through *M*, masked where a perspective of
+    *focal_length* leaves them outside the view, and which are inside
+    (matplotlib 3.11.2's, under the Matplotlib License)."""
+    txs, tys, tzs = _projected_rows(vec, M)
+    if np.isinf(focal_length):
+        # An orthographic projection clips nothing.
+        tis = np.ones(txs.shape, dtype=bool)
+    else:
+        tis = (-1 <= txs) & (txs <= 1) & (-1 <= tys) & (tys <= 1) & (tzs <= 0)
+    for row in vec[:3]:
+        if np.ma.isMA(row):
+            tis = tis & ~row.mask
+    return (np.ma.masked_array(txs, ~tis), np.ma.masked_array(tys, ~tis),
+            np.ma.masked_array(tzs, ~tis), tis)
+
+
+def _scale_proj_transform_clip(xs, ys, zs, axes):
+    """The points through the scales of *axes* and its projection matrix
+    of the last draw, with what its view clips (matplotlib 3.11.2's, under
+    the Matplotlib License)."""
+    xs, ys, zs = _apply_scale_transforms(xs, ys, zs, axes)
+    vec = _vec_pad_ones(xs, ys, zs)
+    return _proj_transform_vec_clip(vec, axes.M, axes._focal_length)
+
+
 def _proj_trans_points(points, M):
     """The *points* (rows of x, y, z) projected by *M* (matplotlib 3.11.2's,
     under the Matplotlib License)."""

@@ -227,6 +227,48 @@ fn shade_faces(
     )
 }
 
+/// What `kept` gives of a 3-D artist: the kind of its geometry, the
+/// points of each part as an `(n, 3)` array, the 2-D paths whose codes
+/// the parts keep, the name of the polygons' depth sorting, whether they
+/// are closed, and the alpha factor of the deepest markers.
+type Kept = (
+    &'static str,
+    Vec<NdArray>,
+    Vec<PathArrays>,
+    Option<&'static str>,
+    Option<bool>,
+    Option<f64>,
+);
+
+/// The 3-D geometry the axes keep for `artist` as matplotlib's `art3d`
+/// classes keep it in their attributes (`_segments3d`, `_faces`,
+/// `_3dverts_codes`, a text's direction, ...); `None` for an artist that
+/// is no 3-D artist of the axes.
+fn kept(axes: Axes3D, artist: RawHandle) -> PyResult<Option<Kept>> {
+    let Ok(kept) = axes.kept_3d(&artist) else {
+        return Ok(None);
+    };
+    let parts = (kept.parts.iter())
+        .map(|part| NdArray::with_shape(part.concat(), vec![part.len(), 3]))
+        .collect::<PyResult<_>>()?;
+    let templates = (kept.templates.iter())
+        .map(|path| path_arrays(path, false))
+        .collect::<PyResult<_>>()?;
+    let zsort = kept.zsort.map(|zsort| match zsort {
+        ZSort::Average => "average",
+        ZSort::Min => "min",
+        ZSort::Max => "max",
+    });
+    Ok(Some((
+        kept.kind.name(),
+        parts,
+        templates,
+        zsort,
+        kept.closed,
+        kept.min_alpha,
+    )))
+}
+
 /// Whether the 3-D artist `artist` of the axes hides its parts outside
 /// the view limits; `None` when it is no 3-D artist of the axes
 /// (`_axlim_clip`).
@@ -446,6 +488,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("line_2d_to_3d", line_2d_to_3d)?;
     module.add("shade_faces", shade_faces)?;
     module.add("get_axlim_clip", get_axlim_clip)?;
+    module.add("kept", kept)?;
     module.add("set_text_position", set_text_position)?;
     module.add("get_depthshade", get_depthshade)?;
     module.add("set_depthshade", set_depthshade)?;

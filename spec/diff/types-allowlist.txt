@@ -53,6 +53,7 @@
 # matplotlib's.
 ^matplotlib\.axis\.Axis\.label_position$ | ^is not present in stub$ | an instance attribute in matplotlib; a property with a setter here, read and assigned alike
 ^matplotlib\.quiver\.QuiverKey\.vector$ | ^is not present in stub$ | an instance attribute in matplotlib; a property with a setter here, read and assigned alike
+^matplotlib\.ticker\.FixedLocator\.locs$ | ^is not present in stub$ | an instance attribute in matplotlib; a property with a setter here, read and assigned alike (the array behind it is the locator's own, followed where a program changes it in place)
 # matplotlib's instance attributes read only while the object is made, or
 # again only by the method making them anew (`set_data` for the arrow's
 # vertices): assigning one keeps it, read back as matplotlib reads it

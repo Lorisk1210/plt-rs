@@ -680,7 +680,13 @@ class RcParams(MutableMapping, dict):
 def _count_unheld():
     """The reference count `sys.getrefcount` gives a list that only a
     record of `RcParams._lists` holds, counted as `_take_changed_lists`
-    counts it (the interpreter's own references differ by version)."""
+    counts it (the interpreter's own references differ by version),
+    measured with a list of this function's own. Where the interpreter
+    runs without its GIL, reference counts are split between threads and
+    tell nothing: 0, which no count goes down to, so that every list
+    handed out stays kept."""
+    if not getattr(sys, "_is_gil_enabled", lambda: True)():
+        return 0
     kept = [[], [], ""]
     return sys.getrefcount(kept[0])
 

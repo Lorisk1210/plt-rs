@@ -1987,12 +1987,39 @@ class FixedLocator(_NativeLocator):
     """
 
     def __init__(self, locs, nbins=None):
-        self.locs = np.asarray(locs)
-        _api.check_shape((None,), locs=self.locs)
+        self._locs = np.asarray(locs)
+        _api.check_shape((None,), locs=self._locs)
         self.nbins = max(nbins, 2) if nbins is not None else None
+        if self._locs is locs:
+            # An array the program has, which it may change.
+            self._follow_locs()
+
+    @property
+    def locs(self):
+        """The locations: the locator's own array, which matplotlib reads
+        at every draw, so that what a program changes in it moves the
+        ticks (the figure asks the locator from now on)."""
+        if "_locs_followed" not in self.__dict__:
+            self._follow_locs()
+        return self._locs
+
+    @locs.setter
+    def locs(self, locs):
+        self._locs = locs
+
+    def _follow_locs(self):
+        """Have the figure of the axis the locator ticks, once it ticks
+        one, ask it before each draw whether its array changed."""
+        object.__setattr__(self, "_locs_followed", True)
+        _tick_helpers.follow_in_place(self)
+
+    def _take_changed_in_place(self):
+        """Install the locator again if the program changed its array
+        (asked by the figure: `._own_state.follow`)."""
+        _tick_helpers.check_native(self)
 
     def _spec(self):
-        return {"kind": "fixed", "locs": [float(v) for v in self.locs],
+        return {"kind": "fixed", "locs": [float(v) for v in self._locs],
                 "nbins": self.nbins}
 
     def set_params(self, nbins=None):
@@ -2012,11 +2039,11 @@ class FixedLocator(_NativeLocator):
             Because the values are fixed, *vmin* and *vmax* are not used.
         """
         if self.nbins is None:
-            return self.locs
+            return self._locs
         # A subset of the locations, as matplotlib slices them.
         ticks = super().tick_values(0.0, 0.0)
-        if self.locs.dtype.kind in "iu":
-            return ticks.astype(self.locs.dtype)
+        if self._locs.dtype.kind in "iu":
+            return ticks.astype(self._locs.dtype)
         return ticks
 
 

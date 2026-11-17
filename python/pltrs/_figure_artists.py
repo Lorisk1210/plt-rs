@@ -19,12 +19,51 @@ put in the list, as `~.Figure.legend` and libraries building legends
 themselves (seaborn) put it there.
 """
 
+import functools
+import operator
+
 from .transforms import IdentityTransform
 
 
+#: The methods of a list that read its items or change them.
+_USES = ("__len__", "__iter__", "__getitem__", "__contains__", "__eq__", "__ne__",
+         "__repr__", "__reversed__", "__add__", "__mul__", "index", "count", "copy",
+         "append", "extend", "__iadd__", "insert", "__setitem__", "__delitem__",
+         "remove", "pop", "clear", "sort", "reverse")
+
+
+def _caught_up(cls):
+    """*cls*, a list class, whose lists catch up with what their owner
+    lists (`DrawnList._catch_up`) before each use of their items."""
+    def catching_up(method):
+        @functools.wraps(method)
+        def use(self, *args, **kwargs):
+            self._catch_up()
+            return method(self, *args, **kwargs)
+        return use
+    for name in _USES:
+        setattr(cls, name, catching_up(getattr(cls, name)))
+    return cls
+
+
+@_caught_up
 class DrawnList(list):
     """A list of artists *figure* draws: those put in it are drawn, those
     taken out no longer."""
+
+    #: What gives the artists the owner lists now, for a list that is an
+    #: attribute read again and again (`._own_state.same_list`): the list
+    #: holds them whenever it is used, also those added and removed
+    #: otherwise since it was handed out.
+    _listed = None
+
+    def _catch_up(self):
+        """Hold what the owner lists now."""
+        if self._listed is not None:
+            artists = self._listed()
+            if list.__len__(self) != len(artists) or any(
+                    map(operator.is_not, list.__iter__(self), artists)):
+                list.__setitem__(self, slice(None), artists)
 
     def __init__(self, figure, artists=(), *, texts=False):
         super().__init__(artists)
@@ -118,6 +157,37 @@ class LegendList(DrawnList):
             if legend not in self:
                 legend._add_to_figure(self._figure, False)
         return legends
+
+
+class ChildList(DrawnList):
+    """The artists an Axes draws (matplotlib's ``Axes._children``): one
+    put in the list is added to the Axes, one taken out is removed from
+    it."""
+
+    def _put(self, artists):
+        """Add *artists* to the Axes; return them."""
+        artists = list(artists)
+        for artist in artists:
+            self._figure.add_artist(artist)
+        return artists
+
+
+class ChildAxesList(DrawnList):
+    """The Axes drawn inside an Axes (matplotlib's ``Axes.child_axes``):
+    one put in the list is drawn with its host, one taken out no longer,
+    keeping the place it was last given."""
+
+    def _put(self, axes_list):
+        """Add *axes_list* to the host; return them."""
+        axes_list = list(axes_list)
+        for ax in axes_list:
+            self._figure.add_child_axes(ax)
+        return axes_list
+
+    def _take(self, axes_list):
+        """Stop drawing *axes_list* with the host."""
+        for ax in axes_list:
+            self._figure._drop_child_axes(ax)
 
 
 def replace(current, artists):

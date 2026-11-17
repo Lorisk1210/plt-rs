@@ -162,7 +162,7 @@ fn poly_quad_mesh(coordinates: NdArray) -> PyResult<Collection> {
 }
 
 /// The vertex grid of a mesh from its `(M, N, 2)` array of coordinates.
-fn vertex_grid(coordinates: &NdArray) -> PyResult<Grid<Point>> {
+pub(super) fn vertex_grid(coordinates: &NdArray) -> PyResult<Grid<Point>> {
     let &[rows, cols, 2] = coordinates.shape.as_slice() else {
         return Err(PyErr::value_error(format!(
             "'coordinates' must be 3D with shape (M, N, 2), but your input has shape {:?}",

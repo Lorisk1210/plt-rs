@@ -37,7 +37,7 @@ class Arrows:
     def __init__(self, quiver, settings):
         self.__dict__.update(settings)
         self.axes = quiver.axes
-        self.XY, self.U, self.V = quiver.XY, quiver.U, quiver.V
+        self.XY, self.U, self.V = quiver.XY, quiver._U, quiver._V
         self.N, self.Umask = quiver.N, quiver.Umask
         self.pivot = quiver.pivot
         self._dpi_at_last_init = None

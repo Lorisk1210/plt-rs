@@ -254,7 +254,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         self._native = self._new_native(colorizer, _checked_settings(
             interpolation, interpolation_stage, origin, filternorm, filterrad, resample))
         super().__init__(colorizer)
-        self._keep_data(self._A)
+        self._keep_data(self._mapped)
         if self._program_setters:
             _program_classes.replay_setters(self, [
                 ("set_filternorm", (filternorm,)), ("set_filterrad", (filterrad,)),
@@ -281,7 +281,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         """Take the image array *A* (None for none yet, which matplotlib's
         image fails on when it draws: ``get_array().size``, see
         `._unusable`)."""
-        self._A = A
+        self._mapped = A
         if A is None:
             _unusable.keep(self, "array", A, _array_size, measured=False)
         elif A.ndim == 3 and A.shape[-1] == 4 and A.dtype == bool:
@@ -331,10 +331,10 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         """
         Return the shape of the image as tuple (numrows, numcols, channels).
         """
-        if self._A is None:
+        if self._mapped is None:
             raise RuntimeError('You must first set the image array')
 
-        return self._A.shape
+        return self._mapped.shape
 
     def set_alpha(self, alpha):
         """
@@ -413,15 +413,15 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         if isinstance(A, PIL.Image.Image):
             A = pil_to_array(A)  # Needed e.g. to apply png palette.
         self._keep_data(self._normalize_image_array(A))
-        _native_image.set_data(self._native, _native_data(self._A))
+        _native_image.set_data(self._native, _native_data(self._mapped))
 
     def _array_set(self):
         # docstring inherited: the data handed out (`get_array`) that the
         # program changed in place, which every draw of matplotlib's maps
         # anew. Values of several variates (a structured array, which
         # `ColorizingArtist.set_array` takes) are none pltrs (Rust) draws.
-        if self._A is not None and self._A.dtype.fields is None:
-            _native_image.set_data(self._native, _native_data(self._A))
+        if self._mapped is not None and self._mapped.dtype.fields is None:
+            _native_image.set_data(self._native, _native_data(self._mapped))
 
     def set_array(self, A):
         """
@@ -624,7 +624,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
 
     def write_png(self, fname):
         """Write the image to png file *fname*."""
-        im = self.to_rgba(self._A[::-1] if self.origin == 'lower' else self._A,
+        im = self.to_rgba(self._mapped[::-1] if self.origin == 'lower' else self._mapped,
                           bytes=True, norm=True)
         PIL.Image.fromarray(im).save(fname, format="png")
 
@@ -680,7 +680,7 @@ def _made_image(image, magnification, unsampled, in_bbox, trans, over=None,
     transform, kept = _image_transform(image, in_bbox, trans, (x, y, magnification),
                                        matrix if unsampled else None)
     if unsampled:
-        pixels = _unsampled_pixels(image._A, pixels, kept)
+        pixels = _unsampled_pixels(image._mapped, pixels, kept)
     return pixels, x, y, transform
 
 
@@ -703,9 +703,9 @@ def _native_made(image, magnification, unsampled, over=None):
     """*image* made by pltrs (Rust): its pixels, the display corner they are
     drawn from (numpy floats) and the matrix mapping the image onto them;
     None when nothing of it shows."""
-    if image._A is None:
+    if image._mapped is None:
         raise RuntimeError('You must first set the image array')
-    if image._A.size == 0:
+    if image._mapped.size == 0:
         raise RuntimeError("_make_image must get a non-empty image. "
                            "Your Artist's draw method must filter before "
                            "this method is called.")
@@ -729,7 +729,7 @@ def _image_transform(image, in_bbox, trans, corner, unsampled_matrix):
     the move to the part of the image they keep. With it, the pixel
     ``(column, row)`` of the image that part starts at.
     """
-    rows, columns = image._A.shape[:2]
+    rows, columns = image._mapped.shape[:2]
     if image.origin == 'upper':
         t0 = Affine2D().translate(0, -rows).scale(1, -1)
     else:
@@ -758,7 +758,7 @@ def _made_grid_image(image, magnification, unsampled, kind):
     their ``make_image`` returns it: the RGBA pixels, the display corner
     they are drawn from and the identity.
     """
-    if image._A is None:
+    if image._mapped is None:
         raise RuntimeError('You must first set the image array')
     if unsampled:
         raise ValueError(f'unsampled not supported on {kind}')
@@ -923,7 +923,7 @@ class AxesImage(_ImageBase):
     def _read_extent(self):
         """The extent as given, while pltrs (Rust) holds it, else as pltrs
         (Rust) holds it."""
-        if ("_A" in self.__dict__ and self._A is None
+        if ("_mapped" in self.__dict__ and self._mapped is None
                 and "extent" not in self.__dict__.get("_given_values", {})):
             # matplotlib sizes an extent it was not given from the data.
             self.get_size()
@@ -1312,7 +1312,7 @@ def _grid_cursor_data(image, event):
         return None
     j = np.searchsorted(image._Ax, x) - 1
     i = np.searchsorted(image._Ay, y) - 1
-    return image._A[i, j]
+    return image._mapped[i, j]
 
 
 class NonUniformImage(AxesImage):
@@ -1374,7 +1374,7 @@ class NonUniformImage(AxesImage):
         # docstring inherited: the data on its grid.
         _native_image.set_grid_data(
             self._native, self._Ax.astype(float).tolist(), self._Ay.astype(float).tolist(),
-            _native_data(self._A))
+            _native_data(self._mapped))
 
     def set_array(self, *args):
         raise NotImplementedError('Method not supported')
@@ -1392,7 +1392,7 @@ class NonUniformImage(AxesImage):
         super().set_interpolation(s)
 
     def get_extent(self):
-        if self._A is None:
+        if self._mapped is None:
             raise RuntimeError('Must set data first')
         return self._Ax[0], self._Ax[-1], self._Ay[0], self._Ay[-1]
 
@@ -1424,12 +1424,12 @@ class NonUniformImage(AxesImage):
         return self._filterrad
 
     def set_norm(self, norm):
-        if self._A is not None:
+        if self._mapped is not None:
             raise RuntimeError('Cannot change colors after loading data')
         super().set_norm(norm)
 
     def set_cmap(self, cmap):
-        if self._A is not None:
+        if self._mapped is not None:
             raise RuntimeError('Cannot change colors after loading data')
         super().set_cmap(cmap)
 
@@ -1536,7 +1536,7 @@ class PcolorImage(AxesImage):
     def _array_set(self):
         # docstring inherited: the data on its grid.
         _native_image.set_grid_data(self._native, self._Ax.tolist(), self._Ay.tolist(),
-                                    _native_data(self._A))
+                                    _native_data(self._mapped))
 
     def set_array(self, *args):
         raise NotImplementedError('Method not supported')
@@ -1641,7 +1641,7 @@ class FigureImage(_ImageBase):
         fac = renderer.dpi / self.get_figure(root=True).dpi
         if not _image_magnified.plain(magnification):
             magnification = magnification / fac
-        rows, columns = self._A.shape[:2] if self._A is not None else (0, 0)
+        rows, columns = self._mapped.shape[:2] if self._mapped is not None else (0, 0)
         in_bbox = Bbox([[self.ox, self.oy],
                         [self.ox + columns, self.oy + rows]])
         return _made_image(self, magnification, unsampled, in_bbox,

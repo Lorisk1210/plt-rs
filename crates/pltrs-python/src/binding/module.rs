@@ -7,6 +7,7 @@ use super::error::PyResult;
 use super::function::{IntoNative, function};
 use super::gil::Python;
 use super::object::{Bound, c_string};
+use super::own_state;
 use crate::ffi;
 
 /// A module being filled with native functions and objects.
@@ -52,19 +53,31 @@ impl<'py> Module<'py> {
         &self.name
     }
 
+    /// The last part of the module's name (`lines`).
+    fn short_name(&self) -> &str {
+        self.name.rsplit('.').next().unwrap_or(&self.name)
+    }
+
     /// The module object.
     pub(crate) fn into_object(self) -> Bound<'py> {
         self.module
     }
 
     /// Adds a native function made from a Rust function of up to eight
-    /// converted arguments.
+    /// converted arguments. The artists among its arguments are told
+    /// before each call of it, unless the function is listed as passing by
+    /// what their objects keep ([`own_state::PASSING_BY`]).
     pub(crate) fn add<Args>(
         &self,
         name: &'static str,
         rust: impl IntoNative<Args>,
     ) -> PyResult<()> {
         let native = rust.into_native(name);
+        let native = if own_state::passes_by(self.short_name(), name) {
+            native.telling_nobody()
+        } else {
+            native
+        };
         let object = function(self.py(), &self.module, name, native)?;
         self.add_object(name, object)
     }

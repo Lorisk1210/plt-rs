@@ -20,7 +20,8 @@ import weakref
 import numpy as np
 
 from pltrs import _docstring
-from pltrs import _api, _handles, _lazy_imports, _live_transforms, _values, cbook, rcParams
+from pltrs import (_api, _handles, _lazy_imports, _live_transforms, _own_state, _values, cbook,
+                   rcParams)
 from pltrs import collections as mcoll, colors as mcolors, lines as mlines
 from pltrs import patches as mpatches, scale as mscale, text as mtext
 from pltrs._native import artist as _artist, axes as _axes, axis as _axis
@@ -214,6 +215,17 @@ _VIEW_ANGLES = ("elev", "azim", "roll")
 #: does not keep: the view angles as given (``view``) and the axes it
 #: shares its view with (``shareview``).
 _made = threading.local()
+
+
+#: What matplotlib scales a box's ratio by besides its zoom, over the
+#: ratio's length (`Axes3D.set_box_aspect`).
+_BOX_SCALE = 1.8294640721620434 * 25 / 24
+
+#: The ratio of a 3-D Axes' box edges as matplotlib keeps it (its
+#: ``_box_aspect``): an array of the Axes' own (`pltrs._own_state`).
+_BOX_ASPECT = _own_state.State(
+    "box_aspect", lambda axes: np.array(_mplot3d.get_box_aspect(axes._native)),
+    lambda axes, stored: axes._take_box_aspect(stored))
 
 
 @_docstring.interpd
@@ -1497,14 +1509,27 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         if aspect is not None:
             aspect = np.asarray(aspect, dtype=float)
             _api.check_shape((3,), aspect=aspect)
+        _own_state.drop(self, "box_aspect")
         _mplot3d.set_box_aspect(
             self._native,
             None if aspect is None else tuple(map(float, aspect)),
             float(zoom))
 
     def get_box_aspect(self):
-        """The x:y:z ratio of the box edges."""
-        return np.array(_mplot3d.get_box_aspect(self._native))
+        """The x:y:z ratio of the box edges: the Axes' own array
+        (matplotlib's ``_box_aspect``), so that what a program changes in
+        it is the box drawn."""
+        return _own_state.hand_out(self, _BOX_ASPECT)
+
+    def _take_box_aspect(self, stored):
+        """Give pltrs (Rust) *stored*, the ratio as matplotlib keeps it
+        (the zoom and the size of the box scaled in), which the program
+        changed in place: the ratio and the zoom that are kept so."""
+        stored = np.asarray(stored, dtype=float)
+        zoom = np.linalg.norm(stored) / _BOX_SCALE
+        _mplot3d.set_box_aspect(
+            self._native, tuple(map(float, np.roll(stored, self._vertical_axis - 2))),
+            float(zoom))
 
     @property
     def _box_aspect(self):
@@ -2287,11 +2312,14 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                                      props)
             # The 2-D data as matplotlib's `plot` gives them to the line,
             # until a draw projects it.
-            line._xorig, line._yorig = np.atleast_1d(x), np.atleast_1d(y)
+            # (Copies, as `Line2D.set_data` keeps: what the program does to
+            # its own arrays afterwards is not the line's.)
+            line._xorig, line._yorig = (mlines._copied(np.atleast_1d(x)),
+                                        mlines._copied(np.atleast_1d(y)))
             # The 3-D data as matplotlib's `set_3d_properties` keeps them:
-            # the 2-D data as given, and the z values as floats.
+            # the 2-D data the line keeps, and the z values as floats.
             z = np.broadcast_to(cbook._to_unmasked_float_array(z).ravel(), len(x))
-            verts = art3d.juggle_axes(x, y, z, zdir)
+            verts = art3d.juggle_axes(line._xorig, line._yorig, z, zdir)
             _values.remember(line, "data_3d", verts)
             _draw_problems.record(line, _draw_problems.line_problem(line, verts))
             lines.append(line)
@@ -2415,7 +2443,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         given_sizes = np.asarray(s)
         given_xs, given_ys = np.ma.column_stack(
             [np.asanyarray(xs, float), np.asanyarray(ys, float)]).T
-        given_offsets = art3d.juggle_axes(given_xs, given_ys, np.atleast_1d(zs), zdir)
+        # (The z values copied, as matplotlib's scatter keeps the points left
+        # once the masked ones are deleted.)
+        given_offsets = art3d.juggle_axes(given_xs, given_ys, np.array(np.atleast_1d(zs)), zdir)
         s = np.broadcast_to(np.ma.filled(np.asarray(s, dtype=float), np.nan),
                             xs.shape if s.size != 1 else (1,))
         _properties.check_known(mcoll.PathCollection, kwargs)

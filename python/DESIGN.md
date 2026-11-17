@@ -1042,7 +1042,12 @@ that state itself. What both do, object by object, is measured:
 every public getter and attribute of every kind of artist, and every
 object given to one, and compares the read back, the next draw, the data
 limits, a measure and a pickle with matplotlib's
-(`python/tests/mutability/reference.json`, `python -m mutability`).
+(`python/tests/mutability/reference.json`, `python -m mutability`). Each
+row is asked twice, of a scene already drawn and of one changed before
+its first draw (matplotlib computes some state at that draw), and the
+rows of some kinds are asked again with a setter called between the
+change and the next read (`setters.py`, one call of the public API for
+every native function that is passed by, see the costs below).
 
 One mechanism answers it, `_own_state`, in two halves.
 
@@ -1114,17 +1119,76 @@ binding's check that nothing asks: a few loads and the size of one dict
 (a native call from Python takes 349 ns in all, measured as 200,000
 `line.get_alpha()`; 357 ns once another artist of the process has a
 record). An artist with records pays the comparison of each recorded
-object, one pass over its bytes, per native call on it and per draw of
-its figure, and one copy of an object the program did change: 1.2 µs per
-call for a line of two points, 2.2 µs for a scatter of 1,000 points,
-74 µs for one of 100,000. That is per call and not per draw so that
-`contains`, a measure and a getter see the change at once, as
-matplotlib's read the attribute; the benchmark
+object per native call *that reads it* and per draw of its figure, and
+one copy of an object the program did change. That is per call and not
+per draw so that `contains`, a measure and a getter see the change at
+once, as matplotlib's read the attribute. Three rules keep it small:
+
+* *Native functions that read none of this state tell nobody.* The
+  binding lists them in one place (`binding::own_state::PASSING_BY`,
+  35 functions, each with a line saying what it reads or writes:
+  the plain fields of every artist, the widths, dash patterns,
+  antialiasing, caps, joins, hatch, URLs, sizes and offsets of a
+  collection, the style properties of a line and of a patch). The
+  hand-over waits for the next call that reads the artist, so a setter
+  and a change in place are two writes in either order, as in
+  matplotlib. A function is listed only once its Rust code was read; one
+  that is not listed tells, which is slower and never wrong. One that
+  writes recorded state is called by setters that forget the record
+  (`drop`), or the old object would be handed over on top of the new
+  value. The sweep makes rows of the list (below), and
+  `test_mut1.py` fails on a listed function without rows. The collection
+  setters of face and edge colours and of alpha are not listed: they
+  read the other side's colours natively.
+* *An array nothing but its record holds is not compared.* Once a
+  hand-over has compared an array at a moment when its reference count
+  is the record's alone (`_own_state._only_recorded`), no code can
+  change it, and it is left alone until a getter hands it out again
+  (`_Record.settled`). The count is compared with one measured at import
+  on an array of the module's own, in the same call shape
+  (`_count_unheld`), not with a constant: the interpreter's own
+  references differ by version. Only arrays that own their numbers
+  qualify (a view holds its base, a buffer its exporter), with no weak
+  reference to them (one reaches the array without holding it); for a
+  masked array, which a scatter's offsets are, the numbers and the mask
+  must be nobody else's either. Lists, paths and views are always
+  compared: their content is reached another way. Where the interpreter
+  runs without its GIL, counts tell nothing and the rule is off, here
+  and for the lists of rcParams. What is not seen: a write through an
+  address kept without any reference, which matplotlib's artist would
+  show, as it keeps the array alive too.
+* *Offsets and sizes are compared with pltrs (Rust)'s own.* A state may
+  say how to compare an array with what pltrs (Rust) holds, both read
+  where they are (`State.same`; `_native.collections.holds_offsets`,
+  `holds_sizes`, through the buffer protocol): no copy of the array is
+  made and none is kept beside the record. "pltrs (Rust) holds something
+  else" then has to mean "the program changed the array", so only states
+  that nothing writes natively but their own hand-over and setters that
+  forget the record are compared so: the offsets (masked or not) and the
+  sizes of 2-D collections. A line's numbers are not: pltrs (Rust)
+  converts them again when an axis changes units. An object pltrs (Rust)
+  does not hold bit for bit after it took it (another dtype) falls back
+  to the comparison with what it held.
+
+Measured on the optimised extension (2026-11-16, CPU time, the least of
+nine runs, on a machine under load), a native call that reads the artist
+takes 0.1 to 0.2 µs with nothing kept, 1.0 µs for a line of two points
+whose array is held, 1.8 µs for a scatter of 1,000 points whose offsets
+are held and 40 µs for one of 100,000 (the comparison with a kept copy
+took 66 µs on the same array in the same run, and kept 1.8 MB beside
+it); 0.9 µs for that scatter once nothing holds the offsets; 52 to 59 µs
+for a line of 100,000 points, which is compared with what it held. A
+style setter on any of them takes what it takes on an artist that keeps
+nothing (1.4 to 1.9 µs). The benchmark
 `calls/scatter_1e5_read_then_1000_calls` (offsets read once and held,
-then 1,000 setter calls) pins the worst case, which must stay linear in
-the calls: 178 ms built and saved where matplotlib takes 80 ms and the
-same figure without the read 48 ms (130 µs per `set_linewidth`, two
-native calls each). Records hold their objects as the artist would; pltrs (Rust)
+then 1,000 `set_linewidth`) pins the case the first rule answers: built
+and drawn it takes 52 ms of CPU time with the read and 48 ms without,
+where matplotlib takes 92 ms (before the rule: 130 µs per
+`set_linewidth`, 178 ms in the bench's run against matplotlib's 80).
+`test_mut1.py` holds the 1,000 calls to no comparison at all, which is
+what keeps the benchmark where it is. 1,000 `set_edgecolor` on that
+scatter still cost about 40 µs each: the colour setters tell. Records
+hold their objects as the artist would; pltrs (Rust)
 holds only the artist's weak callable. Records are left out of pickles,
 which hold what pltrs (Rust) holds after a last `sync`. An assignment to
 a recorded path (``path.vertices = vertices``) says that it changed, and
@@ -1202,6 +1266,104 @@ parameter was set by another way since) is nobody's: nothing takes it,
 and the end of an `rc_context` does not put it back; the lists that were
 the parameters when the context began are put back as the very objects,
 with what was changed in them meanwhile, as matplotlib's are.
+
+**Lists of artists** are one list each, as matplotlib's attributes are:
+`Figure.texts`, `artists`, `legends` and `images`, `Axes._children` and
+`child_axes` hand out the list handed out before
+(`_own_state.same_list`), of a class whose changes in place add and
+remove artists (`_figure_artists.DrawnList` and its subclasses) and which
+brings itself up to what pltrs (Rust) lists whenever it is used. Nothing
+is compared at a draw and nothing is kept for a figure whose lists no
+program read; the package's own code reads the lists through
+`_texts_now()`, `_children_now()` and the like, which hand nothing out.
+Where an attribute is also one a program assigns (`Figure.images`:
+`_values.reassignable`), the two compose: the getter is the list's, and
+assigning it back is the no-op it should be. An axis' `majorTicks` and
+`minorTicks` are its own lists too, filled up when the axis makes ticks
+or is drawn and left as the program left them in between.
+
+**What matplotlib makes once and draws nothing from** is kept from its
+first read on, with no record (`_own_state.kept_once_read`): a contour
+set's `levels`, `layers`, `cvalues` and its lists of labels (filled anew,
+the same lists still, when `clabel` adds labels), a legend's `texts` and
+`legend_handles`. A program changing them in place reads the change
+back, in a pickle too.
+
+**State that is no artist's record** is asked for by the figure where it
+tells its artists (`_own_state.follow`: before a draw's layout, before
+`relim`, a measure and a pickle), with no native call asking:
+
+* the limit boxes of an Axes whose transform trees are built: the
+  watcher of each box (`_transform_trees._LeafWatcher`) compares the
+  array of its points with what it last took, so that
+  `ax.viewLim.get_points()[1, 1] = top` and `ax.viewLim.intervalx[1] =
+  right` are the limits pltrs (Rust) draws; the Axes also looks before
+  its limits are read (`get_xlim`). pltrs writes its own limits into the
+  same array, so the array a program holds stays the box's;
+* the limit boxes of a 3-D Axes (`_limit_boxes`), likewise;
+* a `FixedLocator` that keeps an array the program has (the array given
+  to it or to `set_xticks`, or its `locs` once read): installed again
+  when the array changed;
+* a colormap whose lookup table a program read (`cmap._lut`, a property
+  over the same storage that tells a read from outside the package):
+  every live figure asks its watch (`colors._LutWatch`), and a table that
+  changed is handed over again by the colorizers drawing with it, as
+  `Colormap.set_bad` has them do.
+
+**More states of the kind above:** the mapped array by its private name
+(`_A` is a property handing out what `get_array()` does; the package
+keeps the array as `_mapped`, which its own code reads), the vertices of
+a quad mesh (`get_coordinates()`; pltrs (Rust) takes them back with
+`Collection::set_mesh_coordinates`), a 3-D Axes' box aspect, the data of
+3-D lines and scatters, a quiver's `U` and `V`, the clip box an artist
+was given when it is a `Bbox` of the program's.
+
+**The first draw of a collection sets its colours again** in matplotlib
+(its first `update_scalarmappable` finds its flags changed and resolves
+the colours from what the setters were given), so a change made in the
+arrays `get_facecolor()` or `get_edgecolor()` hand out before that draw
+is read back until then and never drawn; after it the arrays are the
+collection's own. pltrs does the same (`_collection_state`'s
+`shown_until_drawn`), as it does at every draw for a collection that
+maps values.
+
+**A draw style set anew** makes matplotlib compute a line's numbers
+again at its next use (``_invalidx``): the x numbers from the data the
+line was given, the y numbers as they are, in a new array. `set_drawstyle`
+does that at once (`Line2D._recache_x`): what a program changed in the y
+numbers of the array it has, and in the x data it gave, is drawn; what it
+changed in the x numbers is not; the array is the line's no more.
+(matplotlib's private `_x`, `_y`, `_xy` and `_path` still are the old
+objects until that next use; pltrs' are new at once.)
+
+**Before the first draw** matplotlib has computed less than after it, and
+some of what it then computes it reads from objects a program gave or
+may have changed. The sweep's rows changed before the first draw differ
+from matplotlib's in these cases, where pltrs took the content when the
+artist was made or set: the vertices of a clip path given with its
+transform, colours given to `set_facecolor` as an array, the `colors` of
+a `ListedColormap` (its table is made at first use), the unit data of an
+`axline`; matrices and boxes changed in their arrays before any cache of
+matplotlib's exists (`dpi_scale_trans`, an Axes' `bbox`); the array of a
+`NonUniformImage`, which pltrs draws changed and matplotlib does not; and
+the identity of a 3-D line's and scatter's arrays, which matplotlib's
+projection binds anew at every draw and pltrs' record keeps over the
+first. They are listed in `expected.json` with the keys `first_draw`,
+`first_kept` and `first_value`.
+
+**What stays a copy, and why.** An axis' `get_view_interval()` and
+`get_data_interval()` are views of the Axes' boxes in matplotlib; handing
+out the boxes' own arrays would build the Axes' transform trees at every
+tick computation. `Figure.bbox_inches` changed in its array: matplotlib's
+draw does not follow it either (its canvas keeps the old size), only
+`get_size_inches()` does. Positions a patch was given as a list or an
+array (a circle's centre, an arrow patch's ends) and a `LineCollection`'s
+segments given as arrays: keeping every such artist as a record would
+cost each program that makes patches from the rows of an array a
+comparison per patch and draw. The alpha column of the face colours of a
+collection that has an alpha of its own: pltrs (Rust) resolves the
+colours with that alpha at each draw, where matplotlib's array keeps
+what the program wrote.
 
 This mechanism retires three partial ones: `_program_paths` (copies of
 the arrays of the paths a collection was given, compared at each draw),

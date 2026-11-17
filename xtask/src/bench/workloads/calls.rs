@@ -94,9 +94,10 @@ fn line_setters() -> Build {
 
 /// A scatter of 10⁵ points whose offsets are read once and held, then
 /// 1,000 setter calls on it: in pltrs (Python) the array read is the
-/// collection's own from then on, looked at before each call that
-/// reaches the collection (the worst case of a state handed out). pltrs
-/// (Rust) hands out a copy, and pays for the calls alone.
+/// collection's own from then on, compared before each native call that
+/// reads the collection and before none that only sets a style, so the
+/// calls must cost what they cost a scatter nobody read. pltrs (Rust)
+/// hands out a copy, and pays for the calls alone.
 fn scatter_read_then_called() -> Build {
     let mut rng = SpecRng::new(27);
     let x = rng.uniform(100_000, 0.0, 1.0);

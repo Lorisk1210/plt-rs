@@ -15,7 +15,7 @@ import numpy as np
 
 from . import _unusable, _values
 from ._native import artist as _artist, collections as _collections
-from ._own_state import State, note_paths
+from ._own_state import State, comparable, content, note_paths
 from .path import Path
 
 
@@ -41,8 +41,34 @@ def _take_offsets(collection, offsets):
         np.ma.filled(np.ma.asarray(offsets, dtype=float), np.nan).reshape(-1, 2), masked)
 
 
-#: The offsets of the items (matplotlib's ``_offsets``).
-OFFSETS = State("offsets", _read_offsets, _take_offsets)
+def _flat(collection, array):
+    """Whether pltrs (Rust) can compare *array* with its own numbers for
+    *collection* (`.State.compares`): not for the collections of a 3-D
+    Axes, whose numbers each projection sets."""
+    return comparable(array) and not hasattr(collection, "do_3d_projection")
+
+
+def _flat_or_masked(collection, array):
+    """`_flat`, also for a masked array of floats: pltrs (Rust) holds NaN
+    where it masks."""
+    return _flat(collection, np.ma.getdata(array) if type(array) is np.ma.MaskedArray
+                 else array)
+
+
+def _same_offsets(collection, offsets):
+    """Whether pltrs (Rust) holds what *offsets* holds (`.State.same`)."""
+    mask = np.ma.getmask(offsets)
+    return _collections.holds_offsets(
+        collection._native, np.ma.getdata(offsets), None if mask is np.ma.nomask else mask)
+
+
+#: The offsets of the items (matplotlib's ``_offsets``). Nothing writes
+#: them natively but `_take_offsets` and `~.Collection.set_offsets` (and
+#: an ``_offsets`` assigned), which forget the array handed out: an array
+#: of floats is compared with pltrs (Rust)'s offsets where both are.
+OFFSETS = State(
+    "offsets", _read_offsets, _take_offsets,
+    same=_same_offsets, compares=_flat_or_masked)
 
 
 def _take_paths(collection, paths):
@@ -58,6 +84,15 @@ PATHS = State("paths", lambda collection: collection._read_paths(), _take_paths,
               own=note_paths)
 
 
+#: The vertices of a quad mesh (matplotlib's ``_coordinates``), masked or
+#: not as the mesh was given them.
+COORDINATES = State(
+    "coordinates", lambda mesh: mesh._read_coordinates(),
+    lambda mesh, coordinates: _collections.set_coordinates(
+        mesh._native, mesh._native_coordinates(coordinates)),
+    lambda coordinates: content(np.ma.asarray(coordinates)))
+
+
 def _read_sizes(collection):
     sizes = _collections.get_sizes(collection._native)
     return _unusable.kept(collection, "sizes", _values.given(
@@ -69,8 +104,13 @@ def _take_sizes(collection, sizes):
 
 
 #: The areas of the items (matplotlib's ``_sizes``), by which each draw
-#: scales them.
-SIZES = State("sizes", _read_sizes, _take_sizes)
+#: scales them. Nothing writes them natively but `_take_sizes` and
+#: `~.Collection.set_sizes`, which forgets the array kept: an array of
+#: floats is compared with pltrs (Rust)'s sizes where both are.
+SIZES = State(
+    "sizes", _read_sizes, _take_sizes,
+    same=lambda collection, sizes: _collections.holds_sizes(collection._native, sizes),
+    compares=_flat)
 
 
 #: The line widths of the items (matplotlib's ``_linewidths``).
@@ -124,12 +164,19 @@ def _mapping_drawn(collection):
     """What tells the colours of *collection* a draw bound anew: matplotlib's
     draw maps the values of a collection that has some onto new arrays, and
     sets the colours it does not map again, so the arrays handed out before
-    are the collection's no more; without values it leaves them alone.
-    (Until that draw the colours read back as the program left them, which
-    pltrs (Rust) does with the colours it is handed too.)"""
-    if collection._A is None:
-        return None
-    return _artist.draw_count(collection._native)
+    are the collection's no more. Without values only its first draw sets
+    them again (the first ``update_scalarmappable`` finds its flags
+    changed); later ones leave them alone. (Until that draw the colours
+    read back as the program left them, `shown_until_drawn`.)"""
+    draws = _artist.draw_count(collection._native)
+    return draws if collection._mapped is not None else min(draws, 1)
+
+
+def _set_again_by_next_draw(collection):
+    """Whether the next draw of matplotlib's collection sets its colours
+    again from what the setters were given, so that what a program changed
+    in the arrays handed out is never drawn (see `_mapping_drawn`)."""
+    return collection._mapped is not None or not _artist.draw_count(collection._native)
 
 
 def _colors(colors):
@@ -137,17 +184,30 @@ def _colors(colors):
     return np.asarray(colors, dtype=float).reshape(-1, 4)
 
 
+def _take_facecolors(collection, colors):
+    """Hand pltrs (Rust) the face colours changed in the array handed out,
+    unless the first draw is still to come: matplotlib's sets them again
+    then, and the change is only read back until it does
+    (`shown_until_drawn`). (The faces of a collection mapping values are
+    mapped anew at every draw in pltrs (Rust) too.)"""
+    if collection._mapped is None and not _artist.draw_count(collection._native):
+        collection.__dict__.setdefault("_shown_until_drawn", {})["facecolors"] = (
+            0, np.array(colors))
+    else:
+        _collections.set_facecolors(collection._native, _colors(colors))
+
+
 #: The face colours as drawn (matplotlib's ``_facecolors``).
 FACECOLORS = State(
-    "facecolors", lambda collection: collection._read_facecolor(),
-    lambda collection, colors: _collections.set_facecolors(collection._native, _colors(colors)),
+    "facecolors", lambda collection: collection._read_facecolor(), _take_facecolors,
     version=_mapping_drawn)
 
 
 def shown_until_drawn(collection, name, native):
     """The colours *name* of *collection* that the program changed in the
-    array handed out while the collection maps values, until its next draw
-    (`_taking_unmapped`); *native*, what pltrs (Rust) holds, otherwise."""
+    array handed out before a draw that sets them again (`_taking_unmapped`,
+    `_take_facecolors`), until that draw; *native*, what pltrs (Rust)
+    holds, otherwise."""
     shown = collection.__dict__.get("_shown_until_drawn", {}).get(name)
     if shown is not None and shown[0] == _artist.draw_count(collection._native):
         return shown[1]
@@ -156,14 +216,15 @@ def shown_until_drawn(collection, name, native):
 
 def _taking_unmapped(name, take):
     """
-    *take* for the colours *name* of a collection without values to map.
-    matplotlib's draw of a collection mapping values sets the colours it
-    does not map again from what `~.Collection.set_edgecolor` was given,
-    so what a program changed in the array is never drawn: the collection
-    only reads it back until then (`shown_until_drawn`), in its pickle too.
+    *take* for the colours *name* of a collection whose next draw leaves
+    them alone. matplotlib's draw of a collection mapping values, and the
+    first draw of any collection, set the colours they do not map again
+    from what `~.Collection.set_edgecolor` was given, so what a program
+    changed in the array is never drawn: the collection only reads it back
+    until then (`shown_until_drawn`), in its pickle too.
     """
     def take_unmapped(collection, colors):
-        if collection._A is None:
+        if not _set_again_by_next_draw(collection):
             take(collection._native, _colors(colors))
         else:
             collection.__dict__.setdefault("_shown_until_drawn", {})[name] = (
@@ -210,6 +271,7 @@ LINESTYLES = State("linestyles", lambda collection: collection._lwls()[1], _take
 def _sized(collection):
     """Whether the items of *collection* are scaled by sizes."""
     return _collections.get_sizes(collection._native) is not None
+
 
 
 #: The shape transform of each item (matplotlib's ``_transforms``), which

@@ -23,7 +23,7 @@ from . import (
     units as munits)
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._drawn_with import DrawnWith
-from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
+from ._native import artist as _artist, axes as _axes, axis as _axis, axes_base as _axes_base
 from ._native import scale as _native_scale
 from .artist import Artist, allow_rasterization
 from .text import _measured_by_given
@@ -81,8 +81,8 @@ def _typed_locs(locator, locs, minor, view):
         values = list(locator._units.values())
         return values if np.array_equal(np.asarray(values, float), locs) else locs
     if (isinstance(locator, mticker.FixedLocator)
-            and np.issubdtype(locator.locs.dtype, np.number)):
-        given = locator.locs
+            and np.issubdtype(locator._locs.dtype, np.number)):
+        given = locator._locs
         if (not minor and locator.nbins is None
                 and np.array_equal(given.astype(float), locs)):
             return given
@@ -1361,12 +1361,33 @@ class Axis(DrawnWith, Artist):
         """The major ticks made so far, at least one: those of the locations
         the axis placed when drawn and those `get_major_ticks` listed, as
         matplotlib's tick list holds them."""
-        return self._tick_objects(False, _axis.ticks_made(*self._args(), False))
+        return self._tick_list(False)
 
     @_values.reassignable
     def minorTicks(self):
         """The minor ticks made so far, at least one (see `majorTicks`)."""
-        return self._tick_objects(True, _axis.ticks_made(*self._args(), True))
+        return self._tick_list(True)
+
+    def _tick_list(self, minor):
+        """
+        The list of the ticks of a level, the axis' own (matplotlib's
+        ``majorTicks`` and ``minorTicks``): filled up to the ticks made
+        when it is first read and whenever the axis made ticks or was
+        drawn since, as matplotlib's tick updates fill its list; in between
+        it is as the program left it (a tick popped stays out).
+        """
+        made = _axis.ticks_made(*self._args(), minor)
+        draws = _artist.draw_count(self.axes._native)
+        listed = self.__dict__.setdefault("_tick_lists_filled", {})
+        if listed.get(minor) != (made, draws):
+            ticks = self._tick_objects(minor, made)
+            # (Making the first tick of a level counts as one made.)
+            listed[minor] = (_axis.ticks_made(*self._args(), minor), draws)
+            return ticks
+        ticks = self._ticks[minor]
+        for tick in ticks:
+            tick._sync()
+        return ticks
 
     def get_major_ticks(self, numticks=None):
         r"""
@@ -1498,6 +1519,8 @@ class Axis(DrawnWith, Artist):
             for tick in ticks:
                 tick._retire()
             ticks.clear()
+        # The lists are filled anew when they are next read (`_tick_list`).
+        self.__dict__.pop("_tick_lists_filled", None)
 
     def _update_ticks(self):
         """
@@ -1824,8 +1847,9 @@ class Axis(DrawnWith, Artist):
             from .axes._plotting._helpers import axis_values
             native = axis_values(ticks)
         _axis.set_ticks(*self._args(), native, bool(minor))
-        if values.dtype.kind in "iub" and values.size:
-            # matplotlib's locator keeps the locations as given (ints).
+        if values.size and (values.dtype.kind in "iub" or values is ticks):
+            # matplotlib's locator keeps the locations as given: ints, and
+            # the very array of the program's, which it may change.
             from .ticker import FixedLocator
             locator = FixedLocator(values)
             _tick_helpers.adopt(self, locator if minor else self._as_major_locator(locator),
@@ -1923,13 +1947,13 @@ class Axis(DrawnWith, Artist):
             fixed = getattr(locator, "base", locator)
             # Passing [] as a list of labels is often used as a way to
             # remove all tick labels, so only error for > 0 labels
-            if len(fixed.locs) != len(labels) and len(labels) != 0:
+            if len(fixed._locs) != len(labels) and len(labels) != 0:
                 raise ValueError(
                     "The number of FixedLocator locations"
-                    f" ({len(fixed.locs)}), usually from a call to"
+                    f" ({len(fixed._locs)}), usually from a call to"
                     " set_ticks, does not match"
                     f" the number of labels ({len(labels)}).")
-            tickd = {loc: lab for loc, lab in zip(fixed.locs, labels)}
+            tickd = {loc: lab for loc, lab in zip(fixed._locs, labels)}
             func = functools.partial(self._format_with_dict, tickd)
             formatter = mticker.FuncFormatter(func)
         else:

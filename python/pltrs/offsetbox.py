@@ -2037,7 +2037,8 @@ class OffsetImage(OffsetBox):
         return self._data
 
     def get_children(self):
-        return super().get_children()
+        # A new list at each call, as matplotlib's.
+        return [self.image]
 
     def set_zoom(self, zoom):
         self._zoom = zoom

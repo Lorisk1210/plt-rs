@@ -12,8 +12,11 @@ from numbers import Real
 import numpy as np
 
 from . import _docstring
-from . import _api, _handles, _val_or_rc, _values, colorizer as mcolorizer, image as mimage
+from . import (_api, _handles, _lazy_imports, _own_state, _val_or_rc, _values,
+               colorizer as mcolorizer, image as mimage)
 from ._native import backends as _backends, image as _native_image
+
+_figure_artists = _lazy_imports.module(globals(), "._figure_artists")
 
 
 class FigureImagesMixin:
@@ -131,7 +134,16 @@ class FigureImagesMixin:
     @_values.reassignable
     def images(self):
         """The `.FigureImage`\\s of the figure, in the order they were
-        added."""
+        added: one list while the figure lives, as matplotlib's, drawing
+        the images put in it and no more those taken out (see
+        `._figure_artists`)."""
+        return _own_state.same_list(
+            self, "images", self._images_now,
+            lambda images: _figure_artists.DrawnList(self, images))
+
+    def _images_now(self):
+        """The figure images, in a list of the caller's own (what the
+        package's code reads where matplotlib's reads ``images``)."""
         return _handles.wrap_all(_native_image.figure_images(self._native),
                                  mimage.FigureImage, self.figure)
 

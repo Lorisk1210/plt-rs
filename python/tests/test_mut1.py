@@ -23,10 +23,10 @@ import pytest
 
 import pltrs
 import pltrs.pyplot as plt
-from pltrs import collections, patches, transforms
+from pltrs import collections, colors, patches, transforms
 from pltrs.path import Path
 
-from mutability import runner
+from mutability import runner, scenes, setters
 
 #: Whether the tests run on matplotlib itself (through the alias), where
 #: no row may differ.
@@ -403,6 +403,11 @@ def test_an_artist_that_hands_nothing_out_pays_nothing():
     for artist in (fig, ax, line, points, image, *bars):
         assert _own_state.RECORDS not in artist.__dict__
     assert _own_state.OWNERS not in fig.__dict__
+    # Nor does the figure ask anything else: the tables of its colormaps
+    # were read by the package alone.
+    assert _own_state.FOLLOWED not in fig.__dict__
+    assert id(image.cmap) not in colors._luts_read
+    assert id(points.cmap) not in colors._luts_read
     # No list of the parameters was handed to the program either (the
     # tests run before in this process may still hold some).
     assert set(pltrs.rcParams._lists) <= set(lists)
@@ -415,3 +420,467 @@ def test_an_artist_that_hands_nothing_out_pays_nothing():
     read_back = pickle.loads(pickle.dumps(points))
     assert _own_state.RECORDS not in read_back.__dict__
     assert read_back.get_offsets()[0].tolist() == [5, 5]
+
+
+def test_the_private_name_of_the_mapped_array_is_the_array():
+    fig, ax = plt.subplots()
+    points = ax.scatter([0, 1, 2], [0, 1, 0], c=[1.0, 2.0, 3.0])
+    image = ax.imshow(np.arange(6.0).reshape(2, 3))
+    before = pixels(fig)
+    assert points._A is points._A and points._A is points.get_array()
+    points._A[0] = 3.0
+    after = pixels(fig)
+    assert (after != before).any()
+    image._A[0, 0] = 5.0
+    assert (pixels(fig) != after).any()
+    # Assigning replaces the array, with no check, as matplotlib's attribute.
+    values = np.array([3.0, 2.0, 1.0])
+    points._A = values
+    assert points.get_array() is values
+
+
+def test_the_lists_of_artists_are_one_list_each():
+    fig, ax = plt.subplots()
+    ax.plot([0, 1])
+    inset = ax.inset_axes([0.5, 0.5, 0.4, 0.4])
+    text = fig.text(0.5, 0.5, "text")
+    fig.legend(handles=ax.lines, labels=["line"])
+    assert fig.texts is fig.texts and fig.artists is fig.artists
+    assert fig.legends is fig.legends
+    assert ax._children is ax._children and ax.child_axes is ax.child_axes
+    # What the figure and the Axes add later is in the list read before.
+    texts, children = fig.texts, ax._children
+    other = fig.text(0.1, 0.1, "other")
+    line, = ax.plot([1, 0])
+    assert texts == [text, other] and children[-1] is line
+    # An artist taken out of its list is drawn no more.
+    before = pixels(fig)
+    children.pop()
+    texts.remove(other)
+    after = pixels(fig)
+    assert (after != before).any()
+    assert ax.lines[:] == [ax._children[0]] and fig.texts == [text]
+    ax.child_axes.pop()
+    assert (pixels(fig) != after).any()
+    assert inset not in ax.child_axes
+
+
+def test_a_legend_and_a_contour_set_keep_their_lists():
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], label="a")
+    ax.plot([1, 0], label="b")
+    legend = ax.legend()
+    assert legend.texts is legend.texts and legend.legend_handles is legend.legend_handles
+    legend.texts.pop()
+    assert len(legend.texts) == 1 and len(legend.get_texts()) == 1
+    x, y = np.meshgrid(np.linspace(-1, 1, 9), np.linspace(-1, 1, 9))
+    contours = ax.contour(x, y, x * y, levels=[-0.5, 0.0, 0.5])
+    assert contours.levels is contours.levels
+    contours.levels[0] = -0.25
+    assert contours.levels[0] == -0.25
+    assert pickle.loads(pickle.dumps(contours)).levels[0] == -0.25
+    labels = contours.labelTexts
+    made = ax.clabel(contours)
+    assert contours.labelTexts is labels and len(labels) == len(made) > 0
+
+
+def test_fixed_ticks_follow_the_array_they_were_given():
+    fig, ax = plt.subplots()
+    ax.plot([0, 10], [0, 10])
+    ticks = np.array([1.0, 4.0, 8.0])
+    ax.set_xticks(ticks)
+    fig.canvas.draw()
+    assert [label.get_text() for label in ax.get_xticklabels()] == ["1", "4", "8"]
+    ticks[1] = 6.0
+    fig.canvas.draw()
+    assert [label.get_text() for label in ax.get_xticklabels()] == ["1", "6", "8"]
+    # The locator's own array, read from it, likewise.
+    locs = ax.xaxis.get_major_locator().locs
+    assert locs is ticks
+    locs[2] = 9.0
+    fig.canvas.draw()
+    assert ax.get_xticks().tolist() == [1.0, 6.0, 9.0]
+
+
+def test_limit_boxes_follow_their_arrays():
+    fig, ax = plt.subplots()
+    ax.plot([0, 1, 2], [0, 1, 0])
+    fig.canvas.draw()
+    points = ax.viewLim.get_points()
+    points[:, 0] = 0.5, 1.5
+    assert ax.get_xlim() == (0.5, 1.5)
+    assert ax.viewLim.get_points() is points
+    # The data limits' own box moves at once; nothing is autoscaled.
+    ax.dataLim.get_points()[1, 1] = 5.0
+    assert ax.dataLim.y1 == 5.0 and ax.get_ylim()[1] < 2
+
+
+def test_a_3d_axes_follows_its_boxes_and_its_aspect():
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    ax.plot([0, 1], [0, 1], [0, 1])
+    before = pixels(fig)
+    aspect = ax.get_box_aspect()
+    assert ax.get_box_aspect() is aspect
+    aspect[2] *= 0.5
+    after = pixels(fig)
+    assert (after != before).any() and ax.get_box_aspect() is aspect
+    box = ax.xy_viewLim
+    box.get_points()[:, 0] = -1.0, 2.0
+    assert ax.xy_viewLim is box
+    assert ax.get_xlim3d() == (-1.0, 2.0)
+    assert (pixels(fig) != after).any()
+
+
+def test_a_figures_images_and_an_axis_ticks_are_lists_of_their_own():
+    fig, ax = plt.subplots()
+    ax.plot([0, 1, 2], [0, 1, 0])
+    image = fig.figimage(np.arange(12.0).reshape(3, 4), xo=20, yo=20)
+    assert fig.images is fig.images and fig.images == [image]
+    before = pixels(fig)
+    fig.images.pop()
+    assert fig.images == [] and (pixels(fig) != before).any()
+    # A tick taken out of an axis' list stays out until the axis makes its
+    # ticks again, at the next draw.
+    ticks = ax.xaxis.majorTicks
+    count = len(ticks)
+    ticks.pop()
+    assert ax.xaxis.majorTicks is ticks and len(ax.xaxis.majorTicks) == count - 1
+    fig.canvas.draw()
+    assert ax.xaxis.majorTicks is ticks and len(ticks) == count
+    minor = ax.xaxis.minorTicks
+    minor.clear()
+    assert ax.xaxis.minorTicks == []
+
+
+def test_a_mesh_follows_its_coordinates_and_a_colormap_its_table():
+    fig, ax = plt.subplots()
+    x, y = np.meshgrid(np.arange(4.0), np.arange(3.0))
+    mesh = ax.pcolormesh(x, y, np.arange(6.0).reshape(2, 3), cmap="viridis")
+    before = pixels(fig)
+    coordinates = mesh.get_coordinates()
+    assert mesh.get_coordinates() is coordinates
+    coordinates[1, 1] += 0.3
+    moved = pixels(fig)
+    assert (moved != before).any() and mesh.get_coordinates() is coordinates
+    # A colormap's table changed after the mesh took the colormap.
+    table = mesh.get_cmap()._lut
+    table[:, 0] = 1.0
+    assert (pixels(fig) != moved).any()
+
+
+def test_the_first_draw_sets_a_collections_colours_again():
+    # matplotlib's first draw of a collection sets its colours from what
+    # the setters were given: a change made in the arrays before it is
+    # read back until then, and never drawn.
+    fig, ax = plt.subplots()
+    filled = ax.fill_between([0, 1], [1, 1], color="tab:blue")
+    faces = filled.get_facecolor()
+    faces[:, 0] = 1.0
+    assert filled.get_facecolor()[0, 0] == 1.0
+    fig.canvas.draw()
+    assert filled.get_facecolor() is not faces
+    assert filled.get_facecolor()[0].round(3).tolist() == [0.122, 0.467, 0.706, 1.0]
+    # After a draw the array is the collection's own, and drawn.
+    faces = filled.get_facecolor()
+    before = pixels(fig)
+    faces[:, 0] = 1.0
+    assert (pixels(fig) != before).any() and filled.get_facecolor() is faces
+
+
+def native_calls(function):
+    """The native functions *function* calls, as ``module.name``."""
+    import sys
+
+    calls = []
+
+    def profile(frame, event, called):
+        module = getattr(called, "__module__", None) or ""
+        if event == "c_call" and "._native" in module:
+            calls.append(f"{module.rsplit('.', 1)[-1]}.{called.__name__}")
+    sys.setprofile(profile)
+    try:
+        function()
+    finally:
+        sys.setprofile(None)
+    return calls
+
+
+def hand_overs(artist, function):
+    """How many times *artist* is asked for the objects it keeps, to hand
+    pltrs (Rust) what changed in them, while *function* runs."""
+    from pltrs import _own_state
+
+    told = []
+    sync = _own_state.sync
+
+    def counting(asked):
+        if asked.__dict__.get(_own_state.RECORDS):
+            told.append(asked)
+        return sync(asked)
+    _own_state.sync = counting
+    try:
+        function()
+    finally:
+        _own_state.sync = sync
+    return told.count(artist)
+
+
+@pytest.mark.skipif(ON_MATPLOTLIB, reason="what pltrs' mechanism costs")
+def test_every_function_passing_by_has_rows_of_calls_that_tell_nobody():
+    from pltrs import _native, _own_state
+
+    listed = {f"{module}.{name}": what for module, name, what in _native.artist.passing_by()}
+    assert all(listed.values()), "each function says what it reads or writes"
+    for function in listed:
+        module, name = function.split(".")
+        assert callable(getattr(getattr(_native, module), name)), function
+    # The rows of the sweep are made of the calls of this table: a function
+    # passed by without a call has none.
+    assert set(setters.CALLS) == set(listed)
+    for function, calls in setters.CALLS.items():
+        assert calls, function
+        for subject, name, call in calls:
+            _, artist = scenes.build(subject)
+            assert function in native_calls(lambda: call(artist)), (function, subject, name)
+            # On an artist that keeps an object of its own, the call hands
+            # nothing over: every native call it makes is passed by.
+            _, artist = scenes.build(subject)
+            held = artist.get_linewidth() if hasattr(artist, "get_paths") else (
+                artist.get_xydata() if hasattr(artist, "get_xydata") else artist.get_path())
+            assert _own_state.RECORDS in artist.__dict__ and held is not None
+            assert hand_overs(artist, lambda: call(artist)) == 0, (function, subject, name)
+            plt.close("all")
+    rows = {row.name for row in setters.rows(REFERENCE["surface"])}
+    assert all(any(f" then {name}" in row for row in rows)
+               for calls in setters.CALLS.values() for _, name, _ in calls)
+    assert rows <= set(REFERENCE["outcomes"])
+
+
+def test_a_setter_between_a_change_and_a_draw_leaves_the_change():
+    # A scatter read once, then restyled: the offsets changed in place are
+    # drawn with the new width, whichever came first.
+    fig, ax = small_axes()
+    points = ax.scatter([0.0, 1.0, 2.0], [0.0, 1.0, 2.0], s=200)
+    before = pixels(fig)
+    offsets = points.get_offsets()
+    offsets[:, 1] = [2.0, 1.0, 0.0]
+    points.set_linewidth(4.0)
+    points.set_zorder(5)
+    assert points.get_offsets() is offsets
+    assert points.get_linewidth().tolist() == [4.0]
+    changed = pixels(fig)
+    assert (changed != before).any()
+    offsets[:, 1] = [0.0, 1.0, 2.0]
+    points.set_linewidth(1.0)
+    restored = pixels(fig)
+    assert (restored != changed).any()
+    # A setter of the state itself binds a new object: the old one is the
+    # artist's no more, whatever the program changed in it.
+    offsets[:, 0] = 3.0
+    points.set_offsets([[0.5, 0.5]])
+    assert points.get_offsets().tolist() == [[0.5, 0.5]]
+    pixels(fig)
+    assert points.get_offsets().tolist() == [[0.5, 0.5]]
+    widths = points.get_linewidth()
+    widths[0] = 9.0
+    points.set_linewidth(2.0)
+    pixels(fig)
+    assert points.get_linewidth().tolist() == [2.0]
+
+
+@pytest.mark.skipif(ON_MATPLOTLIB, reason="what pltrs' mechanism costs")
+def test_setting_styles_of_a_scatter_whose_offsets_are_held_compares_nothing():
+    from pltrs import _own_state
+
+    fig, ax = small_axes()
+    points = ax.scatter(np.arange(50.0), np.arange(50.0))
+    offsets = points.get_offsets()
+
+    def restyle():
+        for width in (1.0, 2.0, 3.0):
+            points.set_linewidth(width)
+            points.set_zorder(width)
+            points.set_label(str(width))
+            points.set_linestyle("--")
+            points.set_antialiased(False)
+    assert native_calls(lambda: points.set_linewidth(2.5)) == ["collections.set_linewidths"]
+    assert hand_overs(points, restyle) == 0
+    # What reads the scatter hands the offsets over first.
+    offsets[0] = (7.0, 7.0)
+    assert hand_overs(points, lambda: points.get_window_extent()) > 0
+    assert _own_state.kept(points, "offsets") is offsets
+
+
+@pytest.mark.skipif(ON_MATPLOTLIB, reason="what pltrs' mechanism costs")
+def test_an_array_nothing_but_its_record_holds_is_compared_no_more():
+    import sys
+    import weakref
+
+    from pltrs import _own_state
+
+    fig, ax = small_axes()
+    points = ax.scatter([0.0, 1.0, 2.0], [0.0, 1.0, 2.0], s=200)
+    before = pixels(fig)
+    record = lambda: points.__dict__[_own_state.RECORDS]["offsets"]  # noqa: E731
+    compared = []
+    state = points.get_offsets() is not None and record().state
+    spied = state.same
+    assert spied is not None
+    # (The spy counts, and holds no array.)
+    state.same = lambda artist, obj: (compared.append(1), spied(artist, obj))[1]
+    try:
+        # The baseline is measured, in the call shape the hand-over counts
+        # in: an array of the test's own held by a record alone.
+        # (One answer per statement, outside the assertion: pytest's
+        # assertions keep what they compare, the array too.)
+        probe = _own_state._Record(None, np.zeros(1), None, None, None)
+        counted = _own_state._references(probe._obj)
+        assert counted == _own_state._UNHELD == _own_state._count_unheld()
+        only = _own_state._only_recorded(probe)
+        assert only
+        held = probe._obj
+        only = _own_state._only_recorded(probe)
+        assert not only
+        del held
+        # Held by the program: compared at every hand-over.
+        offsets = points.get_offsets()
+        compared.clear()
+        points.get_window_extent()
+        points.get_window_extent()
+        assert len(compared) >= 2 and not record().settled
+        # Changed, then let go of: the change is handed over, once, and
+        # the array is compared no more.
+        offsets[:, 1] = [2.0, 1.0, 0.0]
+        del offsets
+        changed = pixels(fig)
+        assert (changed != before).any()
+        assert record().settled
+        compared.clear()
+        points.get_window_extent()
+        points.set_alpha(None)
+        pixels(fig)
+        assert compared == []
+        # Handed out again, it is the same array (nothing is read, and
+        # nothing compared), compared again while the program has it.
+        offsets = points.get_offsets()
+        assert compared == []
+        assert offsets[:, 1].tolist() == [2.0, 1.0, 0.0] and not record().settled
+        points.get_window_extent()
+        assert compared
+        offsets[:, 1] = [0.0, 1.0, 2.0]
+        assert (pixels(fig) == before).all()
+        # A view holds its array, and so does a buffer taken of it.
+        column = offsets[:, 1]
+        del offsets
+        points.get_window_extent()
+        assert not record().settled
+        column[:] = [2.0, 1.0, 0.0]
+        assert (pixels(fig) == changed).all()
+        buffer = memoryview(np.ma.getdata(points.get_offsets()))
+        del column
+        points.get_window_extent()
+        assert not record().settled
+        buffer[0, 0] = 1.5
+        assert (pixels(fig) != changed).any() and points.get_offsets()[0, 0] == 1.5
+        buffer[0, 0] = 0.0
+        del buffer
+        # A weak reference can reach the array without holding it.
+        weak = weakref.ref(points.get_offsets())
+        points.get_window_extent()
+        assert not record().settled
+        weak()[0, 0] = 0.0
+        assert (pixels(fig) == changed).all()
+        del weak
+        points.get_window_extent()
+        assert record().settled
+        # What may be reached another way is always compared: a list by
+        # its items, a path by its vertices.
+        points.get_paths()
+        points.get_window_extent()
+        assert not points.__dict__[_own_state.RECORDS]["paths"].settled
+    finally:
+        state.same = spied
+    # Where reference counts tell nothing (an interpreter without its
+    # GIL), nothing is ever taken for unheld.
+    gil = getattr(sys, "_is_gil_enabled", None)
+    sys._is_gil_enabled = lambda: False
+    try:
+        assert _own_state._count_unheld() == 0
+        assert pltrs._count_unheld() == 0
+    finally:
+        if gil is None:
+            del sys._is_gil_enabled
+        else:
+            sys._is_gil_enabled = gil
+    assert _own_state._count_unheld() == _own_state._UNHELD > 0
+    assert pltrs._count_unheld() == pltrs._UNHELD > 0
+
+
+@pytest.mark.skipif(ON_MATPLOTLIB, reason="what pltrs' mechanism costs")
+def test_offsets_and_sizes_are_compared_with_what_pltrs_holds():
+    from pltrs import _own_state
+
+    fig, ax = small_axes()
+    points = ax.scatter([0.0, 1.0, 2.0], [0.0, 1.0, 2.0], s=200)
+    records = lambda: points.__dict__[_own_state.RECORDS]  # noqa: E731
+    before = pixels(fig)
+    offsets = points.get_offsets()
+    # No copy of the array is kept beside it (a scatter's offsets are a
+    # masked array, compared with its mask).
+    assert records()["offsets"].seen is _own_state.NATIVELY
+    offsets[1] = (1.0, 3.0)
+    assert points.get_offsets() is offsets
+    moved = pixels(fig)
+    assert (moved != before).any()
+    offsets[1] = np.ma.masked
+    assert (pixels(fig) != moved).any() and points.get_offsets() is offsets
+    assert records()["offsets"].seen is _own_state.NATIVELY
+    # Sizes given as an array of floats are the collection's own, compared
+    # the same way; other arrays by what they held.
+    sizes = np.array([100.0, 200.0, 300.0])
+    points.set_sizes(sizes)
+    assert points.get_sizes() is sizes
+    assert records()["sizes"].seen is _own_state.NATIVELY
+    before = pixels(fig)
+    sizes[:] = 900.0
+    assert (pixels(fig) != before).any() and points.get_sizes() is sizes
+    whole = np.array([100, 200, 300])
+    points.set_sizes(whole)
+    assert records()["sizes"].seen is not _own_state.NATIVELY
+    before = pixels(fig)
+    whole[:] = 900
+    assert (pixels(fig) != before).any() and points.get_sizes() is whole
+    # Offsets set anew are another array; the old one, changed or not, is
+    # nobody's.
+    offsets[0] = (3.0, 3.0)
+    points.set_offsets(np.array([[0.5, 0.5], [1.5, 1.5]]))
+    pixels(fig)
+    assert points.get_offsets().tolist() == [[0.5, 0.5], [1.5, 1.5]]
+    held = points.get_offsets()
+    held[0] = (2.5, 2.5)
+    points._offsets = np.array([[1.0, 1.0]])
+    pixels(fig)
+    assert points.get_offsets().tolist() == [[1.0, 1.0]]
+    # The offsets of a 3-D scatter, which each projection sets, are
+    # compared by what they held.
+    ax3d = plt.figure().add_subplot(projection="3d")
+    cloud = ax3d.scatter([0.0, 1.0], [0.0, 1.0], [0.0, 1.0])
+    cloud.get_offsets()
+    assert cloud.__dict__[_own_state.RECORDS]["offsets"].seen is not _own_state.NATIVELY
+
+
+def test_a_lines_columns_are_views_of_its_numbers_while_they_are_held():
+    fig, ax = small_axes()
+    line, = ax.plot([0.0, 1.0, 2.0], [0.0, 1.0, 0.0])
+    before = pixels(fig)
+    x, y = line._x, line._y
+    assert line._x is x and line._y is y and x.base is line._xy
+    y[1] = 3.0
+    assert line._xy[1].tolist() == [1.0, 3.0]
+    assert (pixels(fig) != before).any()
+    del x, y
+    # New views of the same array, once the program has none.
+    assert line._y.tolist() == [0.0, 3.0, 0.0] and line._y.base is line._xy
+    assert pickle.loads(pickle.dumps(fig)).axes[0].lines[0]._y.tolist() == [0.0, 3.0, 0.0]
+

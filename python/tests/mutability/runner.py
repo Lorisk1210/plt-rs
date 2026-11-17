@@ -15,7 +15,7 @@ import pltrs
 from pltrs import legend, patches
 from pltrs.path import Path
 
-from . import given, handed, scenes, surface
+from . import given, handed, scenes, setters, surface
 from .measure import outcome
 
 #: matplotlib's outcomes, recorded by ``python -m mutability --record``.
@@ -27,10 +27,11 @@ KINDS = (
     ("error", ("read", "mutate")),
     ("lost", ("reread",)),
     ("undrawn", ("draw",)),
-    ("identity", ("same", "kept")),
+    ("identity", ("same", "kept", "after")),
     ("limits", ("datalim", "relim")),
     ("measure", ("measure",)),
     ("pickle", ("pickle",)),
+    ("first draw", ("first_draw", "first_kept", "first_value")),
     ("value", ("value",)),
 )
 
@@ -54,11 +55,12 @@ def expected():
 
 def groups(found):
     """The names of every row by group, in order: the surface's rows by
-    subject, then ``handed`` and ``given``."""
+    subject, then ``handed``, ``given`` and ``setters``."""
     by_group = {subject: [row.name for row in surface.rows({subject: kinds})]
                 for subject, kinds in found.items()}
     by_group["handed"] = [row.name for row in handed.ROWS]
     by_group["given"] = [row.name for row in given.ROWS]
+    by_group["setters"] = [row.name for row in setters.rows(found)]
     return by_group
 
 
@@ -79,8 +81,10 @@ def differing(ours, theirs):
 
 def all_rows(found):
     """Every row: the surface's rows of the names *found*, then the
-    idioms and helper objects, then the objects given to artists."""
-    return [*surface.rows(found), *handed.ROWS, *given.ROWS]
+    idioms and helper objects, the objects given to artists, and the
+    surface's rows of some subjects with a setter called after the
+    change."""
+    return [*surface.rows(found), *handed.ROWS, *given.ROWS, *setters.rows(found)]
 
 
 #: The rows of a worker process, by name.

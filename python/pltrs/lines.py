@@ -8,6 +8,7 @@ write them through ``_native.lines.update``, which validates them as
 matplotlib does. The module-level dash helpers are matplotlib's.
 """
 
+import contextlib
 import copy
 import functools
 import logging
@@ -888,7 +889,33 @@ class Line2D(Artist):
         if drawstyle is None:
             drawstyle = 'default'
         _api.check_in_list(self.drawStyles, drawstyle=drawstyle)
+        if ((_own_state.RECORDS in self.__dict__ or "_xorig" in self.__dict__)
+                and drawstyle != _lines.get_drawstyle(self._native)):
+            self._recache_x()
         self._set_native(drawstyle=drawstyle)
+
+    def _recache_x(self):
+        """
+        Make the numbers drawn anew as matplotlib's ``recache`` does once
+        the draw style changed (``_invalidx``): the x numbers from the data
+        the line was given, the y numbers as they are, in a new array. So
+        what a program changed in place in the x data given, and in the y
+        numbers of the array it has, is drawn; what it changed in the x
+        numbers of that array is not, and the array is the line's no more.
+        """
+        kept = _own_state.kept(self, "xy")
+        y = None if kept is None else np.array(kept[:, 1], dtype=float)
+        self._forget_drawn_data()
+        x = None
+        if "_xorig" in self.__dict__:
+            with contextlib.suppress(TypeError, ValueError):
+                x = _floats(self.convert_xunits(self._xorig))
+        if x is None and y is None:
+            return
+        x = _lines.get_xdata(self._native) if x is None else x
+        y = _lines.get_ydata(self._native) if y is None else y
+        if len(x) == len(y):
+            _lines.set_data(self._native, x, y)
 
     def get_gapcolor(self):
         """

@@ -221,9 +221,11 @@ def _change(target, suffix):
     raise Unchangeable
 
 
-def row(subject, path, changed=True):
+def row(subject, path, changed=True, then=None):
     """The row of the recorded name *path* of *subject*, changing the
-    object it reaches unless *changed* is false."""
+    object it reaches unless *changed* is false; *then*, a pair of a
+    name and a function of the subject, is called after the change
+    (`.measure.Row`), and the row is named after both."""
     member, suffix = _MEMBER.fullmatch(path).groups()
 
     def build():
@@ -236,7 +238,12 @@ def row(subject, path, changed=True):
                 return pick(value)
         raise LookupError(f"{member} hands out nothing at {suffix!r}")
 
-    return Row(f"{subject}.{path}", build, reach,
+    name = f"{subject}.{path}"
+    if then is not None:
+        called, call = then
+        return Row(f"{name} then {called}", build, reach,
+                   lambda target: _change(target, suffix), then=lambda scene: call(scene.obj))
+    return Row(name, build, reach,
                (lambda target: _change(target, suffix)) if changed else None)
 
 

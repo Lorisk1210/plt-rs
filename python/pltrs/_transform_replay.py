@@ -626,7 +626,7 @@ def _legend_placed(legend):
     axes = legend.axes
     if axes is None or legend._loc != 0:
         return
-    for artist in axes._children:
+    for artist in axes._children_now():
         if isinstance(artist, Line2D):
             artist.get_transform().transform_path(_no_path())
         elif isinstance(artist, Rectangle):

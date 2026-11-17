@@ -1,175 +1,109 @@
 {
  "affine_matrix": [
   "draw",
+  "first_draw",
   "measure",
   "relim"
  ],
  "affine_mtx": [
   "draw",
+  "first_draw",
   "measure",
   "relim"
  ],
  "annotation.arrowprops": [
   "draw",
+  "first_draw",
   "measure"
  ],
  "arrow.get_patch_transform().get_matrix()": [
   "draw",
+  "first_draw",
+  "first_kept",
+  "first_value",
   "kept",
   "measure",
   "relim",
   "reread",
   "value"
  ],
+ "arrow.get_path().codes": [
+  "first_value"
+ ],
  "arrow.get_path().vertices": [
-  "relim"
- ],
- "axes._children": [
-  "draw",
-  "kept",
-  "measure",
-  "reread",
-  "same",
-  "value"
- ],
- "axes.child_axes": [
-  "same"
- ],
- "axes.dataLim.get_points()": [
-  "pickle",
+  "first_draw",
+  "first_value",
   "relim"
  ],
  "axes.viewLim.get_points()": [
-  "draw",
-  "pickle"
+  "measure"
  ],
  "axes3d._children": [
-  "draw",
-  "kept",
-  "relim",
-  "reread",
-  "same",
-  "value"
- ],
- "axes3d.child_axes": [
-  "same"
+  "relim"
  ],
  "axes3d.dataLim.get_points()": [
+  "first_value",
   "pickle"
  ],
  "axes3d.get_box_aspect()": [
-  "draw",
-  "kept",
-  "relim",
-  "reread",
-  "same",
-  "value"
- ],
- "axes3d.viewLim.get_points()": [
-  "pickle"
- ],
- "axes3d.xy_dataLim.get_points()": [
-  "kept",
-  "reread",
-  "value"
- ],
- "axes3d.xy_viewLim.get_points()": [
-  "draw",
-  "kept",
   "measure",
-  "relim",
-  "reread",
-  "value"
- ],
- "axes3d.zz_dataLim.get_points()": [
-  "kept",
-  "reread",
-  "value"
- ],
- "axes3d.zz_viewLim.get_points()": [
-  "draw",
-  "kept",
-  "measure",
-  "relim",
-  "reread",
-  "value"
- ],
- "axes_datalim_points": [
-  "pickle",
   "relim"
  ],
- "axes_polar._children": [
-  "draw",
-  "kept",
-  "relim",
-  "reread",
-  "same",
-  "value"
+ "axes3d.viewLim.get_points()": [
+  "first_value",
+  "pickle"
+ ],
+ "axes3d.xy_viewLim.get_points()": [
+  "relim"
+ ],
+ "axes3d.zz_viewLim.get_points()": [
+  "relim"
+ ],
+ "axes_bbox_points": [
+  "first_draw"
  ],
  "axes_polar.axesLim.get_points()": [
   "pickle"
  ],
- "axes_polar.child_axes": [
-  "same"
- ],
- "axes_polar.dataLim.get_points()": [
-  "pickle",
-  "relim"
- ],
- "axes_polar.viewLim.get_points()": [
-  "draw",
-  "measure",
-  "pickle"
- ],
  "axes_viewlim_points": [
-  "draw",
-  "measure",
-  "pickle"
+  "measure"
+ ],
+ "axline._xorig": [
+  "first_draw"
+ ],
+ "axline._yorig": [
+  "first_draw"
+ ],
+ "axline.get_data()[0]": [
+  "first_draw"
+ ],
+ "axline.get_data()[1]": [
+  "first_draw"
+ ],
+ "axline.get_xdata()": [
+  "first_draw"
+ ],
+ "axline.get_ydata()": [
+  "first_draw"
  ],
  "bar_container_datavalues": [
+  "first_value",
   "reread",
   "value"
- ],
- "bbox_image._A": [
-  "draw"
  ],
  "bbox_image.bbox.get_points()": [
-  "draw"
+  "draw",
+  "first_draw"
  ],
  "boundary_norm_boundaries": [
-  "draw"
- ],
- "cmap_lut": [
-  "draw"
- ],
- "colorbar_axes._children": [
   "draw",
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "colorbar_axes.child_axes": [
-  "same"
- ],
- "colorbar_axes.dataLim.get_points()": [
-  "pickle"
- ],
- "colorbar_axes.viewLim.get_points()": [
-  "draw",
-  "measure",
-  "pickle"
+  "first_draw",
+  "first_kept",
+  "first_value"
  ],
  "connection_patch._posA_posB": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contour._A": [
-  "draw"
- ],
- "contour.cvalues": [
+  "first_kept",
+  "first_value",
   "kept",
   "reread",
   "same",
@@ -178,40 +112,8 @@
  "contour.get_linestyle()": [
   "pickle"
  ],
- "contour.labelCValues": [
-  "same"
- ],
- "contour.labelTexts": [
-  "same"
- ],
- "contour.layers": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contour.levels": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contour_label_cvalues": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contour_label_texts": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contour_labeled._A": [
-  "draw"
- ],
  "contour_labeled._paths": [
+  "first_value",
   "value"
  ],
  "contour_labeled._paths[0].codes": [
@@ -220,106 +122,24 @@
   "same"
  ],
  "contour_labeled.allkinds": [
+  "first_value",
   "value"
  ],
  "contour_labeled.allsegs": [
-  "value"
- ],
- "contour_labeled.cvalues": [
-  "kept",
-  "reread",
-  "same",
+  "first_value",
   "value"
  ],
  "contour_labeled.get_linestyle()": [
   "pickle"
  ],
  "contour_labeled.get_paths()": [
+  "first_value",
   "value"
  ],
  "contour_labeled.get_paths()[0].codes": [
   "mutate",
   "read",
   "same"
- ],
- "contour_labeled.labelCValues": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contour_labeled.labelLevelList": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contour_labeled.labelTexts": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contour_labeled.labelXYs": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contour_labeled.layers": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contour_labeled.levels": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contour_layers": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contour_levels": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contourf._A": [
-  "draw"
- ],
- "contourf.cvalues": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contourf.labelCValues": [
-  "same"
- ],
- "contourf.labelTexts": [
-  "same"
- ],
- "contourf.layers": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "contourf.levels": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "datalim_intervaly": [
-  "pickle",
-  "relim"
  ],
  "drawing_area.dpi_transform.get_matrix()": [
   "value"
@@ -329,14 +149,19 @@
  ],
  "ellipse_collection._paths": [
   "draw",
+  "first_draw",
   "relim"
  ],
  "ellipse_collection.get_paths()": [
   "draw",
+  "first_draw",
   "relim"
  ],
  "fancy_arrow_patch._posA_posB": [
   "draw",
+  "first_draw",
+  "first_kept",
+  "first_value",
   "kept",
   "measure",
   "relim",
@@ -344,316 +169,227 @@
   "same",
   "value"
  ],
- "figimage._A": [
-  "draw"
- ],
- "figure.artists": [
-  "same"
- ],
  "figure.bbox_inches.get_points()": [
+  "first_draw",
   "pickle"
  ],
- "figure.images": [
-  "same"
- ],
- "figure.legends": [
-  "kept",
-  "same"
- ],
- "figure.texts": [
-  "kept",
-  "same"
+ "figure.dpi_scale_trans.get_matrix()": [
+  "first_draw"
  ],
  "figure_bbox_inches_points": [
-  "reread",
-  "value"
- ],
- "fixed_locator_locs": [
-  "draw",
+  "first_draw",
+  "first_value",
   "reread",
   "value"
  ],
  "given_arrow_patch_position": [
   "draw",
+  "first_draw",
+  "first_value",
   "measure",
   "relim",
   "value"
  ],
  "given_circle_center_list": [
   "draw",
+  "first_draw",
+  "first_value",
   "measure",
   "relim",
   "reread",
   "value"
  ],
- "given_clip_box_points": [
-  "draw"
- ],
- "given_clip_box_x1": [
-  "draw"
- ],
  "given_clip_patch_radius": [
-  "draw"
- ],
- "given_cmap_lut": [
-  "draw"
- ],
- "given_fixed_locator_locs": [
   "draw",
-  "reread",
-  "value"
+  "first_draw"
+ ],
+ "given_clip_path_vertices": [
+  "first_draw"
  ],
  "given_line_collection_segment": [
   "draw",
+  "first_draw",
+  "first_value",
   "relim",
   "reread",
   "same",
   "value"
  ],
- "given_mesh_cmap_lut": [
-  "draw"
+ "given_set_facecolor": [
+  "first_draw",
+  "first_value"
  ],
  "given_set_segments": [
   "draw",
+  "first_draw",
+  "first_value",
   "relim",
   "reread",
   "same",
-  "value"
- ],
- "given_set_xticks": [
-  "draw",
-  "reread",
   "value"
  ],
  "given_transform_matrix": [
   "draw",
+  "first_draw",
   "measure",
   "relim"
  ],
  "given_tripcolor_gouraud_x": [
-  "draw"
- ],
- "hexbin._A": [
-  "draw"
- ],
- "image_rgb._A": [
-  "draw"
- ],
- "image_scalar._A": [
-  "draw"
- ],
- "inset_axes._children": [
   "draw",
-  "kept",
-  "reread",
-  "same",
+  "first_draw"
+ ],
+ "line._path.vertices then set_drawstyle": [
+  "after",
+  "first_value",
   "value"
  ],
- "inset_axes.child_axes": [
-  "same"
- ],
- "inset_axes.dataLim.get_points()": [
-  "pickle"
- ],
- "inset_axes.viewLim.get_points()": [
-  "draw",
-  "pickle"
- ],
- "legend.legend_handles": [
-  "kept",
+ "line._x then set_drawstyle": [
+  "after",
   "reread",
-  "same",
   "value"
  ],
- "legend.texts": [
-  "kept",
-  "reread",
-  "same",
+ "line._xy then set_drawstyle": [
+  "after",
   "value"
  ],
- "legend_texts_attribute": [
-  "kept",
-  "reread",
-  "same",
-  "value"
+ "line._y then set_drawstyle": [
+  "after"
+ ],
+ "line.get_path().vertices then set_drawstyle": [
+  "first_value"
+ ],
+ "line3d._path.vertices": [
+  "first_kept",
+  "first_value"
  ],
  "line3d._verts3d[0]": [
-  "draw",
-  "kept",
-  "relim",
-  "reread",
-  "value"
+  "relim"
  ],
  "line3d._verts3d[1]": [
-  "draw",
-  "kept",
-  "relim",
-  "reread",
-  "value"
+  "relim"
+ ],
+ "line3d._x": [
+  "first_kept",
+  "first_value"
  ],
  "line3d._xorig": [
+  "first_draw",
+  "first_kept",
+  "first_value",
   "kept",
   "value"
  ],
+ "line3d._xy": [
+  "first_kept",
+  "first_value"
+ ],
+ "line3d._y": [
+  "first_kept",
+  "first_value"
+ ],
  "line3d._yorig": [
+  "first_draw",
+  "first_kept",
+  "first_value",
   "kept",
   "value"
  ],
  "line3d.get_data()[0]": [
+  "first_draw",
+  "first_value",
   "value"
  ],
  "line3d.get_data()[1]": [
+  "first_draw",
+  "first_value",
   "value"
  ],
  "line3d.get_data_3d()[0]": [
-  "draw",
-  "kept",
-  "relim",
-  "reread",
-  "value"
+  "relim"
  ],
  "line3d.get_data_3d()[1]": [
-  "draw",
-  "kept",
-  "relim",
-  "reread",
-  "value"
+  "relim"
+ ],
+ "line3d.get_path().vertices": [
+  "first_kept",
+  "first_value"
  ],
  "line3d.get_xdata()": [
+  "first_draw",
+  "first_value",
   "value"
  ],
+ "line3d.get_xydata()": [
+  "first_kept",
+  "first_value"
+ ],
  "line3d.get_ydata()": [
+  "first_draw",
+  "first_value",
   "value"
  ],
  "line_collection.get_linestyle()": [
   "pickle"
  ],
- "line_marker_facecolor_array": [
-  "draw",
-  "kept",
-  "value"
- ],
- "list__children_pop": [
-  "draw",
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "list_child_axes_pop": [
-  "draw",
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "list_figure_artists_pop": [
-  "kept",
-  "same"
- ],
- "list_figure_images_pop": [
-  "draw",
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "list_figure_legends_pop": [
-  "kept",
-  "same"
- ],
- "list_figure_texts_append": [
-  "kept",
-  "same"
- ],
- "list_figure_texts_pop": [
-  "kept",
-  "same"
- ],
- "list_legend_handles": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "major_tick.get_view_interval()": [
-  "draw",
+ "line_collection.get_linestyle() then set_antialiased": [
   "pickle"
  ],
- "non_uniform_image._A": [
-  "draw"
+ "line_collection.get_linestyle() then set_capstyle": [
+  "pickle"
  ],
- "offset_image.get_children()": [
+ "line_collection.get_linestyle() then set_hatch": [
+  "pickle"
+ ],
+ "line_collection.get_linestyle() then set_hatch_linewidth": [
+  "pickle"
+ ],
+ "line_collection.get_linestyle() then set_joinstyle": [
+  "pickle"
+ ],
+ "line_collection.get_linestyle() then set_pickradius": [
+  "pickle"
+ ],
+ "line_collection.get_linestyle() then set_urls": [
+  "pickle"
+ ],
+ "line_marker_facecolor_array": [
+  "draw",
+  "first_draw",
+  "first_kept",
+  "first_value",
   "kept",
-  "reread",
-  "same",
   "value"
  ],
+ "listed_colormap_colors": [
+  "first_draw"
+ ],
+ "non_uniform_image._A": [
+  "first_draw"
+ ],
+ "non_uniform_image.get_array()": [
+  "first_draw"
+ ],
  "patch_collection._linewidths": [
-  "draw"
+  "draw",
+  "first_draw"
  ],
  "patch_collection.get_linestyle()": [
   "pickle"
  ],
  "patch_collection.get_linewidth()": [
-  "draw"
- ],
- "pcolor._A": [
-  "draw"
- ],
- "pcolor._coordinates": [
-  "kept",
-  "reread",
-  "same",
-  "value"
+  "draw",
+  "first_draw"
  ],
  "pcolor._facecolors": [
-  "value"
- ],
- "pcolor.get_coordinates()": [
-  "kept",
-  "reread",
-  "same",
+  "first_value",
   "value"
  ],
  "pcolor.get_facecolor()": [
   "value"
  ],
- "pcolor_image._A": [
-  "draw"
- ],
- "quadmesh._A": [
-  "draw"
- ],
- "quadmesh._coordinates": [
-  "draw",
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
  "quadmesh._facecolors": [
+  "first_value",
   "value"
- ],
- "quadmesh.get_coordinates()": [
-  "draw",
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "quadmesh_coordinates": [
-  "draw",
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "quiver.U": [
-  "draw"
- ],
- "quiver.V": [
-  "draw"
  ],
  "quiver.XY": [
   "relim"
@@ -668,23 +404,101 @@
   "same"
  ],
  "regular_poly_collection.get_transforms()": [
+  "first_value",
   "value"
  ],
  "regular_polygon.get_patch_transform().get_matrix()": [
   "same"
  ],
- "scatter._A": [
-  "draw"
- ],
  "scatter.get_linestyle()": [
   "pickle"
  ],
- "scatter3d._A": [
-  "draw"
+ "scatter.get_linestyle() then axes": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then get_animated": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then get_label": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then get_visible": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then get_zorder": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_animated": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_antialiased": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_capstyle": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_clip_on": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_gid": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_hatch": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_hatch_linewidth": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_in_layout": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_joinstyle": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_label": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_offsets": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_picker": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_pickradius": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_rasterized": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_sizes": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_snap": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_url": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_urls": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_visible": [
+  "pickle"
+ ],
+ "scatter.get_linestyle() then set_zorder": [
+  "pickle"
+ ],
+ "scatter.get_transforms() then set_visible": [
+  "first_kept",
+  "first_value",
+  "kept"
  ],
  "scatter3d._edgecolors": [
   "datalim",
   "draw",
+  "first_draw",
+  "first_kept",
+  "first_value",
   "kept",
   "measure",
   "pickle",
@@ -695,26 +509,23 @@
   "value"
  ],
  "scatter3d._facecolors": [
+  "first_value",
   "pickle",
   "value"
  ],
+ "scatter3d._offsets": [
+  "first_draw",
+  "first_kept",
+  "first_value"
+ ],
  "scatter3d._offsets3d[0]": [
-  "draw",
-  "kept",
-  "reread",
-  "value"
+  "relim"
  ],
  "scatter3d._offsets3d[1]": [
-  "draw",
-  "kept",
-  "reread",
-  "value"
+  "relim"
  ],
  "scatter3d._offsets3d[2]": [
-  "draw",
-  "kept",
-  "reread",
-  "value"
+  "relim"
  ],
  "scatter3d.get_edgecolor()": [
   "pickle",
@@ -731,57 +542,167 @@
   "same",
   "value"
  ],
+ "scatter3d.get_offsets()": [
+  "first_draw",
+  "first_kept",
+  "first_value"
+ ],
  "spine._path.vertices": [
   "draw",
+  "first_draw",
   "measure"
  ],
  "spine.get_path().vertices": [
   "draw",
+  "first_draw",
   "measure"
  ],
  "step_line._path.vertices": [
   "draw",
+  "first_draw",
+  "pickle",
+  "relim"
+ ],
+ "step_line._path.vertices then set_color": [
+  "pickle",
+  "relim"
+ ],
+ "step_line._path.vertices then set_drawstyle": [
+  "draw",
+  "first_draw",
+  "pickle",
+  "relim"
+ ],
+ "step_line._path.vertices then set_linestyle": [
+  "pickle",
+  "relim"
+ ],
+ "step_line._path.vertices then set_linewidth": [
+  "pickle",
+  "relim"
+ ],
+ "step_line._path.vertices then set_markevery": [
+  "draw",
+  "first_draw",
   "pickle",
   "relim"
  ],
  "step_line._x": [
   "pickle"
  ],
+ "step_line._x then set_color": [
+  "pickle"
+ ],
+ "step_line._x then set_drawstyle": [
+  "pickle"
+ ],
+ "step_line._x then set_linestyle": [
+  "pickle"
+ ],
+ "step_line._x then set_linewidth": [
+  "pickle"
+ ],
+ "step_line._x then set_markevery": [
+  "pickle"
+ ],
  "step_line._xy": [
+  "pickle"
+ ],
+ "step_line._xy then set_color": [
+  "pickle"
+ ],
+ "step_line._xy then set_drawstyle": [
+  "pickle"
+ ],
+ "step_line._xy then set_linestyle": [
+  "pickle"
+ ],
+ "step_line._xy then set_linewidth": [
+  "pickle"
+ ],
+ "step_line._xy then set_markevery": [
   "pickle"
  ],
  "step_line._y": [
   "pickle"
  ],
+ "step_line._y then set_color": [
+  "pickle"
+ ],
+ "step_line._y then set_drawstyle": [
+  "pickle"
+ ],
+ "step_line._y then set_linestyle": [
+  "pickle"
+ ],
+ "step_line._y then set_linewidth": [
+  "pickle"
+ ],
+ "step_line._y then set_markevery": [
+  "pickle"
+ ],
  "step_line.get_path().vertices": [
   "draw",
+  "first_draw",
+  "pickle",
+  "relim"
+ ],
+ "step_line.get_path().vertices then set_color": [
+  "pickle",
+  "relim"
+ ],
+ "step_line.get_path().vertices then set_drawstyle": [
+  "draw",
+  "first_draw",
+  "pickle",
+  "relim"
+ ],
+ "step_line.get_path().vertices then set_linestyle": [
+  "pickle",
+  "relim"
+ ],
+ "step_line.get_path().vertices then set_linewidth": [
+  "pickle",
+  "relim"
+ ],
+ "step_line.get_path().vertices then set_markevery": [
+  "draw",
+  "first_draw",
   "pickle",
   "relim"
  ],
  "step_line.get_xydata()": [
   "pickle"
  ],
- "subfigure.artists": [
-  "same"
+ "step_line.get_xydata() then set_color": [
+  "pickle"
+ ],
+ "step_line.get_xydata() then set_drawstyle": [
+  "pickle"
+ ],
+ "step_line.get_xydata() then set_linestyle": [
+  "pickle"
+ ],
+ "step_line.get_xydata() then set_linewidth": [
+  "pickle"
+ ],
+ "step_line.get_xydata() then set_markevery": [
+  "pickle"
  ],
  "subfigure.bbox_relative.get_points()": [
+  "first_draw",
   "pickle"
  ],
- "subfigure.legends": [
-  "same"
- ],
- "subfigure.texts": [
-  "same"
+ "subfigure.dpi_scale_trans.get_matrix()": [
+  "first_draw"
  ],
  "surface3d._facecolors": [
-  "draw"
+  "draw",
+  "first_kept",
+  "first_value"
  ],
  "surface3d.get_facecolor()": [
-  "kept",
-  "pickle"
- ],
- "tri_mesh._A": [
-  "draw"
+  "kept"
  ],
  "tri_mesh._facecolors": [
   "pickle"
@@ -790,6 +711,8 @@
   "pickle"
  ],
  "triangulation_plot.edges": [
+  "first_kept",
+  "first_value",
   "kept",
   "pickle",
   "reread",
@@ -797,6 +720,8 @@
   "value"
  ],
  "triangulation_plot.get_masked_triangles()": [
+  "first_kept",
+  "first_value",
   "kept",
   "pickle",
   "reread",
@@ -804,6 +729,8 @@
   "value"
  ],
  "triangulation_plot.neighbors": [
+  "first_kept",
+  "first_value",
   "kept",
   "pickle",
   "reread",
@@ -819,38 +746,8 @@
  "triangulation_plot.y": [
   "pickle"
  ],
- "tricontour._A": [
-  "draw"
- ],
- "tricontour.cvalues": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
  "tricontour.get_linestyle()": [
   "pickle"
- ],
- "tricontour.labelCValues": [
-  "same"
- ],
- "tricontour.labelTexts": [
-  "same"
- ],
- "tricontour.layers": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "tricontour.levels": [
-  "kept",
-  "reread",
-  "same",
-  "value"
- ],
- "tripcolor._A": [
-  "draw"
  ],
  "tripcolor._facecolors": [
   "pickle"
@@ -858,41 +755,12 @@
  "tripcolor.get_facecolor()": [
   "pickle"
  ],
- "twin_axes._children": [
-  "draw",
-  "kept",
-  "relim",
-  "reread",
-  "same",
-  "value"
- ],
- "twin_axes.child_axes": [
-  "same"
- ],
- "twin_axes.dataLim.get_points()": [
-  "pickle",
-  "relim"
- ],
- "twin_axes.viewLim.get_points()": [
-  "draw",
-  "measure",
-  "pickle"
- ],
- "viewlim_intervalx": [
-  "draw",
-  "measure",
-  "reread",
-  "value"
- ],
- "violin_body._facecolors": [
-  "pickle"
- ],
- "violin_body.get_facecolor()": [
-  "pickle"
- ],
  "wireframe3d._segments3d": [
   "datalim",
   "draw",
+  "first_draw",
+  "first_kept",
+  "first_value",
   "kept",
   "measure",
   "pickle",
@@ -905,6 +773,9 @@
  "wireframe3d._segments3d[0]": [
   "datalim",
   "draw",
+  "first_draw",
+  "first_kept",
+  "first_value",
   "kept",
   "measure",
   "pickle",
@@ -915,6 +786,8 @@
   "value"
  ],
  "xaxis._major_tick_kw": [
+  "first_kept",
+  "first_value",
   "kept",
   "reread",
   "same",
@@ -922,19 +795,19 @@
  ],
  "xaxis.get_data_interval()": [
   "datalim",
+  "first_draw",
+  "first_value",
   "reread",
   "value"
  ],
  "xaxis.get_view_interval()": [
   "draw",
+  "first_draw",
+  "first_value",
   "reread",
-  "value"
- ],
- "xaxis.majorTicks": [
   "value"
  ],
  "xaxis.minorTicks": [
-  "reread",
-  "value"
+  "first_value"
  ]
 }

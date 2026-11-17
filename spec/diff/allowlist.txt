@@ -39,7 +39,13 @@ style_sheets/style_sheets_reference$ | ^warning extra: UserWarning: FigureCanvas
 # pltrs (Rust) keeps the figure's artists, so these lists are a list subclass
 # whose mutating methods hand the artists over (isinstance(fig.lines, list)
 # holds, and they compare equal to matplotlib's lists).
-(artists/(sub)?figure_(getters|setters)|modules/legends)$ | ^type\[(artists|lines|patches|texts|legends)\]: list -> matplotlib\._figure_artists\.(DrawnList|LegendList)$ | the figure's lists of loose artists and legends are list subclasses that have pltrs (Rust) draw what is put in them
+(artists/(sub)?figure_(getters|setters)|modules/legends)$ | ^type\[(artists|images|lines|patches|texts|legends)\]: list -> matplotlib\._figure_artists\.(DrawnList|LegendList)$ | the figure's lists of loose artists, images and legends are list subclasses that have pltrs (Rust) draw what is put in them
+# The same for the Axes an Axes draws inside it: `child_axes` is the Axes'
+# own list from its first read (MUT1), a list subclass whose changes in
+# place add and remove the child Axes, as matplotlib's draw reads its list
+# (isinstance(ax.child_axes, list) holds, and it compares equal to
+# matplotlib's list).
+artists/\w+_(getters|setters)$ | ^type\[child_axes\]: list -> matplotlib\._figure_artists\.ChildAxesList$ | an Axes' list of child Axes is a list subclass that has pltrs (Rust) draw the Axes put in it
 
 # matplotlib's Artist.set_mouseover adds the artist to self.axes._mouseover_set;
 # the axes of a (sub)figure is the list of its Axes, so a figure with Axes

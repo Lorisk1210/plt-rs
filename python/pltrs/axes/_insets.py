@@ -10,10 +10,12 @@ pass (``_native.insets``).
 from numbers import Real
 
 from .. import _docstring
-from .. import _handles, _live_transforms, _values
+from .. import _handles, _lazy_imports, _live_transforms, _own_state, _values
 from .. import patches  # noqa: F401  (whose Rectangle the docstrings list)
 from .._native import artist as _artist, insets as _insets
 from ..transforms import Bbox, TransformedBbox
+
+_figure_artists = _lazy_imports.module(globals(), ".._figure_artists")
 
 
 _secax_docstring = '''
@@ -117,9 +119,19 @@ class ChildAxesMixin:
     @property
     def child_axes(self):
         """The Axes placed inside this one: insets and secondary axes."""
+        assigned = _values.assigned(self, "child_axes", lambda: None)
+        if assigned is not None:
+            return assigned
+        return _own_state.same_list(
+            self, "child_axes", self._child_axes_now,
+            lambda axes_list: _figure_artists.ChildAxesList(self, axes_list))
+
+    def _child_axes_now(self):
+        """The child Axes pltrs (Rust) draws with this one, in a list of
+        the caller's own (the package's code reads this where matplotlib's
+        reads ``child_axes``)."""
         from ._axes import Axes
-        return _values.assigned(self, "child_axes", lambda: _handles.wrap_all(
-            _insets.child_axes(self._native), Axes, self._figure))
+        return _handles.wrap_all(_insets.child_axes(self._native), Axes, self._figure)
 
     @child_axes.setter
     def child_axes(self, axes_list):
@@ -145,18 +157,20 @@ class ChildAxesMixin:
         for native in _insets.child_axes(self._native):
             held.add(_artist.id(native))
             if _artist.id(native) not in wanted:
-                # It keeps the place it was last given, as matplotlib's
-                # does once its locator is applied no more.
-                dropped = _handles.wrap(native, Axes, self._figure)
-                position = dropped.get_position()
-                _artist.remove(native)
-                dropped._set_position(position, which="active")
-                self.stale = True
+                self._drop_child_axes(_handles.wrap(native, Axes, self._figure))
         for key, ax in wanted.items():
             if key not in held:
                 _insets.add_child_axes(self._native, ax._native)
                 ax._child_of = self
                 self.stale = True
+
+    def _drop_child_axes(self, ax):
+        """Stop drawing *ax* with this Axes: it keeps the place it was last
+        given, as matplotlib's does once its locator is applied no more."""
+        position = ax.get_position()
+        _artist.remove(ax._native)
+        ax._set_position(position, which="active")
+        self.stale = True
 
     def add_child_axes(self, ax):
         """

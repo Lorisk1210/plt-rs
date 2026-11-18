@@ -141,10 +141,9 @@ _REORDER = ("run `.venv-pltrs/bin/python crates/pltrs-python/tools/symbol_order.
             "with `cargo xtask python --release` before each run")
 
 
-def _ordered_offsets():
-    """The order file's function names, and where the extension built lays
-    out each it has; skips where the extension was not built with the
-    order's profile."""
+def _skip_unless_built_with_the_orders_profile():
+    """Skips where the extension was not built with the profile the order
+    names the functions of."""
     profile = pltrs._native.diagnostics.build_profile()
     if profile != "extension":
         # cargo names a crate's functions after the profile it builds:
@@ -152,6 +151,13 @@ def _ordered_offsets():
         # --release`, the wheels), and other builds keep the compiler's.
         pytest.skip(f"the extension was built with the {profile!r} profile, "
                     "the order is the 'extension' profile's")
+
+
+def _ordered_offsets():
+    """The order file's function names, and where the extension built lays
+    out each it has; skips where the extension was not built with the
+    order's profile."""
+    _skip_unless_built_with_the_orders_profile()
     tool = runpy.run_path(str(ROOT / "crates/pltrs-python/tools/symbol_order.py"))
     if not tool["has_symbol_table"](pltrs._native.__file__):
         # The wheels' extension is stripped (Zig links it so): its order
@@ -251,7 +257,11 @@ print(json.dumps({"window_kib": window_kib, "page": PAGE, "import": at_import,
 
 @_ON_ORDERED_TARGET
 def test_extension_code_a_small_program_holds_stays_under_its_ceiling(tmp_path):
-    _ordered_offsets()
+    # Stripped libraries too (the wheels Zig links): what they hold needs
+    # no symbol table, and it is how an order whose names the wheel's build
+    # does not have shows there (task REL2: every wheel from 92663e93 on
+    # held 8,308 KiB at import and 14,132 after a figure).
+    _skip_unless_built_with_the_orders_profile()
     env = {**os.environ, "MPLBACKEND": "agg", "PLTRS_LOOK": "matplotlib",
            "PLTRSCONFIGDIR": str(tmp_path)}
 

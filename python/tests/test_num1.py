@@ -43,6 +43,10 @@ def matplotlib_defaults():
     plt.close("all")
 
 
+@pytest.mark.skipif(
+    np.lib.NumpyVersion(np.__version__) < "2.0.0",
+    reason="matplotlib's recorded types are numpy 2's: with numpy 1.26 matplotlib 3.11.2 "
+           "itself fails 7 of these scenes (np.bool_ for np.bool, float32 kept)")
 @pytest.mark.parametrize("scene", sorted(runner.SCENES))
 def test_number_types_follow_matplotlib(scene):
     ours = runner.run([scene])

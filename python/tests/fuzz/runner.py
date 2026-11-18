@@ -369,8 +369,10 @@ def run(scale=1, replay=None, jobs=4, reduce_bugs=True, directory=None, first=0,
     *compare_with_matplotlib*, the programs meeting no bug run under
     matplotlib too, and where a line raised another exception than
     matplotlib's (or none where it raised one) is written to
-    ``differences.md`` under *directory* (`.compare`)."""
-    directory = pathlib.Path(directory or TESTS.parents[1] / "target" / "python-fuzz").resolve()
+    ``differences.md`` under *directory* (`.compare`). *directory* is,
+    unless given, ``PLTRS_FUZZ_DIR`` or the tree's ``target/python-fuzz``."""
+    directory = pathlib.Path(directory or os.environ.get("PLTRS_FUZZ_DIR")
+                             or TESTS.parents[1] / "target" / "python-fuzz").resolve()
     (directory / "failures").mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("PLTRS_FUZZ_MEMORY", str(memory_limit(jobs)))
     programs = corpus.load(directory)

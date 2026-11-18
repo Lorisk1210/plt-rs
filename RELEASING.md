@@ -103,9 +103,9 @@ pushes of branches or pull requests, as every run costs Actions minutes.
      9.0 GiB committed for the fat LTO (the Windows PC, 2026-11-15),
      while the release profile's line tables
      (`debug = "line-tables-only"`) went through the LTO until the link
-     stripped them. The backend now leaves them out of the extension's
-     build (a wheel ships without them), which brings MSVC's peak to 2
-     to 2.3 GiB.
+     stripped them. The profile the extension is built with
+     (`[profile.extension]` in `Cargo.toml`) leaves them out (a wheel
+     ships without them), which brings MSVC's peak to 2 to 2.3 GiB.
 
 ## Rehearsing
 
@@ -226,6 +226,21 @@ arm64 Windows).
   python python/tools/check_dist.py --install --python C:/.../3.12/python.exe \
       target/wheels/pltrs-*win_amd64.whl target/wheels/matplotlib-*.whl
   ```
+
+* **What has run on Windows:** this was last done on 2026-11-15, on the
+  tree of `958016ac`, not on the release's.
+  * The `win_amd64` wheel was built with MSVC; its extension imports
+    only Windows' and the UCRT's libraries.
+  * `check_dist.py --install` passed 2,792 smoke tests on Python 3.12,
+    3.13 and 3.14. One test failed on each, `test_eco8`'s contour test
+    without contourpy, which has skipped since; that failure stopped the
+    runs before the alias.
+  * `--lowest` failed 38 tests, most of them expecting numpy's 64-bit
+    integers where numpy 1 on Windows makes 32-bit ones.
+  * The sdist was built from source with MSVC and failed 12 smoke tests.
+  * `win_amd64` of the release's tree has not run on Windows, and
+    `win_arm64` has never been built: the workflow's run is their first
+    on Windows.
 
 ### On GitHub
 

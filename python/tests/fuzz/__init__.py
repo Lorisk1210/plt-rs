@@ -21,7 +21,9 @@ or through pytest (``python/tests/fuzz/test_fuzz.py``, part of ``cargo
 xtask python test``). ``PLTRS_FUZZ_SCALE=50`` runs 50 times as many
 programs, ``PLTRS_FUZZ_REPLAY=<seed>`` reruns one, as with the Rust fuzz
 tests; ``PLTRS_FUZZ_FIRST=<seed>`` starts from another seed (programs
-not run yet), ``PLTRS_FUZZ_JOBS`` sets how many workers run at once.
+not run yet), ``PLTRS_FUZZ_JOBS`` sets how many workers run at once,
+``PLTRS_FUZZ_DIR`` the directory of the corpus and the failures (by
+default ``target/python-fuzz``).
 The seeds that met a bug once run first in every run
 (``runner.FAILED_SEEDS``), and on Linux and macOS the workers run with a
 1 MiB stack, so that a recursion through pltrs (Rust)'s drawing meets the

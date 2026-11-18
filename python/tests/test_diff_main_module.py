@@ -12,7 +12,12 @@ import pathlib
 import subprocess
 import sys
 
+import pltrs
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+#: The directory of the pltrs under test (the tree's, or an installed
+#: wheel's), which the traced programs import beside the tree's alias.
+PACKAGE_DIR = pathlib.Path(pltrs.__file__).resolve().parents[1]
 
 PROGRAM = """\
 import multiprocessing
@@ -67,7 +72,7 @@ print(child.exitcode)
 def _trace(program, out, *mode):
     env = {k: v for k, v in os.environ.items() if not k.startswith(("MPL", "PLTRS"))}
     env |= {"MPLBACKEND": "agg", "PLTRS_LOOK": "matplotlib", "PYTHONHASHSEED": "0",
-            "PYTHONPATH": os.pathsep.join([str(ROOT / "python"), str(ROOT / "python" / "alias")]),
+            "PYTHONPATH": os.pathsep.join([str(PACKAGE_DIR), str(ROOT / "python" / "alias")]),
             "MPLCONFIGDIR": str(out / "config")}
     done = subprocess.run([sys.executable, str(ROOT / "spec/diff/trace.py"), "--impl", "pltrs",
                            *mode, str(program), str(out / "run")], env=env, capture_output=True, text=True, timeout=300)

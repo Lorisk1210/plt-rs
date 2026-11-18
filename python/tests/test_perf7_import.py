@@ -204,13 +204,19 @@ def report():
 #: PERF9 (2026-11-14) to 100,487 on Python 3.12, 101,994 on 3.13 and
 #: 101,132 on 3.14. On 2026-11-16 (task PERF11) it makes 101,244 on 3.12,
 #: 102,703 on 3.13 and 101,842 on 3.14 (90,531 with numpy 1.26), and a
-#: draw makes 68.
-PYTHON_CALLS_CEILING = {"import": 104_900, "draw": 72}
+#: draw makes 68. Pillow's PNG plugin, which the import loads, is imported
+#: before counting since 2026-11-18 (task REL2): Pillow 13.0 made about
+#: 5,900 more calls in it than 12.3 and took the release rehearsal's
+#: installed wheel over the ceiling on 3.14. With it left out, the import
+#: makes 96,420 (3.12), 96,621 (3.13) and 95,615 (3.14) calls with Pillow
+#: 12.3 and python-dateutil 2.9, and at most 97,507 with Pillow 13.
+PYTHON_CALLS_CEILING = {"import": 100_500, "draw": 72}
 
 #: Counts the Python calls of ``import pltrs.pyplot`` (the third-party
-#: modules it uses imported first) and of a second draw of a plain figure.
+#: modules it uses imported first: numpy, Pillow with its PNG plugin and
+#: dateutil's parser) and of a second draw of a plain figure.
 _CALLS_PROGRAM = _COUNTER + """
-import numpy, PIL.Image, dateutil.parser
+import numpy, PIL.Image, PIL.PngImagePlugin, dateutil.parser
 plt = counted("import", lambda: __import__("pltrs.pyplot").pyplot)
 fig, ax = plt.subplots()
 ax.plot([1, 2, 3], [1, 4, 9], label="line")

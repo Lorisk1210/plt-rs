@@ -83,7 +83,18 @@ codegen-units = 1
 # wheel): built as one unit with fat LTO, the code that runs together lies
 # together, so that a process maps about 5 MiB less of it, and calls
 # between the crates inline (markers draw about 8% faster).
+#
+# Without the release profile's line tables, as a wheel ships: they cost
+# the link-time optimisation most of its memory (with MSVC it peaks at
+# 8.5 GiB with them, at 2 GiB without), and the symbol table, which the
+# function order (crates/pltrs-python/symbol-order.txt) and profilers
+# read, is kept. Set here, not by the wheel's build alone: a profile's
+# settings go into the hash in every mangled name, so the order written
+# from `cargo xtask python --release` names the wheel's functions only if
+# both build with this one profile.
 [profile.extension]
 inherits = "release"
 lto = "fat"
 codegen-units = 1
+debug = false
+strip = "debuginfo"

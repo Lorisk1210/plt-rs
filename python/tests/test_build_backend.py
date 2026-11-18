@@ -264,11 +264,20 @@ def test_linking_against_an_old_glibc_or_musl_takes_zig(tmp_path, monkeypatch):
     assert alpine.rustc_args == ("-C", "linker=cc") and alpine.target is None
 
 
-def test_the_extension_is_compiled_without_debug_information(tmp_path, monkeypatch):
+def test_the_extension_is_built_as_xtask_builds_it_without_debug_information(
+        tmp_path, monkeypatch):
+    # The profile leaves the debug information out (the MSVC link-time
+    # optimisation's memory), and the backend overrides none of it: a
+    # profile setting changes the hash in every mangled name, and the
+    # function order, written from `cargo xtask python --release`, would
+    # name none of the wheel's functions.
+    with open(ROOT / "Cargo.toml", "rb") as file:
+        profile = tomllib.load(file)["profile"]["extension"]
+    assert profile["debug"] is False and profile["strip"] == "debuginfo"
     calls = []
 
     def cargo(command, **kwargs):
-        calls.append(kwargs["env"])
+        calls.append((command, kwargs["env"]))
         library = tmp_path / "pltrs_python.dll"
         message = {"reason": "compiler-artifact", "filenames": [str(library)],
                    "target": {"name": "pltrs_python", "kind": ["cdylib"]}}
@@ -278,10 +287,10 @@ def test_the_extension_is_compiled_without_debug_information(tmp_path, monkeypat
     monkeypatch.setenv("CARGO", "cargo")
     monkeypatch.delenv("CARGO_PROFILE_EXTENSION_DEBUG", raising=False)
     assert _cargo._build_one(tmp_path, _linker.Link(None)) == tmp_path / "pltrs_python.dll"
-    monkeypatch.setenv("CARGO_PROFILE_EXTENSION_DEBUG", "line-tables-only")
-    _cargo._build_one(tmp_path, _linker.Link(None))
-    assert [env["CARGO_PROFILE_EXTENSION_DEBUG"] for env in calls] == [
-        "false", "line-tables-only"]
+    (command, environment), = calls
+    assert command[:5] == ["cargo", "rustc", "--profile", "extension", "-p"]
+    assert not any("strip" in argument or "debug" in argument for argument in command)
+    assert not [key for key in environment if key.startswith("CARGO_PROFILE_")]
 
 
 def test_msvc_links_a_deterministic_extension(tmp_path):

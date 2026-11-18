@@ -8,6 +8,7 @@ matplotlib's defaults and closes its figures after it.
 
 import json
 import pathlib
+import platform
 import sys
 
 import pltrs
@@ -21,13 +22,22 @@ from .describe import Rows, kind_of
 RECORDED = pathlib.Path(__file__).with_name("reference.json")
 
 #: The rows matplotlib itself describes otherwise on a platform than in the
-#: record, which was made on Linux, as the sweep run there under matplotlib
-#: gave them: ``{sys.platform: {row: description}}``. With Apple's libm the
-#: arrow's outline ends a last bit beside its first vertex, so that
-#: ``get_verts()`` closes it with one vertex more.
+#: record, which was made on Linux x86-64, as the sweep run there under
+#: matplotlib gave them: ``{platform: {row: description}}``, the platform
+#: being ``sys.platform`` or ``"<sys.platform>-<machine>"``. With Apple's
+#: libm, and with the products matplotlib's GCC-built aarch64 Linux wheel
+#: fuses (recorded in the manylinux_2_28 image, task REL4), the arrow's
+#: outline ends a last bit beside its first vertex, so that ``get_verts()``
+#: closes it with one vertex more. On aarch64 Linux the row
+#: ``R csd ints | returns`` keeps x86-64's value, which pltrs gives there
+#: too: matplotlib's own value is one ulp off in one FFT value
+#: (24.730162019507027 for 24.73016201950703), as ``DIFFERENCES.md``
+#: ("Numbers on other machines") declares.
 ON_PLATFORM = {
     "darwin": {"S FancyArrowPatch | get_verts()":
                "ndarray[float64,(12, 2)]=[87.5001, 65.0665, 93.3051]"},
+    "linux-aarch64": {"S FancyArrowPatch | get_verts()":
+                      "ndarray[float64,(12, 2)]=[87.5001, 65.0665, 93.3051]"},
 }
 
 #: The rows on which pltrs is known to part from matplotlib, with
@@ -63,7 +73,8 @@ SCENES = {f"{module.__name__.rsplit('.', 1)[-1]}.{scene.__name__.strip('_')}": s
 
 def recorded():
     """matplotlib's rows on this platform: ``{row: description}``."""
-    return {**json.loads(RECORDED.read_text("utf-8")), **ON_PLATFORM.get(sys.platform, {})}
+    return {**json.loads(RECORDED.read_text("utf-8")), **ON_PLATFORM.get(sys.platform, {}),
+            **ON_PLATFORM.get(f"{sys.platform}-{platform.machine()}", {})}
 
 
 def expected():

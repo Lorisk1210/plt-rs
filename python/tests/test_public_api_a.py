@@ -6,7 +6,6 @@ code.
 """
 
 import platform
-import sys
 import warnings
 
 import numpy as np
@@ -426,9 +425,10 @@ def test_contour_labeler_and_contour_set_names():
     cs2.clabel()
     before = len(cs2.labelTexts)
     cs2.labels(True, 4)
-    # matplotlib 3.11.2 on arm64 macOS, whose contourpy fuses the products
-    # of its crossings, finds room for one label more on these circles.
-    fused = sys.platform == "darwin" and platform.machine() == "arm64"
+    # matplotlib 3.11.2 on arm64 macOS and on aarch64 Linux, whose
+    # contourpy fuses the products of its crossings, finds room for one
+    # label more on these circles (recorded under both).
+    fused = platform.machine() in ("arm64", "aarch64")
     assert len(cs2.labelTexts) == 2 * before + (1 if fused else 0)
 
 

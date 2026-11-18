@@ -3784,7 +3784,9 @@ x86-64 one in most triangles for a reason that is no fused product (a
 rebuild of its `_backend_agg` with the wheel's flags reproduces the
 wheel, one with `-ffp-contract=off` and `-fsigned-char` still differs;
 `agg_reference`'s tolerance for `gouraud_clip_path`), the extrema of
-curves (`np.roots`, LAPACK) and OpenBLAS's kernels. The release
+curves (`np.roots`, LAPACK), OpenBLAS's kernels and, likely, the
+complex products numpy's FFT fuses there (one value of `mlab.csd` in
+`number_types`' sweep is one ulp off matplotlib's; task REL4). The release
 workflow's containers compare `python/tools/drop_in.py`'s drawings with
 matplotlib's there (`check_dist.py --compare-drawings`), pixel for pixel.
 

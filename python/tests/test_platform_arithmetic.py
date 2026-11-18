@@ -1,10 +1,13 @@
 """
 What matplotlib's compiled extensions compute depends on the build of them
-a platform has: the wheel for arm64 macOS fuses products into the sums they
-feed (`python/DESIGN.md`, "Apple silicon"), the x86-64 wheels round the
-products first. pltrs follows the wheel of the platform it runs on. The
-values here are matplotlib 3.11.2's and contourpy 1.4.0's, recorded on
-Linux x86-64 and on arm64 macOS.
+a platform has: the wheel for arm64 macOS (clang) and the wheels for
+aarch64 Linux (GCC) fuse products into the sums they feed, each by its
+compiler's pattern (`python/DESIGN.md`, "Apple silicon" and "aarch64
+Linux"); the x86-64 wheels round the products first. pltrs follows the
+wheel of the platform it runs on. The values here are matplotlib 3.11.2's
+and contourpy 1.4.0's, recorded on Linux x86-64, on arm64 macOS and on
+aarch64 Linux (the manylinux_2_28 image, matplotlib's own aarch64 wheels;
+task REL4, 2026-11-18).
 """
 
 import platform
@@ -16,8 +19,13 @@ import pytest
 import pltrs.tri as mtri
 from pltrs.figure import Figure
 
+#: The compiler whose pattern of fused products matplotlib's wheel for this
+#: platform follows: clang on arm64 macOS, GCC on aarch64 Linux, None where
+#: the products are rounded first.
+FUSING = ({"darwin": "clang", "linux": "gcc"}.get(sys.platform)
+          if platform.machine() in ("arm64", "aarch64") else None)
 #: Whether matplotlib's wheel for this platform fuses.
-FUSED = sys.platform == "darwin" and platform.machine() == "arm64"
+FUSED = FUSING is not None
 
 
 def test_cocircular_points_are_triangulated_as_on_this_platform():
@@ -37,7 +45,9 @@ def test_plane_coefficients_of_collinear_points_take_this_platforms_branch():
     planes = tri.calculate_plane_coefficients(np.array([0.3, 0.7, 0.1, 0.9]))
     # A fused cross product of dependent sides keeps a residue: the plane
     # of the degenerate triangle is steep there and flat elsewhere.
-    flat = [2.0 ** 54 * 5 / 3, -(2.0 ** 56) * 1.25, 0.3] if FUSED else [0.0, 0.0, 0.3]
+    flat = {"clang": [2.0 ** 54 * 5 / 3, -(2.0 ** 56) * 1.25, 0.3],
+            "gcc": [3.0023997515803304e+16, -9.00719925474099e+16, 0.3],
+            None: [0.0, 0.0, 0.3]}[FUSING]
     assert planes[0].tolist() == flat
     assert planes[1].tolist() == [-0.65, 0.9500000000000002, 0.3]
 

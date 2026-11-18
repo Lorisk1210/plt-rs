@@ -365,7 +365,9 @@ in last bits or in ill-conditioned results only:
 * on arm64, Agg's handling of infinitely wide strokes (matplotlib fails
   with "Exceeded cell block limit"; pltrs leaves such corners out), and
   numpy's saturating conversion of infinite dates;
-* on aarch64 Linux, Gouraud-shaded colours.
+* on aarch64 Linux, Gouraud-shaded colours, and the last bit of some
+  values of numpy's FFT (`mlab.csd`), likely the complex products numpy
+  fuses there.
 
 Some messages and warnings differ with the system too: matplotlib's
 "building the font cache" warning on a Mac (pltrs reads the system's

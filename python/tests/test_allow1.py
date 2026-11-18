@@ -25,6 +25,11 @@ import pytest
 import pltrs
 import pltrs.markers as mmarkers
 
+#: The alias of the tree, and the pltrs under test (the tree's or an
+#: installed wheel's).
+ALIAS = pathlib.Path(__file__).resolve().parents[1] / "alias"
+PACKAGE_DIR = pathlib.Path(pltrs.__file__).resolve().parents[1]
+
 #: matplotlib's error for usetex text without TeX.
 NO_LATEX = ("RuntimeError", "Failed to process string with tex because latex could not be found")
 #: matplotlib's error for a PGF figure without its TeX system.
@@ -126,11 +131,10 @@ def _run(statements, tmp_path):
     config.mkdir(exist_ok=True)
     empty = tmp_path / "bin"
     empty.mkdir(exist_ok=True)
-    root = pathlib.Path(pltrs.__file__).parents[1]
     env = {**os.environ, "PATH": str(empty), "PLTRSCONFIGDIR": str(config),
            "MPLCONFIGDIR": str(config), "MPLBACKEND": "agg", "PLTRS_LOOK": "matplotlib",
            "PYTHONPATH": os.pathsep.join(filter(None, [
-               str(root), str(root / "alias"), os.environ.get("PYTHONPATH")]))}
+               str(PACKAGE_DIR), str(ALIAS), os.environ.get("PYTHONPATH")]))}
     source = textwrap.dedent(PRELUDE) + statements
     done = subprocess.run([sys.executable, "-c", source], env=env, cwd=tmp_path, text=True,
                           capture_output=True, timeout=300)

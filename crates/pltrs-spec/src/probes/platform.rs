@@ -3,7 +3,7 @@
 //! `spec/goldens/probes/<area>.json` is what matplotlib computes on Linux
 //! x86-64 with AVX-512. Where it computes something else on the platform
 //! this harness is built for, or at the processor level it runs at,
-//! `spec/goldens/platforms/<target or level>/probes/<area>.json`
+//! `spec/goldens/platforms/<target, level or target+level>/probes/<area>.json`
 //! (written by the reference runner on that platform or at that level,
 //! see `spec/reference/spec_support/golden.py`) holds the probes that
 //! differ:

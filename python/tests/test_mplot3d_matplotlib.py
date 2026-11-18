@@ -17,6 +17,7 @@ from pltrs import path as mpath
 from pltrs.backend_bases import MouseButton, MouseEvent
 from pltrs.lines import Line2D
 from pltrs.mpl_toolkits.mplot3d import art3d, proj3d
+from build_facts import DEFAULT_INT
 
 
 @pytest.fixture(autouse=True)
@@ -84,7 +85,7 @@ def test_settings_kept_as_given():
     with pytest.warns(UserWarning, match="set_ticklabels"):
         ax.set_xticklabels(["a", "b"])
     ax.set_xticks([0, 1, 2])
-    assert ax.get_xticks().dtype == np.int64
+    assert ax.get_xticks().dtype == DEFAULT_INT
     with pytest.raises(ValueError, match="FixedLocator locations"):
         ax.set_xticklabels(["a", "b"])
     other = plt.figure().add_subplot(projection="3d", elev=10, azim=20, roll=30)
@@ -96,13 +97,13 @@ def test_lines_scatters_and_texts_keep_their_data():
     fig, ax = _axes3d()
     line = ax.plot([0, 1, 2], [0, 1, 0], [1, 2, 3])[0]
     xs, ys, zs = line.get_data_3d()
-    assert xs.dtype == np.int64 and zs.dtype == np.float64
+    assert xs.dtype == DEFAULT_INT and zs.dtype == np.float64
     loose = art3d.Line3D([0, 1], [0, 1], [0, 1])
     assert loose.get_data_3d() == ([0, 1], [0, 1], [0, 1])
     sc = ax.scatter([0, 1], [0, 1], [0, 1], c=[1, 2])
-    assert sc.get_sizes().dtype == np.int64
+    assert sc.get_sizes().dtype == DEFAULT_INT
     x3, y3, z3 = sc._offsets3d
-    assert np.ma.isMA(x3) and z3.dtype == np.int64
+    assert np.ma.isMA(x3) and z3.dtype == DEFAULT_INT
     text = ax.text(1, 2, 3, "three")
     fig.canvas.draw()
     assert np.ma.isMA(line.get_xdata()) and not np.ma.isMA(line.get_xdata(orig=False))
@@ -261,14 +262,14 @@ def test_label_pads_ticks_and_panes_typed_as_given():
     ax.set_zticks([10, 20, 30], ["a", "b", "c"])
     ax.locator_params(axis="z", nbins=3)
     fig.canvas.draw()
-    assert ax.get_zticks().dtype == np.int64
+    assert ax.get_zticks().dtype == DEFAULT_INT
     ax.zaxis.set_pane_color("r")
     assert ax.zaxis.pane.get_facecolor() == (1.0, 0.0, 0.0, 1)
     assert type(ax.zaxis.pane.get_facecolor()[3]) is int
 
 
 def test_proj3d_matrices_typed_as_matplotlibs():
-    assert proj3d._ortho_transformation(-1, 1).dtype == np.int64
+    assert proj3d._ortho_transformation(-1, 1).dtype == DEFAULT_INT
     assert proj3d._ortho_transformation(-1.0, 1).dtype == np.float64
     M = proj3d.world_transformation(0, 1, 0, 2, 0, 3)
     assert not np.signbit(M[:3, 3]).any(), "an integer 0 has no negative zero"
@@ -279,7 +280,7 @@ def test_lifted_lines_keep_their_data_types():
     fig, ax = _axes3d()
     line = ax.plot([0, 1], [1, 0])[0]
     art3d.line_2d_to_3d(line, zs=[1, 2])
-    assert [c.dtype for c in line.get_data_3d()] == [np.int64, np.int64, np.float64]
+    assert [c.dtype for c in line.get_data_3d()] == [DEFAULT_INT, DEFAULT_INT, np.float64]
     lines = art3d.Line3DCollection([[(0, 0, 0), (1, 1, 1)]])
     ax.add_collection3d(lines)
     fig.canvas.draw()

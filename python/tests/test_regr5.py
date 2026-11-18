@@ -16,6 +16,7 @@ import pltrs.pyplot as plt
 import pltrs.ticker as mticker
 import pltrs.units as munits
 from pltrs.lines import Line2D
+from build_facts import DEFAULT_INT
 
 
 @pytest.fixture(autouse=True)
@@ -108,7 +109,7 @@ def test_integer_barbs_with_units_fail_on_affine_offsets_only(projection):
     ax.bar(["a", "b"], [1, 2])
     ax.barbs([0, 1], [1, 2], [10, -20], [15, 5])
     if projection is None:
-        with pytest.raises(TypeError, match="^Cannot convert fill_value nan to dtype int64$"):
+        with pytest.raises(TypeError, match=f"^Cannot convert fill_value nan to dtype {DEFAULT_INT.__name__}$"):
             fig.canvas.draw()
     else:
         fig.canvas.draw()

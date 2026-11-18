@@ -24,6 +24,7 @@ from pltrs.bezier import BezierSegment
 from pltrs.path import Path
 
 import build_facts
+from build_facts import DEFAULT_INT
 
 
 @pytest.fixture(autouse=True)
@@ -534,10 +535,10 @@ def test_no_null_minor_ticks_are_compared_with_the_majors():
 def test_barbs_at_integer_positions_fail_draws_once_the_axes_have_units():
     fig, ax = plt.subplots()
     barbs = ax.barbs([0, 1], [0, 1], [10, -20], [15, 5])
-    assert barbs.get_offsets().dtype == np.int64
+    assert barbs.get_offsets().dtype == DEFAULT_INT
     fig.canvas.draw()
     ax.barh('ab', [3, 1, 2])
-    with pytest.raises(TypeError, match="^Cannot convert fill_value nan to dtype int64$"):
+    with pytest.raises(TypeError, match=f"^Cannot convert fill_value nan to dtype {DEFAULT_INT.__name__}$"):
         fig.canvas.draw()
     barbs.set_offsets(np.array([[0, 0], [1, 1]]))
     fig.canvas.draw()

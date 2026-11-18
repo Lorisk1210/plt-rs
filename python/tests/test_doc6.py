@@ -18,6 +18,7 @@ import pltrs
 import pltrs.pyplot as plt
 from pltrs import colors, patches, widgets
 from pltrs.transforms import TransformedPatchPath
+from build_facts import DEFAULT_INT
 
 X = np.linspace(0, 2 * np.pi, 7)
 Y = np.sin(X)
@@ -63,11 +64,11 @@ def test_scatter_widths_read_back_as_given():
     fig, ax = plt.subplots()
     dots = ax.scatter([0, 1], [0, 1], linewidths=[1, 2])
     assert dots.get_linewidth() == [1, 2]
-    assert type(dots.get_linewidth()[0]) is np.int64
-    assert type(dots.get_dashes()[0][0]) is np.int64
+    assert type(dots.get_linewidth()[0]) is DEFAULT_INT
+    assert type(dots.get_dashes()[0][0]) is DEFAULT_INT
     check = widgets.CheckButtons(fig.add_axes((0.1, 0.2, 0.2, 0.15)), ["on"], [True])
     widths = check.ax.collections[0].get_linewidth()
-    assert widths.dtype == np.int64 and list(widths) == [1]
+    assert widths.dtype == DEFAULT_INT and list(widths) == [1]
 
 
 def test_norms_scaled_to_integers_hold_integers():
@@ -76,12 +77,12 @@ def test_norms_scaled_to_integers_hold_integers():
     assert mesh.get_clim() == (0, 5) and type(mesh.get_clim()[0]) is int
     quiver = ax.quiver([0, 1, 2], [0, 1, 0], [1, -1, 0.5], [1, 2, -1], [1, 2, 3])
     assert quiver.get_clim() == (1, 3) and type(quiver.norm.vmin) is int
-    assert quiver.get_array().dtype == np.int64
+    assert quiver.get_array().dtype == DEFAULT_INT
     given = ax.quiver([0, 1, 2], [0, 1, 0], [1, -1, 0.5], [1, 2, -1], [1, 2, 3],
                       clim=(0.0, 4))
     assert [type(limit) for limit in given.get_clim()] == [float, float]
     barbs = ax.barbs([1, 2], [3, 3], [10, -20], [15, 5], [1, 2])
-    assert barbs.get_clim() == (1, 2) and barbs.get_array().dtype == np.int64
+    assert barbs.get_clim() == (1, 2) and barbs.get_array().dtype == DEFAULT_INT
     flags = ax.imshow(np.eye(2) > 0)
     assert flags.get_clim() == (False, True)
 
@@ -99,7 +100,7 @@ def test_annotations_outside_their_axes_keep_their_transform():
 def test_bar_tick_labels_and_labels_hold_the_values_given():
     fig, ax = plt.subplots()
     bars = ax.bar([1, 2, 3], [3, -1, 2], tick_label=["a", "b", "c"])
-    assert ax.get_xticks().dtype == np.int64
+    assert ax.get_xticks().dtype == DEFAULT_INT
     assert [t.get_text() for t in ax.get_xticklabels()] == ["a", "b", "c"]
     labels = ax.bar_label(bars)
     assert labels[0].get_position() == (0, 0)
@@ -108,7 +109,7 @@ def test_bar_tick_labels_and_labels_hold_the_values_given():
     assert type(labels[0].xy[0]) is np.float64
     padded = ax.bar_label(bars, padding=np.array([1, 2, 3]))
     assert padded[1].get_position() == (0, -2)
-    assert type(padded[1].get_position()[1]) is np.int64
+    assert type(padded[1].get_position()[1]) is DEFAULT_INT
     hbars = ax.barh([1, 2], [3, -4])
     assert ax.bar_label(hbars, padding=2.5)[1].get_position() == (-2.5, 0)
     assert ax.bar_label(hbars, label_type="center")[0].xy == (0.5, 0.5)
@@ -119,8 +120,8 @@ def test_box_plots_at_integer_positions():
     values = np.array([3.0, 1.0, 4.0, 1.5, 5.0, 9.0, 2.5])
     parts = ax.boxplot([values, values * 2], showmeans=True)
     whisker_x = parts["whiskers"][2].get_xdata()
-    assert whisker_x.dtype == np.int64 and list(whisker_x) == [2, 2]
-    assert parts["means"][0].get_xdata().dtype == np.int64
+    assert whisker_x.dtype == DEFAULT_INT and list(whisker_x) == [2, 2]
+    assert parts["means"][0].get_xdata().dtype == DEFAULT_INT
     assert parts["caps"][0].get_xdata().dtype == np.float64
 
 
@@ -129,11 +130,11 @@ def test_contours_of_given_colours_index_them_with_integers():
     zz = ZZ + np.sin(np.linspace(0, 3, 11))
     lines = ax.contour(zz, levels=[-1, -0.5, 0, 0.5, 1], colors="k")
     assert lines.cvalues == [0, 1, 2, 3, 4]
-    assert lines.get_array().dtype == np.int64
+    assert lines.get_array().dtype == DEFAULT_INT
     labels = ax.clabel(lines, fmt="%.1f")
     assert [type(value) for value in labels[0].get_color()] == [np.float64] * 4
     assert type(labels[0].get_position()[0]) is np.float64
-    assert type(lines.labelCValues[0]) is np.int64
+    assert type(lines.labelCValues[0]) is DEFAULT_INT
     filled = ax.contourf(zz, levels=[-1, 0, 1], colors=["r", "g", "b", "k"], extend="both")
     assert filled.cvalues == [-1, 0, 1, 2]
     mapped = ax.contourf(zz, levels=6)
@@ -165,8 +166,8 @@ def test_colorbar_extensions_and_ticks_as_matplotlib_makes_them():
     assert [type(p.get_zorder()) for p in bar.ax.patches] == [np.float64] * 2
     mesh = ax2.pcolormesh(ZZ, norm=colors.BoundaryNorm([-1, 0, 0.5, 1], 3))
     ticked = fig.colorbar(mesh, ax=ax2, orientation="horizontal", ticks=[-1, 0, 1])
-    assert ticked.get_ticks().dtype == np.int64
-    assert ticked.ax.get_xticks().dtype == np.int64
+    assert ticked.get_ticks().dtype == DEFAULT_INT
+    assert ticked.ax.get_xticks().dtype == DEFAULT_INT
 
 
 def test_axes_specs_twins_and_grids_as_matplotlib_keeps_them():

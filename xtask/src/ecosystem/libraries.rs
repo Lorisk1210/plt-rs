@@ -254,6 +254,35 @@ pub(super) fn all() -> impl Iterator<Item = Library> {
     .copied()
 }
 
+/// The libraries whose pinned release does not install on Windows: no
+/// wheel for it, and an sdist that does not build there (healpy's builds
+/// `cfitsio` and `HEALPix`'s C++ with autotools). Their pins carry the marker
+/// `sys_platform != "win32"`, and setup and the suites leave them out
+/// there.
+const NOT_ON_WINDOWS: [&str; 1] = ["healpy"];
+
+/// Whether `library` installs on this system.
+fn installs_here(library: &Library) -> bool {
+    !(cfg!(windows) && NOT_ON_WINDOWS.contains(&library.name))
+}
+
+/// Every library whose suite runs on this system: [`all`] but those that
+/// do not install on it ([`report_left_out`]).
+pub(super) fn here() -> impl Iterator<Item = Library> {
+    all().filter(installs_here)
+}
+
+/// Says which libraries this system leaves out, as they do not install
+/// on it.
+pub(super) fn report_left_out() {
+    for library in all().filter(|library| !installs_here(library)) {
+        println!(
+            "{}: left out, its pinned release does not install on this system",
+            library.name
+        );
+    }
+}
+
 /// The library named `name`.
 #[cfg(test)]
 pub(super) fn named(name: &str) -> Library {
@@ -283,6 +312,27 @@ mod tests {
             assert!(!library.tests.is_empty(), "{}", library.name);
             assert!(!library.title.is_empty(), "{}", library.name);
         }
+    }
+
+    #[test]
+    fn libraries_left_out_on_windows_are_pinned_elsewhere_only() {
+        for name in NOT_ON_WINDOWS {
+            let library = named(name);
+            let path = crate::python::root()
+                .join("python")
+                .join(super::super::venvs::requirements(&library));
+            let text = std::fs::read_to_string(&path).unwrap();
+            let pin = text
+                .lines()
+                .find(|line| line.starts_with(&format!("{name}==")))
+                .unwrap_or_else(|| panic!("{} pins no {name}", path.display()));
+            assert!(pin.ends_with("; sys_platform != \"win32\""), "{pin}");
+            assert_eq!(installs_here(&library), !cfg!(windows));
+        }
+        assert_eq!(
+            here().count() + NOT_ON_WINDOWS.len() * usize::from(cfg!(windows)),
+            all().count()
+        );
     }
 
     #[test]

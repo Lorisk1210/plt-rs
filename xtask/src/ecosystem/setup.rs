@@ -46,9 +46,10 @@ use crate::python;
 pub(super) fn run() -> Result<(), String> {
     let dir = super::ecosystem_dir();
     fs::create_dir_all(&dir).map_err(|err| format!("{}: {err}", dir.display()))?;
+    libraries::report_left_out();
 
     let mut made = Vec::new();
-    for library in libraries::all() {
+    for library in libraries::here() {
         let list = venvs::requirements(&library);
         if made.contains(&list) {
             continue;
@@ -63,11 +64,11 @@ pub(super) fn run() -> Result<(), String> {
     }
 
     let python = python::interpreter(&super::venv(), Os::CURRENT);
-    for library in libraries::all() {
+    for library in libraries::here() {
         fetch(&python, &library)?;
         data::fetch(&python, &library)?;
     }
-    for library in libraries::all() {
+    for library in libraries::here() {
         baselines::make(&library, &venvs::venv(&library, Mode::Reference))?;
     }
     println!(

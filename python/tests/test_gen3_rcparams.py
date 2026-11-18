@@ -15,6 +15,7 @@ import pltrs
 import pltrs.pyplot as plt
 from pltrs import colors
 from pltrs.backend_bases import MouseEvent
+from build_facts import DEFAULT_INT
 
 
 @pytest.fixture(autouse=True)
@@ -250,7 +251,7 @@ def test_meshes_made_of_given_coordinates_keep_them_masked():
     fig, ax = plt.subplots()
     assert type(ax.pcolormesh(Z).get_coordinates()) is np.ndarray
     given = ax.pcolormesh(np.arange(7), np.arange(6), Z).get_coordinates()
-    assert type(given) is np.ma.MaskedArray and given.dtype == np.int64
+    assert type(given) is np.ma.MaskedArray and given.dtype == DEFAULT_INT
     colorbar = fig.colorbar(ax.imshow(Z))
     assert type(colorbar.solids.get_coordinates()) is np.ma.MaskedArray
 

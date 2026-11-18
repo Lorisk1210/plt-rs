@@ -56,10 +56,12 @@ pub(super) fn pinned(library: &Library) -> Result<String, String> {
         .ok_or_else(|| format!("{} pins no {}", path.display(), library.name))
 }
 
-/// The version the requirements `text` pins `name` to (`name==version`).
+/// The version the requirements `text` pins `name` to (`name==version`,
+/// an environment marker after it left aside).
 fn pin_in(text: &str, name: &str) -> Option<String> {
     text.lines().find_map(|line| {
-        let (package, version) = line.split_once("==")?;
+        let (package, rest) = line.split_once("==")?;
+        let version = rest.split_once(';').map_or(rest, |(version, _)| version);
         (package.trim() == name).then(|| version.trim().to_owned())
     })
 }
@@ -75,6 +77,8 @@ mod tests {
         assert_eq!(pin_in(text, "pandas").as_deref(), Some("3.1.0"));
         assert_eq!(pin_in(text, "numpy").as_deref(), Some("2.5.4"));
         assert_eq!(pin_in(text, "seaborn"), None);
+        let marked = "healpy==1.20.1; sys_platform != \"win32\"\n";
+        assert_eq!(pin_in(marked, "healpy").as_deref(), Some("1.20.1"));
     }
 
     #[test]

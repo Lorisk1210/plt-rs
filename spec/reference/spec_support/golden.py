@@ -22,12 +22,23 @@ alone (``X86_V3``) or without it (the baseline, ``X86_V2``) its sort leaves
 equal values in another order, and a triple cannot say which processor a
 machine has. So ``spec/goldens/platforms/x86_64-v3`` and ``x86_64-v2`` hold
 what matplotlib computes at those levels that fails for the common golden,
-whatever the system, and a machine is held to the first golden recorded
-of: its target's, its level's, the common one. A level's goldens are
-recorded on an AVX-512 machine too, with numpy held to the level
-(``NPY_DISABLE_CPU_FEATURES``, and ``OPENBLAS_CORETYPE`` for the kernels
-of numpy's BLAS, which follow the processor the same way):
-``cargo xtask spec --level v3`` checks pltrs against them there.
+whatever the system. A level's goldens are recorded on an AVX-512 machine
+too, with numpy held to the level (``NPY_DISABLE_CPU_FEATURES``, and
+``OPENBLAS_CORETYPE`` for the kernels of numpy's BLAS, which follow the
+processor the same way): ``cargo xtask spec --level v3`` checks pltrs
+against them there.
+
+A target can compute otherwise at a level than Linux does there: numpy's
+Windows wheel sorts arrays holding NaN with MSVC's ``std::sort`` at
+``X86_V3`` and with its own introsort, as Linux does, at ``X86_V2``. What
+such a machine computes at its level that fails for the goldens of its
+target and of its level is in ``spec/goldens/platforms/<target>+<level>``
+(``x86_64-pc-windows-msvc+x86_64-v3``), and a machine is held to the first
+golden recorded of: its target's at its level, its target's, its level's,
+the common one. Such a machine records there what numpy's level changes
+on Linux (what a level's goldens hold), at each level it can run, and the
+rest into its target's goldens; a target without levels (arm64) records
+everything into its target's.
 """
 
 from __future__ import annotations
@@ -87,15 +98,54 @@ def _level() -> str | None:
 PLATFORM = _platform()
 #: The directory name of the goldens of this machine's processor level.
 LEVEL = _level()
+#: The directory name of the goldens of this machine's platform at its
+#: processor level, where it has both. Keep in step with
+#: ``target_level_platform`` in ``pltrs-spec``.
+TARGET_LEVEL = f"{PLATFORM}+{LEVEL}" if PLATFORM and LEVEL else None
 #: The directories this machine's goldens are looked up in before the
 #: common ones, the most specific first.
-_ROOTS = [GOLDEN_ROOT / "platforms" / name for name in (PLATFORM, LEVEL) if name]
+_ROOTS = [GOLDEN_ROOT / "platforms" / name for name in (TARGET_LEVEL, PLATFORM, LEVEL) if name]
+#: The directories of its target's and of its level's goldens, as many as
+#: it has, in that order.
+_OWN_ROOTS = [GOLDEN_ROOT / "platforms" / name for name in (PLATFORM, LEVEL) if name]
 #: Where this machine records what it computes otherwise, ``None`` where
-#: the common goldens are recorded.
-OWN_ROOT = _ROOTS[0] if _ROOTS else None
+#: the common goldens are recorded: its target's goldens, else its
+#: level's.
+OWN_ROOT = _OWN_ROOTS[0] if _OWN_ROOTS else None
+#: The goldens a recording here is held to before the common ones: its
+#: level's, where it records its target's.
+_HELD_ROOTS = _OWN_ROOTS[1:]
+#: Where this machine records what it computes otherwise of what numpy's
+#: level changes (`_by_level`), where it has a target and a level.
+LEVEL_OWN_ROOT = GOLDEN_ROOT / "platforms" / TARGET_LEVEL if TARGET_LEVEL else None
 #: Whether this machine records the common goldens: Linux x86-64 with
 #: AVX-512, numpy unrestricted.
 RECORDS_COMMON = OWN_ROOT is None
+#: The goldens of the processor levels, recorded on Linux.
+_LEVEL_ROOTS = [GOLDEN_ROOT / "platforms" / name for name in ("x86_64-v3", "x86_64-v2")]
+
+
+def _by_level(relative: str | pathlib.Path) -> bool:
+    """Whether numpy's level changes the golden ``relative`` on Linux (a
+    level's goldens hold it): what a machine with a target and a level
+    records of it goes to ``LEVEL_OWN_ROOT``, as it may change with the
+    level on its target too, and the rest to ``OWN_ROOT``. That decides by
+    golden, not by the level a recording runs at, so that recording at
+    each level a machine can run leaves the same files whatever the
+    order."""
+    return any((root / relative).exists() for root in _LEVEL_ROOTS)
+
+
+def _by_level_probes(area: str) -> set[str]:
+    """The keys of the probes of ``area`` that numpy's level changes on
+    Linux (`_by_level`)."""
+    keys = set()
+    for root in _LEVEL_ROOTS:
+        own = root / "probes" / f"{area}.json"
+        if own.exists():
+            document = json.loads(own.read_text(encoding="utf-8"))
+            keys.update(probe_key(p) for p in [*document["probes"], *document["absent"]])
+    return keys
 
 
 def _first(relative: str | pathlib.Path, roots: list[pathlib.Path]) -> pathlib.Path:
@@ -105,10 +155,19 @@ def _first(relative: str | pathlib.Path, roots: list[pathlib.Path]) -> pathlib.P
                 GOLDEN_ROOT / relative)
 
 
+def _own_roots(by_level: bool) -> tuple[pathlib.Path, pathlib.Path | None]:
+    """Where this machine records a golden, and where it records none of
+    it: ``LEVEL_OWN_ROOT`` for what numpy's level changes where it has
+    one, ``OWN_ROOT`` otherwise."""
+    if LEVEL_OWN_ROOT is None:
+        return OWN_ROOT, None
+    return (LEVEL_OWN_ROOT, OWN_ROOT) if by_level else (OWN_ROOT, LEVEL_OWN_ROOT)
+
+
 def golden_path(relative: str | pathlib.Path) -> pathlib.Path:
     """The golden ``relative`` (below ``spec/goldens``) this machine is
-    held to: its platform's where one is recorded, else its processor
-    level's, else the common one."""
+    held to: the first recorded of its platform's at its processor level,
+    its platform's, its processor level's, else the common one."""
     return _first(relative, _ROOTS)
 
 
@@ -117,21 +176,25 @@ def record_golden(relative: str | pathlib.Path, data: bytes,
     """Record what matplotlib produced here for the golden ``relative``.
 
     Where the common goldens are recorded, that is the common golden.
-    Elsewhere it is a golden of this machine's own (``OWN_ROOT``) if it
-    fails for the golden the machine is held to without it
+    Elsewhere it is a golden of this machine's own (``OWN_ROOT``, or
+    ``LEVEL_OWN_ROOT`` for what numpy's level changes: `_by_level`) if it
+    fails for the golden the machine is held to without its own
     (``passes(held, data)`` is false: the check pltrs' output is put to),
     and no file at all if it passes: one left from an earlier run is then
-    removed.
+    removed, and so is one in the other of the two directories.
     """
     if OWN_ROOT is None:
         common = GOLDEN_ROOT / relative
         common.parent.mkdir(parents=True, exist_ok=True)
         common.write_bytes(data)
         return
-    held = _first(relative, _ROOTS[1:])
+    held = _first(relative, _HELD_ROOTS)
     if not held.exists():
         raise AssertionError(f"{relative} has no common golden: record it on Linux x86-64 first")
-    own = OWN_ROOT / relative
+    own_root, other_root = _own_roots(_by_level(relative))
+    if other_root is not None:
+        (other_root / relative).unlink(missing_ok=True)
+    own = own_root / relative
     if passes(held.read_bytes(), data):
         own.unlink(missing_ok=True)
     else:
@@ -358,8 +421,9 @@ def _probes_under(area: str, roots: list[pathlib.Path]) -> dict[str, dict[str, A
 
 def golden_probes(area: str) -> dict[str, dict[str, Any]] | None:
     """The probes of ``area`` this machine is held to, by key: the common
-    golden's as its processor level's golden and then its platform's
-    change them. ``None`` without a common golden."""
+    golden's as its processor level's golden, then its platform's and then
+    its platform's at its level change them. ``None`` without a common
+    golden."""
     return _probes_under(area, _ROOTS)
 
 
@@ -372,15 +436,16 @@ def record_probes(probes: ProbeSet) -> None:
     of the same operations that no probe here answers: evaluated with
     those other arguments. A held probe of an operation with nothing of
     its own here stays, as one matplotlib could not run for want of a
-    program."""
+    program. Of a machine with a target and a level, the probes numpy's
+    level changes (`_by_level_probes`) go to ``LEVEL_OWN_ROOT``'s golden of
+    the area, the others to ``OWN_ROOT``'s."""
     if OWN_ROOT is None:
         probes.path.parent.mkdir(parents=True, exist_ok=True)
         probes.path.write_text(dump_json(probes.document()), encoding="utf-8", newline="\n")
         return
-    held = _probes_under(probes.area, _ROOTS[1:])
+    held = _probes_under(probes.area, _HELD_ROOTS)
     if held is None:
         raise AssertionError(f"{probes.area} has no common golden: record it on Linux x86-64 first")
-    own = OWN_ROOT / "probes" / f"{probes.area}.json"
     document = json.loads(dump_json(probes.document()))
     run = {probe_key(p): p for p in document["probes"]}
     answers = GoldenAnswers(held, run)
@@ -395,12 +460,25 @@ def record_probes(probes: ProbeSet) -> None:
             replaced.add(probe["op"])
     absent = [{"op": p["op"], "args": p["args"]} for key, p in held.items()
               if key not in run and key not in answered and p["op"] in replaced]
+    by_level = _by_level_probes(probes.area) if LEVEL_OWN_ROOT is not None else set()
+    for root, level_probes in ((OWN_ROOT, False), (LEVEL_OWN_ROOT, True)):
+        if root is not None:
+            mine = [p for p in failing if (probe_key(p) in by_level) == level_probes]
+            gone = [p for p in absent if (probe_key(p) in by_level) == level_probes]
+            _write_probes(root, document, mine, gone)
+
+
+def _write_probes(root: pathlib.Path, document: dict[str, Any], failing: list[dict[str, Any]],
+                  absent: list[dict[str, Any]]) -> None:
+    """Write the golden of ``document``'s area in ``root`` with the probes
+    ``failing`` and ``absent``, or remove it when there are none."""
+    own = root / "probes" / f"{document['area']}.json"
     if not failing and not absent:
         own.unlink(missing_ok=True)
         return
     own.parent.mkdir(parents=True, exist_ok=True)
-    own.write_text(dump_json({"area": probes.area, "matplotlib": document["matplotlib"],
-                              "platform": OWN_ROOT.name, "probes": failing, "absent": absent}),
+    own.write_text(dump_json({"area": document["area"], "matplotlib": document["matplotlib"],
+                              "platform": root.name, "probes": failing, "absent": absent}),
                    encoding="utf-8", newline="\n")
 
 

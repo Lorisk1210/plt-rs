@@ -62,7 +62,9 @@ excuses is missing here.
 ## Installation, configuration and data files
 
 * pltrs reads its configuration from `PLTRSCONFIGDIR` (else the XDG
-  directories), and its rc file is `pltrsrc`; `MPLCONFIGDIR` and
+  directories; on Windows `%LOCALAPPDATA%\pltrs`, where matplotlib uses
+  `%LOCALAPPDATA%\matplotlib`, or `%USERPROFILE%\.matplotlib` where that
+  exists), and its rc file is `pltrsrc`; `MPLCONFIGDIR` and
   `matplotlibrc` files are read too.
 * `get_data_path()` is pltrs' data directory in its configuration
   directory, where it writes the fonts and files it bundles, and
@@ -118,6 +120,15 @@ excuses is missing here.
 * In PostScript and EPS files, the coordinates of mathtext's rule boxes
   (fraction bars, square-root overlines) can differ from matplotlib's in
   their last digit; the drawing is the same.
+* On Windows, an SVG, PostScript or EPS file saved to a path ends its
+  lines with `\n`, where matplotlib writes it through a text file whose
+  lines end with `\r\n` there. The document is the same otherwise, and
+  one written to a file object or a buffer is the same as matplotlib's.
+* A `datetime` without a time zone given as a PDF's `CreationDate` (or
+  `ModDate`) is written as the moment in UTC (`D:20010203030506Z`), where
+  matplotlib writes the clock time with the local offset
+  (`D:20010203040506+02'00'`). On Windows such a date before 1970 raises
+  `OSError` under pltrs, where matplotlib writes it.
 * A pickled figure holds pltrs' own archive of it, of another length
   than matplotlib's. pltrs loads the pickles pltrs writes, but pickles do
   not cross between pltrs and matplotlib in either direction (see "Not
@@ -416,3 +427,9 @@ waivers where pltrs (Rust) refuses what matplotlib accepts by accident
 (negative or fractional polygon sides, undefined path codes, unsorted
 boundaries, colours outside 0–1) concern pltrs (Rust)'s API: pltrs
 (Python) gives matplotlib's answer there.
+
+On Windows, a `SOURCE_DATE_EPOCH` the system's clock functions cannot
+convert (before 12:00 on 31 December 1969, or after 21:59:59 on 19
+January 3001) makes matplotlib's PDF, PostScript and SVG writers raise
+the `OSError` of Python's `datetime.fromtimestamp`; pltrs (Rust) writes
+the date. pltrs (Python) raises as matplotlib does.

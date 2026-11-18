@@ -44,7 +44,8 @@ def _mallinfo():
     """glibc's ``mallinfo2``, or None where there is none."""
     try:
         function = ctypes.CDLL(None).mallinfo2
-    except (AttributeError, OSError):
+    except (AttributeError, OSError, TypeError):
+        # TypeError: Windows' `LoadLibrary` names no process image by None.
         return None
 
     class Info(ctypes.Structure):

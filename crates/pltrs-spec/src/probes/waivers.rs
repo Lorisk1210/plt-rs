@@ -211,12 +211,33 @@ pub const WAIVERS: &[Waiver] = &[
     },
 ];
 
+const UCRT_REFUSES_THE_EPOCH: &str = "matplotlib reads SOURCE_DATE_EPOCH with Python's \
+     datetime.fromtimestamp, which on Windows raises the UCRT's OSError for a time before 12:00 \
+     on 31 December 1969; pltrs (Rust) writes the date, and pltrs (Python) raises as matplotlib \
+     does";
+
+/// The waivers of probes only Windows' matplotlib answers otherwise, held
+/// to on Windows alone (elsewhere these probes pass).
+pub const WINDOWS_WAIVERS: &[Waiver] = &[
+    // topic: pltrs-rust
+    Waiver {
+        op: "savefig.creation_date",
+        args: r#"{"epoch": -86401}"#,
+        reason: UCRT_REFUSES_THE_EPOCH,
+    },
+];
+
+/// The waivers this build is held to: [`WAIVERS`], and on Windows
+/// [`WINDOWS_WAIVERS`].
+fn in_force() -> impl Iterator<Item = &'static Waiver> {
+    let windows: &[Waiver] = if cfg!(windows) { WINDOWS_WAIVERS } else { &[] };
+    WAIVERS.iter().chain(windows)
+}
+
 /// The waiver covering a probe, if any: every argument the waiver lists
 /// must equal the probe's exactly, with NaN equal to NaN.
 pub fn find(op: &str, args: &Json) -> Option<&'static Waiver> {
-    WAIVERS
-        .iter()
-        .find(|w| w.op == op && Json::parse(w.args).is_ok_and(|waived| covers(&waived, args)))
+    in_force().find(|w| w.op == op && Json::parse(w.args).is_ok_and(|waived| covers(&waived, args)))
 }
 
 /// Whether every entry of the `waived` object equals the same entry of
@@ -247,8 +268,19 @@ mod tests {
     }
 
     #[test]
+    fn windows_waivers_hold_on_windows_alone() {
+        let probe = Json::parse(r#"{"format": "pdf", "epoch": -86401}"#).unwrap();
+        assert_eq!(
+            find("savefig.creation_date", &probe).is_some(),
+            cfg!(windows)
+        );
+        let later = Json::parse(r#"{"format": "pdf", "epoch": 0}"#).unwrap();
+        assert!(find("savefig.creation_date", &later).is_none());
+    }
+
+    #[test]
     fn every_waiver_is_valid_json() {
-        for waiver in WAIVERS {
+        for waiver in WAIVERS.iter().chain(WINDOWS_WAIVERS) {
             assert!(
                 Json::parse(waiver.args).is_ok(),
                 "{}: {}",

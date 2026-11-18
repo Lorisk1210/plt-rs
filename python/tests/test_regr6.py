@@ -14,6 +14,7 @@ import pltrs
 import pltrs.pyplot as plt
 from pltrs.cm import ScalarMappable
 from pltrs.mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from build_facts import DEFAULT_INT
 
 
 @pytest.fixture(autouse=True)
@@ -43,7 +44,7 @@ def test_a_colorbar_with_ticks_in_an_inset_axes_in_use(orientation):
     assert type(cb.locator).__name__ == "FixedLocator"
     ticks = cb.get_ticks()
     assert list(ticks) == [100, 150, 200, 250]
-    assert ticks.dtype == np.int64
+    assert ticks.dtype == DEFAULT_INT
     assert long_axis.get_scale() == "function"
     assert type(long_axis._scale).__name__ == "FuncScale"
     assert cb.ax._colorbar is cb

@@ -120,6 +120,13 @@ must reproduce them.
   and `spec/mpl-reference --update-goldens` under those two variables
   (`NPY_DISABLE_CPU_FEATURES="X86_V4 AVX512_ICL AVX512_SPR"
   OPENBLAS_CORETYPE=Haswell` for `v3`), the probes one module per process.
+  Where a target computes otherwise at a level than Linux does there
+  (numpy's Windows wheel sorts arrays holding NaN with MSVC's `std::sort`
+  at `X86_V3`), `spec/goldens/platforms/<target>+<level>/`
+  (`x86_64-pc-windows-msvc+x86_64-v3`) holds that, looked up before the
+  target's, the level's and the common goldens; `spec/mpl-reference
+  --update-goldens` on such a machine writes it, at each level the
+  machine can run (under that level's variables).
 * Probes (`spec/reference/probes/test_<area>.py`) record `op(args) -> value`
   via `ProbeSet(area).probe("op", fn, **args)`; goldens in
   `spec/goldens/probes/<area>.json`. Each area is owned by one module; run the

@@ -19,6 +19,7 @@ from pltrs import collections, colors, dates, lines, markers, scale, ticker
 from pltrs.path import Path
 
 from test_smoke import close_figures  # noqa: F401 (autouse: rcdefaults)
+from build_facts import DEFAULT_INT
 
 
 def test_box_parts_given_none_take_the_line_defaults():
@@ -137,7 +138,7 @@ def test_plotted_lines_keep_their_original_data():
     fig, ax = plt.subplots()
     (ints,) = ax.plot([1, 2, 3])
     (masked,) = ax.plot(np.arange(3), np.ma.masked_invalid([1, np.nan, 3]))
-    assert ints.get_ydata().dtype == np.int64 and ints.get_ydata().tolist() == [1, 2, 3]
+    assert ints.get_ydata().dtype == DEFAULT_INT and ints.get_ydata().tolist() == [1, 2, 3]
     assert masked.get_ydata().mask.tolist() == [False, True, False]
     assert np.array_equal(masked.get_ydata(orig=False), [1.0, np.nan, 3.0], equal_nan=True)
 
@@ -184,7 +185,7 @@ def test_a_mesh_keeps_the_values_it_was_given():
     values = mesh.get_array()
     assert values.data.tolist() == [[0.0, 1.0, 2.0], [3.0, 0.0, 5.0]]
     assert values.mask.tolist() == [[True, False, False], [False, True, False]]
-    assert ax.pcolormesh(np.arange(6).reshape(2, 3)).get_array().dtype == np.int64
+    assert ax.pcolormesh(np.arange(6).reshape(2, 3)).get_array().dtype == DEFAULT_INT
 
 
 @pytest.mark.skipif(int(np.__version__.split(".")[0]) < 2,

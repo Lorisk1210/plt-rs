@@ -27,6 +27,7 @@ from pltrs import cbook, dates, font_manager, ft2font, path, text, transforms
 from pltrs.backends import backend_pdf
 from pltrs.backends.backend_agg import FigureCanvasAgg
 from pltrs.figure import Figure
+from build_facts import DEFAULT_INT
 
 
 @pytest.fixture(autouse=True)
@@ -230,7 +231,7 @@ def test_strip_math_of_what_is_no_string():
 
 def test_boxplot_stats_of_unusual_data_as_matplotlib():
     stats, = cbook.boxplot_stats(np.array([3, 1, 4, 2, 5, 9, 2, 40]))
-    assert stats['fliers'].dtype == np.int64
+    assert stats['fliers'].dtype == DEFAULT_INT
     values = np.array([3.0, 1.0, 4.0, 1.5, 5.0, 9.0, 2.5])
     for args, kwargs, error, message in [
             ((np.array([False, True]),), {}, TypeError, "numpy boolean subtract"),

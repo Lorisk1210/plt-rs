@@ -59,7 +59,8 @@ def runtime_warnings(call):
     (dict(facecolors=[0, 1]), ValueError, f"Invalid RGBA argument: {np.int64(0)!r}"),
     (dict(edgecolors=""), ValueError, f"{np.str_('')!r} is not a valid color value."),
     (dict(edgecolors="K"), ValueError, f"{np.str_('K')!r} is not a valid color value."),
-    (dict(edgecolors=3), TypeError, "object of type 'numpy.int64' has no len()"),
+    (dict(edgecolors=3), TypeError,
+     f"object of type 'numpy.{build_facts.DEFAULT_INT.__name__}' has no len()"),
     (dict(edgecolors="none"), ValueError,
      "operands could not be broadcast together with shapes (3,1) (0,4) "),
 ])

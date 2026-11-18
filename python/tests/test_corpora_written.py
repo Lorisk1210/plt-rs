@@ -69,7 +69,10 @@ def test_a_path_corpus_runs_its_files_unfetched(corpora, tmp_path):
         assert not (out / "corpora").exists(), "nothing is fetched or converted"
         placed = program.lay_out(tmp_path / "run")
         assert placed.read_text() == "print('bars')\n"
-        assert (tmp_path / "run" / "bars" / "notes.txt").is_symlink()
+        # A link, or where the system makes none (Windows without Developer
+        # Mode) a copy, listed as one.
+        assert ((tmp_path / "run" / "bars" / "notes.txt").is_symlink()
+                or "bars/notes.txt" in corpora.unchanged_copies(tmp_path / "run"))
         assert (tmp_path / "run" / "figures").is_dir()
     finally:
         corpora.ROOT = root

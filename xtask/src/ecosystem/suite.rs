@@ -84,8 +84,9 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
     if options.mode == Mode::Pltrs {
         python::build(python::Profile::Release)?;
     }
+    libraries::report_left_out();
     let mut prepared = Vec::new();
-    for library in libraries::all() {
+    for library in libraries::here() {
         let venv = venvs::venv(&library, options.mode);
         let python = python::interpreter(&venv, Os::CURRENT);
         if !python.exists() {
@@ -152,7 +153,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
         merged.merge(run, &ran_files);
     }
     let mut versions = Vec::new();
-    for library in libraries::all() {
+    for library in libraries::here() {
         versions.push((library.name, venvs::pinned(&library)?));
     }
     versions.push(("matplotlib", MATPLOTLIB.to_owned()));

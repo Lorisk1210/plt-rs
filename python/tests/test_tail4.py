@@ -9,6 +9,7 @@ their entries' styles. Each expected value is recorded from matplotlib.
 
 import io
 import logging
+import os
 import pickle
 import warnings
 
@@ -20,6 +21,7 @@ import pltrs.pyplot as plt
 from pltrs import font_manager, markers
 from pltrs.offsetbox import (AnchoredOffsetbox, AnchoredText, AnnotationBbox, HPacker,
                              OffsetImage, TextArea, VPacker)
+from build_facts import DEFAULT_INT
 
 #: A family no font has: each lookup of it logs.
 NOPE = "xkcdnope"
@@ -259,7 +261,7 @@ def _cast_warnings(work):
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         work()
-    return [w.filename.rsplit("/", 1)[-1] for w in caught if CAST in str(w.message)]
+    return [os.path.basename(w.filename) for w in caught if CAST in str(w.message)]
 
 
 @pytest.mark.parametrize("make, expected", [
@@ -292,7 +294,7 @@ def test_a_poly_collection_handle_reads_back_the_collections_dash_pattern():
     ax.fill_between([0, 1, 2], [0, 1, 0], lw=2, ls=DASH, label="h")
     offset, dashes = ax.legend().legend_handles[0].get_linestyle()
     assert (offset, dashes) == (8, [16, 6])
-    assert all(type(value) is np.int64 for value in [offset, *dashes])
+    assert all(type(value) is DEFAULT_INT for value in [offset, *dashes])
 
 
 def test_a_stem_handle_scales_the_dashes_of_the_stems():

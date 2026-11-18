@@ -25,6 +25,7 @@ from pltrs import colors, patches, ticker, transforms
 from pltrs.path import Path
 
 from number_types import runner
+from build_facts import DEFAULT_INT
 
 #: Whether the tests run on matplotlib itself (through the alias), where
 #: no row may differ.
@@ -95,7 +96,7 @@ def test_labelling_functions_get_numpy_scalars_of_the_data():
     fig.colorbar(ax.imshow(np.arange(4.0).reshape(2, 2)),
                  format=lambda x, pos: seen.append(type(x)) or "")
     fig.canvas.draw()
-    assert seen[:4] == [np.int64, np.int64, np.float32, np.float32]
+    assert seen[:4] == [DEFAULT_INT, DEFAULT_INT, np.float32, np.float32]
     assert set(seen[4:]) == {np.float64}
 
 
@@ -118,14 +119,14 @@ def test_a_norm_of_the_program_gets_the_data_in_matplotlibs_dtype():
 def test_values_computed_from_ints_stay_ints():
     fig, ax = plt.subplots()
     boxes = ax.boxplot([[1, 2, 3, 4, 10]])
-    assert boxes["fliers"][0].get_ydata().dtype == np.int64
-    assert boxes["caps"][0].get_ydata().dtype == np.int64
+    assert boxes["fliers"][0].get_ydata().dtype == DEFAULT_INT
+    assert boxes["caps"][0].get_ydata().dtype == DEFAULT_INT
     image = ax.imshow(np.arange(4).reshape(2, 2), norm=colors.BoundaryNorm([0, 1, 2, 4], 256))
     bar = fig.colorbar(image)
     fig.canvas.draw()
-    assert bar.get_ticks().dtype == np.int64
+    assert bar.get_ticks().dtype == DEFAULT_INT
     assert ax.pcolorfast((0, 8), (3, 6), np.arange(6).reshape(2, 3)).get_extent() == (0, 8, 3, 6)
-    assert type(ax.pcolorfast((0, 8), (3, 6), np.ones((2, 3))).get_extent()[0]) is np.int64
+    assert type(ax.pcolorfast((0, 8), (3, 6), np.ones((2, 3))).get_extent()[0]) is DEFAULT_INT
 
 
 def test_ints_the_program_gave_read_back_as_ints():

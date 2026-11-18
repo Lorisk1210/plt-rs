@@ -8,6 +8,8 @@ expected value is recorded from matplotlib.
 import numpy as np
 import pytest
 
+import build_facts
+
 import pltrs
 import pltrs.pyplot as plt
 from pltrs.category import StrCategoryConverter
@@ -404,6 +406,9 @@ def test_mesh_arrays_and_colours_as_matplotlib():
         mesh.get_edgecolor(None)
 
 
+@pytest.mark.skipif(not build_facts.DATEUTIL_MAKES_LOCAL_ZONE_OF_NO_NAME,
+                    reason="python-dateutil fails to make the local zone of an empty name "
+                           "here (2.7 on Windows: KeyError 'Std'), under matplotlib too")
 def test_a_date_converter_fails_on_category_units_before_the_view_changes():
     fig, ax = plt.subplots()
     ax.plot(['a', 'b', 'c'], [1, 2, 3])

@@ -27,6 +27,7 @@ from pltrs.projections import register_projection
 from pltrs.transforms import Bbox
 
 from test_smoke import close_figures  # noqa: F401 (autouse: rcdefaults)
+from build_facts import DEFAULT_INT
 
 
 class ProgramDrawingArea(OffsetBox):
@@ -318,7 +319,7 @@ def scenario_quad_mesh():
 
 def test_quad_mesh():
     assert scenario_quad_mesh() == {
-        "made": ("int64", (3, 4, 2), None, True, 0, False),
+        "made": (DEFAULT_INT.__name__, (3, 4, 2), None, True, 0, False),
         "added": ([-0.15, 3.15], [-0.1, 2.1], [0.0, 0.0, 3.0, 2.0],
                   [0.122, 0.467, 0.706, 1.0], (0, 4), [1.0]),
         "gouraud": ("gouraud", 6, False),

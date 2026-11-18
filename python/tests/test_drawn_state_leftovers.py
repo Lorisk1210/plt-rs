@@ -15,6 +15,7 @@ import pltrs.pyplot as plt
 from pltrs import patches as mpatches, transforms as mtransforms
 from pltrs.offsetbox import (AnchoredOffsetbox, AuxTransformBox, DrawingArea, TextArea,
                              VPacker)
+from build_facts import DEFAULT_INT
 
 
 @pytest.fixture(autouse=True)
@@ -143,7 +144,7 @@ def test_pcolor_keeps_every_value():
     values = masked.get_array()
     assert np.ma.isMA(values) and values.shape == (3, 4) and values.mask.sum() == 3
     assert len(masked.get_paths()) == 9
-    assert ax.pcolor(np.arange(6).reshape(2, 3)).get_array().dtype == np.int64
+    assert ax.pcolor(np.arange(6).reshape(2, 3)).get_array().dtype == DEFAULT_INT
 
 
 def test_alphas_and_label_pads_read_back_as_given():

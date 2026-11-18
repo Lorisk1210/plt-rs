@@ -21,7 +21,10 @@ whole minutes (python-dateutil 2.7, `build_facts.DATEUTIL_KEEPS_OFFSETS`),
 a probe asking one for a time its golden gives an offset of seconds
 (local mean time) has nothing to expect: matplotlib computes with the
 rounded offset there, which no golden holds (pltrs asks such a zone
-through Python, as matplotlib does).
+through Python, as matplotlib does). Where python-dateutil's zone database
+is out of date (python-dateutil 2.7 on Windows reads its own files of 2018,
+`build_facts.DATEUTIL_ZONES_CURRENT`), a probe asking one of its zones has
+nothing to expect either: matplotlib computes with the old rules.
 """
 
 import datetime
@@ -112,6 +115,8 @@ def _expected(op, args):
         return None
     if not all(map(_has_zone, _zoneinfo_names(args))):
         return {"error": "ZoneInfoNotFoundError"}
+    if uses_dateutil and not build_facts.DATEUTIL_ZONES_CURRENT:
+        return None
     if uses_dateutil and build_facts.DATEUTIL_ZONES_AS_ZONEINFO:
         return GOLDEN.get(_key(op, AREA.as_zoneinfo(args)), GOLDEN[_key(op, args)])
     return GOLDEN[_key(op, args)]

@@ -321,6 +321,10 @@ def test_a_deep_formula_on_a_small_stack_is_drawn(levels, tmp_path):
 
 
 @pytest.mark.skipif(pltrs.__name__ != "pltrs", reason="pltrs' own message")
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="Python's threads have no small stack on Windows: threading.stack_size "
+                           "sets what a thread commits at first, and every thread may grow to "
+                           "python.exe's reservation of 2 MB (measured)")
 def test_a_draw_inside_a_draw_on_a_small_stack_says_what_to_do(tmp_path):
     # A formatter saving its figure once, on a thread of 128 KiB: pltrs'
     # two draws need more stack than that (matplotlib's fit in it), and the

@@ -10,6 +10,8 @@ import subprocess
 import sys
 import time
 
+import pytest
+
 from gui_events import idling, loop_probe
 
 
@@ -27,6 +29,9 @@ def _rate(source, seconds=1.5):
         child.wait()
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="the idle measure counts wake-ups on Linux (/proc) and macOS; "
+                           "the GUI harness does not run on Windows")
 def test_wake_ups_are_counted_on_every_system():
     sleeping = _rate("import time\nwhile True: time.sleep(0.05)")
     idle = _rate("import time\ntime.sleep(60)")

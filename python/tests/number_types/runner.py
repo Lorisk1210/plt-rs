@@ -28,8 +28,11 @@ RECORDED = pathlib.Path(__file__).with_name("reference.json")
 #: libm, and with the products matplotlib's GCC-built aarch64 Linux wheel
 #: fuses (recorded in the manylinux_2_28 image, task REL4), the arrow's
 #: outline ends a last bit beside its first vertex, so that ``get_verts()``
-#: closes it with one vertex more. On aarch64 Linux the row
-#: ``R csd ints | returns`` keeps x86-64's value, which pltrs gives there
+#: closes it with one vertex more. With numpy's Windows wheel the cross
+#: spectral density of integers ends a value a last bit higher (matplotlib
+#: 3.11.2 there, measured on the Windows PC, task WIN6), and pltrs gives
+#: matplotlib's value there. On aarch64 Linux the same row,
+#: ``R csd ints | returns``, keeps x86-64's value, which pltrs gives there
 #: too: matplotlib's own value is one ulp off in one FFT value
 #: (24.730162019507027 for 24.73016201950703), as ``DIFFERENCES.md``
 #: ("Numbers on other machines") declares.
@@ -38,6 +41,10 @@ ON_PLATFORM = {
                "ndarray[float64,(12, 2)]=[87.5001, 65.0665, 93.3051]"},
     "linux-aarch64": {"S FancyArrowPatch | get_verts()":
                       "ndarray[float64,(12, 2)]=[87.5001, 65.0665, 93.3051]"},
+    "win32": {"R csd ints | returns":
+              "tuple[2](ndarray[complex128,(9,)]=['(70.57846914232039+0', "
+              "'(138.34632891584198-', '(24.73016201950703-4'], "
+              "ndarray[float64,(9,)]=[0.0, 0.125, 0.25])"},
 }
 
 #: The rows on which pltrs is known to part from matplotlib, with

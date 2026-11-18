@@ -15,6 +15,7 @@ import pltrs
 import pltrs.pyplot as plt
 from pltrs import collections, colors, gridspec, patches, ticker, transforms
 from pltrs.offsetbox import AnchoredOffsetbox, AnnotationBbox, OffsetImage, TextArea, VPacker
+from build_facts import DEFAULT_INT
 
 Z = np.outer(np.linspace(-1, 1, 5), np.linspace(0, 2, 6))
 VALUES = np.array([3.0, 1.0, 4.0, 1.5, 5.0, 9.0, 2.5])
@@ -47,8 +48,8 @@ def test_dash_patterns_are_scaled_as_given():
     lines.set_linewidth(2)
     lines.set_linestyle((0, (3, 1)))
     (offset, dashes), = lines.get_linestyle()
-    assert isinstance(offset, np.int64) and offset == 0
-    assert [type(d) for d in dashes] == [np.int64, np.int64] and dashes == [6, 2]
+    assert isinstance(offset, DEFAULT_INT) and offset == 0
+    assert [type(d) for d in dashes] == [DEFAULT_INT, DEFAULT_INT] and dashes == [6, 2]
     spine = plt.figure().add_subplot().spines["left"]
     spine.set_linestyle((0, (3, 1)))
     assert spine.get_linestyle() == (0, (3, 1))
@@ -72,14 +73,14 @@ def test_hist_steps_bars_and_hatches():
 def test_lines_keep_the_data_they_were_made_with():
     ax = plt.figure().add_subplot()
     line, = ax.plot([1, 2, 3])
-    assert line.get_xdata().dtype == np.float64 and line.get_ydata().dtype == np.int64
+    assert line.get_xdata().dtype == np.float64 and line.get_ydata().dtype == DEFAULT_INT
     caps = ax.errorbar([1, 2], [1, 2], yerr=[0.1, 0.2], capsize=3)[1]
     assert caps[0].get_xdata().dtype == object
     assert caps[0].get_markeredgecolor() == (1.0, 0.4980392156862745, 0.054901960784313725)
     none_fmt = ax.errorbar([1, 2], [1, 2], yerr=0.1, fmt='none', capsize=2)
     assert none_fmt[0] is None and none_fmt[1][0].get_mec() == 'C0'
     markers, _, baseline = ax.stem(VALUES)
-    assert markers.get_xdata().dtype == np.int64
+    assert markers.get_xdata().dtype == DEFAULT_INT
     assert markers.get_color() == (0.12156862745098039, 0.4666666666666667,
                                    0.7058823529411765, 1)
     assert baseline.get_data()[0].tolist() == [0, 6]
@@ -91,7 +92,7 @@ def test_scatter_faces_and_sizes():
     points = plt.figure().add_subplot().scatter(
         [1, 2], [1, 2], s=50, facecolors='none', edgecolors='k')
     assert points.get_fill()
-    assert points.get_sizes().dtype == np.int64
+    assert points.get_sizes().dtype == DEFAULT_INT
 
 
 def test_ticks_typed_as_their_locators_give_them():
@@ -170,7 +171,7 @@ def test_contour_widths_and_hatched_bands():
     fig, ax = plt.subplots()
     lines = ax.contour(Z, 3, linewidths=2)
     assert lines.get_linewidth().tolist() == [2, 2, 2, 2, 2]
-    assert lines.get_linewidth().dtype == np.int64
+    assert lines.get_linewidth().dtype == DEFAULT_INT
     lines.set_linestyle((0, (3, 1)))
     lines.set_linewidth(2)
     assert len(lines.get_linestyle()) == 1

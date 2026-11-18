@@ -28,6 +28,7 @@ from pltrs.path import Path
 from pltrs.transforms import Affine2D, Bbox
 
 import build_facts
+from build_facts import DEFAULT_INT
 
 INT_PLUS_STR = re.escape("unsupported operand type(s) for +: 'int' and 'str'")
 
@@ -120,7 +121,7 @@ def test_tight_layout_computes_with_its_arguments_first():
 def test_align_labels_take_the_subplots_of_the_axes_given():
     fig, axs = plt.subplots(2)
     with pytest.raises(AttributeError,
-                       match="'numpy.int64' object has no attribute 'get_subplotspec'"):
+                       match=f"'numpy.{DEFAULT_INT.__name__}' object has no attribute 'get_subplotspec'"):
         fig.align_xlabels(axs=0)
     fig.align_ylabels(axs=[])
 

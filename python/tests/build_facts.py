@@ -72,6 +72,12 @@ SET_CHAR_SIZE_LINE = 250 if sys.platform in ("darwin", "win32") else 248
 #: Whether matplotlib's cast of a negative resolution wraps around.
 CASTS_WRAP = platform.machine() in ("x86_64", "AMD64")
 
+#: numpy's default integer, which arrays made of Python ints hold and
+#: matplotlib hands back where it keeps them: ``int64``, but on Windows
+#: under numpy 1 the 32-bit ``int32`` of C's ``long`` (matplotlib 3.11.2
+#: with numpy 1.26 there gives the same types).
+DEFAULT_INT = np.array([1]).dtype.type
+
 
 def _warns(compute):
     with warnings.catch_warnings(record=True) as caught:
@@ -111,6 +117,27 @@ def _zones_agree(name, local_times):
 
     return all(facts(local, zones[0], fold) == facts(local, zones[1], fold)
                for local in local_times for fold in (0, 1))
+
+
+#: Whether python-dateutil's zone database is current: São Paulo has kept
+#: no daylight saving time since 2019. python-dateutil 2.7 on Windows,
+#: where no system database exists, reads its own files of 2018.
+DATEUTIL_ZONES_CURRENT = _zones_agree("America/Sao_Paulo", [datetime.datetime(2020, 1, 1, 12)])
+
+
+def _makes_the_local_zone_of_no_name():
+    try:
+        dateutil.tz.gettz("")
+    except Exception:  # noqa: BLE001 - the failure is the fact
+        return False
+    return True
+
+
+#: Whether python-dateutil makes the local zone of an empty name, as
+#: matplotlib's ``axis_date(tz="")`` asks it: python-dateutil 2.7 on
+#: Windows reads the zone's names from the registry and fails there
+#: (``KeyError: 'Std'``, under matplotlib too).
+DATEUTIL_MAKES_LOCAL_ZONE_OF_NO_NAME = _makes_the_local_zone_of_no_name()
 
 
 #: Whether python-dateutil's zones answer as zoneinfo's: for a wall time

@@ -16,6 +16,7 @@ from pltrs import (artist, bezier, collections, contour, dates, lines, patches,
                    streamplot, style, table, ticker)
 
 from test_smoke import close_figures  # noqa: F401 (autouse: rcdefaults)
+from build_facts import DEFAULT_INT
 
 Z = np.outer(np.linspace(-1, 1, 5), np.linspace(0, 2, 6))
 VALUES = np.array([3.0, 1.0, 4.0, 1.5, 5.0, 9.0, 2.5])
@@ -177,7 +178,7 @@ def test_colorbar_ticks_keep_their_type():
     fig, ax = plt.subplots()
     colorbar = fig.colorbar(ax.imshow(Z))
     colorbar.set_ticks([0, 1, 2])
-    assert colorbar.get_ticks().dtype == np.int64
+    assert colorbar.get_ticks().dtype == DEFAULT_INT
 
 
 def test_module_functions_of_matplotlib():

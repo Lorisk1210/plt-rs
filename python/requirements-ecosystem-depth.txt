@@ -22,7 +22,10 @@ python-dateutil==2.9.0.post0
 qutip==5.3.1
 control==0.10.2
 getdist==1.7.7
-healpy==1.20.1
+# healpy has no wheel for Windows, and its sdist does not build there (it
+# builds cfitsio and HEALPix's C++ with autotools): its suite runs
+# elsewhere only (`NOT_ON_WINDOWS` in xtask's ecosystem libraries).
+healpy==1.20.1; sys_platform != "win32"
 pyfolio-reloaded==0.10.2
 plotly==7.1.0
 astroplan==0.10.1

@@ -17,6 +17,7 @@ import pltrs
 import pltrs.pyplot as plt
 from pltrs import cbook, patches, scale, ticker, transforms
 from pltrs.offsetbox import AnchoredOffsetbox, AnchoredText, TextArea
+from build_facts import DEFAULT_INT
 
 
 @pytest.fixture(autouse=True)
@@ -111,13 +112,13 @@ def test_anchored_boxes_have_their_frame_before_they_are_added():
 def test_values_of_matplotlibs_types():
     fig, ax = plt.subplots()
     b = ax.barbs([0, 1], [0, 1], [10, -20], [15, 5])
-    assert b.get_offsets().dtype == np.int64
-    assert ax.pcolor(np.ones((2, 3))).get_coordinates().dtype == np.int64
+    assert b.get_offsets().dtype == DEFAULT_INT
+    assert ax.pcolor(np.ones((2, 3))).get_coordinates().dtype == DEFAULT_INT
     assert ax.axvspan(0.2, 0.4).get_facecolor()[3] == 1
     assert type(ax.axvspan(0.2, 0.4).get_facecolor()[3]) is int
     assert type(pltrs.colormaps['Dark2'].colors) is tuple
     stats = cbook.boxplot_stats(np.array([1, 2, 3, 10]))[0]
-    assert type(stats['mean']) is np.float64 and type(stats['whislo']) is np.int64
+    assert type(stats['mean']) is np.float64 and type(stats['whislo']) is DEFAULT_INT
     ax.plot([1, 2])
     ax.margins(0.2, 0.2)
     ax.autoscale(enable=None, axis="x", tight=True)
@@ -125,7 +126,7 @@ def test_values_of_matplotlibs_types():
 
 
 def test_tickers_answer_as_matplotlibs():
-    assert ticker.FixedLocator(np.arange(20), nbins=4).tick_values(0, 1).dtype == np.int64
+    assert ticker.FixedLocator(np.arange(20), nbins=4).tick_values(0, 1).dtype == DEFAULT_INT
     assert ticker.SymmetricalLogLocator(linthresh=1, base=10).tick_values(0, 1) == [0, 1]
     assert ticker.scale_range(0, 100) == (100.0, 0)
     assert type(ticker.scale_range(0, 100)[1]) is int

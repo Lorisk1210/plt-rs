@@ -145,9 +145,11 @@ impl ProbeFile {
 
     /// The golden of `area` this build is held to: the common one, with
     /// what the golden of its processor level
-    /// ([`level_platform`](crate::level_platform)) and then the one of its
-    /// target ([`PLATFORM`](crate::PLATFORM)) change, where matplotlib
-    /// records them.
+    /// ([`level_platform`](crate::level_platform)), then the one of its
+    /// target ([`PLATFORM`](crate::PLATFORM)) and then the one of its
+    /// target at its level
+    /// ([`target_level_platform`](crate::target_level_platform)) change,
+    /// where matplotlib records them.
     pub fn load_area(area: &str) -> Result<Self, LoadError> {
         let name = format!("{area}.json");
         let common = Self::load(&crate::probe_goldens_dir().join(&name))?;

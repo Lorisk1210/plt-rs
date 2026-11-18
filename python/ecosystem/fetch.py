@@ -25,6 +25,7 @@ It uses the standard library alone.
 """
 
 import hashlib
+import http.client
 import io
 import json
 import pathlib
@@ -42,11 +43,25 @@ RELEASE_URL = "https://pypi.org/pypi/{name}/{version}/json"
 USER_AGENT = "pltrs-ecosystem-fetch"
 
 
+#: How long a download may stall, in seconds, and how often it is tried:
+#: a connection that stalls or breaks off midway (seen on the Windows PC's
+#: line, 2026-11-18) is tried again rather than waited on for ever.
+TIMEOUT = 60
+ATTEMPTS = 4
+
+
 def download(url, sha256):
     """The bytes at *url*, if their SHA-256 is *sha256*."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request) as answer:
-        data = answer.read()
+    for attempt in range(1, ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=TIMEOUT) as answer:
+                data = answer.read()
+            break
+        except (OSError, http.client.HTTPException) as error:
+            if attempt == ATTEMPTS:
+                raise
+            print(f"{url}: {error}; trying again", flush=True)
     digest = hashlib.sha256(data).hexdigest()
     if digest != sha256:
         raise SystemExit(f"{url}: SHA-256 {digest}, expected {sha256}")
@@ -55,7 +70,8 @@ def download(url, sha256):
 
 def sdist_of(name, version):
     """The URL and SHA-256 of the sdist of *name* *version* on PyPI."""
-    with urllib.request.urlopen(RELEASE_URL.format(name=name, version=version)) as answer:
+    with urllib.request.urlopen(RELEASE_URL.format(name=name, version=version),
+                                timeout=TIMEOUT) as answer:
         release = json.load(answer)
     for file in release["urls"]:
         if file["packagetype"] == "sdist":

@@ -20,6 +20,7 @@ from pltrs import (colors, dates, dviread, font_manager, ft2font, gridspec,
 from pltrs.backends import backend_pdf, backend_pgf
 
 from test_smoke import close_figures  # noqa: F401 (autouse: rcdefaults)
+from build_facts import DEFAULT_INT
 
 
 def _font():
@@ -194,7 +195,7 @@ def test_values_read_back_with_matplotlib_types():
     _, x, y = pltrs.image.composite_images([a], fig.canvas.get_renderer())
     assert isinstance(x, np.float64) and isinstance(y, np.float64)
     collection = tri.tripcolor(ax, [0, 1, 0, 1], [0, 0, 1, 1], facecolors=[1, 2])
-    assert collection.get_array().dtype == np.int64
+    assert collection.get_array().dtype == DEFAULT_INT
 
 
 def test_triangular_contour_sets_contour_their_arguments():

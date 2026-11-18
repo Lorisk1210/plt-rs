@@ -5,8 +5,9 @@
 //! replays against pltrs.
 //!
 //! * [`probes`] — `op(args) -> value` observations per functional area.
-//! * [`golden_path`], [`PLATFORM`], [`level_platform`] — the goldens are
-//!   matplotlib's on Linux x86-64 with AVX-512; a platform or a processor
+//! * [`golden_path`], [`PLATFORM`], [`level_platform`],
+//!   [`target_level_platform`] — the goldens are matplotlib's on Linux
+//!   x86-64 with AVX-512; a platform, a processor level or a platform at a
 //!   level where matplotlib computes something else has its own for what
 //!   differs, which this crate prefers there.
 //! * [`figures`] — Rust translations of the figure cases.
@@ -124,21 +125,44 @@ pub fn level_platform() -> Option<&'static str> {
     }
 }
 
+/// The directory, below `spec/goldens/platforms`, of the goldens of the
+/// target this is built for at the processor level it computes at
+/// (`<target>+<level>`), or `None` where it has no goldens of its target
+/// ([`PLATFORM`]) or computes at the common goldens' level
+/// ([`level_platform`]).
+///
+/// What matplotlib computes on a target can depend on the level there
+/// too, and otherwise than on Linux: numpy's Windows wheel sorts an array
+/// holding NaN with MSVC's `std::sort` at `X86_V3` and with its own
+/// introsort at `X86_V2`, so that neither the target's goldens nor the
+/// level's (Linux's) hold for both. What a machine records at its level
+/// goes there (`_target_level` of `spec/reference/spec_support/golden.py`,
+/// which this mirrors).
+pub fn target_level_platform() -> Option<String> {
+    Some(format!("{}+{}", PLATFORM?, level_platform()?))
+}
+
 /// The goldens recorded for `relative` (a path below `spec/goldens`)
-/// that this build is held to before the common one: its target's
-/// ([`PLATFORM`]), then its processor level's ([`level_platform`]).
+/// that this build is held to before the common one, the most specific
+/// first: its target's at its processor level's
+/// ([`target_level_platform`]), its target's ([`PLATFORM`]), its
+/// processor level's ([`level_platform`]).
 pub fn platform_goldens(relative: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
     let platforms = spec_root().join("goldens/platforms");
-    [PLATFORM, level_platform()]
-        .into_iter()
-        .flatten()
-        .map(move |platform| platforms.join(platform).join(relative.as_ref()))
-        .filter(|own| own.exists())
+    [
+        target_level_platform(),
+        PLATFORM.map(str::to_owned),
+        level_platform().map(str::to_owned),
+    ]
+    .into_iter()
+    .flatten()
+    .map(move |platform| platforms.join(platform).join(relative.as_ref()))
+    .filter(|own| own.exists())
 }
 
 /// The golden `relative` (a path below `spec/goldens`) this build is held
-/// to: its target's where one is recorded, else its processor level's,
-/// else the common one.
+/// to: the first recorded of its target's at its processor level, its
+/// target's, its processor level's, else the common one.
 pub fn golden_path(relative: impl AsRef<Path>) -> PathBuf {
     let relative = relative.as_ref();
     platform_goldens(relative)

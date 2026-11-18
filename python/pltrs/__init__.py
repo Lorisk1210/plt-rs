@@ -1433,11 +1433,51 @@ def _copy_into_place(entry, target):
     else:
         shutil.copy2(entry, partial)
     try:
-        os.rename(partial, target)
+        placed = _rename_into_place(partial, target)
     except OSError:
         _remove_copy(partial)
         if not target.exists():
             raise
+        return
+    if not placed:
+        _remove_copy(partial)
+
+
+#: How long a rename into place is tried on Windows, in seconds
+#: (`_rename_into_place`).
+_RENAME_PATIENCE = 2.0
+
+
+def _rename_into_place(partial, target):
+    """Rename *partial* to *target*: True if it went into place, False if
+    another process's copy stands there (as good as this one).
+
+    Windows now and then refuses such a rename while nothing is at
+    *target*, as if it existed (error 183) or as denied, and under load
+    answers whether *target* exists otherwise from one moment to the next,
+    when several processes rename into a new directory at once (traced on
+    the Windows PC: one first use in about 15 of eight processes). There a
+    refused rename counts as another process's copy only if *target* is
+    found on two looks 10 ms apart; else it is tried again, for up to
+    `_RENAME_PATIENCE` seconds."""
+    import time
+    deadline = time.monotonic() + _RENAME_PATIENCE
+    pause = 0.005
+    while True:
+        try:
+            os.rename(partial, target)
+            return True
+        except (FileExistsError, PermissionError):
+            if sys.platform != "win32":
+                raise
+            if target.exists():
+                time.sleep(0.01)
+                if target.exists():
+                    return False
+            if time.monotonic() + pause > deadline:
+                raise
+            time.sleep(pause)
+            pause = min(2 * pause, 0.2)
 
 
 def _remove_copy(path):

@@ -80,6 +80,12 @@ excuses is missing here.
 * pltrs does not require fontTools. Where fontTools is installed,
   `backend_ps.fontTools` and `dviread.fontTools` are its modules, as in
   matplotlib; without it, they are missing.
+* On Linux with glibc 2.17 (CentOS 7; versions up to 2.27 were not
+  measured, 2.28 and later are not affected), a figure saved or drawn
+  from inside a callback (a tick formatter or an event handler that saves
+  its own figure) leaves less room on the stack than elsewhere. It works,
+  but a runaway recursion of that kind is more likely to end the process
+  with a crash than with matplotlib's `RecursionError`.
 
 ## Files pltrs writes
 

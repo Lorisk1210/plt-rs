@@ -515,7 +515,11 @@ confined to its eight fast CPUs, as the report explains):
   matplotlib's run of the same workload, and
   at <!--fact:bench.python.memory.range-->0.40 to 1.11 times over all of
   them: above matplotlib's on <!--fact:bench.python.memory.above-->56 of
-  the 90, by at most <!--fact:bench.python.memory.excess-->9.1 MiB.
+  the <!--fact:bench.compared-->91, by at most <!--fact:bench.python.memory.excess-->9.1 MiB.
+  The build measured lays out the extension's code in the order programs
+  run it, as the x86-64 Linux wheel for glibc does. The other wheels
+  (musl, aarch64, macOS, Windows) keep the compiler's layout, and a
+  process holds about twice as much of that code there, some 5 MiB more.
 * A fresh interpreter importing `matplotlib.pyplot`
   took <!--fact:bench.import.matplotlib-->224 ms, and one importing
   `pltrs.pyplot` <!--fact:bench.import.pltrs-->169 ms (it loads Pillow and

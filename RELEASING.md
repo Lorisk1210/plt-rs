@@ -21,6 +21,13 @@ A release of version `X.Y.Z` publishes, all from one tagged commit:
 | `macosx_10_12_universal2` | macOS 10.12 or later on Intel, macOS 11 or later on Apple silicon (the Intel half runs first in the workflow's job `macos-intel`) |
 | `win_amd64` (`win_arm64` when asked for) | 64-bit Windows 10 and later |
 
+On glibc 2.17, a draw started from inside a callback (a tick formatter or
+an event handler saving its figure) leaves about 3 to 10 KiB of the
+64 KiB the stack guard keeps, against 17 and more on glibc 2.28, current
+glibc and musl (task REL3, 2026-11-18; versions in between not
+measured): it works, with less to spare before a runaway recursion ends
+in a crash instead of a `RecursionError`.
+
 The crates, in the order they are published (each needs the ones
 before it): `pltrs-core`, `pltrs-codec`, `pltrs-font`, `pltrs-raster`,
 `pltrs-platform`, `pltrs-text`, `pltrs-render`, `pltrs-ui`, `pltrs`.
@@ -259,10 +266,15 @@ a version uploaded to PyPI or crates.io can never be uploaded again,
 even after it is deleted or yanked.**
 
 1. **The symbol order, if native code changed** since the order of the
-   extension's functions was last written. The x86_64 Linux wheel is
+   extension's functions was last written. The manylinux x86_64 wheel
+   (and an extension built from the sdist on x86_64 Linux with glibc) is
    linked in that order (`crates/pltrs-python/symbol-order.txt`), and
    code the file does not name lies among code no program runs, which
-   costs every process memory. Run it twice, as the tool's docstring
+   costs every process memory. The other wheels are not ordered:
+   `build.rs` gives the order to glibc links on x86_64 alone, as its
+   names are those of the host's build (the musllinux x86_64 wheel holds
+   8,252 KiB of the extension's code after the import, against 3,388
+   for the manylinux one, 2026-11-18). Run it twice, as the tool's docstring
    says, then commit the file; `python/tests/test_startup_work.py` then
    holds what a small program maps against its ceilings:
 

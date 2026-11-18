@@ -170,8 +170,10 @@ def _ordered_offsets():
 
 
 _ON_ORDERED_TARGET = pytest.mark.skipif(
-    sys.platform != "linux" or platform.machine() != "x86_64",
-    reason="the order is given to the linker on x86_64 Linux")
+    sys.platform != "linux" or platform.machine() != "x86_64"
+    or platform.libc_ver()[0] != "glibc",
+    reason="the order is given to the linker on x86_64 Linux with glibc (build.rs): "
+           "the musllinux wheels are not ordered")
 
 
 @_ON_ORDERED_TARGET

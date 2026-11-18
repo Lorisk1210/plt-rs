@@ -130,10 +130,13 @@ starts it with the PEP 741 `PyInitConfig` API. Without one the crate's test
 build is empty (with a cargo warning), so `cargo test --workspace` still
 works on a machine without Python.
 
-On x86_64 Linux the linker lays the extension's functions out in the order
+On x86_64 Linux with glibc (the manylinux x86_64 wheel, and builds from
+the sdist there) the linker lays the extension's functions out in the order
 of `crates/pltrs-python/symbol-order.txt`: the code every program runs
 first, so that a process maps about 5 MiB of the library's code rather
-than 11 (see `build.rs`). `crates/pltrs-python/tools/symbol_order.py`
+than 11 (see `build.rs`). Musl, aarch64, macOS and Windows builds keep
+the compiler's layout: the order's names are those of the host's build.
+`crates/pltrs-python/tools/symbol_order.py`
 writes the file from what the benchmark scripts run; a function it does
 not name (new code, or code whose name changed with the code around it)
 is laid out after the others, among code no program runs. One change of

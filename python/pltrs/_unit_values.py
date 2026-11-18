@@ -128,12 +128,29 @@ def follow(artist, axes):
 
 def units_changed(axis):
     """Have the artists following the units of *axis* (`follow`) that are
-    still on its Axes convert their values in units again."""
+    still on its Axes convert their values in units again.
+
+    matplotlib converts those values only where it draws, so converting
+    them now leaves the other axes of the Axes as they are: one without a
+    converter and without units keeps none (`.axis.Axis.convert_units`),
+    and so still takes its units from the next data or limits given in
+    units, as an axis of matplotlib's does before the first draw (the
+    gallery's ``units/annotate_with_units``: ``set_xlim`` and then
+    ``set_ylim`` in centimetres, after annotations placed in them)."""
     artists = axis.__dict__.get("_unit_artists")
     if not artists:
         return
-    for artist in list(artists):
-        if artist.axes is axis.axes:
-            artist._convert_units_for(axis.axes)
-        else:
-            artists.discard(artist)
+    ahead = [other for other in axis.axes._axis_map.values()
+             if other is not None and not other.have_units()
+             and not other.__dict__.get("_converts_ahead")]
+    for other in ahead:
+        other._converts_ahead = True
+    try:
+        for artist in list(artists):
+            if artist.axes is axis.axes:
+                artist._convert_units_for(axis.axes)
+            else:
+                artists.discard(artist)
+    finally:
+        for other in ahead:
+            del other._converts_ahead

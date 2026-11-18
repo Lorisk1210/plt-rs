@@ -2890,6 +2890,11 @@ class Axis(DrawnWith, Artist):
             if converter is None:
                 return x
             if not _is_native_converter(converter):
+                if self.__dict__.get("_converts_ahead"):
+                    # An artist converting ahead of the draw
+                    # (`._unit_values.units_changed`): the axis, which
+                    # matplotlib has not asked yet, stays without one.
+                    return self._converted(converter, x)
                 self._set_converter(converter)
             elif (isinstance(converter, category.StrCategoryConverter)
                   and self.units is None):

@@ -291,6 +291,24 @@ def test_patches_follow_a_change_of_units(quantity_axes):
     assert ax.dataLim.intervalx.tolist() == [0.0, 10.0]
 
 
+def test_limits_in_units_give_each_axis_its_units_after_an_annotation_in_them():
+    # The gallery's units/annotate_with_units: the annotation converts
+    # again when the x axis takes its units, which leaves the y axis, not
+    # yet asked by matplotlib, to take its own from its limits.
+    munits.registry[Q] = QConverter()
+    fig, ax = plt.subplots()
+    note = ax.annotate("note", (Q(500), Q(1500)))
+    ax.set_xlim(Q(0), Q(4000))
+    assert (ax.xaxis.get_units(), ax.yaxis.get_units()) == ("m", None)
+    assert not ax.yaxis.have_units()
+    ax.set_ylim(Q(0), Q(4000))
+    assert (ax.xaxis.get_units(), ax.yaxis.get_units()) == ("m", "m")
+    assert (ax.get_xlim(), ax.get_ylim()) == ((0.0, 4000.0), (0.0, 4000.0))
+    assert note.get_unitless_position() == (500.0, 1500.0)
+    ax.yaxis.set_units("km")
+    assert note.get_unitless_position() == (500.0, 1.5)
+
+
 def test_circle_and_annulus_at_a_date():
     fig, ax = plt.subplots(figsize=(4, 3), dpi=50)
     circle = ax.add_patch(mpatches.Circle((D0 + 2 * DAY, 2), 1))

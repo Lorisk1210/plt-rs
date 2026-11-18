@@ -8,6 +8,7 @@ matplotlib's defaults and closes its figures after it.
 
 import json
 import pathlib
+import sys
 
 import pltrs
 import pltrs.pyplot as plt
@@ -18,6 +19,16 @@ from .describe import Rows, kind_of
 
 #: matplotlib's rows, recorded by ``python -m number_types --record``.
 RECORDED = pathlib.Path(__file__).with_name("reference.json")
+
+#: The rows matplotlib itself describes otherwise on a platform than in the
+#: record, which was made on Linux, as the sweep run there under matplotlib
+#: gave them: ``{sys.platform: {row: description}}``. With Apple's libm the
+#: arrow's outline ends a last bit beside its first vertex, so that
+#: ``get_verts()`` closes it with one vertex more.
+ON_PLATFORM = {
+    "darwin": {"S FancyArrowPatch | get_verts()":
+               "ndarray[float64,(12, 2)]=[87.5001, 65.0665, 93.3051]"},
+}
 
 #: The rows on which pltrs is known to part from matplotlib, with
 #: matplotlib's description, pltrs' and why: what is left, written by
@@ -51,8 +62,8 @@ SCENES = {f"{module.__name__.rsplit('.', 1)[-1]}.{scene.__name__.strip('_')}": s
 
 
 def recorded():
-    """matplotlib's rows: ``{row: description}``."""
-    return json.loads(RECORDED.read_text("utf-8"))
+    """matplotlib's rows on this platform: ``{row: description}``."""
+    return {**json.loads(RECORDED.read_text("utf-8")), **ON_PLATFORM.get(sys.platform, {})}
 
 
 def expected():

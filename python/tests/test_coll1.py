@@ -173,8 +173,11 @@ def test_contour_label_rotations_read_back_as_set_rotation_keeps_them():
     fig, axs = plt.subplots(2, 2, figsize=(6, 6), dpi=60)
     cs = axs[0, 0].contour(X, Y, np.hypot(X, Y), levels=[0.5, 1.5], colors="r")
     labels = cs.clabel(manual=[(0.5, 0), (0, 1.5)], fmt="%.2f")
-    assert [t.get_rotation() for t in labels] == pytest.approx(
-        [89.99999999999994, 359.99999999999983], abs=1e-9)
+    # (The second label's angle is 359.99999999999983 with glibc and 0.0
+    # with Apple's libm, under matplotlib as well: one direction.)
+    off = [(text.get_rotation() - angle + 180) % 360 - 180
+           for text, angle in zip(labels, [89.99999999999994, 359.99999999999983])]
+    assert off == pytest.approx([0, 0], abs=1e-9)
 
 
 def test_contour_sets_keep_their_algorithm_and_corner_masking():

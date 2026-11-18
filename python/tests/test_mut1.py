@@ -16,6 +16,7 @@ hands nothing out. Every expected value was recorded from matplotlib
 ``python/tests/leaks/alias``.
 """
 
+import gc
 import pickle
 
 import numpy as np
@@ -292,6 +293,9 @@ def test_a_statement_changing_a_list_of_rcparams_changes_the_parameter():
 def test_lists_of_rcparams_are_looked_at_only_while_a_program_holds_them():
     if ON_MATPLOTLIB:
         pytest.skip("how pltrs keeps the lists it hands out")
+    # (A list an earlier test read is held until the collector has run, if
+    # what holds it lies in a cycle.)
+    gc.collect()
     rc = pltrs.rcParams
     rc._get("lines.linewidth")
     assert rc._lists == {}

@@ -40,6 +40,10 @@ ADDRESS = re.compile(r" at 0x[0-9a-f]+")
 ADDRESS_TERM = re.compile(r'"0x[0-9a-f]+":(\d+|\[[\d,]*\]),?')
 #: A hashed directory of Sphinx's downloads (an MD5 of the file's path).
 DOWNLOAD_DIR = re.compile(r"_downloads/[0-9a-f]{32}/")
+#: What matplotlib logs when listing the fonts for a fresh configuration
+#: directory takes it more than five seconds: a matter of the machine, and
+#: no warning of the build.
+FONT_CACHE = "Matplotlib is building the font cache; this may take a moment."
 #: A text file's suffixes.
 TEXT = {".html", ".js", ".txt", ".css", ".py", ".rst", ".inv", ".json", ".xml", ""}
 
@@ -101,7 +105,8 @@ def build(source, directory, *, pltrs, args=(), python=None, docs=".", env=None)
         env=environment, cwd=built_in, capture_output=True, text=True, check=False)
     built_in.rename(directory)
     lines = (finished.stderr + finished.stdout).splitlines()
-    return Build(directory, finished.returncode, [line for line in lines if line.strip()])
+    return Build(directory, finished.returncode,
+                 [line for line in lines if line.strip() and line != FONT_CACHE])
 
 
 def files(html):

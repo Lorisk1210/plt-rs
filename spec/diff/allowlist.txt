@@ -606,3 +606,32 @@ user_interfaces/(pylab_with_gtk3|pylab_with_gtk4|gtk4_spreadsheet)_sgskip$ | ^va
 user_interfaces/embedding_in_qt_sgskip$ | ^(callback\[(sin|set_data|draw_idle)\]: runs another number of times|image: RMS > 1)$ | the dynamic canvas redraws every 50 ms from time.time() until the shim ends the loop, so the number of frames and the last one follow the clock: matplotlib run twice differs in exactly these rows (set_data 985 and 999 times, sin 10080 and 11196, the window's figure at RMS 21.9)
 # topic: files-pltrs-writes
 user_interfaces/mathtext_wx_sgskip$ | ^value\[getvalue\]: bytes length$ | the PNG of each formula, which the program loads into a wx.Bitmap: its decoded pixels are identical (85x21, 48x28, 90x21, 61x21 RGBA, as the window's figure is); the bytes differ only in the Software tEXt chunk and in the IDAT's DEFLATE stream of those pixels, each encoder's own (as written/saving/bytesio_buffer's)
+
+# topic: files-pltrs-writes
+# written2's programs that read back as text the PostScript, EPS and SVG
+# documents pltrs writes (CORP15's triage). Line by line
+# (target/corp15b/docclass.py, docdiff.py), every differing line is one
+# of: the creator (`%%Creator`, the SVG's `dc:title`) and the date; an
+# id hashed from the text (markers, clip paths, hatch patterns); the sign
+# of a zero (`-0`); an embedded PNG's bytes (pltrs' DEFLATE); the
+# TrueType font embedded whole at `ps.fonttype` 42 (118 kB for 28 kB);
+# the last digit of a mathtext rule box (`rectfill`); a rasterized
+# image cropped one pixel column wider.
+corpus/written2/(clip_paths/clip_in_vector_outputs|mathtext_expert/mathtext_in_vector_backends|ps_eps_readback/(eps_bounding_box_tight|eps_text_usetex_free_mathtext|ps_distiller_off_and_text_ops|ps_hatch_and_paths_ops|ps_fonttypes_and_afm)|svg_readback/svg_clip_paths_and_defs|textpath_fonts/text_to_path_backend_svg_fonttype)$ | ^value\[(decode|getvalue)\]: str$ | the documents differ only in the creator and date, ids hashed from the text, the sign of a zero, an embedded PNG's bytes, the TrueType font embedded whole, the last digit of a mathtext rule box (each line checked)
+corpus/written2/ps_eps_readback/ps_fonttypes_and_afm$ | ^(value\[sorted\]: int|stdout)$ | the program prints the document's size in kB: at ps.fonttype 42 pltrs embeds the whole TrueType font (118 kB) where matplotlib embeds a subset (28 kB)
+corpus/written2/svg_readback/svg_clip_paths_and_defs$ | ^value\[listcomp\]: str$ | the ids the program lists are hashed from the path text, in which a zero carries the other sign
+corpus/written2/svg_readback/svg_rasterized_mixed_mode$ | ^(value\[split\]: str|stdout)$ | the rasterized image is cropped one pixel column wider (160 for 159 pixels), so its PNG and the size the program prints differ; the drawing is the same
+
+# topic: installation-configuration-and-data-files
+# pltrs' bundled fonts are in its data directory, in its configuration
+# directory (`get_data_path()`), where matplotlib's are in its package.
+corpus/written2/textpath_fonts/(addfont_renamed_copy|font_files_by_path|ft2font_glyphs_and_kerning)$ | ^value\[join\]: str$ | the program prints the paths of the bundled fonts: pltrs' are in its data directory in its configuration directory ('<config>/mpl-data/fonts/ttf' for '<package>/mpl-data/fonts/ttf')
+# pltrs does not use fontTools; matplotlib's subsetting through it warns
+# about the font files' timestamps.
+corpus/written2/ps_eps_readback/ps_fonttypes_and_afm$ | ^warning missing: WARNING: '…' timestamp seems very low; regarding as unix timestamp$ | fontTools, which matplotlib subsets PostScript fonts with, warns about the font's timestamps; pltrs writes the font itself
+
+# topic: values-that-differ-between-any-two-runs
+# The program copies an array made with np.empty whose last element it
+# never sets (Qnew[-1]), so the value read is whatever memory held:
+# 0.0 under matplotlib here, 1.4e56 under pltrs.
+corpus/hyperpython/Lesson_02_Traffic$ | ^value\[copy\]: array values$ | the copied array's last element comes from np.empty and is never written (Qnew = np.empty(Q.shape); only Qnew[1:-1] is set before Q = Qnew.copy())

@@ -1174,8 +1174,11 @@ class Colormap:
                     name="_lut", obj=self)
             self._init()
             lut = state["_lut"]
-        if id(self) not in _luts_read and not sys._getframe(1).f_code.co_filename.startswith(
-                _PACKAGE):
+        # A table read while the colormap still makes it (a subclass'
+        # `_init`, before `_isinit`) is not watched: what it then sets is
+        # the table itself, not a change.
+        if (id(self) not in _luts_read and state.get("_isinit")
+                and not sys._getframe(1).f_code.co_filename.startswith(_PACKAGE)):
             _LutWatch(self)
         return lut
 

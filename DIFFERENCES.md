@@ -72,6 +72,11 @@ excuses is missing here.
   messages naming such a file name it there.
 * The `mpl_toolkits` packages live inside pltrs' package, so an
   `ImportError` from them names files there.
+* `font_manager.fontManager.ttflist`, `findSystemFonts()` and
+  `get_font_names()` list the same fonts in another order (matplotlib's
+  comes from a set of paths), so code that picks among equally good fonts
+  by walking the list can pick another one; `findfont()` chooses the same
+  fonts as matplotlib.
 * pltrs does not require fontTools. Where fontTools is installed,
   `backend_ps.fontTools` and `dviread.fontTools` are its modules, as in
   matplotlib; without it, they are missing.
@@ -104,6 +109,9 @@ excuses is missing here.
   from that text (of markers and clip paths) differ with it. A rasterized
   artist in an SVG can be cropped one pixel column wider. The drawing is
   the same in both cases.
+* In PostScript and EPS files, the coordinates of mathtext's rule boxes
+  (fraction bars, square-root overlines) can differ from matplotlib's in
+  their last digit; the drawing is the same.
 * A pickled figure holds pltrs' own archive of it, of another length
   than matplotlib's. pltrs loads the pickles pltrs writes, but pickles do
   not cross between pltrs and matplotlib in either direction (see "Not
@@ -122,6 +130,9 @@ excuses is missing here.
   `LoadFlags.TARGET_LIGHT` lays the glyphs out with other advances than
   matplotlib's FreeType build (1856 against 1947 for "Hello" at 12 points
   and 72 dpi).
+* The drawing methods of pltrs' renderers (`RendererAgg.draw_markers`,
+  `draw_path_collection` and the like) are pltrs' own functions, so code
+  comparing them with `RendererBase`'s finds other functions.
 * matplotlib's type stubs ship with pltrs. A few of matplotlib's instance
   attributes are properties or descriptors on pltrs' classes (the
   figure's and Axes' transforms, built on first read; a colour bar's
@@ -176,9 +187,19 @@ of a bug of its own, pltrs draws or answers:
   `marginals=True`; and `RendererPdf.get_text_width_height_descent` of
   mathtext returns Python floats where matplotlib's are numpy floats.
 * Some values differ in their last bits (contour label positions, by one
-  unit in the last place) or are the same object under matplotlib and an
-  equal copy under pltrs (`rcParams["path.effects"]` after
-  `rcParams.update(copy)`).
+  unit in the last place), or are the same object under one library and
+  an equal copy under the other: the strings and floats an artist was
+  given and hands back (a label, a text, a title, line widths, marker
+  sizes, an aspect) are equal copies under pltrs, and
+  `rcParams["path.effects"]` after `rcParams.update(rcParams.copy())` is
+  still the list the program held under pltrs, a new equal list under
+  matplotlib.
+* In 3-D: `do_3d_projection()` called by a program before any draw
+  projects in the current view, where matplotlib projects in the matrix
+  `add_patch` left; a `Line3D` subclass' `draw` already sees the coming
+  projection in `_x` and `_y`; a `Path3DCollection` made directly reads
+  unshaded face colours before its first draw (the picture is the
+  same).
 * A `PathCollection` made directly, or a `PolyCollection` or
   `LineCollection` given offsets, gets data limits in display pixels in
   both (so the Axes shows little of it), but pltrs takes them at another
@@ -191,6 +212,10 @@ of a bug of its own, pltrs draws or answers:
   where matplotlib's holds `nan`; both draw the other points.
 * A mapped scatter whose alphas do not fit its points after a draw reads
   its edge colours as its face colours.
+* A filled contour set given hatches after it was made reads back, after
+  a draw, the face colours of all its bands from `get_facecolor()`, where
+  matplotlib's reads back the colour of the band it drew last; the
+  figure is the same.
 * `ax.gridlines.get_paths()` of an `axisartist` Axes with a curvilinear
   grid is empty; matplotlib's holds the grid lines, which both draw.
 * Objects held from before a draw keep the state of their read: a 3-D
@@ -213,15 +238,19 @@ values in every run, under matplotlib as under pltrs: the times a program
 prints or plots, `id()`s, SVG ids salted without `svg.hashsalt`, HTML ids
 of `to_jshtml()`, signal handler numbers of GTK, the last bits of
 kiwisolver's solutions, and which of several equally good fonts a
-font-lookup warning names. The test harness checks each such program by
-running it twice under matplotlib.
+font-lookup warning names. An array made with `np.empty` holds whatever
+memory held until the program writes it, so elements it never wrote read
+otherwise. The test harness checks each such program by running it twice
+under matplotlib.
 
 ## Your subclasses and callbacks
 
 pltrs calls the methods your subclasses override (locators, formatters,
-transforms, scales, artists' getters and `draw`) wherever their result
-matters, and draws and measures what they return, but it does most of its
-work natively and calls them another number of times than matplotlib:
+transforms, scales, norms, renderers, offset boxes, artists' getters and
+`draw`) and the callbacks you set wherever their result matters, and
+draws and measures what they return, but it does most of its work
+natively and calls them another number of times than matplotlib; the
+figure is the same:
 
 * An offset box of yours inside a box pltrs lays out is measured once per
   layout (matplotlib asks again in each parent's `get_bbox`,
@@ -277,9 +306,13 @@ matplotlib's, with these exceptions:
   a `GridSpec`'s `_nrows`/`_ncols` and a formatter's `_format`, which a
   pickle does not carry.
 * Helpers with no state in pltrs are missing: a fill-between collection's
-  `_bbox`, a polar spine's `_center` and `_width`, a 3-D collection's
-  `_faces`, a contour set's `_process_args`, an axis artist's
-  `_update_ticks`, a 3-D patch's `_segment3d` (see "Not built").
+  `_bbox`, a polar spine's `_center` and `_width`, a contour set's
+  `_process_args`, an axis artist's `_update_ticks`.
+* What a 3-D projection leaves on an artist (`_vzs`, `_facecolors2d` and
+  the like) is computed when first read: a collection added to an Axes
+  that was already drawn reads such values before its own first
+  projection, where matplotlib has none yet, and a collection converted
+  to 3-D after it was added comes last among the Axes' children.
 * `TransformNode._parents` is keyed by `id()`s, and the invalidation
   flags `_invalid` and the `Affine2D._inverted` cache are pltrs' own.
 
@@ -295,8 +328,11 @@ matplotlib's, with these exceptions:
 * pltrs draws some data matplotlib refuses: `None` among `bar` heights
   (matplotlib raises `TypeError`), `datetime64` values whose converter
   the program removed from `matplotlib.units.registry` (matplotlib raises
-  numpy's `DTypePromotionError`), and patch coordinates of a type that
-  converts with `float()` but has no arithmetic.
+  numpy's `DTypePromotionError`), patch coordinates of a type that
+  converts with `float()` but has no arithmetic, and 3-D state a program
+  set by hand that matplotlib's draw refuses (a converted polygon
+  collection's `_codes3d` changed before `set_verts`, `_axlim_clip`
+  assigned on a contour set).
 * A geographic Axes refused by `sharex` (`TypeError`, in both) is left
   unjoined; matplotlib's has joined the groups before it refuses.
 * `set_resample("False")` is taken as true, where matplotlib's draw
@@ -336,9 +372,6 @@ What does not work at all, each checked by running it:
 
 * **Pickles do not cross** between pltrs and matplotlib: a figure pickled
   by matplotlib does not load under pltrs, nor the other way round.
-* **3-D patches of your own**: a subclass of `Patch3D` gets no
-  `_segment3d`; qiskit's Bloch sphere draws its vectors without
-  arrowheads.
 * **Methods assigned on a 3-D axis or Axes** (`draw_pane`, `draw_grid`,
   `get_proj`) are never called, and `_get_axis_line_edge_points` and
   `axis3d._tick_update_position` are missing.
@@ -349,18 +382,13 @@ What does not work at all, each checked by running it:
   runs TeX on the string, where matplotlib's writes it into the picture
   for the document's TeX to typeset (saving a figure as PGF is not
   concerned).
-* **A contour set changed after it is made**: hatches assigned to
-  `cs.hatches` are not drawn; `set_array(cs.cvalues)` on a set made with
-  given `colors` recolours its levels through the colormap, where
-  matplotlib keeps the given colours; and `set_transform(None)` draws the
-  set without its data transform, where matplotlib's resolves `None` to
-  the Axes' `transData`.
 * **`gid`, `url` and `snap` given through an annotation's `arrowprops`**
   are accepted but not kept: the arrow has no id or link in an SVG.
-* **Arrays changed in place** after reading them from a few getters (some
-  of 3-D artists' and patches' state, a step line's path) are read back
-  changed but not drawn changed, or the other way round, before the
-  first draw.
+* **Some state changed in place is not drawn changed**: the vertices of
+  a step line's path (`line._path.vertices` of a `drawstyle="steps"`
+  line), the matrix of `fig.dpi_scale_trans` and the points of an Axes'
+  `bbox`. The arrays artists hand out otherwise are their own, as in
+  matplotlib, and changes to them are drawn.
 * **Polygon markers** with a number of sides that is not a positive
   integer: `MarkerStyle((4.5, 0))` has 5 corners where matplotlib's has
   6, and `MarkerStyle((-3, 0))` fails where matplotlib makes an empty

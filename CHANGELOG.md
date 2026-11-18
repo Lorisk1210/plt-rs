@@ -91,9 +91,9 @@ libraries under it keeps their permissive licences (`THIRD_PARTY.md`,
 * A conformance spec recorded from matplotlib: about <!--fact:spec.probes-->48,500 probes
   and some <!--fact:spec.figure-cases-->3,400 figures, accounting for every one of matplotlib's
   own <!--fact:mpl-tests-->2,939 tests.
-* Speed (`benchmarks/README.md`, on <!--fact:bench.date-->2026-11-14 at
-  `<!--fact:bench.commit-->c06bfe9e+perf9`): pltrs (Python) typically <!--fact:bench.python.warm-->4.4× faster than
-  matplotlib warm and <!--fact:bench.python.cold-->1.89× cold; pltrs (Rust) <!--fact:bench.rust.warm-->5.4× and <!--fact:bench.rust.cold-->16×.
+* Speed (`benchmarks/README.md`, on <!--fact:bench.date-->2026-11-18 at
+  `<!--fact:bench.commit-->a9cf3e1a`): pltrs (Python) typically <!--fact:bench.python.warm-->4.3× faster than
+  matplotlib warm and <!--fact:bench.python.cold-->1.79× cold; pltrs (Rust) <!--fact:bench.rust.warm-->5.3× and <!--fact:bench.rust.cold-->16×.
 
 ### Known differences from matplotlib
 

@@ -480,8 +480,8 @@ The `usetex` cases and probes need TeX on `PATH`; without it they are
 skipped, and each check says so.
 
 [`benchmarks/README.md`](https://github.com/Lorisk1210/plt-rs/blob/main/benchmarks/README.md)
-times <!--fact:bench.workloads-->91 figures in pltrs (Python) and pltrs
-(Rust), and <!--fact:bench.compared-->90 of them against matplotlib 3.11,
+times <!--fact:bench.workloads-->92 figures in pltrs (Python) and pltrs
+(Rust), and <!--fact:bench.compared-->91 of them against matplotlib 3.11,
 whose scripts pltrs (Python) runs with only the import changed (the one
 left out saves PGF, for which matplotlib runs LaTeX to measure every
 text). The figures range in size from a single line plot to
@@ -492,32 +492,33 @@ checks that the three draw the same figure: pixels within RMS 2 of
 matplotlib's, vector documents with the same drawing operations. A
 workload counts as faster only when the 95% confidence interval of its
 speed-up excludes 1. `cargo xtask bench --report` regenerates it. At the
-last run (on <!--fact:bench.date-->2026-11-14, at commit
-`<!--fact:bench.commit-->c06bfe9e+perf9`, on a Framework Laptop 13
+last run (on <!--fact:bench.date-->2026-11-18, at commit
+`<!--fact:bench.commit-->a9cf3e1a`, on a Framework Laptop 13
 with a Ryzen AI 9 HX 370 and nothing else running, every process
 confined to its eight fast CPUs, as the report explains):
 
 * pltrs (Python) was faster than matplotlib on every workload, warm and
-  cold: typically <!--fact:bench.python.warm-->4.4× faster warm (the
-  geometric mean) and <!--fact:bench.python.cold-->1.89× faster cold. None
-  of its warm speed-ups is under 1.5×. The cold runs near or under 1.5×
-  are figures that take either library little time, where the speed-up is
-  bounded by the ratio of the two start-ups, and figures of millions of
-  values, whose data numpy makes on both sides. The report lists
-  the <!--fact:bench.thin-->19 results under 1.5× of both claims.
+  cold: typically <!--fact:bench.python.warm-->4.3× faster warm (the
+  geometric mean) and <!--fact:bench.python.cold-->1.79× faster cold. None
+  of its warm speed-ups is under 1.5×. The cold runs under 1.5× are
+  figures that take either library little time, where the speed-up is
+  bounded by the ratio of the two start-ups, and figures of hundreds of
+  thousands to millions of values, whose data numpy makes on both sides.
+  The report lists
+  the <!--fact:bench.thin-->43 results under 1.5× of both claims.
 * pltrs (Rust) was faster on every workload too:
-  typically <!--fact:bench.rust.warm-->5.4× faster warm and
+  typically <!--fact:bench.rust.warm-->5.3× faster warm and
   typically <!--fact:bench.rust.cold-->16× faster cold (a native
   executable against an interpreter importing numpy and pyplot).
 * A cold run of pltrs (Python) typically peaked
-  at <!--fact:bench.python.memory-->0.93 times the resident memory of
+  at <!--fact:bench.python.memory-->0.97 times the resident memory of
   matplotlib's run of the same workload, and
-  at <!--fact:bench.python.memory.range-->0.40 to 1.04 times over all of
-  them: above matplotlib's on <!--fact:bench.python.memory.above-->27 of
-  the 90, by at most <!--fact:bench.python.memory.excess-->4.2 MiB.
+  at <!--fact:bench.python.memory.range-->0.40 to 1.11 times over all of
+  them: above matplotlib's on <!--fact:bench.python.memory.above-->56 of
+  the 90, by at most <!--fact:bench.python.memory.excess-->9.1 MiB.
 * A fresh interpreter importing `matplotlib.pyplot`
-  took <!--fact:bench.import.matplotlib-->226 ms, and one importing
-  `pltrs.pyplot` <!--fact:bench.import.pltrs-->159 ms (it loads Pillow and
+  took <!--fact:bench.import.matplotlib-->224 ms, and one importing
+  `pltrs.pyplot` <!--fact:bench.import.pltrs-->169 ms (it loads Pillow and
   the 3-D toolkit, as matplotlib's does).
 
 See `CLAUDE.md` for the coding conventions.

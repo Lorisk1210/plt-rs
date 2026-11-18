@@ -9,6 +9,7 @@ use pltrs::contour::{
     ContourAlgorithm, ContourError, ContourLegendStyle, ContourOptions, ContourOrigin, ContourSet,
     GeneratorArguments, Levels, NearestIn, QuadCoords, QuadField,
 };
+use pltrs::image::ScalarKind;
 use pltrs::numeric::Grid;
 use pltrs::ticker::Locator;
 use pltrs::transforms::Transform;
@@ -380,6 +381,23 @@ fn find_nearest_contour(
         }))
 }
 
+/// Gives the bands of a hatched filled set drawn by a collection each
+/// their value of `values` (`NaN` masked); `integers` when numpy holds
+/// them as integers or booleans.
+fn set_band_values(set: ContourSet, values: Vec<f64>, integers: bool) -> PyResult<()> {
+    let values: Vec<Option<f64>> = values
+        .into_iter()
+        .map(|v| v.is_finite().then_some(v))
+        .collect();
+    let kind = if integers {
+        ScalarKind::Integer
+    } else {
+        ScalarKind::Float
+    };
+    set.set_band_values(&values, kind);
+    Ok(())
+}
+
 /// Sets the hatch patterns of the bands.
 fn set_hatches(set: ContourSet, hatches: Vec<Option<String>>) -> PyResult<()> {
     set.set_hatches(hatches);
@@ -487,6 +505,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("find_nearest_contour", find_nearest_contour)?;
     module.add("set_linewidths", set_linewidths)?;
     module.add("set_hatches", set_hatches)?;
+    module.add("set_band_values", set_band_values)?;
     module.add("get_clim", get_clim)?;
     module.add("set_mapping", set_mapping)?;
     module.add("get_cmap", get_cmap)?;

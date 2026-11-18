@@ -400,6 +400,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         ----------
         t : `~matplotlib.transforms.Transform`
         """
+        if t is None:
+            t = self._transform_for_none()
         self.__dict__.pop("_transform_set", None)
         if _live_transforms.gives_transform(t):
             # An object of the program's giving its transform for an Axes
@@ -422,6 +424,12 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             # on a part of it), or whose code computes it anew at each draw.
             _live_transforms.watch_set(self, t)
         self.pchanged()
+
+    def _transform_for_none(self):
+        """The transform `set_transform` gives the artist for None: None,
+        where a class of matplotlib's reads None as another (a contour
+        set's `get_transform` reads it as its Axes' data coordinates)."""
+        return None
 
     def is_transform_set(self):
         """

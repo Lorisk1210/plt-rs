@@ -1240,6 +1240,16 @@ class ContourSet(ContourLabeler, mcoll.Collection):
             super().set_hatch(hatch)
         self._collection_hatch = hatch
 
+    def _array_set(self):
+        # docstring inherited: the bands of a hatched filled set, which
+        # matplotlib draws one by one, each map their value of the array.
+        super()._array_set()
+        if (self._mapped is not None and "_hatches_given" in self.__dict__
+                and self._bands_hatched()):
+            _contour.set_band_values(
+                self._contour, np.ma.filled(np.ravel(self._mapped).astype(float), np.nan),
+                self._mapped.dtype.kind in "iub")
+
     def _bands_hatched(self):
         """Whether the set is drawn band by band, each with its hatch."""
         return self.filled and any(hatch is not None for hatch in self.hatches)
@@ -1286,6 +1296,11 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     def get_transform(self):
         """Return the `.Transform` instance used by this ContourSet."""
         return super().get_transform()
+
+    def _transform_for_none(self):
+        # matplotlib's set takes None for its Axes' data coordinates, which
+        # its `get_transform` puts in its place (when drawn, too).
+        return None if self.axes is None else self.axes.transData
 
     @martist.allow_rasterization
     def draw(self, renderer):

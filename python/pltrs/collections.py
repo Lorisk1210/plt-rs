@@ -1491,7 +1491,7 @@ class Collection(mcolorizer.ColorizingArtist):
             return
         _collections.set_mapped_array(
             self._native, np.ma.filled(self._mapped.astype(float), np.nan).ravel(),
-            self.cmap)
+            self.cmap, self._mapped.dtype.kind in "iub")
         _collections.set_mapping(self._native, self.cmap, self._colorizer.norm,
                                  self._handing_norm())
 

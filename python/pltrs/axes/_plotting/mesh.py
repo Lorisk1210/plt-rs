@@ -253,6 +253,11 @@ class MeshMixin:
             # is made with them (which autoscales its norm to them).
             collection.set_array(args[-1])
         collection._made_with(kwargs)
+        kept = collection._mapped if variates is None else None
+        if kept is not None and kept.dtype.kind in "iub":
+            # Integers (kept as given) index the colormap through an
+            # identity norm.
+            _collections.set_integer_values(collection._native)
         if not polygons:
             # matplotlib's QuadMesh constructor turns mouseover off after
             # the keyword arguments set theirs.

@@ -271,6 +271,12 @@ pub(crate) struct CollectionArtist {
     ///
     /// [`Collection::decide_default_edges_as`]: handle::Collection::decide_default_edges_as
     pub(crate) faces_given_unfilled: Cell<Option<bool>>,
+    /// Hatch patterns cycled over the items, each item then drawn on its
+    /// own with its pattern (a filled contour set drawn by one collection
+    /// and given hatches since: matplotlib's `ContourSet.draw` draws its
+    /// bands one by one); `None` draws the items together, hatched with
+    /// `hatch`.
+    pub(crate) band_hatches: Option<Vec<Option<String>>>,
     /// The norm and colormap of a colour mapping removed by
     /// [`Collection::clear_array`], which the next
     /// [`Collection::set_array`] maps through again.
@@ -342,6 +348,7 @@ pltrs_core::archive_struct!(CollectionArtist {
     kept_colors,
     mapping_flags,
     faces_given_unfilled,
+    band_hatches,
     parked_mappable,
     program_colors,
     pickradius,
@@ -402,6 +409,7 @@ impl CollectionArtist {
             kept_colors: RefCell::default(),
             mapping_flags: Cell::default(),
             faces_given_unfilled: Cell::default(),
+            band_hatches: None,
             parked_mappable: None,
             program_colors: None,
             pickradius: 5.0,

@@ -330,9 +330,10 @@ impl ContourSet {
 
     /// Replaces the hatch patterns cycled over the bands (matplotlib's
     /// `hatches` assigned, which its draws read): a hatched filled set,
-    /// drawn by a collection per band, gives each band its pattern anew.
-    /// A set drawn by one collection (lines, or bands made unhatched)
-    /// keeps drawing so, its bands having no pattern of their own.
+    /// drawn by a collection per band, gives each band its pattern anew;
+    /// a filled set drawn by one collection draws its bands one by one,
+    /// each with its pattern, while any is given. Line sets are not
+    /// hatched.
     pub fn set_hatches(&self, hatches: Vec<Option<String>>) -> &Self {
         let bands = self.collections.len();
         let patterns: Vec<Option<String>> = self.update(|state| {
@@ -344,6 +345,29 @@ impl ContourSet {
                 collection
                     .raw()
                     .with_mut::<CollectionArtist, _>(|c| c.hatch = pattern);
+            }
+        } else if let [only] = self.collections.as_slice()
+            && self.filled()
+        {
+            let hatches = self.read(|state| state.hatches.clone());
+            only.raw().with_mut::<CollectionArtist, _>(|c| {
+                c.band_hatches = hatches.iter().any(Option::is_some).then_some(hatches);
+            });
+        }
+        self
+    }
+
+    /// Gives the bands of a hatched filled set drawn by a collection each
+    /// their value of `values` (the first band's collection maps them
+    /// all, as the set's own array), held as numpy holds `kind`:
+    /// matplotlib's draw maps each band's value of the set's array
+    /// (`array=[self.get_array()[idx]]`). A band without a value is
+    /// masked. Sets drawn by one collection are left alone.
+    pub fn set_band_values(&self, values: &[Option<f64>], kind: ScalarKind) -> &Self {
+        for (band, collection) in self.collections.iter().enumerate().skip(1) {
+            let value = values.get(band).copied().flatten();
+            if collection.set_array(vec![value]).is_ok() {
+                collection.set_value_kind(kind);
             }
         }
         self

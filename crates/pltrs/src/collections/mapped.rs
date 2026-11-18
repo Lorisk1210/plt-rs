@@ -11,6 +11,7 @@ use std::cell::RefCell;
 use super::ColorMapping;
 use crate::artist::ProgramShaping;
 use crate::colors::{Alpha, ArrayForm, ColormapError, Norm, NormError, NormKind, Normalized};
+use crate::image::{ScalarKind, normalize_scalars};
 
 /// A [`ColorMapping`] with its norm autoscaled (matplotlib autoscales the
 /// norm and normalises when the array is set) and its values normalised,
@@ -35,6 +36,10 @@ pub(crate) struct Mapped {
     drawn: DrawnValues,
     /// The colours the program's colormap gave at the last draw.
     drawn_colors: DrawnColors,
+    /// What numpy holds the values as: integers and booleans under an
+    /// identity norm (matplotlib's `NoNorm`) index the colormap rather
+    /// than scale it.
+    kind: ScalarKind,
 }
 
 /// The values a norm of the program's normalised at the last draw, and
@@ -76,6 +81,7 @@ pltrs_core::archive_struct!(Mapped {
     by_block,
     at_draw,
     shape,
+    kind,
 } skip { drawn, drawn_colors });
 
 impl Mapped {
@@ -103,6 +109,7 @@ impl Mapped {
             shape,
             drawn: DrawnValues::default(),
             drawn_colors: DrawnColors::default(),
+            kind: ScalarKind::Float,
         };
         if mapped.source.mappable.norm().calls_program() {
             // matplotlib's `set_array` autoscales an unscaled norm,
@@ -132,6 +139,7 @@ impl Mapped {
             shape: None,
             drawn: DrawnValues::default(),
             drawn_colors: DrawnColors::default(),
+            kind: ScalarKind::Float,
         }
     }
 
@@ -147,6 +155,7 @@ impl Mapped {
             shape: None,
             drawn: DrawnValues::default(),
             drawn_colors: DrawnColors::default(),
+            kind: ScalarKind::Float,
         }
     }
 
@@ -172,8 +181,11 @@ impl Mapped {
             self.normalized = Ok(Vec::new());
             return;
         }
-        self.by_block = normalizes_by_block(mappable.norm());
-        self.normalized = if self.by_block {
+        let indexes = self.kind != ScalarKind::Float && mappable.norm().is_identity();
+        self.by_block = normalizes_by_block(mappable.norm()) && !indexes;
+        self.normalized = if indexes {
+            normalize_scalars(mappable, values, self.kind).map_err(|e| e.to_string())
+        } else if self.by_block {
             // Inverted limits fail every block alike: met now, they are the
             // `ValueError` of matplotlib's norm, as in the other mode.
             match mappable.norm().clone_box().normalize_masked(&[], None) {
@@ -183,6 +195,13 @@ impl Mapped {
         } else {
             mappable.normalize(values).map_err(|e| e.to_string())
         };
+    }
+
+    /// Has the values be held as numpy holds those of `kind`, and
+    /// normalises them again.
+    pub(super) fn set_kind(&mut self, kind: ScalarKind) {
+        self.kind = kind;
+        self.refresh();
     }
 
     /// The mapped colours with `alpha` applied.

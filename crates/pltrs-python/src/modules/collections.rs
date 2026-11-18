@@ -10,6 +10,7 @@ use pltrs::collections::{
     Collection, EdgeColors, EllipseCollection, EventCollection, HatchColors, MeshShading,
 };
 use pltrs::colors::{Color, Colormap, Norm};
+use pltrs::image::ScalarKind;
 use pltrs::orientation::Orientation;
 use pltrs::transforms::Transform;
 use pltrs_core::{Affine2D, Point};
@@ -525,11 +526,21 @@ fn set_array(collection: Collection, values: Option<NdArray>) -> PyResult<()> {
 /// Maps `values` (`NaN` masked) to colours, through `cmap` if the
 /// collection maps none yet: the colormap of its colorizer, which
 /// matplotlib resolves (`image.cmap` by default) in the registry the
-/// program may have replaced (ultraplot's).
-fn set_mapped_array(collection: Collection, values: NdArray, cmap: Colormap) -> PyResult<()> {
-    collection
+/// program may have replaced (ultraplot's); `integers` when numpy holds
+/// them as integers or booleans, which an identity norm indexes the
+/// colormap with.
+fn set_mapped_array(
+    collection: Collection,
+    values: NdArray,
+    cmap: Colormap,
+    integers: bool,
+) -> PyResult<()> {
+    let collection = collection
         .set_array_mapped_by(masked(values)?, cmap)
         .map_err(|err| PyErr::value_error(err.to_string()))?;
+    if integers {
+        collection.set_value_kind(ScalarKind::Integer);
+    }
     Ok(())
 }
 
@@ -540,6 +551,13 @@ fn masked(values: NdArray) -> PyResult<Vec<Option<f64>>> {
         .into_iter()
         .map(|value| value.is_finite().then_some(value))
         .collect())
+}
+
+/// Has the values mapped be integers or booleans, as numpy holds them,
+/// which an identity norm indexes the colormap with.
+fn set_integer_values(collection: Collection) -> PyResult<()> {
+    collection.set_value_kind(ScalarKind::Integer);
+    Ok(())
 }
 
 /// The colour limits of the mapping.
@@ -698,6 +716,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_array", get_array)?;
     module.add("set_array", set_array)?;
     module.add("set_mapped_array", set_mapped_array)?;
+    module.add("set_integer_values", set_integer_values)?;
     module.add("get_clim", get_clim)?;
     module.add("get_cmap", get_cmap)?;
     module.add("set_mapping", set_mapping)?;

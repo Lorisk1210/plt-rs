@@ -14,6 +14,7 @@ use super::{
 use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
 use crate::colorizer::{self, MappingChange, change_mapping};
 use crate::colors::{Color, Colormap, ColormapError, Norm, ScalarMappable, colormaps};
+use crate::image::ScalarKind;
 use crate::lines::LineStyle;
 use crate::transforms::Transform;
 
@@ -562,6 +563,32 @@ impl Collection {
             None => ScalarMappable::new(first_cmap()?),
         };
         Ok(self.set_mapping(ColorMapping { values, mappable }))
+    }
+
+    /// Has the values mapped be integers or booleans (`kind`), as numpy
+    /// holds them: under an identity norm (matplotlib's `NoNorm`) they
+    /// index the colormap, where floats scale it.
+    ///
+    /// ```
+    /// use pltrs::colors::{Colormap, NoNorm};
+    /// use pltrs::image::ScalarKind;
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let dots = fig.subplot().scatter(vec![0.0, 1.0, 2.0], vec![0.0, 1.0, 2.0])?;
+    /// let cmap = Colormap::listed("rgb", vec!["red", "green", "blue"])?;
+    /// dots.set_array_mapped_by(vec![Some(0.0), Some(1.0), Some(2.0)], cmap)?;
+    /// dots.set_norm(Box::new(NoNorm::default()));
+    /// dots.set_value_kind(ScalarKind::Integer).update_scalarmappable()?;
+    /// let green = dots.reported_colors()?.faces[1];
+    /// assert_eq!((green.r, green.g), (0.0, 128.0 / 255.0));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_value_kind(&self, kind: ScalarKind) -> &Self {
+        self.update(|c| {
+            if let Some(mapped) = c.mapping.as_mut() {
+                mapped.set_kind(kind);
+            }
+        })
     }
 
     /// Stops mapping values to colours (matplotlib's `set_array(None)`):

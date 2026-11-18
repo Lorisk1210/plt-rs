@@ -277,10 +277,66 @@ fn draw_shapes(
     if batch.geometry.offsets.is_empty() {
         return Ok(());
     }
-    with_path_effects(ctx, &c.base().path_effects, |ctx| {
-        draw_items(ctx, gc, &batch, &hatches, c.hatch.is_some());
+    let bands = c
+        .band_hatches
+        .as_deref()
+        .filter(|patterns| patterns.iter().any(Option::is_some));
+    with_path_effects(ctx, &c.base().path_effects, |ctx| match bands {
+        Some(patterns) => {
+            draw_bands(ctx, &gc, &batch, (&hatches, c.hatch_linewidth), patterns);
+        }
+        None => draw_items(ctx, gc, &batch, &hatches, c.hatch.is_some()),
     })
     .map_err(|err| err.to_string())
+}
+
+/// Draws the items one at a time, each hatched with its pattern of
+/// `patterns` (cycled) in its colour of `hatches`, lines `linewidth`
+/// points wide, as matplotlib's
+/// `ContourSet.draw` draws the bands of a hatched filled set: its
+/// collection drawn once per path, with that path's colours and style.
+fn draw_bands(
+    ctx: &mut DrawContext<'_>,
+    gc: &GraphicsContext,
+    batch: &Batch<'_>,
+    (hatches, linewidth): (&[Rgba], f64),
+    patterns: &[Option<String>],
+) {
+    let offsets = batch.geometry.display_offsets();
+    for (i, path) in batch.geometry.paths.iter().enumerate() {
+        let mut gc = gc.clone();
+        gc.hatch = cycled(patterns, i)
+            .and_then(Option::as_ref)
+            .filter(|pattern| !pattern.is_empty())
+            .map(|pattern| Hatch {
+                pattern: pattern.clone(),
+                color: cycled(hatches, i).copied().unwrap_or(Rgba::BLACK),
+                linewidth,
+            });
+        let collection = PathCollection {
+            master_transform: batch.geometry.master,
+            paths: std::slice::from_ref(path),
+            path_transforms: &[],
+            offsets: &offsets,
+            facecolors: nth(&batch.faces, i),
+            edgecolors: nth(batch.edges(), i),
+            hatchcolors: nth(hatches, i),
+            linewidths: nth(&batch.widths, i),
+            dashes: nth(&batch.dashes, i),
+            antialiased: nth(&batch.antialiased, i),
+            urls: nth(&batch.urls, i),
+        };
+        ctx.renderer().draw_path_collection(&gc, &collection);
+    }
+}
+
+/// The item `i` of `items` cycled, as a slice of one (none when empty).
+fn nth<T>(items: &[T], i: usize) -> &[T] {
+    if items.is_empty() {
+        return items;
+    }
+    let i = i % items.len();
+    &items[i..=i]
 }
 
 /// Draws the items of a collection with at least one offset, each hatched

@@ -54,11 +54,13 @@ comes from the checkout's `python/`, which needs the extension built. The
 tool prints which one it used, with both libraries' versions and
 directories.
 
-Both sides run with `MPLBACKEND=agg`, so no window opens. Each run is a
-fresh process in a scratch directory of its own, with configuration and
-cache directories (`MPLCONFIGDIR`, `PLTRSCONFIGDIR`) that belong to the
-tool and never to you. A script that saves files with relative paths
-saves them into that scratch directory, which is removed afterwards.
+Both sides run with `MPLBACKEND=agg`, so no window opens, and with
+`PYTHONIOENCODING=utf-8`, so that a script may print any text on Windows
+too. Each run is a fresh process in a scratch directory of its own, with
+configuration and cache directories (`MPLCONFIGDIR`, `PLTRSCONFIGDIR`)
+that belong to the tool and never to you. A script that saves files with
+relative paths saves them into that scratch directory, which is removed
+afterwards.
 
 ## What is timed
 

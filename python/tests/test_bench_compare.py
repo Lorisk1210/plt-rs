@@ -121,6 +121,17 @@ def test_a_script_that_only_saves_shows_the_image_it_saved(pltrs_side, tmp_path)
     assert [pathlib.Path(path).name for path in run.pictures] == ["saved.png"]
 
 
+def test_a_script_may_print_what_the_systems_code_page_lacks(pltrs_side, tmp_path):
+    # The child's output is a pipe, encoded on Windows in its ANSI code
+    # page (cp1252) unless the tool says otherwise.
+    run = run_script(pltrs_side, tmp_path, """
+        import matplotlib.pyplot as plt
+        print("x \u2192 y \u2265 0, 5 \u00b5s")
+        raise ValueError("\u2192 refused")
+    """)
+    assert "ValueError: \u2192 refused" in run.error
+
+
 def test_a_script_that_raises_reports_its_traceback(pltrs_side, tmp_path):
     run = run_script(pltrs_side, tmp_path, """
         import matplotlib.pyplot as plt

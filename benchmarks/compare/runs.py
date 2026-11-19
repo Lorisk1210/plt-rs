@@ -27,7 +27,7 @@ LOOKS = {"classic": "matplotlib", "modern": "modern"}
 #: side draws or where it keeps its files; the runs set their own.
 CLEARED = (
     "MPLBACKEND", "MPLCONFIGDIR", "PLTRSCONFIGDIR", "MATPLOTLIBRC",
-    "PLTRS_LOOK", "PLTRS_FIGURE_LOOK", "PLTRS_CHROME_LOOK",
+    "PLTRS_LOOK", "PLTRS_FIGURE_LOOK", "PLTRS_CHROME_LOOK", "PYTHONIOENCODING",
 )
 
 
@@ -64,6 +64,10 @@ class Side:
             entries = env["PYTHONPATH"].split(os.pathsep)
             env["PYTHONPATH"] = os.pathsep.join(os.path.abspath(entry) for entry in entries if entry)
         env["MPLBACKEND"] = "agg"
+        # The child's output goes into pipes, which Windows would encode
+        # in its ANSI code page: a script printing what that lacks ("→")
+        # would fail there on both sides, though it runs in a console.
+        env["PYTHONIOENCODING"] = "utf-8"
         env["MPLCONFIGDIR"] = str(config)
         if self.library == "pltrs":
             env["PLTRSCONFIGDIR"] = str(config)

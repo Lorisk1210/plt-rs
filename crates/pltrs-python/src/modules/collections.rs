@@ -26,6 +26,7 @@ mod copy;
 mod held;
 mod mapped;
 mod new;
+mod tri_mesh;
 
 artist_handle!(Collection, EllipseCollection, EventCollection);
 
@@ -729,5 +730,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     copy::register(module)?;
     held::register(module)?;
     mapped::register(module)?;
-    new::register(module)
+    new::register(module)?;
+    tri_mesh::register(module)
 }

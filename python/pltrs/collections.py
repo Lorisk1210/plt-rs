@@ -929,7 +929,7 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def get_hatch(self):
         """Return the current hatching pattern."""
-        return self._get("hatch")
+        return _values.given(self, "hatch", self._get("hatch"), same=_values.same_hatch)
 
     def set_hatch(self, hatch):
         r"""
@@ -963,6 +963,7 @@ class Collection(mcolorizer.ColorizingArtist):
         from . import hatch as mhatch
         mhatch._validate_hatch_pattern(hatch)
         _collections.set_hatch(self._native, hatch)
+        _values.remember(self, "hatch", hatch)
 
     def get_hatch_linewidth(self):
         """Return the hatch linewidth."""
@@ -2807,9 +2808,11 @@ class TriMesh(Collection):
 
     def _hold_triangulation(self, triangulation):
         """Keep *triangulation* and its bounds, as matplotlib's constructor
-        does (also for the mesh `tripcolor` makes)."""
+        does (also for the mesh `tripcolor` makes), and draw its unmasked
+        triangles as they are when drawn (`._own_state`)."""
         self._triangulation = triangulation
         self._shading = 'gouraud'
+        _own_state.keep(self, _state.TRIANGULATION, triangulation)
 
         self._bbox = mtransforms.Bbox.unit()
 

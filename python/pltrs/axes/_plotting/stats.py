@@ -8,6 +8,7 @@ The statistics are computed in Python as matplotlib computes them
 
 from collections.abc import Mapping
 import datetime
+import itertools
 import math
 from numbers import Real
 
@@ -1328,6 +1329,10 @@ class StatsMixin:
             _wrap_pie_shadows(self, wedges, *shadow_spec[:2])
         _pie_geometry(wedges, x / sx if normalize else x, explode, radius,
                       startangle, counterclock, center)
+        if hatch is not None:
+            # matplotlib cycles the hatches as numpy strings.
+            for wedge, pattern in zip(wedges, itertools.cycle(np.atleast_1d(hatch))):
+                _values.remember(wedge, "hatch", pattern)
         if colors is None:
             for wedge in wedges:
                 wedge._take_cycle_color("facecolor")

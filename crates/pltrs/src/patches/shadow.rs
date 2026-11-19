@@ -113,13 +113,29 @@ impl<S: PatchShape> Shadow<S> {
     pub fn source(&self) -> &S {
         &self.source
     }
+
+    /// Shadows `source` from now on: matplotlib's `Shadow` reads the path
+    /// and the patch transform of its patch each time it draws, so that it
+    /// follows the patch's later changes of geometry.
+    ///
+    /// ```
+    /// use pltrs::patches::{Patch, PatchProps, PatchShape, Rectangle, Shadow};
+    /// let rect = Patch::loose(Rectangle::new((1.0, 2.0), 3.0, 4.0), PatchProps::default());
+    /// let mut shadow = Shadow::of(&rect, 1.0, 1.0)?;
+    /// shadow.set_source(Rectangle::new((0.0, 0.0), 1.0, 1.0));
+    /// assert_eq!(shadow.path(), Rectangle::new((0.0, 0.0), 1.0, 1.0).path());
+    /// # Ok::<(), pltrs::patches::ShadowError>(())
+    /// ```
+    pub fn set_source(&mut self, source: S) {
+        self.source = source;
+    }
 }
 
 impl Shadow<PathShape> {
     /// [`Shadow::of_shaded`] drawn from a copy of the outline of `patch`
-    /// placed by its patch transform, whatever its shape: the shadow a
-    /// program makes of a patch whose shape it does not know (matplotlib's
-    /// `Shadow(patch, ox, oy, shade=...)`).
+    /// placed by its patch transform ([`Patch::placed_outline`]), whatever
+    /// its shape: the shadow a program makes of a patch whose shape it does
+    /// not know (matplotlib's `Shadow(patch, ox, oy, shade=...)`).
     ///
     /// ```
     /// use pltrs::patches::{Patch, PatchProps, PatchShape, Rectangle, Shadow};
@@ -140,15 +156,15 @@ impl Shadow<PathShape> {
         shade: f64,
     ) -> Result<Self, ShadowError> {
         let Shadow {
-            source,
             offset,
             style,
             transform,
             zorder,
             clip_on,
+            ..
         } = Shadow::of_shaded(patch, ox, oy, shade)?;
         Ok(Self {
-            source: PathShape(source.placed_path()),
+            source: PathShape(patch.placed_outline()),
             offset,
             style,
             transform,

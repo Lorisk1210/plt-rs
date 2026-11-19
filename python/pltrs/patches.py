@@ -303,8 +303,26 @@ class Patch(Artist):
         # matplotlib hit-tests the event's position with the patch's path
         # (also for a patch in no figure, in the coordinates of its
         # transform).
-        mouseevent.x, mouseevent.y  # noqa: B018
+        point = (mouseevent.x, mouseevent.y)
+        if self._figure is None:
+            return self._contains_unplaced(point, radius), {}
         return self._contains_within(mouseevent, radius)
+
+    def _contains_unplaced(self, point, radius):
+        """Whether *point* is within *radius* of the patch's outline through
+        its transform, for a patch pltrs (Rust) has in no figure (a loose
+        one, the box behind a text): matplotlib's test of each subpath."""
+        path = self.get_path()
+        if path.codes is None:
+            subpaths = [path]
+        else:
+            # Each subpath from its MOVETO, not before the first one.
+            starts = np.flatnonzero(path.codes == Path.MOVETO)[1:]
+            subpaths = map(Path, np.split(path.vertices, starts),
+                           np.split(path.codes, starts))
+        transform = self.get_transform()
+        return any(subpath.contains_point(point, transform, radius)
+                   for subpath in subpaths)
 
     def _set_native(self, **kwargs):
         """Set native properties by their resolved names, in order."""
@@ -761,7 +779,7 @@ class Patch(Artist):
 
     def get_hatch(self):
         """Return the hatching pattern."""
-        return _values.given(self, "hatch", self._get("hatch"))
+        return _values.given(self, "hatch", self._get("hatch"), same=_values.same_hatch)
 
     def set_hatch(self, hatch):
         r"""
@@ -4456,7 +4474,6 @@ class Shadow(Patch):
 
             %(Patch:kwdoc)s
         """
-        self._shadowing(patch, ox, oy)
         # matplotlib's ``update_from`` copies the patch's transform first.
         patch._transform  # noqa: B018
         if not 0 <= shade <= 1:
@@ -4466,6 +4483,7 @@ class Shadow(Patch):
         self._native = _patches.new_shadow(
             patch._native, tuple(map(float, offset)) if plain else (0., 0.), float(shade))
         Artist.__init__(self)
+        self._shadowing(patch, ox, oy)
         if not plain:
             # matplotlib keeps it, and fails to scale it to pixels where it
             # draws the shadow (see `._unusable`).
@@ -4492,10 +4510,12 @@ class Shadow(Patch):
     def _shadowing(self, patch, ox, oy):
         """Make the object the shadow of *patch* offset by (*ox*, *oy*)
         points (also for the shadow of a wedge pltrs (Rust) made for
-        ``pie``)."""
+        ``pie``), following the outline of *patch* from now on, as
+        matplotlib's shadow reads it where it draws (`._own_state`)."""
         self.patch = patch
         self._ox, self._oy = ox, oy
         self._shadow_transform = Affine2D()
+        _own_state.keep(self, _state.SHADOWED, patch)
 
     def get_path(self):
         return self.patch.get_path()

@@ -191,6 +191,12 @@ of a bug of its own, pltrs draws or answers:
   every line and arrow takes one colour and the colorbar spans a sliver;
   pltrs scales it to all the colour values. Under each library the lines
   agree with its colorbar.
+* A patch an Axes draws through a curving transform (a bar of a polar
+  Axes) is hit by `contains()`, and picked, where it is drawn, up to its
+  arcs;
+  matplotlib's test splits the outline into paths that lose its
+  interpolation steps and so tests the straight chords between the
+  corners, missing the part of the bar beyond them.
 * Values matplotlib leaves to chance: the colour of a NaN hue in
   `hsv_to_rgb` (uninitialised memory in matplotlib), the order of NaN
   ticks from `AsinhLocator`. A path with an undefined code fails the

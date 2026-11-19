@@ -1331,7 +1331,13 @@ keeps the array as `_mapped`, which its own code reads), the vertices of
 a quad mesh (`get_coordinates()`; pltrs (Rust) takes them back with
 `Collection::set_mesh_coordinates`), a 3-D Axes' box aspect, the data of
 3-D lines and scatters, a quiver's `U` and `V`, the clip box an artist
-was given when it is a `Bbox` of the program's.
+was given when it is a `Bbox` of the program's; and two objects another
+artist reads when it draws, kept as the record's object with a key of
+what is read of them: the patch a `Shadow` shadows (the outline it draws,
+placed by its patch transform: a pie's donut wedges, widened after their
+shadows were made, cast rings) and the triangulation of a `TriMesh` (its
+mask; a flat `tripcolor`, `triplot` and the contour sets take theirs
+when made, as matplotlib's do).
 
 **The first draw of a collection sets its colours again** in matplotlib
 (its first `update_scalarmappable` finds its flags changed and resolves

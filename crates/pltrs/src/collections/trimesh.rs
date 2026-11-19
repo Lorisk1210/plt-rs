@@ -216,6 +216,32 @@ impl TriMesh {
         Collection::from_raw(self.raw.clone())
     }
 
+    /// Draws the unmasked triangles of `triangulation`, the mesh's own as
+    /// it is now, from here on: matplotlib's `TriMesh.draw` reads the
+    /// masked triangles of its triangulation each time it draws, so a mask
+    /// set after the mesh was made hides triangles.
+    ///
+    /// ```
+    /// use pltrs::collections::{Collection, CollectionSpec, TriMesh};
+    /// use pltrs::artist::{ArtistHandle, TypedHandle};
+    /// use pltrs::tri::Triangulation;
+    /// let tri = Triangulation::delaunay(&[0.0, 1.0, 0.0, 1.0], &[0.0, 0.0, 1.0, 1.0])?;
+    /// let mesh = TriMesh::from_raw_handle(Collection::loose(CollectionSpec::tri_mesh(&tri)).raw())
+    ///     .expect("a triangle mesh");
+    /// mesh.set_triangulation(&tri.with_mask(Some(vec![true, false]))?);
+    /// assert_eq!(mesh.as_collection().paths().len(), 1);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_triangulation(&self, triangulation: &Triangulation) -> &Self {
+        let triangles = triangulation.drawn_triangles();
+        self.raw.with_mut::<CollectionArtist, _>(|c| {
+            if let Some(mesh) = &mut c.triangle_mesh {
+                mesh.triangles = triangles;
+            }
+        });
+        self
+    }
+
     /// Recolours the mesh (one value per point).
     ///
     /// # Errors

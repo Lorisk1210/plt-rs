@@ -243,6 +243,15 @@ def _same_text(value, native):
     return (None if value is None else str(value)) == native
 
 
+def same_hatch(value, native):
+    """Whether *value* is the hatch pltrs (Rust) holds as *native*, which
+    holds no hatch as None or as '': no pattern ('' or None) is either,
+    and matplotlib keeps whichever was given."""
+    if not value or not native:
+        return not value and not native
+    return value == native
+
+
 def _same(value, native):
     """Whether *value* is what pltrs (Rust) holds as *native*."""
     if value is None or native is None:

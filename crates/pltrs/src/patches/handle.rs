@@ -157,6 +157,30 @@ impl<S: PatchShape> Patch<S> {
         self.read(|p| p.program_path.as_ref().map(|(path, _)| path.clone()))
     }
 
+    /// The outline the patch draws, placed by its patch transform into the
+    /// coordinates of its artist transform: the outline given by
+    /// [`set_program_path`](Self::set_program_path) if any, else the
+    /// shape's ([`PatchShape::placed_path`]).
+    ///
+    /// ```
+    /// use pltrs::patches::{PatchShape, Rectangle};
+    /// use pltrs::path::Path;
+    /// use pltrs::prelude::*;
+    /// use pltrs::transforms::{Affine2D, Point};
+    /// let shape = Rectangle::new((1.0, 0.0), 2.0, 1.0);
+    /// let patch = Figure::new().subplot().add_patch(shape.clone());
+    /// assert_eq!(patch.placed_outline(), shape.placed_path());
+    /// let outline = Path::closed([(0.0, 0.0), (4.0, 0.0), (0.0, 2.0)].map(Point::from).to_vec());
+    /// patch.set_program_path(Some((outline.clone(), Affine2D::scaling(2.0, 1.0))));
+    /// assert_eq!(patch.placed_outline(), outline.transformed(&Affine2D::scaling(2.0, 1.0)));
+    /// ```
+    pub fn placed_outline(&self) -> Path {
+        self.read(|p| match &p.program_path {
+            Some((path, placement)) => path.transformed(placement),
+            None => p.shape.placed_path(),
+        })
+    }
+
     /// A copy of the edge/face/hatch properties.
     pub fn style(&self) -> PatchStyle {
         self.read(|p| p.style.clone())

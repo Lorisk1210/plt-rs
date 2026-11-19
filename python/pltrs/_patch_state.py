@@ -3,13 +3,14 @@ The state of patches that matplotlib keeps as an object of the patch's
 own, which programs change in place (see `._own_state`): the path the
 patch draws (``_path``), of whose vertices a polygon's ``xy`` are. The
 patches whose path matplotlib makes at each call (a rectangle's shared
-unit square, a box's, an arrow patch's) keep none.
+unit square, a box's, an arrow patch's) keep none. A shadow keeps the
+patch it shadows (``patch``), whose outline it reads where it draws.
 """
 
 import numpy as np
 
 from ._native import patches as _patches
-from ._own_state import State
+from ._own_state import RECORDS, State, sync
 from .path import Path
 
 
@@ -42,3 +43,23 @@ def _path_key(path):
 #: The path drawn (matplotlib's ``_path``), handed to pltrs (Rust) as the
 #: patch's class takes it (`.Patch._take_path`).
 PATH = State("path", _read_path, lambda patch, path: patch._take_path(path), _path_key)
+
+
+def _shadowed_outline(patch):
+    """The outline *patch* draws, placed by its patch transform, as bytes:
+    what its shadow shows. What the program changed in place of the patch
+    itself is the patch's first, as matplotlib's shadow reads the patch's
+    path as it is."""
+    if RECORDS in patch.__dict__:
+        sync(patch)
+    vertices, codes = _patches.placed_outline(patch._native)
+    return (vertices.shape, vertices.tobytes(), None if codes is None else codes.tobytes())
+
+
+#: The patch a `.Shadow` shadows (matplotlib's ``patch``), whose path and
+#: patch transform matplotlib's shadow reads each time it draws: its
+#: outline is handed to pltrs (Rust) again whenever it changed (a setter
+#: of the patch's geometry, its path changed in place).
+SHADOWED = State("shadowed", lambda shadow: shadow.patch,
+                 lambda shadow, patch: _patches.set_shadow_source(shadow._native, patch._native),
+                 _shadowed_outline)

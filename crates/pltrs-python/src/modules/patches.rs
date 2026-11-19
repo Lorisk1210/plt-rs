@@ -30,6 +30,7 @@ mod connection;
 mod fancy;
 mod geometry;
 mod new;
+mod shadow;
 mod style;
 
 use style::StyleOps;
@@ -84,6 +85,9 @@ trait PatchOps: StyleOps {
     /// The outline drawn in place of the shape's, if one was set (see
     /// [`Patch::program_path`]).
     fn program_path(&self) -> Option<Path>;
+    /// The outline drawn, placed by the patch transform (see
+    /// [`Patch::placed_outline`]).
+    fn placed_outline(&self) -> Path;
 }
 
 impl<S: PatchShape> PatchOps for Patch<S> {
@@ -131,6 +135,10 @@ impl<S: PatchShape> PatchOps for Patch<S> {
     fn program_path(&self) -> Option<Path> {
         Patch::program_path(self)
     }
+
+    fn placed_outline(&self) -> Path {
+        Patch::placed_outline(self)
+    }
 }
 
 /// The patches of `objects` (native patch objects of any shape) as the
@@ -162,10 +170,11 @@ macro_rules! downcast_patch {
     }};
 }
 
-impl FromPy<'_> for AnyPatch {
-    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
-        let raw: RawHandle = object.extract()?;
-        downcast_patch!(&raw;
+impl AnyPatch {
+    /// The patch `raw` is, whatever its shape; `TypeError` for an artist
+    /// that is no patch.
+    fn of(raw: &RawHandle) -> PyResult<Self> {
+        downcast_patch!(raw;
             Rectangle, Ellipse, Circle, Polygon, Wedge, PathShape, RegularPolygon,
             CirclePolygon, StepPatch, FancyArrow, Arrow, Arc, Annulus, FancyBboxPatch,
             FancyArrowPatch, ConnectionPatch,
@@ -174,6 +183,12 @@ impl FromPy<'_> for AnyPatch {
         )
         .map(Self)
         .ok_or_else(|| PyErr::type_error("expected a native patch handle"))
+    }
+}
+
+impl FromPy<'_> for AnyPatch {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        Self::of(&object.extract()?)
     }
 }
 
@@ -704,6 +719,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("fancy_bbox", fancy_bbox)?;
     module.add("set_fancy_bbox", set_fancy_bbox)?;
     arrow_route::register(module)?;
+    shadow::register(module)?;
     connection::register(module)?;
     fancy::register(module)?;
     geometry::register(module)?;

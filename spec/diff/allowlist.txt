@@ -13,6 +13,12 @@
 images_contours_and_fields/plot_streamplot$ | ^value\[(time|joinedstr)\]: | the example times streamplot with time.time() and writes the time into a figure title
 images_contours_and_fields/plot_streamplot$ | ^image: RMS > 1$ @ ^figure 2$ | the pixels that differ are the digits of the times the titles of figure 2 show
 statistics/time_series_histogram$ | ^stdout$ | the example prints the seconds its plotting took
+# (Two readings of the clock pass the comparison's relative tolerance, 1e-6
+# of time.time(), while matplotlib's cached run is under half an hour old;
+# the Mac's gate of 2026-11-19 met an older one.)
+event_handling/pong_sgskip$ | ^value\[time\]: float$ | the example keeps time.time() to count its frames per second
+mplot3d/wire3d_animation$ | ^value\[time\]: float$ | the example keeps time.time() to print its frames per second
+statistics/time_series_histogram$ | ^value\[time\]: float$ | the example keeps time.time() around its two plots, whose seconds it prints
 
 # The program draws object reprs, with their memory addresses.
 users_explain/axes/axes_units$ | ^image: RMS > 1$ @ ^figure 12$ | figure 12 writes the reprs of each axis' converter, locator and formatter ("<... object at 0x...>"), whose addresses differ from run to run

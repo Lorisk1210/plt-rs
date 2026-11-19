@@ -436,7 +436,10 @@ in last bits or in ill-conditioned results only:
   numpy's saturating conversion of infinite dates;
 * on aarch64 Linux, Gouraud-shaded colours, and the last bit of some
   values of numpy's FFT (`mlab.csd`), likely the complex products numpy
-  fuses there.
+  fuses there;
+* with numpy 1.26, a log locator's decades below one, which matplotlib
+  takes from numpy 1's array power (10⁻¹ as 0.09999999999999999) and
+  pltrs gives as numpy 2 does (0.1), in tick and contour level values.
 
 Some messages and warnings differ with the system too: matplotlib's
 "building the font cache" warning on a Mac (pltrs reads the system's

@@ -206,12 +206,16 @@ def test_the_limits_given_to_a_binned_hexbin_are_floats():
 
 GX, GY = np.meshgrid(np.linspace(-3, 3, 30), np.linspace(-2, 2, 20))
 GZ = np.exp(-GX**2 - GY**2) * 50 + 0.01
+#: The upper limit a norm takes from the data: GZ's largest value as this
+#: numpy's ``exp`` computes it (48.9326816927841 under numpy 2,
+#: 48.93268169278411 under numpy 1.26, where matplotlib takes the same).
+GZ_MAX = float(GZ.max())
 
 #: Per norm and limits given: the norm's limits (the lower one scaled to
 #: the image drawn with the norm before, where none is given), the set's
 #: levels, and the colours the image gives 1 and 20 once the set is made.
 GIVEN_LIMITS = {
-    "LogNorm vmin": (LogNorm, {"vmin": 0.1}, (0.1, 48.9326816927841),
+    "LogNorm vmin": (LogNorm, {"vmin": 0.1}, (0.1, GZ_MAX),
                      [0.01, 0.1, 1.0, 10.0, 100.0],
                      [[0.174274, 0.445044, 0.557792, 1.0], [0.626579, 0.854645, 0.223353, 1.0]]),
     "Normalize vmin vmax": (Normalize, {"vmin": 1, "vmax": 40}, (1.0, 40.0),

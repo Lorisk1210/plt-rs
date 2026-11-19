@@ -274,10 +274,12 @@ def test_hatches_read_back_as_given():
     unhatched = ax.bar([1, 2], [1, 2])
     wedges, _ = ax.pie([1, 2], hatch=['', '/'])
     layers = ax.stackplot([0, 1], [1, 2], hatch='')
+    # The hatches given as lists come back as numpy strings, printed as
+    # numpy prints them (``np.str_('/')`` from numpy 2, ``'/'`` before).
     assert [repr(patch.get_hatch()) for patch in [*listed, *empty, *unhatched, *wedges]] == [
-        "np.str_('/')", "np.str_('')", "np.str_('x')", "np.str_('')", "np.str_('')",
-        "None", "None", "np.str_('')", "np.str_('/')"]
-    assert repr(layers[0].get_hatch()) == "np.str_('')"
+        repr(np.str_(hatch)) for hatch in ['/', '', 'x', '', '']] + ["None", "None"] + [
+        repr(np.str_(hatch)) for hatch in ['', '/']]
+    assert repr(layers[0].get_hatch()) == repr(np.str_(''))
     square = Rectangle((0, 0), 1, 1, hatch='/')
     square.set(hatch='')
     assert (repr(square.get_hatch()), repr(square.properties()['hatch'])) == ("''", "''")

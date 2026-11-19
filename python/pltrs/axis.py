@@ -202,6 +202,18 @@ def _converted_limit(axis, value):
     return np.asarray(converted)[()] if np.ndim(converted) == 0 else converted
 
 
+def _refuse_unfloatable_limits(axis, v0, v1):
+    """Fail where matplotlib's ``Axis._set_lim`` fails on the limits *v0*,
+    *v1* (as converted) when they are no plain numbers, such as a
+    ``timedelta64`` on an axis without units, which numpy would cast to a
+    float: it compares them, then has its major locator's ``nonsingular``
+    take them (``float()`` of each)."""
+    if all(np.asarray(v).dtype.kind in "biuf" for v in (v0, v1)):
+        return
+    bool(v0 > v1)
+    axis.get_major_locator().nonsingular(v0, v1)
+
+
 def _set_native_zone(axis, tz):
     """Have pltrs (Rust) take the zone *tz* as the unit of *axis* (a date
     axis then ticks in it)."""
@@ -1162,6 +1174,7 @@ class Axis(DrawnWith, Artist):
             v1 = old1 if v1 is None else v1
         given = [_converted_limit(self, v) for v in (v0, v1)]
         v0, v1 = self._checked_limits(v0, v1)
+        _refuse_unfloatable_limits(self, *given)
         limits = _axes.set_lim(self.axes._native, self.axis_name, (v0, v1),
                                None if auto is None else bool(auto), bool(emit))
         self.stale = True

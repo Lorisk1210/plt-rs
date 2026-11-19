@@ -327,12 +327,14 @@ pub(crate) fn tick_label_anchor(
 ) -> Option<PolarLabel> {
     let ptick = polar_tick(cx.read(), axes, polar, name, tick)?;
     // matplotlib's `_labelrotation`: turned with the tick plus the user's
-    // angle in `auto` mode, else the user's angle alone.
+    // angle in `auto` mode, else the user's angle alone; a rotation the
+    // labels were given otherwise (`set_rotation`, `autofmt_xdate`) is
+    // replaced at each draw.
     let rotation = |auto_angle: f64| {
         if style.label_rotation_auto {
-            auto_angle + style.label_rotation
+            auto_angle + style.label_rotation_param
         } else {
-            style.label_rotation
+            style.label_rotation_param
         }
     };
     match name {

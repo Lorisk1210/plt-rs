@@ -282,6 +282,15 @@ impl FigureState {
         };
         match bound {
             Ok(Some(_)) if !failed_before && failures::failed() => {}
+            // matplotlib's `set_xbound` refuses the limits, the view left
+            // as it was (a logit axis whose smallest positive datum is
+            // above one gives NaN).
+            Ok(Some((v0, v1))) if !(v0.is_finite() && v1.is_finite()) => {
+                self.pending_errors.push(DrawError {
+                    kind: DrawErrorKind::InvalidValue,
+                    ..DrawError::new(axes, "Axis limits cannot be NaN or Inf")
+                });
+            }
             Ok(Some(bound)) => {
                 let (v0, v1) = oriented(bound, inverted);
                 self.set_axis_limits(axes, name, (v0, v1), None, true);

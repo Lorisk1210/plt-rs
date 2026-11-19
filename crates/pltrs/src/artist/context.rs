@@ -330,7 +330,9 @@ pub enum DrawErrorKind {
     Singular,
     /// A library matplotlib draws with refusing what it is asked, such as
     /// `FreeType` refusing a font size, which matplotlib raises as a
-    /// `RuntimeError` with the library's message.
+    /// `RuntimeError` with the library's message; also what matplotlib's
+    /// own code refuses with a `RuntimeError` of its words (an empty
+    /// image, a twinned axes adjusting its box to an aspect).
     Library,
     /// A division by zero in matplotlib's Python code, such as by the
     /// first ratio of a grid constrained layout lays out (Python's

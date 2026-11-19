@@ -220,6 +220,7 @@ impl FigureState {
         let Some(link) = self.sync_secondary_scale(axes) else {
             return;
         };
+        self.unstale_axes(link.host);
         let Some(host) = self.store.get_as::<AxesState>(link.host) else {
             return;
         };
@@ -255,13 +256,14 @@ impl FigureState {
 
     /// Gives a secondary axis the scale of its host's (matplotlib's
     /// `_set_scale`, which making the axis and `set_functions` run),
-    /// returning its link to the host; `None` for other axes.
+    /// returning its link to the host; `None` for other axes. Only the
+    /// name of the host's scale is read: its limits wait to be autoscaled
+    /// as they did (a scale set on the host afterwards still rescales it).
     pub(crate) fn sync_secondary_scale(&mut self, axes: ArtistId) -> Option<Secondary> {
         let link = self
             .store
             .get_as::<AxesState>(axes)
             .and_then(|state| state.secondary.clone())?;
-        self.unstale_axes(link.host);
         let host_scale = self
             .store
             .get_as::<AxesState>(link.host)?
@@ -357,6 +359,22 @@ mod tests {
         let placed = sec.raw.with::<AxesState, _>(|a| a.position);
         assert_eq!(placed.x0(), 0.3);
         assert!(host.width() > 0.0);
+    }
+
+    #[test]
+    fn a_scale_set_after_a_secondary_axis_rescales_its_host() {
+        // matplotlib's limits: the margins are added in the symlog space,
+        // the secondary axis reading only the name of its host's scale.
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.plot([0.75, 2.25], [0.0, 1.0]).expect("finite data");
+        ax.secondary_yaxis(SecondaryLocation::Side(SpineSide::Right), None)
+            .unwrap();
+        ax.set_xscale("symlog").unwrap();
+        fig.layout();
+        let (low, high) = ax.xlim();
+        assert!((low - 0.682_896).abs() < 1e-6, "{low}");
+        assert!((high - 2.451_672).abs() < 1e-6, "{high}");
     }
 
     #[test]

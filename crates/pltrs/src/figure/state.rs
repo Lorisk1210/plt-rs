@@ -553,10 +553,12 @@ impl FigureState {
         if matches!(preparation, Preparation::Drawing(_)) {
             // `Figure.draw` applies the aspect of every axes, its secondary
             // axes after their host (`_get_draw_artists`), before its
-            // layout engine runs: a projection giving its own data ratio
-            // is asked for it there too.
+            // layout engine runs: a fixed aspect autoscales the view it
+            // reads there, with its axes' margins, and a projection giving
+            // its own data ratio is asked for it there too.
             for &id in &axes {
                 self.aspect_applied(id);
+                self.autoscale_for_aspect(id);
                 if self.asks_data_ratio(id) {
                     self.apply_aspect(id);
                 }

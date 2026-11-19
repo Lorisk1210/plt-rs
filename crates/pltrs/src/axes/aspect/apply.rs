@@ -4,8 +4,8 @@
 
 use pltrs_core::{Affine2D, Bbox};
 
-use super::{Adjustable, AspectError, AxesLocatorFn};
-use crate::artist::{Artist, ArtistId, DrawError, DrawErrorKind};
+use super::{Adjustable, AspectError, AspectState, AxesLocatorFn};
+use crate::artist::{Artist, ArtistId, DrawError};
 use crate::axes::AxesState;
 use crate::figure::{FigureState, host_to_figure};
 use crate::numeric::numpy_arith::{add, divide, multiply, subtract};
@@ -187,7 +187,7 @@ impl FigureState {
         self.pending_errors.push(DrawError {
             artist: axes,
             message: err.to_string(),
-            kind: DrawErrorKind::InvalidValue,
+            kind: err.draw_kind(),
         });
         false
     }
@@ -229,6 +229,15 @@ impl FigureState {
         axes: ArtistId,
         placement: Placement,
     ) -> Result<(), AspectError> {
+        self.autoscale_for_aspect(axes);
+        self.apply_aspect_at(axes, placement)
+    }
+
+    /// The pending autoscaling of `axes` that applying its aspect brings
+    /// up to date: a fixed aspect reads the view limits (matplotlib's
+    /// `get_data_ratio` and `get_xbound`), which autoscales them with the
+    /// margins of this axes, for the axes sharing them too.
+    pub(crate) fn autoscale_for_aspect(&mut self, axes: ArtistId) {
         let fixed = self
             .store
             .get_as::<AxesState>(axes)
@@ -236,7 +245,6 @@ impl FigureState {
         if fixed {
             self.unstale_axes(axes);
         }
-        self.apply_aspect_at(axes, placement)
     }
 
     /// The host an axes owned by `parent` is placed in for its aspect, if
@@ -280,19 +288,18 @@ impl FigureState {
             || (state.home).is_some_and(|home| self.frame_bbox(home).is_none())
     }
 
-    /// [`apply_aspect`](Self::apply_aspect) with the axes placed by
-    /// `placement`. The active position is set before the data limits are
-    /// adjusted, which fails when they would not be finite (as
-    /// matplotlib's `set_xbound` refuses them there).
-    fn apply_aspect_at(&mut self, axes: ArtistId, placement: Placement) -> Result<(), AspectError> {
-        let Some(state) = self.store.get_as::<AxesState>(axes) else {
-            return Ok(());
-        };
-        let original = state.position;
-        let settings = state.aspect;
-        let custom = state.axes_locator.clone();
-        let in_figure = placement.in_figure(custom.as_ref());
-        let located = match (placement, custom) {
+    /// Where `placement` puts `axes`, at `original` with the aspect
+    /// `settings`, before its aspect is applied: through its own locator
+    /// (`custom`), or through its divider, inset locator and colorbar
+    /// locator.
+    fn place_for_aspect(
+        &mut self,
+        axes: ArtistId,
+        placement: Placement,
+        (original, settings): (Bbox, AspectState),
+        custom: Option<AxesLocatorFn>,
+    ) -> Bbox {
+        match (placement, custom) {
             (Placement::Located, Some(locator)) => locator.locate(original),
             (Placement::Located, None) => {
                 let divided = settings
@@ -306,7 +313,22 @@ impl FigureState {
             }
             (Placement::Original, _) => original,
             (Placement::Given(position), _) => position,
+        }
+    }
+
+    /// [`apply_aspect`](Self::apply_aspect) with the axes placed by
+    /// `placement`. The active position is set before the data limits are
+    /// adjusted, which fails when they would not be finite (as
+    /// matplotlib's `set_xbound` refuses them there).
+    fn apply_aspect_at(&mut self, axes: ArtistId, placement: Placement) -> Result<(), AspectError> {
+        let Some(state) = self.store.get_as::<AxesState>(axes) else {
+            return Ok(());
         };
+        let original = state.position;
+        let settings = state.aspect;
+        let custom = state.axes_locator.clone();
+        let in_figure = placement.in_figure(custom.as_ref());
+        let located = self.place_for_aspect(axes, placement, (original, settings), custom);
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
             return Ok(());
         };
@@ -316,8 +338,8 @@ impl FigureState {
             .or(settings.box_aspect);
         // matplotlib reads the data ratio (through the scales, which may
         // be the program's) only to shrink the box to a fixed aspect.
-        let asks = settings.adjustable == Adjustable::Box
-            && (settings.ratio.is_some() || box_aspect.is_some());
+        let fixed = settings.ratio.is_some() || box_aspect.is_some();
+        let asks = settings.adjustable == Adjustable::Box && fixed;
         // An axes owned by none (removed, or made for the figure but never
         // added) is placed in the figure frame it was in or was made for,
         // as its transforms place it (see `axes_bbox`), matplotlib's axes
@@ -325,6 +347,9 @@ impl FigureState {
         let owner = state.base().parent;
         if owner.is_none() && self.keeps_parentless_place(state, box_aspect) {
             return Ok(());
+        }
+        if asks && self.shared.twins(axes).len() > 1 {
+            return Err(AspectError::BoxInTwinnedAxes);
         }
         let parent = owner.or(state.home);
         let data_ratio = asks.then(|| self.data_ratio_of(axes));
@@ -341,7 +366,7 @@ impl FigureState {
             }
         };
         let mut adjusted = Ok(());
-        let active = if settings.ratio.is_none() && box_aspect.is_none() {
+        let active = if !fixed {
             Some(located)
         } else if let Some(frame) = frame {
             let fig_aspect = frame.height() / frame.width();

@@ -27,7 +27,8 @@ impl From<AspectError> for PyErr {
     /// matplotlib's `ValueError`s: that of `set_aspect` (which `imshow` and
     /// `spy` call) for a ratio that is not positive, with its trailing
     /// space; for axes fixing their data ratio, that of
-    /// `set_adjustable('datalim')`, which every path reaches.
+    /// `set_adjustable('datalim')`, which every path reaches. A twinned
+    /// axes adjusting its box is `apply_aspect`'s `RuntimeError`.
     fn from(err: AspectError) -> Self {
         match err {
             AspectError::NotPositive(_) => {
@@ -39,6 +40,7 @@ impl From<AspectError> for PyErr {
             AspectError::NonFiniteLimits | AspectError::BoxNotPositive => {
                 PyErr::value_error(err.to_string())
             }
+            AspectError::BoxInTwinnedAxes => PyErr::runtime_error(err.to_string()),
         }
     }
 }

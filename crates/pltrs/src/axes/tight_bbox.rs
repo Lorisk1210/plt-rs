@@ -299,7 +299,7 @@ impl FigureState {
                 let base = mesh.base();
                 let measured = base.visible
                     && base.in_layout
-                    && !fully_clipped(base, axes, layout.axes_extent(axes));
+                    && !fully_clipped(base, axes, layout.figure_state());
                 if let Some(mapping) = measured.then(|| mesh.program_mesh_box(layout)).flatten() {
                     self.lend(|_| program_calls::observed(mapping));
                 }
@@ -517,7 +517,7 @@ fn child_tight_bbox(
     if state.spines.contains(&child) && !state.decorations.framed() {
         return None;
     }
-    if fully_clipped(base, axes, layout.axes_extent(axes)) {
+    if fully_clipped(base, axes, layout.figure_state()) {
         return None;
     }
     if let Some(text) = layout.store().get_as::<TextArtist>(child)
@@ -548,19 +548,24 @@ pub(crate) fn spine_extent_with_ticks(
         .then(|| AxisPainter::new(axes, state, name).spine_extent(&mut { layout }, spine.side))?
 }
 
-/// Whether an artist is clipped to exactly its axes, whose box is
-/// `extent` (matplotlib's `_fully_clipped_to_axes`). matplotlib compares
-/// the extents of the clip box, its axes' patch (the unit box through
-/// `BboxTransformTo` of the axes' box: `(x1 - x0) + x0` for its right
-/// edge), with those of the axes' box, so a box whose far corner that
-/// sum rounds (at 150 dpi, the top of a box 633.6 pixels high) does not
-/// clip the artist exactly, and the artist's tight box is measured.
+/// Whether an artist is clipped to exactly its axes (matplotlib's
+/// `_fully_clipped_to_axes`). matplotlib compares the extents of the clip
+/// box, its axes' patch (the unit box through `BboxTransformTo` of the
+/// axes' box: `(x1 - x0) + x0` for its right edge), with those of the
+/// axes' box, so a box whose far corner that sum rounds (at 150 dpi, the
+/// top of a box 633.6 pixels high) does not clip the artist exactly, and
+/// the artist's tight box is measured. An axes clipping to its patch's
+/// outline (polar and geographic axes) clips by that patch alone, with no
+/// clip box to compare.
 #[expect(clippy::float_cmp, reason = "matplotlib compares the extents exactly")]
-pub(crate) fn fully_clipped(base: &ArtistBase, axes: ArtistId, extent: Option<Bbox>) -> bool {
+pub(crate) fn fully_clipped(base: &ArtistBase, axes: ArtistId, figure: &FigureState) -> bool {
     base.clip_on
         && base.clip_path.is_none()
         && base.clip_box == Some(axes)
-        && extent.is_none_or(|b| b.x0() + b.width() == b.x1() && b.y0() + b.height() == b.y1())
+        && (figure
+            .axes_bbox(axes)
+            .is_none_or(|b| b.x0() + b.width() == b.x1() && b.y0() + b.height() == b.y1())
+            || figure.axes_outline(axes).is_some())
 }
 
 /// `bbox` reduced by the artist's clip box and clip path (the clipping
@@ -643,6 +648,24 @@ mod tests {
         ax.xaxis().set_visible(false);
         let bare = ax.spines().get(SpineSide::Bottom).window_extent();
         assert_eq!(bare.map(|b| b.y0()), Some(frame.y0()));
+    }
+
+    #[test]
+    fn polar_axes_leave_out_what_their_circle_clips() {
+        // matplotlib's box: a line reaching 8.6 radii out counts for
+        // nothing, clipped to the axes' patch (its box's far corner rounds,
+        // which only matters for the clip boxes of rectilinear axes).
+        let fig = Figure::with_size(4.0, 3.0, 60.0);
+        let ax = fig
+            .subplot_with_projection(crate::axes::ProjectionKind::Polar)
+            .expect("a polar subplot");
+        let r: Vec<f64> = (0..24).map(|i| f64::from(i * i)).collect();
+        let theta: Vec<f64> = (0..24).map(f64::from).collect();
+        ax.plot(theta, r).expect("finite data");
+        ax.set_ylim(0.0, 50.0).expect("finite limits");
+        let tight = ax.tight_bbox(true).expect("a visible axes");
+        let rounded = [tight.x0(), tight.y0(), tight.x1(), tight.y1()].map(|v| (v * 100.0).round());
+        assert_eq!(rounded, [3253.0, 397.0, 20847.0, 17423.0]);
     }
 
     #[test]

@@ -399,7 +399,6 @@ impl Axes {
             bottom,
             top,
         } = extent;
-        image.with_base_mut(|base| base.sticky_edges = (vec![left, right], vec![bottom, top]));
         self.update_datalim(
             &[Point::new(left, bottom), Point::new(right, top)],
             true,
@@ -408,6 +407,14 @@ impl Axes {
         let autoscale = self.raw().with::<AxesState, _>(|axes| {
             (axes.xaxis.autoscale.enabled, axes.yaxis.autoscale.enabled)
         });
+        if autoscale.0 || autoscale.1 {
+            // matplotlib's `set_xlim` sets `viewLim`, which autoscales the
+            // data so far first, the image's corners included but not its
+            // sticky edges (`imshow` adds the image after): a log axis
+            // keeps that view's limit for a side that is not positive.
+            self.unstale_view();
+        }
+        image.with_base_mut(|base| base.sticky_edges = (vec![left, right], vec![bottom, top]));
         {
             let mut figure = self.raw().figure_state().borrow_mut();
             if autoscale.0 {
@@ -444,6 +451,25 @@ mod tests {
         assert_eq!(ax.ylim(), (0.0, 4.0));
         assert_eq!(image.sticky_edges(), (vec![8.0, 0.0], vec![0.0, 4.0]));
         assert_eq!(ax.aspect(), Aspect::Ratio(1.0));
+    }
+
+    #[test]
+    fn a_log_axis_keeps_the_autoscaled_limit_for_a_side_not_positive() {
+        // matplotlib's `set_extent` sets the limits through `set_ylim`,
+        // which autoscales the data waiting first (the image's corners
+        // included) and keeps that view's upper limit for the image's -0.5.
+        let ax = Figure::new().subplot();
+        ax.plot([1.0, 2.0], [1.0, 2.0]).expect("finite data");
+        ax.set_yscale("log").unwrap();
+        ax.plot([1.0, 2.0], [1.0, 3.0]).expect("finite data");
+        let upper = ImshowOptions {
+            extent: Some(Extent::new(-0.5, 10.5, 8.5, -0.5)),
+            ..ImshowOptions::default()
+        };
+        ax.imshow(Grid::filled(9, 11, 1.0), upper).unwrap();
+        let (bottom, top) = ax.ylim();
+        assert_eq!(bottom, 8.5);
+        assert!((top - 9.459_972_458_265_13).abs() < 1e-12, "{top}");
     }
 
     #[test]

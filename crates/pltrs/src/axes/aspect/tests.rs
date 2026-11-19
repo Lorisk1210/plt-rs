@@ -147,6 +147,53 @@ fn box_aspects_are_kept_and_fail_when_applied_unless_positive() {
 }
 
 #[test]
+fn twinned_axes_adjust_their_data_limits_never_their_box() {
+    // matplotlib's `apply_aspect`, at the draw too: its `RuntimeError`,
+    // the box left where it was; `datalim` keeps working.
+    let (fig, ax) = axes_with_limits((0.0, 1.0), (0.0, 2.0));
+    let twin = ax.twinx().expect("a rectilinear axes twins");
+    assert_eq!(
+        ax.adjustable(),
+        Adjustable::Datalim,
+        "twins adjust their limits"
+    );
+    ax.set_aspect(Aspect::Equal).unwrap();
+    ax.set_adjustable(Adjustable::Box).unwrap();
+    assert_eq!(ax.apply_aspect().err(), Some(AspectError::BoxInTwinnedAxes));
+    assert!(twin.apply_aspect().is_ok(), "the twin's aspect is auto");
+    let Err(crate::figure::SaveError::Draw(errors)) = fig.to_png() else {
+        panic!("the draw refuses the aspect");
+    };
+    assert_eq!(errors.0[0].kind, crate::artist::DrawErrorKind::Library);
+    assert_eq!(
+        errors.0[0].message,
+        "Adjustable 'box' is not allowed in a twinned Axes; use 'datalim' instead"
+    );
+    ax.set_adjustable(Adjustable::Datalim).unwrap();
+    ax.apply_aspect().expect("twins adjust their data limits");
+    assert_eq!(ax.position(), ax.original_position());
+}
+
+#[test]
+fn a_fixed_aspect_autoscales_the_view_it_shares_first_when_drawn() {
+    // matplotlib's `Figure.draw` applies the aspect of each axes in turn
+    // before laying them out: the datalim axes reads its view first, so
+    // the shared y limits take its margins, not the tight axes' none.
+    let fig = Figure::new();
+    let tight = fig.add_subplot(1, 2, 1).expect("a subplot");
+    let fixed = fig.add_subplot(1, 2, 2).expect("a subplot");
+    fixed.share_y(&tight).expect("rectilinear axes share");
+    tight.plot([0.0, 1.0], [0.0, 10.0]).expect("finite data");
+    tight.autoscale(None, Some(true));
+    fixed.plot([0.0, 1.0], [0.0, 10.0]).expect("finite data");
+    fixed.set_aspect(Aspect::Ratio(0.5)).unwrap();
+    fixed.set_adjustable(Adjustable::Datalim).unwrap();
+    fig.to_png().expect("the figure draws");
+    assert_eq!(tight.ylim(), (-0.5, 10.5));
+    assert_eq!(fixed.ylim(), (-0.5, 10.5));
+}
+
+#[test]
 fn auto_restores_the_original_position() {
     let (_fig, ax) = axes_with_limits((0.0, 10.0), (0.0, 1.0));
     ax.set_aspect(Aspect::Ratio(2.0)).unwrap();

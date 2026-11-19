@@ -254,8 +254,14 @@ pub struct TickStyle {
     pub labels: Sides,
     /// Rotation of the labels in degrees.
     pub label_rotation: f64,
+    /// The angle of the `labelrotation` tick parameter (matplotlib's
+    /// `Tick._labelrotation`), which only `tick_params` sets: polar axes
+    /// turn their labels by it at each draw, whatever rotation the labels
+    /// were given since (matplotlib's `ThetaTick` and `RadialTick`
+    /// `update_position`).
+    pub label_rotation_param: f64,
     /// Whether the labels of polar axes turn with their ticks, with
-    /// `label_rotation` added (matplotlib's `labelrotation="auto"`).
+    /// `label_rotation_param` added (matplotlib's `labelrotation="auto"`).
     pub label_rotation_auto: bool,
     /// How rotated labels are aligned.
     pub label_rotation_mode: RotationMode,
@@ -330,6 +336,7 @@ pltrs_core::archive_struct!(TickStyle {
     ticks,
     labels,
     label_rotation,
+    label_rotation_param,
     label_rotation_auto,
     label_rotation_mode,
     label_halign,
@@ -387,6 +394,7 @@ impl TickStyle {
             ticks,
             labels,
             label_rotation: 0.0,
+            label_rotation_param: 0.0,
             label_rotation_auto: false,
             label_rotation_mode: RotationMode::Default,
             label_halign: None,

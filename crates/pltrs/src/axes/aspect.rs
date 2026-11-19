@@ -19,7 +19,7 @@ use std::fmt;
 use pltrs_core::{Anchor, Bbox};
 
 use super::{Axes, AxesState, ProjectionKind};
-use crate::artist::{ArtistHandle, ArtistLookup};
+use crate::artist::{ArtistHandle, ArtistLookup, DrawErrorKind};
 use crate::axes_grid1::{DividerCell, InsetLocatorId};
 use crate::rc::Aspect;
 use crate::ticker::AxisName;
@@ -54,6 +54,10 @@ pub enum AspectError {
     /// The box cannot be shrunk to the aspect: it or the figure's is not
     /// positive (matplotlib's `Bbox.shrunk_to_aspect` refuses it).
     BoxNotPositive,
+    /// The axes is twinned, so it cannot shrink its box to the aspect
+    /// without leaving its twins' (matplotlib's `apply_aspect` refuses
+    /// [`Adjustable::Box`] in a twinned axes).
+    BoxInTwinnedAxes,
 }
 
 impl fmt::Display for AspectError {
@@ -69,11 +73,26 @@ impl fmt::Display for AspectError {
             ),
             Self::NonFiniteLimits => f.write_str("Axis limits cannot be NaN or Inf"),
             Self::BoxNotPositive => f.write_str("'box_aspect' and 'fig_aspect' must be positive"),
+            Self::BoxInTwinnedAxes => f.write_str(
+                "Adjustable 'box' is not allowed in a twinned Axes; use 'datalim' instead",
+            ),
         }
     }
 }
 
 impl std::error::Error for AspectError {}
+
+impl AspectError {
+    /// The kind of exception matplotlib's draw raises for the error: its
+    /// `RuntimeError` for a twinned axes adjusting its box, a `ValueError`
+    /// otherwise.
+    pub(crate) fn draw_kind(self) -> DrawErrorKind {
+        match self {
+            Self::BoxInTwinnedAxes => DrawErrorKind::Library,
+            _ => DrawErrorKind::InvalidValue,
+        }
+    }
+}
 
 /// Refuses [`Adjustable::Datalim`] for axes whose projection fixes their
 /// data ratio (curved projections, and custom ones fixing it).

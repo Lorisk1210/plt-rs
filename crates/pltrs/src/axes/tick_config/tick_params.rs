@@ -107,6 +107,7 @@ impl TickParams {
         set(&mut style.pad, self.pad);
         if self.labelrotation.is_some() || self.labelrotation_auto.is_some() {
             style.label_rotation = self.labelrotation.unwrap_or(0.0);
+            style.label_rotation_param = style.label_rotation;
             style.label_rotation_auto = self.labelrotation_auto.unwrap_or(false);
         }
         if let Some(direction) = self.direction {

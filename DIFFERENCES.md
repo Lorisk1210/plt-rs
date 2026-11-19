@@ -202,6 +202,19 @@ of a bug of its own, pltrs draws or answers:
   ticks from `AsinhLocator`. A path with an undefined code fails the
   draw with `ValueError` where matplotlib's `KeyError` comes from a
   table lookup.
+* A twin that plots dates (`twinx()`, then dates on the twin) takes
+  over, in matplotlib, the tick helpers of the x axis it shares: a
+  locator the program set (`MaxNLocator`) stays, but the date formatter
+  is replaced by one reading a locator that never ran, so every label
+  reads the year ("2020"), and under constrained layout the shared
+  limits take the twin's margins instead of those the program set
+  (`margins(x=0)`). pltrs keeps the program's formatter and margins.
+* Coordinates in a transform made from the Axes' own (`Affine2D() +
+  ax.transAxes`) are no data to pltrs; matplotlib autoscales to them
+  while the view still has its default limits (it then takes the
+  transform for `transData`, whose matrix is the same).
+* An Axes whose twin was removed may adjust its box to an aspect;
+  matplotlib keeps refusing it as in a twinned Axes.
 
 ## Values pltrs computes otherwise
 
@@ -222,6 +235,10 @@ of a bug of its own, pltrs draws or answers:
   `rcParams["path.effects"]` after `rcParams.update(rcParams.copy())` is
   still the list the program held under pltrs, a new equal list under
   matplotlib.
+* The data limits of a patch in a blended transform (`axvspan`,
+  `axhspan`) are its coordinates as given; matplotlib's go to the display
+  and back and may differ in their last bit, enough to move a tick that
+  falls on half a pixel to the next pixel.
 * In 3-D: `do_3d_projection()` called by a program before any draw
   projects in the current view, where matplotlib projects in the matrix
   `add_patch` left; a `Line3D` subclass' `draw` already sees the coming
@@ -381,6 +398,20 @@ matplotlib's, with these exceptions:
 * The "findfont: Failed to find font weight ..." warnings are logged a
   different number of times in some programs (pltrs looks up math and
   fallback fonts in another order); the fonts drawn are the same.
+* What an Axes refuses while its view is autoscaled or its aspect
+  applied is raised by the next draw or save, and by `apply_aspect`,
+  `get_position` and the Axes' `get_tightbbox`, but not by
+  `Figure.tight_layout` or `Figure.get_tightbbox`, which matplotlib's
+  raise too: `adjustable='box'` on a twinned Axes, a box aspect that is
+  not positive. Limits an autoscale makes NaN (a logit axis over a
+  hexbin, whose smallest positive datum is above one) are refused when
+  the figure is drawn; matplotlib refuses them in `set_yscale` and
+  `autoscale_view` already.
+* A log axis whose view holds no positive limit (a collection `relim`
+  does not see, such as `hlines`, then `relim()`, `autoscale_view()` and
+  `set_yscale('log')`) fails with "Data cannot be log-scaled because all
+  values are <= 0."; matplotlib draws a log axis over limits of ±0.055,
+  ticked from the smallest positive datum its `relim` left behind.
 
 ## Numbers on other machines
 

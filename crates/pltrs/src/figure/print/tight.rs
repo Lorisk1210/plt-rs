@@ -100,14 +100,13 @@ impl FigureState {
             if !state.base().visible {
                 continue;
             }
-            let extent = layout.axes_extent(axes);
             for &child in &state.children {
                 let Some(text) = store.get_as::<TextArtist>(child) else {
                     continue;
                 };
                 let base = text.base();
                 let left_out = !base.in_layout
-                    || fully_clipped(base, axes, extent)
+                    || fully_clipped(base, axes, layout.figure_state())
                     || !text.in_data_domain(store);
                 // An annotation lays itself out only where its point is
                 // shown (`Annotation.draw`).

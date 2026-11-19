@@ -43,6 +43,16 @@ pub(crate) struct TriangleMesh {
 pltrs_core::archive_struct!(TriangleMesh { points, triangles });
 
 impl TriangleMesh {
+    /// The points and the unmasked triangles of `triangulation`.
+    fn of(triangulation: &Triangulation) -> Self {
+        Self {
+            points: (0..triangulation.npoints())
+                .map(|i| triangulation.point(i))
+                .collect(),
+            triangles: triangulation.drawn_triangles(),
+        }
+    }
+
     /// The outline of each triangle, its corners in their order
     /// (matplotlib's `TriMesh.convert_mesh_to_paths`).
     pub(crate) fn paths(&self) -> Vec<Path> {
@@ -82,12 +92,7 @@ impl CollectionArtist {
     /// given values.
     pub(crate) fn tri_mesh(triangulation: &Triangulation, rc: std::rc::Rc<RcParams>) -> Self {
         let mut mesh = Self::new(CollectionKind::TriMesh, Vec::new(), rc);
-        mesh.triangle_mesh = Some(TriangleMesh {
-            points: (0..triangulation.npoints())
-                .map(|i| triangulation.point(i))
-                .collect(),
-            triangles: triangulation.drawn_triangles(),
-        });
+        mesh.triangle_mesh = Some(TriangleMesh::of(triangulation));
         mesh
     }
 }
@@ -216,10 +221,11 @@ impl TriMesh {
         Collection::from_raw(self.raw.clone())
     }
 
-    /// Draws the unmasked triangles of `triangulation`, the mesh's own as
-    /// it is now, from here on: matplotlib's `TriMesh.draw` reads the
+    /// Draws the unmasked triangles of `triangulation` over its points
+    /// from here on: matplotlib's `TriMesh.draw` reads the points and the
     /// masked triangles of its triangulation each time it draws, so a mask
-    /// set after the mesh was made hides triangles.
+    /// set, or points moved, after the mesh was made show. The mesh keeps
+    /// its colours, one per point.
     ///
     /// ```
     /// use pltrs::collections::{Collection, CollectionSpec, TriMesh};
@@ -233,10 +239,10 @@ impl TriMesh {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn set_triangulation(&self, triangulation: &Triangulation) -> &Self {
-        let triangles = triangulation.drawn_triangles();
+        let drawn = TriangleMesh::of(triangulation);
         self.raw.with_mut::<CollectionArtist, _>(|c| {
             if let Some(mesh) = &mut c.triangle_mesh {
-                mesh.triangles = triangles;
+                *mesh = drawn;
             }
         });
         self

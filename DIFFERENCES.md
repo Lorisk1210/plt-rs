@@ -252,7 +252,12 @@ of a bug of its own, pltrs draws or answers:
   to 4743.5 against 372.7 to 4747.3 for points from 1 to 9).
 * `ax.dataLim` of shapes on log axes keeps coordinates the scale cannot
   take, which matplotlib's `get_datalim` drops; the view mostly agrees.
-* Read before the first draw, a table cell's text extents differ.
+* Read before the first draw, a table cell's text extents differ. So
+  does an annotation's `arrow_patch.get_window_extent()`, before the
+  annotation's first draw or after it was moved and not drawn again:
+  pltrs answers where the arrow will be drawn, matplotlib the arrow as
+  last placed (before any draw, its unplaced path from (0, 0) to
+  (1, 1)).
 * `get_offsets()` of a scatter given `None` among its points holds `None`
   where matplotlib's holds `nan`; both draw the other points. A scatter
   read back from a pickle holds NaN under the mask of its offsets, where

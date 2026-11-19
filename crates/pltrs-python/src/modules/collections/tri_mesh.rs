@@ -1,8 +1,8 @@
 //! A triangle mesh following its triangulation: matplotlib's
-//! `TriMesh.draw` reads the masked triangles of its triangulation each
-//! time it draws, so the Python class hands pltrs (Rust) the
-//! triangulation again whenever its mask changed (`_collection_state`'s
-//! `TRIANGULATION`).
+//! `TriMesh.draw` reads the points and the masked triangles of its
+//! triangulation each time it draws, so the Python class hands pltrs
+//! (Rust) a triangulation of them again whenever they changed
+//! (`_collection_state`'s `TRIANGULATION`).
 
 use pltrs::artist::{RawHandle, TypedHandle};
 use pltrs::collections::TriMesh;
@@ -11,7 +11,7 @@ use pltrs::tri::Triangulation;
 use crate::binding::prelude::*;
 
 /// Has `mesh`, a triangle mesh, draw the unmasked triangles of
-/// `triangulation` as it is now.
+/// `triangulation` over its points.
 fn set_tri_mesh_triangulation(
     mesh: RawHandle,
     triangulation: Native<Triangulation>,

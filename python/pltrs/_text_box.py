@@ -22,7 +22,8 @@ class _TextBox(_mirrors.Mirroring):
     """The box of *text*, which a `.FancyBboxPatch` stands for."""
 
     def __init__(self, text):
-        self.text = text
+        # The text's draws draw the box, which leaves it fresh.
+        self.text = self.drawer = text
         #: Where `place` put the patch: the size of the frame, the matrix
         #: placing it in display pixels and the mutation scale.
         self.frame = None

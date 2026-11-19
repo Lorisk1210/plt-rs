@@ -290,10 +290,6 @@
   "measure",
   "relim"
  ],
- "given_tripcolor_gouraud_x": [
-  "draw",
-  "first_draw"
- ],
  "line._path.vertices then set_drawstyle": [
   "after",
   "value"

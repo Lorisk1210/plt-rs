@@ -1336,8 +1336,9 @@ artist reads when it draws, kept as the record's object with a key of
 what is read of them: the patch a `Shadow` shadows (the outline it draws,
 placed by its patch transform: a pie's donut wedges, widened after their
 shadows were made, cast rings) and the triangulation of a `TriMesh` (its
-mask; a flat `tripcolor`, `triplot` and the contour sets take theirs
-when made, as matplotlib's do).
+points, triangles and mask as its attributes hold them, set, assigned or
+changed in place; a flat `tripcolor`, `triplot` and the contour sets
+take theirs when made, as matplotlib's do).
 
 **The first draw of a collection sets its colours again** in matplotlib
 (its first `update_scalarmappable` finds its flags changed and resolves

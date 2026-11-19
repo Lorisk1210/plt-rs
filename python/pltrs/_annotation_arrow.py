@@ -37,10 +37,16 @@ class _AnnotationArrow(_mirrors.Mirroring):
     native_display_path = staticmethod(_annotation.arrow_display_path)
 
     def __init__(self, owner):
-        self.owner = owner
+        # The owner's draws draw the arrow, which leaves it fresh.
+        self.owner = self.drawer = owner
 
     def push(self, artist):
         self.native_restyle(self.owner._native, artist._native)
+
+    def figure(self, artist, root=False):
+        """The owner's figure, which matplotlib's ``set_figure`` gives
+        the arrow too (None until the owner joins one)."""
+        return self.owner.get_figure(root=root)
 
     def window_extent(self, artist, renderer=None, dpi=None):
         """The display box of the arrow as the annotation draws it."""

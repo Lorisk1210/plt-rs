@@ -3,8 +3,8 @@ The state of collections that matplotlib keeps as objects of the
 collection's own, which programs change in place (see `._own_state`): the
 offsets, the paths, the sizes, the line widths, the antialiasing flags,
 the dash patterns, the URLs, the face, edge and hatch colours and the
-shape transforms; a triangle mesh keeps its triangulation, whose mask it
-reads where it draws. Each state reads what pltrs (Rust) holds as the
+shape transforms; a triangle mesh keeps its triangulation, whose points
+and mask it reads where it draws. Each state reads what pltrs (Rust) holds as the
 getter of the collection gave it before there were states, and hands
 pltrs (Rust) the object's content through the native setter of the
 property, nothing else of the collection changing with it (what a setter
@@ -15,7 +15,7 @@ changed, not set).
 import numpy as np
 
 from . import _unusable, _values
-from ._native import artist as _artist, collections as _collections
+from ._native import artist as _artist, collections as _collections, tri as _tri
 from ._own_state import State, comparable, content, note_paths
 from .path import Path
 
@@ -304,12 +304,29 @@ TRANSFORMS = State(
         _artist.draw_count(collection._native) if _sized(collection) else None))
 
 
+def _triangulation_key(triangulation):
+    """What matplotlib's `.TriMesh` draws of *triangulation*: its points,
+    its triangles and its mask, as the attributes hold them (a program may
+    change them in place, or assign the mask)."""
+    return ("triangulation", content(triangulation.x), content(triangulation.y),
+            content(triangulation.triangles), content(triangulation.mask))
+
+
+def _take_triangulation(mesh, triangulation):
+    """Hand pltrs (Rust) the points and the unmasked triangles of
+    *triangulation* that *mesh* draws, read as matplotlib's
+    ``TriMesh.draw`` reads them (``get_masked_triangles`` of the
+    attributes)."""
+    triangles = triangulation.triangles
+    if triangulation.mask is not None:
+        triangles = triangles.compress(1 - triangulation.mask, axis=0)
+    _collections.set_tri_mesh_triangulation(mesh._native, _tri.as_given(
+        np.asarray(triangulation.x, dtype=float), np.asarray(triangulation.y, dtype=float),
+        np.asarray(triangles, dtype=np.int64)))
+
+
 #: The triangulation of a `.TriMesh` (matplotlib's ``_triangulation``),
-#: whose masked triangles matplotlib's mesh reads each time it draws:
-#: handed to pltrs (Rust) again whenever its mask changed.
-TRIANGULATION = State(
-    "triangulation", lambda mesh: mesh._triangulation,
-    lambda mesh, triangulation: _collections.set_tri_mesh_triangulation(
-        mesh._native, triangulation._native),
-    # (A key of None would read as no change: a mask set to None is one.)
-    lambda triangulation: ("mask", content(triangulation.mask)))
+#: whose points and masked triangles matplotlib's mesh reads each time it
+#: draws: handed to pltrs (Rust) again whenever they changed.
+TRIANGULATION = State("triangulation", lambda mesh: mesh._triangulation,
+                      _take_triangulation, _triangulation_key)

@@ -3,10 +3,13 @@ What the impact report of 2026-11-19 found pltrs drawing or answering
 otherwise than matplotlib 3.11 where an artist reads another object late:
 - a `Shadow` follows the outline its patch has when it draws (a donut
   pie's shadows are rings), and takes nothing else of the patch late;
-- a Gouraud-shaded `tripcolor` hides the triangles its triangulation's
-  mask hides when it draws, the flat one those masked when it was made;
+- a Gouraud-shaded `tripcolor` draws its triangulation's points,
+  triangles and mask as they are when it draws (set, assigned or changed
+  in place), the flat one those of when it was made;
 - a patch in no figure (the box behind a text, an annotation's arrow, a
-  loose patch) is hit-tested through its transform;
+  loose patch) is hit-tested through its transform; an annotation's arrow
+  is in its annotation's figure, and the arrow and a text's box are fresh
+  after their owner's draw;
 - ``get_hatch()`` answers the hatch given, ``''`` and numpy strings too.
 Every expected value was recorded from matplotlib.
 """
@@ -19,7 +22,9 @@ import pltrs.pyplot as plt
 import pltrs.tri as mtri
 from pltrs.backend_bases import MouseEvent
 from pltrs.collections import TriMesh
+from pltrs.offsetbox import AnnotationBbox, TextArea
 from pltrs.patches import Circle, Polygon, Rectangle, Shadow, Wedge
+from pltrs.text import Annotation
 from pltrs.transforms import Affine2D
 
 #: matplotlib's figure background and the colour of a shadow of a patch
@@ -180,6 +185,47 @@ def test_a_trimesh_made_alone_follows_its_mask():
         (55, 69, 122), WHITE, (51, 156, 128), WHITE]
 
 
+#: Two points beyond the triangles' centres: inside the right square's
+#: upper corner and the left square's.
+CORNERS = [(1.9, 0.9), (0.9, 0.9)]
+
+
+def drawn_then_changed(change):
+    """The colours at `CENTRES` and `CORNERS` of a Gouraud `tripcolor` of a
+    triangulation of its own points, drawn, then *change(triangulation)*
+    made, then drawn again."""
+    fig, ax, _ = grid()
+    triangulation = mtri.Triangulation(
+        X.copy(), Y.copy(), [[0, 1, 2], [1, 3, 2], [1, 4, 3], [4, 5, 3]])
+    ax.tripcolor(triangulation, X + Y, shading='gouraud')
+    ax.set_xlim(0, 2)
+    ax.set_ylim(0, 1)
+    fig.canvas.draw()
+    change(triangulation)
+    return pixels(fig, ax, CENTRES + CORNERS)
+
+
+def test_a_gouraud_tripcolor_draws_points_moved_in_place():
+    def move(triangulation):
+        triangulation.x[3] = 0.6
+        triangulation.y[5] = 0.5
+    assert drawn_then_changed(move) == [
+        (55, 69, 122), (51, 147, 130), (52, 166, 125), WHITE, WHITE, WHITE]
+
+
+def test_a_gouraud_tripcolor_draws_a_mask_assigned_or_triangles_changed_in_place():
+    def assign_mask(triangulation):
+        triangulation.mask = np.array([False, True, False, True])
+
+    def turn_triangle(triangulation):
+        triangulation.triangles[3] = [4, 5, 1]
+    assert drawn_then_changed(assign_mask) == [
+        (55, 69, 122), WHITE, (51, 156, 128), WHITE, WHITE, WHITE]
+    assert drawn_then_changed(turn_triangle) == [
+        (55, 69, 122), (50, 130, 134), (104, 147, 110), (182, 188, 72),
+        (230, 218, 48), (52, 167, 125)]
+
+
 def test_a_flat_tripcolor_keeps_the_triangles_unmasked_when_it_was_made():
     fig, ax, triangulation = grid()
     ax.tripcolor(triangulation, X + Y)
@@ -240,3 +286,36 @@ def test_hatches_read_back_as_given():
     dots = ax.scatter([0], [0], hatch='/')
     dots.set_hatch('')
     assert repr(dots.get_hatch()) == "''"
+
+
+def test_an_annotation_arrow_is_in_the_annotations_figure():
+    fig = plt.figure()
+    left, right = fig.subfigures(1, 2)
+    ax = right.subplots()
+    loose = Annotation('n', (0.5, 0.5), (0.1, 0.8), arrowprops=dict(arrowstyle='->'))
+    assert loose.arrow_patch.get_figure() is None
+    ax.add_artist(loose)
+    note = ax.annotate('n', (0.2, 0.2), (0.6, 0.6), arrowprops=dict(arrowstyle='->'))
+    for arrow in (loose.arrow_patch, note.arrow_patch):
+        assert (arrow.figure, arrow.get_figure(root=True), arrow.axes) == (right, fig, None)
+        assert arrow.figure.canvas is fig.canvas
+    box = AnnotationBbox(TextArea('b'), (0.3, 0.3), xybox=(0.7, 0.2),
+                         arrowprops=dict(arrowstyle='->'))
+    ax.add_artist(box)
+    assert box.arrow_patch.get_figure() is right
+
+
+def test_an_annotation_arrow_and_a_text_box_are_fresh_after_their_owners_draw():
+    fig, ax = plt.subplots()
+    note = ax.annotate('n', (0.2, 0.2), (0.6, 0.6), arrowprops=dict(arrowstyle='->'),
+                       bbox=dict(fc='y'))
+    text = ax.text(0.1, 0.1, 'boxed', bbox=dict(fc='c'))
+    parts = (note.arrow_patch, note.get_bbox_patch(), text.get_bbox_patch())
+    assert [part.stale for part in parts] == [True, True, True]
+    fig.canvas.draw()
+    assert [part.stale for part in parts] == [False, False, False]
+    note.arrow_patch.set_color('r')
+    assert note.arrow_patch.stale
+    note.set_visible(False)
+    fig.canvas.draw()
+    assert note.arrow_patch.stale

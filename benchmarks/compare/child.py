@@ -119,8 +119,14 @@ class _Ready:
     """When the script's figure was ready, and its pictures."""
 
     def __init__(self, start):
-        #: The parent's start stamp (``time.time()``).
-        self.start = start
+        #: Seconds from the parent's start stamp (its ``time.time()``) to
+        #: this moment, and this moment on the steady clock, on which
+        #: every span is measured from here. The system's clock steps by
+        #: 16 ms on Windows before Python 3.13: a reading of it and a span
+        #: of the steady clock do not add up, and the span to the end came
+        #: out before the figure was ready there.
+        self._before = max(0.0, time.time() - start)
+        self._since = time.perf_counter()
         #: Seconds from the start to the figure ready, once stamped.
         self.ready = None
         #: Seconds spent keeping pictures, left out of the span to the end.
@@ -128,6 +134,10 @@ class _Ready:
         #: The pictures, ``(width, height, RGBA bytes)``, of the open
         #: figures when the figure was ready.
         self.pictures = []
+
+    def elapsed(self):
+        """Seconds since the parent's start stamp."""
+        return self._before + time.perf_counter() - self._since
 
     def show_function(self):
         """pyplot's ``show`` in the child: the first call draws the open
@@ -146,7 +156,7 @@ class _Ready:
         figures = _open_figures()
         for figure in figures:
             figure.canvas.draw()
-        self.ready = time.time() - self.start
+        self.ready = self.elapsed()
         began = time.perf_counter()
         self.pictures = [_picture(figure) for figure in figures]
         self.keeping += time.perf_counter() - began
@@ -273,7 +283,7 @@ def run(args):
     ready = _Ready(float(sys.stdin.readline()))
     sys.meta_path.insert(0, _ShowHook(ready))
     error = _run_script(script, ready) or _wrong_library(args.library)
-    end = time.time() - ready.start - ready.keeping
+    end = ready.elapsed() - ready.keeping
     report = {"ready": ready.ready, "end": end, "peak_memory": _peak_memory(), "error": error}
     pictures = _save_pictures(ready.pictures, result.parent)
     report["pictures"] = pictures or [path for path in [_last_saved_image(pathlib.Path.cwd())] if path]

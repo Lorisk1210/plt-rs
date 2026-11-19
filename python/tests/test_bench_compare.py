@@ -20,6 +20,7 @@ if not (TOOL / "compare.py").is_file():
     pytest.skip("the comparison tool is in the source tree only", allow_module_level=True)
 sys.path.insert(0, str(TOOL))
 
+import child  # noqa: E402
 import compare  # noqa: E402
 import encode  # noqa: E402
 import frames  # noqa: E402
@@ -45,6 +46,23 @@ def run_script(side, tmp_path, source, look="classic"):
     script = tmp_path / "script.py"
     script.write_text(textwrap.dedent(source), encoding="utf-8")
     return runs.run_once(side, script, look, tmp_path / "run", tmp_path / "config")
+
+
+def test_the_spans_are_measured_on_one_clock(monkeypatch):
+    # The system's clock steps by 16 ms on Windows before Python 3.13
+    # (here: by a whole second), while the pictures are kept on the steady
+    # clock: the span to the end, less that time, is never before the
+    # figure was ready.
+    import time
+
+    monkeypatch.setattr(child.time, "time", lambda: 1_000.0)
+    monkeypatch.setattr(child, "_open_figures", lambda: [])
+    ready = child._Ready(999.75)
+    time.sleep(0.01)
+    ready.stamp()
+    time.sleep(0.01)
+    end = ready.elapsed() - ready.keeping
+    assert 0.25 < ready.ready <= end < 1.25
 
 
 def test_a_script_shown_is_timed_to_its_show_and_its_figure_kept(pltrs_side, tmp_path):

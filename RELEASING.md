@@ -236,9 +236,12 @@ arm64 Windows).
 
 * **What has run on Windows:** last on 2026-11-18, on a PC with
   Windows 11, MSVC 14.43 and an AVX2 processor, on the tree of
-  `a855aaca`. Two fixes in Python came after it (texts converted for an
-  axis' new units, and a program's `draw` in a class made where no file
-  is): the wheel of the release's tree has not run on Windows.
+  `a855aaca`. Fixes in Python and in native code came after it (texts
+  converted for an axis' new units, a program's `draw` in a class made
+  where no file is, and on 2026-11-19 the differences a rendering sweep
+  found: contour norms, shadows and meshes that read their source when
+  they draw, aspect refusals), with a new function order: the wheel of
+  the release's tree has not run on Windows.
   * The `win_amd64` wheel (19.1 MiB), the sdist and the alias were built
     with MSVC and passed `twine check --strict`. `_native.pyd` imports
     only Windows', the UCRT's and Python's libraries (`python3.dll`,
@@ -261,6 +264,16 @@ arm64 Windows).
     and the libraries' suites (begun, not finished), and windows on the
     screen. `win_arm64` has never been built: the workflow's run is its
     first.
+  * In its place, for the commits after `a855aaca`: the tree of
+    `cd133e5f` under Wine on Linux (`crates/pltrs-platform/tools/wine.sh`:
+    a `x86_64-pc-windows-gnu` build from the tree and a Windows CPython
+    3.14, not the MSVC wheel). `python/tests` in one process passed 3,981
+    tests and failed 7, each for a reason that is Wine's (its symbolic
+    links are a stub, its own maths library, Linux's `/proc` showing
+    through, Python and the tree on two drives); `cargo test -p pltrs
+    --lib` passed 2,848. What Windows itself decides (the file system,
+    the registry's fonts and time zones, Microsoft's maths library) this
+    does not show.
 
 ### On GitHub
 

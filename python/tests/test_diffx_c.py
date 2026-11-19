@@ -1,7 +1,9 @@
 """
 What the impact report on pltrs and matplotlib 3.11 found pltrs doing
 otherwise in limits, margins, aspects and tick labels (task DIFFX-C),
-reduced to matplotlib's API: twinned Axes refusing to adjust their box,
+reduced to matplotlib's API: what applying an aspect and the aspect
+setters refuse, in matplotlib's words (twinned Axes adjusting their box,
+Axes sharing both axes adjusting their data limits),
 limits no float holds, limits a logit axis autoscales to NaN, the
 rotation of a polar Axes' tick labels, margins added in the scale's own
 space with a secondary axis, which Axes of a shared group autoscales
@@ -88,6 +90,116 @@ def test_twins_refuse_a_box_whichever_of_them_has_it():
     ax.set_adjustable("box")
     with pytest.raises(RuntimeError, match=TWINNED_BOX):
         fig.canvas.draw()
+
+
+def _both_shared():
+    fig, (ax, _) = plt.subplots(1, 2, sharex=True, sharey=True)
+    ax.plot([0, 1], [0, 2])
+    ax.set_aspect("equal", adjustable="datalim")
+    return fig, ax
+
+
+def _twin_box():
+    return _twinned_box()[:2]
+
+
+def _negative_box():
+    fig, ax = plt.subplots()
+    ax.set_box_aspect(-1)
+    return fig, ax
+
+
+def _logit_datalim():
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0.0, 1.0])
+    ax.set_yscale("logit")
+    ax.set_ylim(0, 1)
+    ax.set_aspect("equal", adjustable="datalim")
+    return fig, ax
+
+
+def _constrained_draw(fig, ax):
+    fig.set_layout_engine("constrained")
+    fig.canvas.draw()
+
+
+# What apply_aspect refuses: matplotlib's exception and its words alone.
+APPLY_ASPECT_REFUSALS = [
+    (_both_shared, RuntimeError,
+     "set_aspect(..., adjustable='datalim') or axis('equal') are not allowed "
+     "when both axes are shared.  Try set_aspect(..., adjustable='box')."),
+    (_twin_box, RuntimeError, TWINNED_BOX),
+    (_negative_box, ValueError, "'box_aspect' and 'fig_aspect' must be positive"),
+    (_logit_datalim, ValueError, "Axis limits cannot be NaN or Inf"),
+]
+
+# The calls that apply the aspect.
+APPLYING_CALLS = [
+    lambda fig, ax: fig.canvas.draw(),
+    lambda fig, ax: fig.savefig(io.BytesIO()),
+    lambda fig, ax: fig.savefig(io.BytesIO(), bbox_inches="tight"),
+    lambda fig, ax: fig.draw_without_rendering(),
+    lambda fig, ax: ax.apply_aspect(),
+    lambda fig, ax: ax.get_position(),
+    lambda fig, ax: ax.get_tightbbox(fig.canvas.get_renderer()),
+    _constrained_draw,
+]
+
+
+@pytest.mark.parametrize("make, kind, message", APPLY_ASPECT_REFUSALS)
+@pytest.mark.parametrize("call", APPLYING_CALLS)
+def test_aspect_refusals_say_matplotlibs_words_alone(make, kind, message, call):
+    fig, ax = make()
+    with pytest.raises(kind) as refused:
+        call(fig, ax)
+    assert str(refused.value) == message
+
+
+@pytest.mark.parametrize("call, kind, message", [
+    (lambda ax: ax.set_aspect("x"), ValueError, "could not convert string to float: 'x'"),
+    (lambda ax: ax.set_aspect(-1), ValueError, "aspect must be finite and positive "),
+    (lambda ax: ax.set_aspect(np.nan), ValueError, "aspect must be finite and positive "),
+    (lambda ax: ax.set_aspect(None), TypeError,
+     "float() argument must be a string or a real number, not 'NoneType'"),
+    (lambda ax: ax.set_adjustable("x"), ValueError,
+     "'x' is not a valid value for adjustable. Supported values are 'box', 'datalim'"),
+    (lambda ax: ax.set_aspect(1, adjustable="x"), ValueError,
+     "'x' is not a valid value for adjustable. Supported values are 'box', 'datalim'"),
+    (lambda ax: ax.set_box_aspect([1, 2]), TypeError,
+     "float() argument must be a string or a real number, not 'list'"),
+    (lambda ax: ax.set_anchor("X"), ValueError,
+     "argument must be among C, SW, S, SE, E, NE, N, NW, W"),
+    (lambda ax: ax.set_aspect(1, anchor=(1, 2, 3)), ValueError,
+     "argument must be among C, SW, S, SE, E, NE, N, NW, W"),
+])
+def test_aspect_setters_refuse_in_matplotlibs_words(call, kind, message):
+    fig, ax = plt.subplots()
+    with pytest.raises(kind) as refused:
+        call(ax)
+    assert str(refused.value) == message
+
+
+@pytest.mark.parametrize("call", [
+    lambda ax: ax.set_adjustable("datalim"),
+    lambda ax: ax.set_box_aspect(1),
+    lambda ax: ax.set_aspect(1, adjustable="datalim"),
+])
+def test_polar_axes_refuse_datalim_in_matplotlibs_words(call):
+    ax = plt.figure().add_subplot(projection="polar")
+    with pytest.raises(ValueError) as refused:
+        call(ax)
+    assert str(refused.value) == ("Cannot set Axes adjustable to 'datalim' for Axes "
+                                  "which override 'get_data_ratio'")
+
+
+def test_axes_sharing_both_axes_adjust_their_box():
+    fig, ax = _both_shared()
+    with pytest.raises(RuntimeError):
+        fig.canvas.draw()
+    ax.set_adjustable("box")
+    fig.canvas.draw()
+    assert ax.get_position().bounds == pytest.approx(
+        (0.15676136363636362, 0.11, 0.28875, 0.77), rel=1e-12)
 
 
 def test_twinned_axes_adjust_their_data_limits_and_leave_their_window_extent():

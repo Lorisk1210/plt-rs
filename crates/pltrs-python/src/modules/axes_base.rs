@@ -28,7 +28,8 @@ impl From<AspectError> for PyErr {
     /// `spy` call) for a ratio that is not positive, with its trailing
     /// space; for axes fixing their data ratio, that of
     /// `set_adjustable('datalim')`, which every path reaches. A twinned
-    /// axes adjusting its box is `apply_aspect`'s `RuntimeError`.
+    /// axes adjusting its box, and an axes sharing both axes adjusting its
+    /// data limits, are `apply_aspect`'s `RuntimeError`s.
     fn from(err: AspectError) -> Self {
         match err {
             AspectError::NotPositive(_) => {
@@ -40,7 +41,9 @@ impl From<AspectError> for PyErr {
             AspectError::NonFiniteLimits | AspectError::BoxNotPositive => {
                 PyErr::value_error(err.to_string())
             }
-            AspectError::BoxInTwinnedAxes => PyErr::runtime_error(err.to_string()),
+            AspectError::BoxInTwinnedAxes | AspectError::DatalimBothShared => {
+                PyErr::runtime_error(err.to_string())
+            }
         }
     }
 }

@@ -58,6 +58,10 @@ pub enum AspectError {
     /// without leaving its twins' (matplotlib's `apply_aspect` refuses
     /// [`Adjustable::Box`] in a twinned axes).
     BoxInTwinnedAxes,
+    /// The axes shares both its axes, so it cannot widen the data limits
+    /// of either to the aspect (matplotlib's `apply_aspect` refuses
+    /// [`Adjustable::Datalim`] there).
+    DatalimBothShared,
 }
 
 impl fmt::Display for AspectError {
@@ -76,6 +80,10 @@ impl fmt::Display for AspectError {
             Self::BoxInTwinnedAxes => f.write_str(
                 "Adjustable 'box' is not allowed in a twinned Axes; use 'datalim' instead",
             ),
+            Self::DatalimBothShared => f.write_str(
+                "set_aspect(..., adjustable='datalim') or axis('equal') are not allowed when \
+                 both axes are shared.  Try set_aspect(..., adjustable='box').",
+            ),
         }
     }
 }
@@ -84,11 +92,12 @@ impl std::error::Error for AspectError {}
 
 impl AspectError {
     /// The kind of exception matplotlib's draw raises for the error: its
-    /// `RuntimeError` for a twinned axes adjusting its box, a `ValueError`
+    /// `RuntimeError` for a twinned axes adjusting its box and for an axes
+    /// sharing both axes adjusting its data limits, a `ValueError`
     /// otherwise.
     pub(crate) fn draw_kind(self) -> DrawErrorKind {
         match self {
-            Self::BoxInTwinnedAxes => DrawErrorKind::Library,
+            Self::BoxInTwinnedAxes | Self::DatalimBothShared => DrawErrorKind::Library,
             _ => DrawErrorKind::InvalidValue,
         }
     }

@@ -424,7 +424,8 @@ impl FigureState {
     /// the y view interval about its centre to reach the aspect of the box
     /// `position` (in a figure of aspect `fig_aspect`) over `ratio`, as
     /// matplotlib computes it (NaN where a scale cannot map the view);
-    /// fails, leaving the limits alone, when they would not be finite.
+    /// fails, leaving the limits alone, when they would not be finite or
+    /// when both axes are shared, so that neither may change.
     fn adjust_datalim(
         &mut self,
         axes: ArtistId,
@@ -467,12 +468,7 @@ impl FigureState {
         let shared_x = self.siblings(AxisName::X, axes).len() > 1;
         let shared_y = self.siblings(AxisName::Y, axes).len() > 1;
         if shared_x && shared_y {
-            self.pending_errors.push(DrawError::new(
-                axes,
-                "set_aspect(..., adjustable='datalim') is not allowed when both axes are \
-                 shared; use adjustable='box'",
-            ));
-            return Ok(());
+            return Err(AspectError::DatalimBothShared);
         }
         let adjust_y = !shared_y && {
             let adjy = if xmarg > 0.0 && ymarg > 0.0 {

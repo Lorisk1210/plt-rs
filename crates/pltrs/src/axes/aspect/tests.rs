@@ -175,6 +175,36 @@ fn twinned_axes_adjust_their_data_limits_never_their_box() {
 }
 
 #[test]
+fn axes_sharing_both_axes_refuse_to_adjust_their_data_limits() {
+    // matplotlib's `apply_aspect`, at the draw too: its `RuntimeError` in
+    // its words, once for the axes however often the draw lays it out.
+    let fig = Figure::new();
+    let ax = fig.add_subplot(1, 2, 1).expect("a subplot");
+    let other = fig.add_subplot(1, 2, 2).expect("a subplot");
+    other.share_x(&ax).expect("rectilinear axes share");
+    other.share_y(&ax).expect("rectilinear axes share");
+    ax.plot([0.0, 1.0], [0.0, 2.0]).expect("finite data");
+    ax.set_aspect(Aspect::Equal).unwrap();
+    ax.set_adjustable(Adjustable::Datalim).unwrap();
+    assert_eq!(
+        ax.apply_aspect().err(),
+        Some(AspectError::DatalimBothShared)
+    );
+    let Err(crate::figure::SaveError::Draw(errors)) = fig.to_png() else {
+        panic!("the draw refuses the aspect");
+    };
+    assert_eq!(errors.0.len(), 1);
+    assert_eq!(errors.0[0].kind, crate::artist::DrawErrorKind::Library);
+    assert_eq!(
+        errors.0[0].message,
+        "set_aspect(..., adjustable='datalim') or axis('equal') are not allowed when both axes \
+         are shared.  Try set_aspect(..., adjustable='box')."
+    );
+    ax.set_adjustable(Adjustable::Box).unwrap();
+    ax.apply_aspect().expect("shared axes adjust their boxes");
+}
+
+#[test]
 fn a_fixed_aspect_autoscales_the_view_it_shares_first_when_drawn() {
     // matplotlib's `Figure.draw` applies the aspect of each axes in turn
     // before laying them out: the datalim axes reads its view first, so

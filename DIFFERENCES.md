@@ -246,6 +246,14 @@ of a bug of its own, pltrs draws or answers:
   child.
 * A plain Axes sharing an axis with an Axes whose class keeps sharing
   groups of its own follows that Axes' limits; in matplotlib it does not.
+* A text at a position in a unit library's units (astropy, pint) is
+  converted when it joins its Axes, where matplotlib converts it when it
+  draws. On an Axes whose axes have no units yet, that gives both axes
+  the library's converter early, and limits or data given in units
+  afterwards no longer set the axes' units (nor the labels they bring):
+  give the Axes its data or limits first. A text made by `ax.text` also
+  keeps its place when an axis' units are changed later, where
+  matplotlib's moves with them. Annotations behave as matplotlib's.
 
 ## Values that differ between any two runs
 

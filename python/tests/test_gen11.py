@@ -275,3 +275,46 @@ def test_a_package_class_whose_module_left_sys_modules_is_not_the_programs(monke
     monkeypatch.delitem(sys.modules, backend_agg.__name__)
     assert not _program_classes.takes_from_program(Later, "get_text_width_height_descent")
     assert not _text_metrics._measures_itself(Later)
+
+
+def test_a_draw_of_a_class_in_a_module_without_a_file_is_the_programs():
+    # A class made in a notebook cell, an interactive session or
+    # ``python -c`` is of a ``__main__`` that names no file. Its ``draw``
+    # is held wrapped, as matplotlib wraps it, and is the program's still:
+    # matplotlib calls each of these once per draw.
+    import sys
+    import types
+
+    from pltrs import patches
+
+    calls = []
+    cell = types.ModuleType("a_notebook_cell")
+    scope = {"offsetbox": offsetbox, "patches": patches, "calls": calls,
+             "__name__": cell.__name__}
+    sys.modules[cell.__name__] = cell
+    try:
+        exec("""
+class Area(offsetbox.DrawingArea):
+    def draw(self, renderer):
+        calls.append("area")
+        super().draw(renderer)
+
+class Anchored(offsetbox.AnchoredOffsetbox):
+    def draw(self, renderer):
+        calls.append("anchored")
+        super().draw(renderer)
+
+class Arrow(patches.FancyArrowPatch):
+    def draw(self, renderer):
+        calls.append("arrow")
+        super().draw(renderer)
+""", scope)
+        fig, ax = plt.subplots()
+        area = scope["Area"](40, 20)
+        area.add_artist(patches.Circle((10, 10), 5))
+        ax.add_artist(scope["Anchored"]("center", child=area))
+        ax.add_patch(scope["Arrow"]((0.1, 0.1), (0.8, 0.8)))
+        fig.canvas.draw()
+    finally:
+        del sys.modules[cell.__name__]
+    assert sorted(calls) == ["anchored", "area", "arrow"]

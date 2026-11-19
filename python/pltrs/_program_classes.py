@@ -139,22 +139,40 @@ def takes_from_program(cls, name):
     for klass in cls.__mro__:
         if name in vars(klass):
             path = getattr(sys.modules.get(klass.__module__), "__file__", None)
-            if path is None:
-                path = _code_file(vars(klass)[name])
-            return path is None or _outside_package(path)
+            if path is not None:
+                return _outside_package(path)
+            files = _code_files(vars(klass)[name])
+            return not files or any(map(_outside_package, files))
     return False
 
 
-def _code_file(attribute):
-    """The source file of the code of *attribute* (a function, a method
-    object, a property's getter), None when it has none: where a class'
-    attribute comes from when the class' module is not among
-    ``sys.modules``. pytest's ``pytester`` takes the modules an in-process
-    run imported out again, while classes of this package made during the
-    run live on; such a class is not the program's (a renderer taken for
-    one was measured through itself without end)."""
+def _code_files(attribute):
+    """The source files of the code of *attribute* (a function, a method
+    object, a property's getter) and of what it wraps, none when it has no
+    code: where a class' attribute comes from when the class' module
+    names no file or is not among ``sys.modules``. It is the program's if
+    any of them lies outside this package.
+
+    A module without a file is the ``__main__`` of a notebook, of an
+    interactive session and of ``python -c``, and what a program makes
+    with ``types.ModuleType``. An artist class' ``draw`` is held wrapped
+    there (`._artist_subclassing`, as matplotlib wraps it), so the
+    program's code is what the wrapper wraps (``__wrapped__``).
+
+    pytest's ``pytester`` takes the modules an in-process run imported out
+    of ``sys.modules`` again, while classes of this package made during
+    the run live on; such a class is not the program's (a renderer taken
+    for one was measured through itself without end)."""
     function = getattr(attribute, "__func__", None) or getattr(attribute, "fget", None) or attribute
-    return getattr(getattr(function, "__code__", None), "co_filename", None)
+    files = []
+    seen = set()
+    while function is not None and id(function) not in seen:
+        seen.add(id(function))
+        file = getattr(getattr(function, "__code__", None), "co_filename", None)
+        if file is not None:
+            files.append(file)
+        function = getattr(function, "__wrapped__", None)
+    return files
 
 
 @class_cache

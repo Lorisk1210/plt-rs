@@ -234,20 +234,33 @@ arm64 Windows).
       target/wheels/pltrs-*win_amd64.whl target/wheels/matplotlib-*.whl
   ```
 
-* **What has run on Windows:** this was last done on 2026-11-15, on the
-  tree of `958016ac`, not on the release's.
-  * The `win_amd64` wheel was built with MSVC; its extension imports
-    only Windows' and the UCRT's libraries.
-  * `check_dist.py --install` passed 2,792 smoke tests on Python 3.12,
-    3.13 and 3.14. One test failed on each, `test_eco8`'s contour test
-    without contourpy, which has skipped since; that failure stopped the
-    runs before the alias.
-  * `--lowest` failed 38 tests, most of them expecting numpy's 64-bit
-    integers where numpy 1 on Windows makes 32-bit ones.
-  * The sdist was built from source with MSVC and failed 12 smoke tests.
-  * `win_amd64` of the release's tree has not run on Windows, and
-    `win_arm64` has never been built: the workflow's run is their first
-    on Windows.
+* **What has run on Windows:** last on 2026-11-18, on a PC with
+  Windows 11, MSVC 14.43 and an AVX2 processor, on the tree of
+  `a855aaca`. Two fixes in Python came after it (texts converted for an
+  axis' new units, and a program's `draw` in a class made where no file
+  is): the wheel of the release's tree has not run on Windows.
+  * The `win_amd64` wheel (19.1 MiB), the sdist and the alias were built
+    with MSVC and passed `twine check --strict`. `_native.pyd` imports
+    only Windows', the UCRT's and Python's libraries (`python3.dll`,
+    `VCRUNTIME140`).
+  * `check_dist.py --install` with the wheel and the alias passed on
+    Python 3.12, 3.13 and 3.14: 3,856 smoke tests on each, then the alias
+    stage and the drop-in program.
+  * `--lowest` passed 3,801 tests and failed 2: `test_named_gaps`'
+    unoriented triangulation, where matplotlib with numpy 1.26 gives
+    pltrs' values on Windows (the test's expectation, not yet corrected),
+    and a timing test that ran under load and passes alone.
+  * The sdist, built from source by pip with MSVC (about 21 minutes),
+    passed 3,856 tests. Without cargo on `PATH` the build stops with a
+    message that names rustup.
+  * A first user's steps passed in fresh venvs: the wheel alone, then
+    with the alias, pandas, seaborn and a Sphinx build, with
+    configuration and working directories whose names hold a space and
+    umlauts, and the uninstall.
+  * Not run on Windows on this tree: matplotlib's suite, the notebooks
+    and the libraries' suites (begun, not finished), and windows on the
+    screen. `win_arm64` has never been built: the workflow's run is its
+    first.
 
 ### On GitHub
 

@@ -152,7 +152,17 @@ def _native_hexbin(axes, x, y, C, gridsize, bins, xscale, yscale, extent, cmap,
          None if mincnt is None else int(mincnt)),
         mapping, bool(marginals))
     collection = wrap(axes, native, mcoll.PolyCollection)
-    collection._attach_native_mapping(colorizer=made)
+    if bins is None:
+        collection._attach_native_mapping(colorizer=made)
+    else:
+        # matplotlib's values are the indices of the bins the counts fall
+        # in (``searchsorted``), integers, as are the limits scaled to them;
+        # those given are set as floats (``_scale_norm``).
+        indices = collection._native_array().astype(np.int64)
+        if vmin is not None or vmax is not None:
+            made.set_clim(vmin, vmax)
+        collection._attach_native_mapping(colorizer=made, given=indices)
+        collection._mapped = cbook.safe_masked_invalid(indices)
     # matplotlib makes the collection with these, then sets the other
     # properties, which may set them again (``linewidth=``).
     collection._internal_update(

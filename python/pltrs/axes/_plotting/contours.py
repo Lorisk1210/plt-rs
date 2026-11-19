@@ -57,6 +57,10 @@ def _contour_look(axes, kwargs):
         norm = kwargs["colorizer"].norm
     logscale = (isinstance(norm, mcolors.LogNorm)
                 or isinstance(locator, ticker.LogLocator))
+    if logscale and norm is None:
+        # matplotlib's set maps the levels of a `.LogLocator` through a
+        # `.LogNorm` of its own, given the limits.
+        kwargs["norm"] = mcolors.LogNorm(kwargs.pop("vmin", None), kwargs.pop("vmax", None))
     linewidths = kwargs.pop("linewidths", None)
     alpha = kwargs.pop("alpha", None)
     antialiased = kwargs.pop("antialiased", None)

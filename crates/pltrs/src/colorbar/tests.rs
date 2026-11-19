@@ -304,6 +304,18 @@ fn a_retuned_norm_keeps_the_ticks_a_replaced_one_resets() {
 }
 
 #[test]
+fn blocks_drawn_anew_are_named_as_the_axes_children_count() {
+    // matplotlib 3.11.2: the dividers are `_child0` and the blocks
+    // `_child1`, also after an update; a colorbar is no child of its axes.
+    let (fig, _, image) = image_figure();
+    let colorbar = fig.colorbar(&image, ColorbarOptions::default()).unwrap();
+    let label = |colorbar: &Colorbar| colorbar.solids().expect("filled").label();
+    assert_eq!(label(&colorbar), "_child1");
+    image.set_cmap(colormaps::get("plasma").unwrap());
+    assert_eq!(label(&colorbar), "_child1");
+}
+
+#[test]
 fn contour_colorbars_follow_recolouring() {
     let fig = Figure::new();
     let ax = fig.subplot();

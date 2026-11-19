@@ -186,6 +186,11 @@ of a bug of its own, pltrs draws or answers:
   `canvas.draw()` or `draw_idle()`): matplotlib paints the figure twice
   into the same image, the second time over a half-finished first;
   pltrs draws it once, as the program's final state says.
+* `streamplot` given a norm without limits (`norm=PowerNorm(2)`):
+  matplotlib scales the norm to the colour of the first arrow alone, so
+  every line and arrow takes one colour and the colorbar spans a sliver;
+  pltrs scales it to all the colour values. Under each library the lines
+  agree with its colorbar.
 * Values matplotlib leaves to chance: the colour of a NaN hue in
   `hsv_to_rgb` (uninitialised memory in matplotlib), the order of NaN
   ticks from `AsinhLocator`. A path with an undefined code fails the
@@ -348,7 +353,8 @@ matplotlib's, with these exceptions:
   numpy gives when matplotlib computes with them (`invalid value
   encountered`, `divide by zero`, `overflow`; a hexbin of points holding
   `None` or NaN), and where two values are wrong it may complain about
-  the other one first. `axvline(np.ma.masked)` warns "converting a masked
+  the other one first. Some of those it gives name another line of your
+  program than matplotlib's, or are shown once more. `axvline(np.ma.masked)` warns "converting a masked
   element to nan" once, where matplotlib warns four times.
 * pltrs draws some data matplotlib refuses: `None` among `bar` heights
   (matplotlib raises `TypeError`), `datetime64` values whose converter
@@ -413,8 +419,10 @@ What does not work at all, each checked by running it:
   are accepted but not kept: the arrow has no id or link in an SVG.
 * **Some state changed in place is not drawn changed**: the vertices of
   a step line's path (`line._path.vertices` of a `drawstyle="steps"`
-  line), the matrix of `fig.dpi_scale_trans` and the points of an Axes'
-  `bbox`. The arrays artists hand out otherwise are their own, as in
+  line), the matrix of `fig.dpi_scale_trans`, the points of an Axes'
+  `bbox`, and a colour given as a list or an array (`plot(color=c)`, then
+  `c[0] = 1.0`), which pltrs takes when it is given and matplotlib when it
+  draws. The arrays artists hand out otherwise are their own, as in
   matplotlib, and changes to them are drawn.
 * **Polygon markers** with a number of sides that is not a positive
   integer: `MarkerStyle((4.5, 0))` has 5 corners where matplotlib's has

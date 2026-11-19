@@ -296,8 +296,14 @@ class ClippingMixin:
         Give the artist, which a plotting method just made in its Axes, the
         properties *kwargs* it is made with, as matplotlib's constructor
         takes them before the Axes adds the artist, clipped then as the
-        add leaves it (`clipped_as_added`).
+        add leaves it (`clipped_as_added`). A label that is none (None, or
+        empty) leaves the name the Axes gave the artist as its child
+        (``_child<n>``), as matplotlib's add names an artist labelled so.
         """
+        label = kwargs.get("label", "_given")
+        if (label is None or isinstance(label, str) and not label) and str(
+                self.get_label()).startswith("_child"):
+            kwargs = {name: value for name, value in kwargs.items() if name != "label"}
         ret = self._internal_update(kwargs)
         if "clip_box" in kwargs or "clip_path" in kwargs:
             clipped_as_added(self, kwargs)

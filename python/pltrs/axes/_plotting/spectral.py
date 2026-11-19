@@ -1001,5 +1001,7 @@ class SpectralMixin:
             bool(usevlines), _line(kwargs))
         if markers is not None:
             return lags, c, wrap(self, markers, mlines.Line2D), None
-        return (lags, c, wrap(self, lines, mcoll.LineCollection),
-                wrap(self, zero, mlines.Line2D))
+        zero = wrap(self, zero, mlines.Line2D)
+        # The data of matplotlib's `axhline` at 0 across the Axes.
+        zero._xorig, zero._yorig = [0, 1], [0, 0]
+        return lags, c, wrap(self, lines, mcoll.LineCollection), zero

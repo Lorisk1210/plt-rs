@@ -296,7 +296,6 @@
  ],
  "line._path.vertices then set_drawstyle": [
   "after",
-  "first_value",
   "value"
  ],
  "line._x then set_drawstyle": [
@@ -310,9 +309,6 @@
  ],
  "line._y then set_drawstyle": [
   "after"
- ],
- "line.get_path().vertices then set_drawstyle": [
-  "first_value"
  ],
  "line3d._path.vertices": [
   "first_kept",

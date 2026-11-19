@@ -12,6 +12,7 @@ use crate::artist::{
     FilteredGroupArtist, RawHandle, take_in,
 };
 use crate::collections::{Collection, CollectionSpec, TriMesh, TriMeshSpec};
+use crate::colorbar::ColorbarArtist;
 use crate::contour::ContourSetArtist;
 use crate::figure::attach;
 use crate::legend::LegendArtist;
@@ -250,8 +251,8 @@ impl Axes {
     }
 
     /// How many children matplotlib's `ax._children` would hold: the
-    /// children but the spines, the titles and the legend, a contour set
-    /// counting once.
+    /// children but the spines, the titles, the legend and the colorbars
+    /// drawn in the axes, a contour set counting once.
     pub(crate) fn listed_children(&self) -> usize {
         let figure = self.raw().figure_state().borrow();
         self.raw().with::<AxesState, _>(|axes| {
@@ -267,6 +268,7 @@ impl Axes {
                 .filter(|&&id| !axes.is_own_part(id))
                 .filter(|id| !drawing.contains(id))
                 .filter(|&&id| figure.artist_as::<LegendArtist>(id).is_none())
+                .filter(|&&id| figure.artist_as::<ColorbarArtist>(id).is_none())
                 .filter(|&&id| {
                     figure
                         .artist(id)

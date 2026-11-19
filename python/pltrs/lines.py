@@ -420,6 +420,7 @@ class Line2D(Artist):
 
     def set_transform(self, t):
         # docstring inherited: matplotlib's override has none.
+        self._recached()
         super().set_transform(t)
 
     #: The getters of a mirror that read what drawing its part changed
@@ -754,6 +755,7 @@ class Line2D(Artist):
         if not np.iterable(y):
             raise RuntimeError('y must be a sequence')
         self._xorig, self._yorig = _copied(x), _copied(y)
+        self._recached()
         if "_own_state" in self.__dict__:
             # New arrays and a new path, as matplotlib's ``recache`` makes.
             self._forget_drawn_data()
@@ -783,6 +785,34 @@ class Line2D(Artist):
             # program's stale callbacks as matplotlib's setter does.
             _artist.get_stale(self._native)
 
+    def _recached(self, without_steps=False):
+        """Note that matplotlib's line makes its path anew in its draw
+        style (``recache``) from now on: its data, transform or draw style
+        changed, or it was recached. (*without_steps*: the path stays
+        without steps until then, see `_markers_changing`.)"""
+        self.__dict__["_recached_at"] = _artist.draw_count(self._native)
+        self.__dict__["_without_steps"] = without_steps
+
+    def _markers_changing(self):
+        """Keep the path as the draws so far left it, before the markers
+        change: whether the next draws leave it without steps depends on
+        the new ones."""
+        self._recached(without_steps=self._path_without_steps())
+
+    def _path_without_steps(self):
+        """
+        Whether matplotlib's path of the line (``_path``) is its numbers
+        without steps: a line drawn in steps that draws markers recaches
+        its path in the default draw style to place them, and keeps that
+        path until it is recached (`_recached`) and asked for it before its
+        next draw.
+        """
+        if _lines.get_drawstyle(self._native) == "default":
+            return False
+        return self.__dict__.get("_without_steps", False) or (
+            _artist.draw_count(self._native) > self.__dict__.get("_recached_at", 0)
+            and _draws_marker(self.get_marker()) and self.get_markersize() > 0)
+
     def _forget_drawn_data(self):
         """Forget the array of the numbers drawn and the path handed out
         (`._own_state`): the data were set anew."""
@@ -807,6 +837,7 @@ class Line2D(Artist):
         # drawn, and every setter of the data converts the numbers at once
         # (handing them over by the next native call), so without *always*
         # nothing is waiting to be converted.
+        self._recached()
         if not always or "_xorig" not in self.__dict__:
             return
         _lines.set_data(self._native, *self._numbers())
@@ -961,6 +992,8 @@ class Line2D(Artist):
         if ((_own_state.RECORDS in self.__dict__ or "_xorig" in self.__dict__)
                 and drawstyle != _lines.get_drawstyle(self._native)):
             self._recache_x()
+        if drawstyle != _lines.get_drawstyle(self._native):
+            self._recached()
         self._set_native(drawstyle=drawstyle)
 
     def _recache_x(self):
@@ -1214,6 +1247,7 @@ class Line2D(Artist):
             arguments.
         """
         self.__dict__.pop("_marker_style", None)
+        self._markers_changing()
         self._set_native(marker=marker, fillstyle=self.get_fillstyle())
 
     @property
@@ -1280,6 +1314,7 @@ class Line2D(Artist):
         sz : float
              Marker size, in points.
         """
+        self._markers_changing()
         self._set_native(markersize=float(sz))
 
     def get_markeredgewidth(self):

@@ -11,7 +11,7 @@ import weakref
 
 import numpy as np
 
-from ._native import lines as _lines
+from ._native import artist as _artist, lines as _lines
 from ._own_state import State, hand_out
 from .path import Path
 
@@ -63,14 +63,6 @@ def columns(line):
         y = xy[:, 1]
     line.__dict__[VIEWS] = (weakref.ref(x), weakref.ref(y))
     return x, y
-    # The line holds the views weakly: while the program has one, it is
-    # the same at every read, and it holds the array (which owns its
-    # numbers, read from pltrs (Rust)); once the program has none, nothing
-    # holds the array but its record, which is then compared no more
-    # (`._own_state`).
-    x, y = xy[:, 0], xy[:, 1]
-    line.__dict__[VIEWS] = (weakref.ref(x), weakref.ref(y))
-    return x, y
 
 
 def _steps_of(line):
@@ -81,15 +73,25 @@ def _steps_of(line):
 
 
 def _read_path(line):
-    vertices, codes = _lines.get_path(line._native)
     xy = hand_out(line, XY)
-    if codes is None and vertices.shape == xy.shape and np.array_equal(
-            vertices, xy, equal_nan=True):
-        # No steps: the path is made of the line's own array.
-        vertices = xy
+    if line._path_without_steps():
+        vertices, codes = xy, None
+    else:
+        vertices, codes = _lines.get_path(line._native)
+        if codes is None and vertices.shape == xy.shape and np.array_equal(
+                vertices, xy, equal_nan=True):
+            # No steps: the path is made of the line's own array.
+            vertices = xy
     path = Path(vertices, codes)
     path._steps_of = _steps_of(line)
     return path
+
+
+def _path_drawn(line):
+    """The draw that last made the path of *line* without steps, which
+    matplotlib's draws make anew each time (`.Line2D._path_without_steps`),
+    else None."""
+    return _artist.draw_count(line._native) if line._path_without_steps() else None
 
 
 def _take_path(line, path):
@@ -108,8 +110,10 @@ def _path_key(path):
 
 #: The path drawn (matplotlib's ``_path``). The path of a line drawn in
 #: steps is made of its numbers by pltrs (Rust) at every draw: its vertices
-#: can be read, and what a program changes in them is not drawn.
-PATH = State("path", _read_path, _take_path, _path_key)
+#: can be read, and what a program changes in them is not drawn. Once such
+#: a line drew its markers, the path is its numbers without steps, as
+#: matplotlib's draw leaves it (`.Line2D._path_without_steps`).
+PATH = State("path", _read_path, _take_path, _path_key, version=_path_drawn)
 
 
 #: The markers drawn, where the line was given a list or an array of them

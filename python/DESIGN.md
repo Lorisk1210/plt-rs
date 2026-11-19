@@ -1218,7 +1218,10 @@ collection that maps values keeps the edge and hatch colours a program
 changed in the array only until its next draw sets them again, as
 matplotlib's does (`_collection_state.shown_until_drawn`). The path of a
 line drawn in steps is made of the line's numbers at every draw: it can
-be read and changed, and the change is not drawn.
+be read and changed, and the change is not drawn. Once such a line drew
+its markers, its path is its numbers without steps, a new one at every
+draw, until its data, transform or draw style change, as matplotlib's
+draw recaches it to place the markers (`Line2D._path_without_steps`).
 
 **What the package's own code reads** is kept by nobody. A getter about
 to make an artist's first record of a state looks at what the program
@@ -1447,9 +1450,10 @@ tick computation. `Figure.bbox_inches` changed in its array: matplotlib's
 draw does not follow it either (its canvas keeps the old size), only
 `get_size_inches()` does. Positions a patch was given as a list or an
 array (a circle's centre, an arrow patch's ends) and a `LineCollection`'s
-segments given as arrays: keeping every such artist as a record would
-cost each program that makes patches from the rows of an array a
-comparison per patch and draw. The alpha column of the face colours of a
+segments given as arrays, and the colours given to a line as a list or
+an array (a row of a colormap's colours): keeping every such artist as a
+record would cost each program that makes patches or lines from the rows
+of an array a comparison per artist and draw. The alpha column of the face colours of a
 collection that has an alpha of its own: pltrs (Rust) resolves the
 colours with that alpha at each draw, where matplotlib's array keeps
 what the program wrote.

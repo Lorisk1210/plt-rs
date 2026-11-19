@@ -10,6 +10,7 @@ use crate::markers::{Marker, MarkerSymbol};
 use crate::orientation::Orientation;
 use crate::polar::GRIDLINE_INTERPOLATION_STEPS;
 use crate::units::AxisValues;
+use pltrs_core::numeric::{np_maximum, np_minimum};
 
 /// Options of [`Axes::stem`]; matplotlib's format strings parse with
 /// [`str::parse`], as in `linefmt: "C2-.".parse()?`.
@@ -140,9 +141,11 @@ impl Axes {
         // The parts are shown in legends through the container only.
         stemlines.set_label("_nolegend_");
 
+        // numpy's `min` and `max`, as matplotlib spans the baseline: a NaN
+        // location makes both ends NaN, and no baseline is drawn.
         let span = [
-            locs.iter().copied().fold(f64::INFINITY, f64::min),
-            locs.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+            locs.iter().copied().fold(f64::INFINITY, np_minimum),
+            locs.iter().copied().fold(f64::NEG_INFINITY, np_maximum),
         ];
         let (head_x, head_y, base_x, base_y) = match options.orientation {
             Orientation::Vertical => (locs, heads, span, [options.bottom; 2]),
@@ -286,6 +289,24 @@ mod tests {
         let stems = ax.stem([0.0], [1.0], options).unwrap();
         assert_eq!(stems.markerline.marker(), Marker::default());
         assert_eq!(stems.markerline.linestyle(), LineStyle::None);
+    }
+
+    #[test]
+    fn a_nan_location_leaves_the_baseline_undrawn() {
+        // matplotlib 3.11.2: stem([0, nan, 2], [1, 2, 3]).baseline spans
+        // [nan, nan], and the limits are those of the stems alone.
+        let ax = Figure::new().subplot();
+        let stems = ax
+            .stem(
+                [0.0, f64::NAN, 2.0],
+                [1.0, 2.0, 3.0],
+                StemOptions::default(),
+            )
+            .unwrap();
+        assert!(stems.baseline.xdata().iter().all(|x| x.is_nan()));
+        assert_eq!(stems.baseline.ydata(), [0.0, 0.0]);
+        assert_eq!(ax.xlim(), (-0.1, 2.1));
+        assert_eq!(ax.ylim(), (-0.150_000_000_000_000_02, 3.15));
     }
 
     #[test]

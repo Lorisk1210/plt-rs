@@ -254,7 +254,9 @@ of a bug of its own, pltrs draws or answers:
   take, which matplotlib's `get_datalim` drops; the view mostly agrees.
 * Read before the first draw, a table cell's text extents differ.
 * `get_offsets()` of a scatter given `None` among its points holds `None`
-  where matplotlib's holds `nan`; both draw the other points.
+  where matplotlib's holds `nan`; both draw the other points. A scatter
+  read back from a pickle holds NaN under the mask of its offsets, where
+  matplotlib's keeps the values the mask hides.
 * A mapped scatter whose alphas do not fit its points after a draw reads
   its edge colours as its face colours.
 * A filled contour set given hatches after it was made reads back, after

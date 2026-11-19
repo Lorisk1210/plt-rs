@@ -732,6 +732,12 @@ class Collection(mcolorizer.ColorizingArtist):
         # The collection's own array, as matplotlib's ``_offsets``.
         return _own_state.hand_out(self, _state.OFFSETS)
 
+    def _keep_given_offsets(self, offsets):
+        """Keep *offsets*, a masked array of floats the collection was made
+        with, as its own: matplotlib's keeps the values its mask hides,
+        where pltrs (Rust) holds NaN."""
+        _own_state.keep(self, _state.OFFSETS, offsets)
+
     def _has_offsets(self):
         """Whether the items are placed at offsets (matplotlib's ``_offsets
         is not None``)."""
@@ -820,7 +826,7 @@ class Collection(mcolorizer.ColorizingArtist):
             offsets = np.ma.masked_invalid(offsets)
             if not offsets.mask.all():
                 bbox = mtransforms.Bbox.null()
-                bbox.update_from_data_xy(offsets.compressed().reshape(-1, 2))
+                bbox.update_from_data_xy(offsets)
                 return bbox
         return mtransforms.Bbox.null()
 

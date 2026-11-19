@@ -61,6 +61,19 @@ def _rc_cmap_found_natively():
     return getattr(mcolorizer._mpl().colormaps, "_native_mirror", False)
 
 
+def _keep_masked_values(collection, x, y, c):
+    """Give the scatter *collection* of the points *x*, *y* mapping the
+    values *c* (None for given colours), with the masks combined, the
+    values the masks hide, which matplotlib's offsets and array keep and
+    pltrs (Rust) holds as NaN."""
+    if not np.ma.is_masked(x):
+        return
+    if x.dtype.kind in "biuf" and y.dtype.kind in "biuf":
+        collection._keep_given_offsets(np.ma.column_stack([x, y]).astype(float))
+    if c is not None and np.ma.is_masked(c):
+        collection._mapped = cbook.safe_masked_invalid(c, copy=True)
+
+
 class ScatterMixin:
     """`scatter`."""
 
@@ -479,6 +492,7 @@ class ScatterMixin:
             _values.remember(collection, "alpha", alpha)
         if made is not None:
             collection._attach_native_mapping(colorizer=made)
+        _keep_masked_values(collection, x, y, c if made is not None else None)
         if given_linewidths is not None or (widths_as_given is not None
                                             and not len(widths_as_given)):
             # Widths no number reads, or none, which renderers fail on.

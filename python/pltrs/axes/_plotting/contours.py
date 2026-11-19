@@ -59,8 +59,10 @@ def _contour_look(axes, kwargs):
                 or isinstance(locator, ticker.LogLocator))
     if logscale and norm is None:
         # matplotlib's set maps the levels of a `.LogLocator` through a
-        # `.LogNorm` of its own, given the limits.
-        kwargs["norm"] = mcolors.LogNorm(kwargs.pop("vmin", None), kwargs.pop("vmax", None))
+        # `.LogNorm` of its own.
+        norm = kwargs["norm"] = mcolors.LogNorm()
+    if isinstance(norm, mcolors.Normalize) and kwargs.get("colorizer") is None:
+        _limit_norm(norm, kwargs.pop("vmin", None), kwargs.pop("vmax", None))
     linewidths = kwargs.pop("linewidths", None)
     alpha = kwargs.pop("alpha", None)
     antialiased = kwargs.pop("antialiased", None)
@@ -116,6 +118,21 @@ def _contour_look(axes, kwargs):
         # No transform: kept as given, failing where the set is drawn.
         attributes["_given_transform"] = given_transform
     return look, extras, attributes, made, cmap is None
+
+
+def _limit_norm(norm, vmin, vmax):
+    """Give *norm*, the norm a contour set is made with, the limits
+    *vmin* and *vmax* that are given, in place, as matplotlib's
+    ``ContourSet`` sets them: the artists sharing the norm are told once
+    both are set."""
+    if vmin is None and vmax is None:
+        return
+    with norm.callbacks.blocked(signal="changed"):
+        if vmin is not None:
+            norm.vmin = vmin
+        if vmax is not None:
+            norm.vmax = vmax
+    norm._changed()
 
 
 def _levels(levels):

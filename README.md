@@ -525,6 +525,18 @@ confined to its eight fast CPUs, as the report explains):
   `pltrs.pyplot` <!--fact:bench.import.pltrs-->169 ms (it loads Pillow and
   the 3-D toolkit, as matplotlib's does).
 
+To time a script of your own, `benchmarks/compare/compare.py` runs any
+Python script written for matplotlib, unchanged, under matplotlib and
+under pltrs (Python), one process at a time, and prints how long each
+took to have its figure ready, whether both drew the same picture and,
+with `--video DIR`, writes a clip of the two figures appearing side by
+side at their measured times
+([`benchmarks/compare/README.md`](https://github.com/Lorisk1210/plt-rs/blob/main/benchmarks/compare/README.md)):
+
+```sh
+.venv/bin/python benchmarks/compare/compare.py my_plot.py --video clips/
+```
+
 See `CLAUDE.md` for the coding conventions.
 
 ## Licence

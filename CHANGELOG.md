@@ -94,6 +94,9 @@ libraries under it keeps their permissive licences (`THIRD_PARTY.md`,
 * Speed (`benchmarks/README.md`, on <!--fact:bench.date-->2026-11-18 at
   `<!--fact:bench.commit-->a9cf3e1a`): pltrs (Python) typically <!--fact:bench.python.warm-->4.3× faster than
   matplotlib warm and <!--fact:bench.python.cold-->1.79× cold; pltrs (Rust) <!--fact:bench.rust.warm-->5.3× and <!--fact:bench.rust.cold-->16×.
+  `benchmarks/compare/compare.py` times any script of your own in
+  matplotlib's syntax under both libraries and can make a side-by-side
+  clip of the two figures.
 
 ### Known differences from matplotlib
 

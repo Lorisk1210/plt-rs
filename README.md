@@ -557,3 +557,8 @@ and libavif, zlib-ng, auditwheel and Microsoft's STL, and bundles fonts
 (including Inter), colour data, X.Org's keysym tables and Unicode data.
 Those parts keep their own permissive licences: `THIRD_PARTY.md` lists
 them, and `LICENSES/` holds their notices.
+
+pltrs is an independent project. It is not affiliated with, or endorsed
+by, the Matplotlib Development Team, NumFOCUS or the authors of the
+other projects above; "matplotlib" names the library pltrs reimplements
+and stays its owners' name.

@@ -116,6 +116,8 @@ therefore contain AGPL-3.0 code:
 They are test data: pltrs' checks compare the structure of what pltrs
 writes with them. **No package distributes them**: the source
 distribution and the wheels leave `spec/` out, and no crate includes it.
-pltrs itself holds no code of Ghostscript's; where matplotlib runs
+`spec/goldens/LICENSE-GHOSTSCRIPT.txt` holds Artifex's notice, where
+the prolog's source is, and the AGPL-3.0's text. pltrs itself holds no
+code of Ghostscript's; where matplotlib runs
 Ghostscript, pltrs runs the `gs` the user has installed, as matplotlib
 does.

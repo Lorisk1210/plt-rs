@@ -234,46 +234,64 @@ arm64 Windows).
       target/wheels/pltrs-*win_amd64.whl target/wheels/matplotlib-*.whl
   ```
 
-* **What has run on Windows:** last on 2026-11-18, on a PC with
-  Windows 11, MSVC 14.43 and an AVX2 processor, on the tree of
-  `a855aaca`. Fixes in Python and in native code came after it (texts
-  converted for an axis' new units, a program's `draw` in a class made
-  where no file is, and on 2026-11-19 the differences a rendering sweep
-  found: contour norms, shadows and meshes that read their source when
-  they draw, aspect refusals), with a new function order: the wheel of
-  the release's tree has not run on Windows.
-  * The `win_amd64` wheel (19.1 MiB), the sdist and the alias were built
-    with MSVC and passed `twine check --strict`. `_native.pyd` imports
-    only Windows', the UCRT's and Python's libraries (`python3.dll`,
-    `VCRUNTIME140`).
-  * `check_dist.py --install` with the wheel and the alias passed on
-    Python 3.12, 3.13 and 3.14: 3,856 smoke tests on each, then the alias
-    stage and the drop-in program.
-  * `--lowest` passed 3,801 tests and failed 2: `test_named_gaps`'
-    unoriented triangulation, where matplotlib with numpy 1.26 gives
-    pltrs' values on Windows (the test's expectation, not yet corrected),
-    and a timing test that ran under load and passes alone.
-  * The sdist, built from source by pip with MSVC (about 21 minutes),
-    passed 3,856 tests. Without cargo on `PATH` the build stops with a
-    message that names rustup.
-  * A first user's steps passed in fresh venvs: the wheel alone, then
-    with the alias, pandas, seaborn and a Sphinx build, with
-    configuration and working directories whose names hold a space and
-    umlauts, and the uninstall.
-  * Not run on Windows on this tree: matplotlib's suite, the notebooks
-    and the libraries' suites (begun, not finished), and windows on the
-    screen. `win_arm64` has never been built: the workflow's run is its
-    first.
-  * In its place, for the commits after `a855aaca`: the tree of
-    `cd133e5f` under Wine on Linux (`crates/pltrs-platform/tools/wine.sh`:
-    a `x86_64-pc-windows-gnu` build from the tree and a Windows CPython
-    3.14, not the MSVC wheel). `python/tests` in one process passed 3,981
-    tests and failed 7, each for a reason that is Wine's (its symbolic
-    links are a stub, its own maths library, Linux's `/proc` showing
-    through, Python and the tree on two drives); `cargo test -p pltrs
-    --lib` passed 2,848. What Windows itself decides (the file system,
-    the registry's fonts and time zones, Microsoft's maths library) this
-    does not show.
+* **What has run on Windows:** on 2026-11-19 and 20, on a PC with
+  Windows 11 (German locale), MSVC 14.43 and an AVX2 processor (Intel
+  i9-10900K), on the tree of `df82b08e` with the clock fix and the tests
+  that became `3a3fef18`: the wheel, the alias and the native code are
+  `3a3fef18`'s, whose sdist differs from the one built there in tests
+  and in this document only.
+  * The Rust workspace: clippy (MSVC and gnu) and fmt clean; `cargo test
+    --workspace` passed 6,341 and failed none; the spec passed 48,559
+    probes at `x86_64-v3` and 48,558 at `v2`, 48,446 without TeX, with no
+    failure (the 4 probes of `savefig` with a distiller skipped: its
+    program is not installed); figures 3,402 of 3,402; pixels and vectors.
+  * `cargo xtask python test` passed 4,036 tests and failed 1, the colour
+    codes `test_flaky_outcomes` expects, which `-n 8` in `PYTEST_ADDOPTS`
+    changes.
+  * The `win_amd64` wheel (19.1 MiB, 543 files), the sdist (15.8 MiB) and
+    the alias (1.6 MiB) were built with MSVC and passed the audit and
+    `twine check --strict`. `_native.pyd` imports only Windows', the
+    UCRT's and Python's libraries (`python3.dll`, `VCRUNTIME140`).
+  * `check_dist.py --install` with the wheel and the alias passed 4,011
+    tests on Python 3.12 and 4,010 on 3.13 and 3.14 (one test fewer,
+    before the clock fix), then the alias stage and the drop-in program,
+    which drew its 5 figures. `--lowest` passed 3,958; the sdist, built
+    from source by pip with MSVC (about 11 minutes a build), 4,010.
+  * Before Python 3.13, `time.monotonic` and `time.time` step by 15.6 ms
+    on Windows. Two tests that measured with them failed on 3.12 there
+    (`benchmarks/compare`'s child, the kernel loop's wait); both measure
+    on the performance counter now.
+  * `benchmarks/compare/compare.py` ran headless on an example and on a
+    copy of it under a path with a space and umlauts (`--runs 3 --look
+    both --video`): the same picture under both libraries, the clips
+    written as animated WebP (no ffmpeg on the PC). Its peak-memory column
+    is empty on Windows.
+  * matplotlib's suite: of the 10,159 tests that pass under matplotlib
+    there, 10,157 pass under pltrs. The other 2 expect matplotlib's
+    configuration directory (`test_configdir_uses_localappdata_on_windows`,
+    `test_configdir_uses_userprofile_on_windows_if_exists`; pltrs' is
+    `%LOCALAPPDATA%\pltrs`, see `DIFFERENCES.md`). Without Developer Mode
+    the suite's site of links is a copy, in which `_outside_package`
+    recurses: the tests ran against the package itself, with copies of the
+    sdist's tests, and the GUI tests in the site.
+  * matplotlib's 138 window tests (Qt, Tk, the interactive backends) ran
+    under both libraries in the service session, which has no screen, and
+    passed; nothing has run on a visible desktop.
+  * The notebooks: 1,093 of 1,093 in Jupyter under both libraries, their
+    suites 1,091 of 1,091.
+  * The libraries' suites, 74 libraries: of the 23,979 tests that pass
+    under matplotlib there, 23,977 pass under pltrs; the other 2 are
+    pytest-mpl's comparisons, whose outcome changes from run to run under
+    matplotlib itself and is the same under both alone. healpy has no
+    Windows wheel and is left out.
+  * Run on the earlier tree of `a855aaca` only (2026-11-18): a first
+    user's steps in fresh venvs (the wheel alone, then with the alias,
+    pandas, seaborn and a Sphinx build, with configuration and working
+    directories whose names hold a space and umlauts, and the
+    uninstall), and the sdist's build without cargo on `PATH`, which
+    stops with a message that names rustup.
+  * Not run on Windows: windows on a visible desktop, and `win_arm64`,
+    which has never been built: the workflow's run is its first.
 
 ### On GitHub
 

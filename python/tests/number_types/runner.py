@@ -24,11 +24,14 @@ RECORDED = pathlib.Path(__file__).with_name("reference.json")
 #: The rows matplotlib itself describes otherwise on a platform than in the
 #: record, which was made on Linux x86-64, as the sweep run there under
 #: matplotlib gave them: ``{platform: {row: description}}``, the platform
-#: being ``sys.platform`` or ``"<sys.platform>-<machine>"``. With Apple's
-#: libm, and with the products matplotlib's GCC-built aarch64 Linux wheel
-#: fuses (recorded in the manylinux_2_28 image, task REL4), the arrow's
+#: being ``sys.platform`` or ``"<sys.platform>-<machine>"``. With the
+#: products the arm64 half of matplotlib's macOS wheel fuses, and those
+#: its GCC-built aarch64 Linux wheel fuses (recorded in the manylinux_2_28
+#: image, task REL4), the arrow's
 #: outline ends a last bit beside its first vertex, so that ``get_verts()``
-#: closes it with one vertex more. With numpy's Windows wheel the cross
+#: closes it with one vertex more. The x86_64 half fuses none, and keeps
+#: Linux x86-64's outline (pltrs' on an Intel Mac, GitHub's
+#: ``macos-15-intel``, 2026-11-20). With numpy's Windows wheel the cross
 #: spectral density of integers ends a value a last bit higher (matplotlib
 #: 3.11.2 there, measured on the Windows PC, task WIN6), and pltrs gives
 #: matplotlib's value there. On aarch64 Linux the same row,
@@ -37,8 +40,8 @@ RECORDED = pathlib.Path(__file__).with_name("reference.json")
 #: (24.730162019507027 for 24.73016201950703), as ``DIFFERENCES.md``
 #: ("Numbers on other machines") declares.
 ON_PLATFORM = {
-    "darwin": {"S FancyArrowPatch | get_verts()":
-               "ndarray[float64,(12, 2)]=[87.5001, 65.0665, 93.3051]"},
+    "darwin-arm64": {"S FancyArrowPatch | get_verts()":
+                     "ndarray[float64,(12, 2)]=[87.5001, 65.0665, 93.3051]"},
     "linux-aarch64": {"S FancyArrowPatch | get_verts()":
                       "ndarray[float64,(12, 2)]=[87.5001, 65.0665, 93.3051]"},
     "win32": {"R csd ints | returns":

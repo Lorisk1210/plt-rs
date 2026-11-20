@@ -40,8 +40,11 @@ def test_a_clear_keeps_the_data_limits():
     fig, ax = plt.subplots()
     ax.plot(X, Y)
     ax.cla()
+    # Y's extremes as numpy's sin gives them on the machine: one ulp
+    # apart between numpy's macOS x86_64 wheel and the others.
     assert ax.dataLim.get_points().tolist() == [
-        [0.0, -0.866025403784439], [6.283185307179586, 0.8660254037844387]]
+        [0.0, float(Y.min())], [6.283185307179586, float(Y.max())]]
+    assert abs(Y.max() - 0.8660254037844387) <= 2e-16
     assert ax.ignore_existing_data_limits
     ax.set_xscale("log")
     assert ax.get_xlim() == pytest.approx((0.9574609172248693, 6.872067725191114))

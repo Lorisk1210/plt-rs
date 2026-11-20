@@ -266,6 +266,15 @@ def digest(path):
     return hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()[:16]
 
 
+def home_relative(path):
+    """``path`` with the user's home directory written ``~``, so that the
+    committed results name no account."""
+    home = os.path.expanduser("~")
+    if os.path.normcase(path).startswith(os.path.normcase(home + os.sep)):
+        return "~" + path[len(home):]
+    return path
+
+
 def versions(_args):
     """The ``versions`` subcommand."""
     import zlib
@@ -276,7 +285,7 @@ def versions(_args):
 
     core = importlib.import_module("numpy._core._multiarray_umath")
     print(f"python\t{platform.python_version()}")
-    print(f"interpreter\t{os.path.realpath(sys._base_executable)}")
+    print(f"interpreter\t{home_relative(os.path.realpath(sys._base_executable))}")
     print(f"numpy\t{numpy.__version__}")
     print(f"numpy core\t{digest(core.__file__)}")
     print(f"numpy blas\t{numpy.show_config(mode='dicts')['Build Dependencies']['blas']['name']}")

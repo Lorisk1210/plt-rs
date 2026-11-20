@@ -3,7 +3,7 @@
 The numbers below are tied to files of the tree (the HTML comments before
 them, which `python/tests/test_readme_facts.py` checks).
 
-## <!--fact:version-->0.1.0 (unreleased)
+## <!--fact:version-->0.1.0 (2026-11-20)
 
 The first release.
 

@@ -26,6 +26,7 @@ from pltrs.projections import register_projection
 from pltrs.projections.polar import PolarAxes
 from pltrs.mpl_toolkits.axes_grid1 import parasite_axes
 
+import build_facts
 from test_smoke import close_figures  # noqa: F401 (autouse: rcdefaults)
 
 
@@ -415,9 +416,14 @@ def test_a_draw_given_to_a_cell_draws_the_table():
 
 
 def test_unoriented_triangulation():
+    # The first triangulation turns the clockwise triangle in place in the
+    # array it was given where it takes that array without a copy (numpy's
+    # default integer is C's int: numpy 1 on Windows, matplotlib alike), so
+    # that the second one gets it turned.
+    turned = [[-1, 1, -1], [2, -1, 0], [-1, -1, 1]]
+    as_given = [[-1, 1, -1], [0, -1, -1], [-1, -1, -1]]
     assert scenario_unoriented_triangulation() == [
-        [[-1, 1, -1], [2, -1, 0], [-1, -1, 1]],
-        [[-1, 1, -1], [0, -1, -1], [-1, -1, -1]]]
+        turned, turned if build_facts.DEFAULT_INT_IS_C_INT else as_given]
 
 
 def test_parasite_with_a_non_affine_aux_transform():

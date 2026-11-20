@@ -50,18 +50,24 @@ TIMEOUT = 60
 ATTEMPTS = 4
 
 
-def download(url, sha256):
-    """The bytes at *url*, if their SHA-256 is *sha256*."""
+def read_url(url):
+    """The bytes at *url*, read again where the connection stalls or
+    breaks off (`TIMEOUT`, `ATTEMPTS`)."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     for attempt in range(1, ATTEMPTS + 1):
         try:
             with urllib.request.urlopen(request, timeout=TIMEOUT) as answer:
-                data = answer.read()
-            break
+                return answer.read()
         except (OSError, http.client.HTTPException) as error:
             if attempt == ATTEMPTS:
                 raise
             print(f"{url}: {error}; trying again", flush=True)
+    raise AssertionError("unreachable: the last attempt returns or raises")
+
+
+def download(url, sha256):
+    """The bytes at *url*, if their SHA-256 is *sha256*."""
+    data = read_url(url)
     digest = hashlib.sha256(data).hexdigest()
     if digest != sha256:
         raise SystemExit(f"{url}: SHA-256 {digest}, expected {sha256}")
@@ -70,9 +76,7 @@ def download(url, sha256):
 
 def sdist_of(name, version):
     """The URL and SHA-256 of the sdist of *name* *version* on PyPI."""
-    with urllib.request.urlopen(RELEASE_URL.format(name=name, version=version),
-                                timeout=TIMEOUT) as answer:
-        release = json.load(answer)
+    release = json.loads(read_url(RELEASE_URL.format(name=name, version=version)))
     for file in release["urls"]:
         if file["packagetype"] == "sdist":
             return file["url"], file["digests"]["sha256"]

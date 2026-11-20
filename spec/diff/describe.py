@@ -29,7 +29,10 @@ MAX_ITEMS = 2000
 #: How deep containers are described.
 MAX_DEPTH = 6
 
-_ADDRESS = re.compile(r"0x[0-9a-fA-F]{4,}")
+#: Memory addresses, and what is left of one a program blanked with a
+#: lowercase pattern: Windows writes them in capitals after leading zeros
+#: (``0x000001BA38FFD7A0``), so ``0x[0-9a-f]+`` leaves ``0x?BA38FFD7A0``.
+_ADDRESS = re.compile(r"0x(?:\?[0-9A-F]{4,}|[0-9a-fA-F]{4,})")
 #: The random names ``tempfile`` gives temporary files and directories.
 _TEMPORARY = re.compile(re.escape(tempfile.gettempdir() + os.sep) + r"tmp[\w-]{8}")
 

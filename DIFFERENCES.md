@@ -427,7 +427,10 @@ runs on: numpy's processor level (the order `argsort` leaves ties in),
 fused multiply-adds on arm64, Apple's Accelerate. Not followed, and seen
 in last bits or in ill-conditioned results only:
 
-* numpy's OpenBLAS kernels, which differ by processor (long sums, LAPACK);
+* numpy's OpenBLAS kernels, which differ by processor (long sums, LAPACK),
+  and their fused multiply-adds in matplotlib's products of transforms,
+  which can give rounding noise another sign (on Windows, where the
+  system's `sin(pi/4)` equals its `cos(pi/4)`, two rotations by 45°);
 * numpy's SVML maths on Linux with AVX-512, in pltrs (Rust) alone;
 * on Apple silicon, Accelerate's products of shapes other than 3×3 and
   4×4 and its LAPACK, and the sign of rounding noise in numpy's FFT;

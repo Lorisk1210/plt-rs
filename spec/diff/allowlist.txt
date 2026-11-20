@@ -22,11 +22,24 @@ statistics/time_series_histogram$ | ^value\[time\]: float$ | the example keeps t
 
 # The program draws object reprs, with their memory addresses.
 users_explain/axes/axes_units$ | ^image: RMS > 1$ @ ^figure 12$ | figure 12 writes the reprs of each axis' converter, locator and formatter ("<... object at 0x...>"), whose addresses differ from run to run
+# The program blanks addresses with a lowercase pattern, then keeps 70
+# characters of the message. Windows writes addresses in capitals after
+# leading zeros (0x000001BA38FFD7A0): the pattern stops at the first
+# capital, wherever it falls in that run's address, so the 70 characters
+# end one or two later or earlier; the harness blanks the rest of the
+# address (describe.py), not what the cut left out (task WIN6).
+corpus/written2/animation_stepped/funcanimation_frames_generators$ | ^(value\[(seen|run)\]: str|stdout)$ | on Windows the program's own blanking of a capital address keeps a run-dependent part of it, so its 70-character cut of FuncAnimation's save_count warning ends elsewhere; the warning is the same
 
 # topic: files-pltrs-writes
 # A PDF names the software that wrote it.
 (misc/multipage_pdf|api/pdf_pages_0)$ | ^value\[infodict\]: str$ | the PDF Creator entry names pltrs, the software writing the file, where matplotlib names itself
 rcparams/pgf_v[01]$ | ^value\[read_text\]: str$ | the PGF file's comment header names pltrs, the software writing it ("%% Creator: pltrs, PGF backend", "%% pltrs used the following preamble"), where matplotlib names itself; the rest of the file is the same
+
+# On Windows matplotlib writes an SVG, PostScript or EPS file saved to a
+# path through a text file, whose lines end with \r\n there; pltrs writes
+# \n (task WIN6, on the Windows PC; the same on Linux and macOS).
+corpus/written/vector_output/eps_ps_options$ | ^stdout$ @ ^line 1 of the output$ | the first line the program prints of an EPS file saved to a path ends with \r under matplotlib on Windows, its line ending there, and not under pltrs
+corpus/written2/svg_readback/svgz_and_file_objects$ | ^stdout$ @ ^line 2 of the output$ | the SVG saved to a path has \r\n line endings under matplotlib on Windows, so it differs from the compressed, binary-stream and text-stream documents the program compares it with; pltrs' are all the same
 
 # pltrs writes WebP losslessly: pltrs-codec has a VP8 (lossy) decoder but no
 # encoder. matplotlib's print_webp saves through Pillow's defaults, which are
@@ -559,6 +572,15 @@ written2/text_layout_expert/text_usetex_off_special_chars$ | ^value\[getvalue\]:
 # matplotlib's get_font caches it under its real path, the one its findfont
 # gives the later calls; pltrs' findfont gives its own copy of the font.
 hostile/module_matplotlib_font_manager_1$ | ^identity\[get_font\]: (a new object where matplotlib returns the same|another object than matplotlib's)$ | get_font of matplotlib's font file by a case-swapped name, which a case-insensitive file system resolves; matplotlib's later findfont names the same file, pltrs' its own copy
+# On Windows the UCRT's sin(pi/4) is 0.7071067811865476, one ulp above the
+# correctly rounded 0.7071067811865475 that glibc gives, so a rotation by
+# 45 degrees has equal sine and cosine there (both libraries take them from
+# the system: the matrices are the same). Two such rotations composed give
+# rounding noise as element [1][1]: matplotlib's CompositeAffine2D takes
+# np.dot of the matrices (OpenBLAS's fused multiply-adds), -8.5e-17; pltrs
+# (Rust) sums the products, +0.0. The program rounds it to 6 digits and
+# prints -0.0 against 0.0 (task WIN6, recorded on the PC).
+corpus/written2/transforms_math/affine_deltas_and_skew$ | ^stdout$ @ ^line 7 of the output$ | the sign of a zero: rounding noise of a composed rotation, -8.5e-17 from numpy's fused multiply-adds against +0.0 from pltrs' sum, on Windows only, where the UCRT's sin(pi/4) equals its cos(pi/4)
 
 # topic: values-that-differ-between-any-two-runs
 # ultraplot places subplots with kiwisolver (UltraLayout), whose solution

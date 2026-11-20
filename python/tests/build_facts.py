@@ -78,6 +78,13 @@ CASTS_WRAP = platform.machine() in ("x86_64", "AMD64")
 #: with numpy 1.26 there gives the same types).
 DEFAULT_INT = np.array([1]).dtype.type
 
+#: Whether numpy's default integer is C's ``int``, which matplotlib's C++
+#: extensions take without a copy (pybind11's ``array_t<int>``): only
+#: under numpy 1 on Windows. There what such code changes in place (the
+#: triangles ``Triangulation`` turns counter-clockwise) is the caller's
+#: array, elsewhere a copy.
+DEFAULT_INT_IS_C_INT = np.dtype(DEFAULT_INT) == np.dtype(np.intc)
+
 
 def _warns(compute):
     with warnings.catch_warnings(record=True) as caught:

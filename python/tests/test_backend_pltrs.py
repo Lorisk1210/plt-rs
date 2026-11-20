@@ -827,11 +827,13 @@ def _input_hook():
             return bool(reader.recv(1, socket.MSG_PEEK | socket.MSG_DONTWAIT))
 
     # The clock read first: the timer counts from its start, which a busy
-    # machine may delay past the next line.
-    start = time.monotonic()
+    # machine may delay past the next line. perf_counter, as the bound is
+    # a lower one: Windows' time.monotonic before Python 3.13 steps by
+    # 15.6 ms (GetTickCount64), and measures a wait one step short.
+    start = time.perf_counter()
     threading.Timer(0.3, writer.send, (b"x",)).start()
     _pltrs_loop._input_hook(Context())
-    took = time.monotonic() - start
+    took = time.perf_counter() - start
     assert 0.3 <= took < 30, took
     print("RETURNED", flush=True)
 
@@ -877,12 +879,14 @@ def _kernel_loop():
         time.sleep(0.2)
         messages.append(1)
         writer.send(b"x")
-    # The clock read first, as in the input hook's test.
-    start = time.monotonic()
+    # The clock read first, and perf_counter, as in the input hook's test.
+    start = time.perf_counter()
     threading.Thread(target=kernel_side).start()
     _pltrs_loop._serve_kernel(stream, reader.fileno(), lambda: False)
-    took = time.monotonic() - start
-    assert 0.4 <= took < 30, took
+    took = time.perf_counter() - start
+    # After the second wake-up (0.4 s), not the first (0.2 s); a timer on
+    # Windows may fire a timer step early against the performance counter.
+    assert 0.35 <= took < 30, took
     # Once at first, once per readable descriptor: no polling meanwhile.
     assert stream.flushes == 3, stream.flushes
     print("SERVED", flush=True)

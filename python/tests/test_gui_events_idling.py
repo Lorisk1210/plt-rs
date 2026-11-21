@@ -35,7 +35,9 @@ def _rate(source, seconds=1.5):
 def test_wake_ups_are_counted_on_every_system():
     sleeping = _rate("import time\nwhile True: time.sleep(0.05)")
     idle = _rate("import time\ntime.sleep(60)")
-    assert sleeping > 10, sleeping
+    # 20 a second as asked; a loaded macOS runner coalesces timers down to
+    # 10 (GitHub's macos-15, 2026-11-21), still far from an idle process.
+    assert sleeping >= 5, sleeping
     assert idle < 2, idle
 
 

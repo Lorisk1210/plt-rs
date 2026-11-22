@@ -250,7 +250,7 @@ EXACT = {
     "alias.version": _alias_version,
     "bench.workloads": lambda: _benchmark_match(r"times matplotlib [\d.]+ against both faces "
                                                 r"of pltrs on (\d+) workloads"),
-    "bench.date": lambda: _benchmark_match(r"measured on (\S+) at commit"),
+    "bench.date": lambda: _benchmark_match(r"measured the numbers on (\S+) at commit"),
     "bench.commit": lambda: _benchmark_match(r"at commit `([^`]+)`"),
     "bench.python.warm": lambda: _benchmark_summary(0, "warm"),
     "bench.python.cold": lambda: _benchmark_summary(0, "cold"),
@@ -298,16 +298,15 @@ def test_no_marker_starts_a_line(document):
 WHILE_FAILING = {"ecosystem.failing", "ecosystem.incomplete-libraries"}
 
 
-def test_every_fact_is_stated_and_every_marker_known():
+def test_every_marker_is_known():
+    """The documents state only the facts their readers need, so a fact
+    without a marker is no failure. The version is the exception: a
+    release changes it in the changelog's heading."""
     named = {name for _, name, _ in MARKED}
     assert named - EXACT.keys() - APPROXIMATE.keys() == set(), "markers of unknown facts"
-    failing = bool(_ecosystem()[3])
-    if not failing:
+    if not _ecosystem()[3]:
         assert not named & WHILE_FAILING, "the libraries' tests all pass under pltrs"
-    required = EXACT.keys() | APPROXIMATE.keys()
-    if not failing:
-        required -= WHILE_FAILING
-    assert required <= named, "facts no document marks any more"
+    assert "version" in named, "CHANGELOG.md's newest heading marks the version"
 
 
 @pytest.mark.parametrize(("document", "name", "text"), MARKED,

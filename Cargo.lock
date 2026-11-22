@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "pltrs"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pltrs-codec",
  "pltrs-core",
@@ -18,18 +18,18 @@ dependencies = [
 
 [[package]]
 name = "pltrs-codec"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pltrs-core",
 ]
 
 [[package]]
 name = "pltrs-core"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "pltrs-examples"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pltrs",
  "pltrs-core",
@@ -37,14 +37,14 @@ dependencies = [
 
 [[package]]
 name = "pltrs-font"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pltrs-core",
 ]
 
 [[package]]
 name = "pltrs-platform"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pltrs-codec",
  "pltrs-core",
@@ -52,7 +52,7 @@ dependencies = [
 
 [[package]]
 name = "pltrs-python"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pltrs",
  "pltrs-core",
@@ -64,14 +64,14 @@ dependencies = [
 
 [[package]]
 name = "pltrs-raster"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pltrs-core",
 ]
 
 [[package]]
 name = "pltrs-render"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pltrs-codec",
  "pltrs-core",
@@ -82,7 +82,7 @@ dependencies = [
 
 [[package]]
 name = "pltrs-spec"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pltrs",
  "pltrs-codec",
@@ -94,7 +94,7 @@ dependencies = [
 
 [[package]]
 name = "pltrs-text"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pltrs-codec",
  "pltrs-core",
@@ -103,7 +103,7 @@ dependencies = [
 
 [[package]]
 name = "pltrs-ui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pltrs-codec",
  "pltrs-core",
@@ -114,7 +114,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pltrs",
  "pltrs-codec",

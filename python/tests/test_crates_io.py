@@ -57,7 +57,7 @@ def test_the_notices_name_what_each_crate_ports():
     assert "| FreeType 2.14 |" in files["crates/pltrs-raster/THIRD_PARTY.md"]
     assert "based in part on the work of the FreeType Team" in (
         files["crates/pltrs-raster/THIRD_PARTY.md"])
-    assert "the changes in summary" in files["crates/pltrs-text/THIRD_PARTY.md"]
+    assert "a summary of the changes" in files["crates/pltrs-text/THIRD_PARTY.md"]
     # A crate no row names carries pltrs' licence alone.
     assert files["crates/pltrs-ui/THIRD_PARTY.md"] is None
     assert files["crates/pltrs-ui/LICENSE-MIT"] == (ROOT / "LICENSE-MIT").read_text()

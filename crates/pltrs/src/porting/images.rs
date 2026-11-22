@@ -1,28 +1,28 @@
 //! Images, contours, meshes and vector fields.
 //!
-//! 2-D data is a [`Grid`] (row-major, `(rows, cols)`, indexed by
-//! `(row, col)`), never a nested `Vec`. Each family of methods wraps its
-//! data in a type that says how the grid is placed:
+//! 2-D data is a row-major [`Grid`] with the shape `(rows, cols)` and the
+//! index `(row, col)`. It is never a nested `Vec`. Each family of methods
+//! puts its data in a type that tells how pltrs places the grid:
 //!
-//! * images take an [`ImageData`]: a `Grid<f64>` of scalars to colour-map
-//!   (or a [`ScalarField`] with a mask), or a grid of RGB(A) pixels as
-//!   floats or bytes;
+//! * Images take an [`ImageData`]. This is a `Grid<f64>` of scalars to
+//!   color-map, a [`ScalarField`] with a mask, or a grid of RGB(A) pixels as
+//!   floats or bytes.
 //! * `pcolor` and `pcolormesh` take a [`Mesh`]: values with optional
-//!   column/row or full-grid coordinates ([`Mesh::from_coords`]);
-//! * contours take a [`QuadField`]: z with optional coordinates
-//!   ([`QuadCoords`]) and mask; triangular grids are a [`Triangulation`];
-//! * `quiver` and `barbs` take a [`VectorField`], `streamplot` a
+//!   coordinates for each column and row, or for each grid point
+//!   ([`Mesh::from_coords`]).
+//! * Contours take a [`QuadField`]: z with optional coordinates
+//!   ([`QuadCoords`]) and an optional mask. Triangular grids are a
+//!   [`Triangulation`].
+//! * `quiver` and `barbs` take a [`VectorField`]. `streamplot` takes a
 //!   [`StreamField`].
 //!
-//! The colour-mapping keywords `cmap`, `norm`, `vmin` and `vmax` are a
-//! [`ColorizerOptions`] in the `colorizer` field of the options of
-//! `imshow`, `pcolormesh`, `tripcolor`, `hexbin`, the contour functions
-//! ([`ContourOptions`]), `streamplot`, `imsave`, ... A colormap is a
-//! value: `cmap="magma"` is `colormaps::get("magma")?`.
+//! The options of `imshow`, `pcolormesh`, `tripcolor`, `hexbin`, the
+//! contour functions ([`ContourOptions`]) and others hold `cmap`, `norm`,
+//! `vmin` and `vmax` in a [`ColorizerOptions`] (see [`super::colors`]).
 //!
-//! Colorbars are made by [`Figure::colorbar`] from any colour-mapped
-//! artist (image, collection, contour set) and follow later changes of
-//! its colormap, norm and limits.
+//! [`Figure::colorbar`] makes a colorbar from any color-mapped artist: an
+//! image, a collection or a contour set. The colorbar follows later changes
+//! of the colormap, norm and limits of the artist.
 //!
 //! # Equivalences
 //!

@@ -1,20 +1,18 @@
-# Comparing matplotlib and pltrs on your own scripts
+# Compare matplotlib and pltrs on your own scripts
 
-`compare.py` takes Python scripts written for matplotlib and runs each
-one, unchanged, under matplotlib and under pltrs (Python). It prints how
-long each library took to have the script's figure ready, says whether
-both drew the same picture, and can write a clip of the two figures
-appearing side by side at their measured times.
+`compare.py` runs matplotlib scripts without changes under matplotlib
+and under pltrs (Python). It prints the time until each library has the
+figure ready, and tells you if the two pictures are the same. It can
+also write a clip that shows the two figures side by side at their
+measured times.
 
-`benchmarks/README.md` is the measured report of pltrs' speed, with
-confidence intervals on a quiet machine. This tool is for your own
-scripts: any figure you can draw with matplotlib, timed the way a user
-waits for it.
+For the measured speed of pltrs, read `benchmarks/README.md`. Use this
+tool to time your own scripts.
 
-## Three commands
+## Run the tool
 
-From the checkout, with matplotlib in `.venv` and pltrs (Python) built
-into the checkout's `python/`:
+Install matplotlib in `.venv`. Then run these commands from the
+checkout:
 
 ```sh
 cargo xtask python --release        # once: build pltrs (Python) into python/pltrs
@@ -22,11 +20,11 @@ cargo xtask python --release        # once: build pltrs (Python) into python/plt
 .venv/bin/python benchmarks/compare/compare.py benchmarks/compare/examples/*.py --video clips/
 ```
 
-The scripts need nothing special. A script imports `matplotlib.pyplot`
-(or `pltrs.pyplot`), draws, and usually ends with `plt.show()` or
-`savefig`. `examples/` holds ten such scripts; copy one to start your own.
-The description shown in the clip is the first line of the script's
-docstring, or its file name if it has none.
+A script imports `matplotlib.pyplot` or `pltrs.pyplot`, draws, and
+usually ends with `plt.show()` or `savefig`. `examples/` holds ten such
+scripts. Copy one to start your own. The clip shows the first line of
+the docstring as the description, or the file name if there is no
+docstring.
 
 Options:
 
@@ -42,54 +40,50 @@ Options:
 
 ## How each side runs
 
-matplotlib's side runs the script as it is. If the script imports
-`pltrs` by name, that side maps `pltrs` and `pltrs.*` to matplotlib's
-modules.
+The matplotlib side runs the script as it is. If the script imports
+`pltrs`, this side maps `pltrs` and `pltrs.*` to matplotlib.
 
-pltrs' side puts the checkout's `python/alias` first on `sys.path`, so
-the script's `import matplotlib` and `import mpl_toolkits` get pltrs.
-pltrs itself comes from the interpreter's environment when it has one
-there (an installed `pltrs`, or `python/` on `PYTHONPATH`). Otherwise it
-comes from the checkout's `python/`, which needs the extension built. The
-tool prints which one it used, with both libraries' versions and
-directories.
+The pltrs side puts `python/alias` first on `sys.path`, so `import
+matplotlib` and `import mpl_toolkits` load pltrs. If the interpreter
+can import pltrs, the tool uses that pltrs. Examples are an installed
+`pltrs` or `python/` on `PYTHONPATH`. If not, the tool uses `python/` of
+the checkout, which needs the built extension. The tool prints which
+pltrs it used, and the versions and directories of both libraries.
 
-Both sides run with `MPLBACKEND=agg`, so no window opens, and with
-`PYTHONIOENCODING=utf-8`, so that a script may print any text on Windows
-too. Each run is a fresh process in a scratch directory of its own, with
-configuration and cache directories (`MPLCONFIGDIR`, `PLTRSCONFIGDIR`)
-that belong to the tool and never to you. A script that saves files with
-relative paths saves them into that scratch directory, which is removed
-afterwards.
+Both sides run with `MPLBACKEND=agg`, so no window opens. They also run
+with `PYTHONIOENCODING=utf-8`, so a script can print any text on
+Windows. Each run is a new process in a new scratch directory, with
+private configuration and cache directories (`MPLCONFIGDIR`,
+`PLTRSCONFIGDIR`). Files that a script saves with relative paths go to
+the scratch directory. The tool deletes it after the run.
 
-## What is timed
+## What the tool times
 
-The clock starts when the parent sends a start stamp, after the child's
-interpreter has started and before it has imported anything of the
-script's. It stops when the figure is ready:
+The clock starts when the parent process sends a start stamp. At that
+time, the child interpreter runs but has not imported anything for the
+script. The clock stops when the figure is ready:
 
-* At the script's first `plt.show()`. The tool's `show` draws every open
-  figure and then stamps the time. After the stamp it keeps a copy of
-  each figure's picture and returns without blocking, so the rest of the
-  script runs on.
-* At the script's end, after its open figures are drawn, if it never
-  calls `show`.
+* At the first `plt.show()`. The `show` of the tool draws every open
+  figure and records the time. Then it copies the picture of each figure
+  and returns at once, so the script continues.
+* At the end of the script, after the tool draws the open figures, if
+  the script never calls `show`.
 
-The span therefore includes importing the library, importing what the
-script imports (numpy, for example), making the data and drawing. It
-excludes the interpreter's own start-up and the copying of the pictures.
-The table also gives the span to the script's end, and each process's
-peak resident memory where the system reports one.
+The time includes the import of the library and of the modules of the
+script, such as numpy. It also includes making the data and drawing. It
+does not include the start of the interpreter or the copy of the
+pictures. The table also gives the time to the end of the script and,
+if the system reports it, the peak resident memory of each process.
 
-The two libraries never run at the same time. Before the measured runs,
-one unmeasured round fills the font caches. Then `--runs` rounds follow,
-alternating which library goes first. The table shows the median and the
-range of each side's runs; the clip plays the medians.
+The two libraries never run at the same time. First, one unmeasured
+round fills the font caches. Then the `--runs` rounds follow, and the
+library that goes first alternates. The table shows the median and the
+range of each side. The clip uses the medians.
 
-Timings depend on the machine and on what else it is doing. Close other
-work before measuring, and compare runs made on the same machine.
+The results depend on the machine and its load. Stop other work before
+you measure, and compare only runs from the same machine.
 
-## Reading the table
+## Read the table
 
 ```
 script    look     matplotlib s       pltrs s            pltrs         to the end s  peak MiB   picture
@@ -97,54 +91,56 @@ script    look     matplotlib s       pltrs s            pltrs         to the en
 01_chirp  classic  M.MM [M.MM, M.MM]  P.PP [P.PP, P.PP]  N.NNx faster  M.MM / P.PP   MMM / PPP  the same picture
 ```
 
-* `matplotlib s` and `pltrs s` are the median seconds to the figure
-  ready, with the fastest and the slowest run in brackets. A side whose
-  script raised says `failed`, and its traceback is printed above the
-  table.
-* `pltrs` is how many times faster (or slower) pltrs had the figure.
-* `to the end s` and `peak MiB` give matplotlib's value, then pltrs'.
-* `picture`, in the classic look only, compares the two pictures. "the
-  same picture" means the RMS of their difference (over 0 to 255) is at
-  most 1, the bound pltrs' own conformance checks use. Otherwise it gives
-  the RMS, or says why the pictures cannot be compared (different sizes,
-  a different number of figures). In the modern look pltrs draws its own
-  style on purpose, so its pictures are not compared.
+* `matplotlib s` and `pltrs s` give the median seconds until the figure
+  is ready. The brackets hold the fastest and the slowest run. If the
+  script failed on a side, that side shows `failed`, and the traceback
+  is above the table.
+* `pltrs` gives how many times faster or slower pltrs was.
+* `to the end s` and `peak MiB` give the matplotlib value, then the
+  pltrs value.
+* `picture` compares the pictures in the classic look only. The value
+  "the same picture" means an RMS difference of at most 1 on a scale of
+  0 to 255.
+  The conformance checks of pltrs use the same limit. If not, the column
+  gives the RMS, or the reason that the pictures cannot be compared, for
+  example different sizes. The modern look draws a different style on
+  purpose, so the tool does not compare its pictures.
 
-The tool exits with status 1 if any side of any script failed, after
-reporting the other side's time and running the remaining scripts.
+If a side of a script fails, the tool exits with status 1. It first
+reports the other side and runs the remaining scripts.
 
 ## The clip
 
-With `--video DIR`, each script gets `NAME-classic.mp4` and
-`NAME-modern.mp4`, and `DIR/times.txt` gets one line per clip. A clip is
-1920×1080 at 30 frames a second. A clock runs from the start stamp with
-the script's description under it, and a progress bar marks each
-library's time. The two figures appear on cards at their measured times,
-matplotlib's on the left and pltrs' on the right, each card titled with
-the library, its version and its time. The clip ends on which library had
-the figure first, and by how much.
+With `--video DIR`, the tool writes `NAME-classic.mp4` and
+`NAME-modern.mp4` for each script, and one line per clip to
+`DIR/times.txt`. A clip is 1920×1080 at 30 frames per second. It shows
+a clock from the start stamp, the description of the script and a
+progress bar with the time of each library. Each figure appears on a
+card at its measured time, matplotlib on the left and pltrs on the
+right. The title of a card gives the library, its version and its time.
+The clip ends with the faster library and the difference.
 
-The figures on the cards are the pictures each library rendered. With
-several figures, they stand side by side on the card. A script that
-leaves no figure open shows the last image file it saved.
+A card shows the pictures that its library rendered, side by side if
+there are several figures. If a script leaves no open figure, the card
+shows the last image file that the script saved.
 
-Clips are encoded with `ffmpeg` if it is on `PATH`, else with the one the
-`imageio-ffmpeg` package brings (`pip install imageio-ffmpeg`), as H.264
-at CRF 18 in yuv420p. Without either, the tool writes an animated WebP
-(or GIF) through Pillow at half the size and frame rate, and says so.
-Frames go to the encoder through a pipe, so only the clips are left on
-disk.
+The tool encodes the clips as H.264 at CRF 18 in yuv420p. It uses
+`ffmpeg` on `PATH`, or else the `ffmpeg` of the `imageio-ffmpeg` package
+(`pip install imageio-ffmpeg`). Without either, it writes an animated
+WebP or GIF through Pillow. This file has half the size and half the
+frame rate, and the tool tells you. The frames go to the encoder
+through a pipe, so only the clips stay on disk.
 
-The background is a plain gradient. The text uses the fonts pltrs ships
-(Inter), found through pltrs' font manager. `--background IMAGE` and
-`--font FILE` replace them. Pillow is the only package the tool needs
-beyond the two libraries, and both libraries already depend on it.
+The background is a plain gradient. The text uses Inter, the font that
+pltrs ships. `--background IMAGE` and `--font FILE` replace them. The
+tool needs only Pillow in addition to the two libraries, and both
+libraries depend on Pillow.
 
-## What is not included
+## Limits
 
-The tool times figures drawn off screen. It does not open or capture real
-windows, so the time a GUI toolkit takes to show a window is not part of
-the measurement.
+The tool times figures that it draws off screen. It does not open
+windows, so the time that a GUI toolkit takes to show a window is not
+measured.
 
 ## Files
 
@@ -160,4 +156,4 @@ the measurement.
 | `examples/` | ten scripts in matplotlib's syntax |
 
 `python/tests/test_bench_compare.py` tests the child, the alias and the
-frames under pltrs alone.
+frames under pltrs only.

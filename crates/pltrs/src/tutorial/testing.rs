@@ -1,19 +1,15 @@
-//! Chapter 12: testing the figures your program draws.
+//! Chapter 12: testing the figures that your program draws.
 //!
-//! A figure is output like any other, and can be tested at two levels.
-//! *Structural* tests read the figure back through its handles: which
-//! artists it holds, their data and colours, the limits and tick labels
-//! of its axes. They are fast, exact and independent of fonts and
-//! rendering, and they are what most of a program's figure tests should
-//! be. *Image* tests compare rendered pixels with a reference, for what
-//! only the picture shows; [`testing`](crate::testing) has matplotlib's
-//! tools for them.
+//! A structural test reads the figure through its handles: artists, data,
+//! colors, limits and tick labels. Structural tests are fast and exact, and
+//! do not depend on fonts, so write most tests this way. An image test
+//! compares the pixels with a reference. [`testing`](crate::testing) has
+//! the matplotlib tools for image tests.
 //!
 //! # Structural tests
 //!
-//! Keep figure building in functions that return the figure, and test
-//! those functions. Every getter used in this tutorial's `assert!` lines
-//! is available to your tests.
+//! Build figures in functions that return the figure, and test those
+//! functions with getters, as the `assert!` lines of this tutorial do.
 //!
 //! ```
 //! use std::error::Error;
@@ -47,25 +43,23 @@
 //!
 //! # A stable configuration
 //!
-//! Pixels depend on the look, the fonts and the user's `pltrsrc`, so image
-//! tests must not depend on the machine running them.
-//! [`testing::setup`](crate::testing::setup) sets the configuration
-//! matplotlib's own tests run in: matplotlib's look and defaults, the
-//! bundled `DejaVu Sans` font, no window system, and no user configuration.
-//! The look and the configuration change for the whole test binary, the
-//! settings for the calling thread: call it at the start of each test,
-//! since tests run on threads of their own. Pin the figure size and resolution,
-//! and use data that is the same on every run.
+//! Pixels depend on the look, the fonts and the `pltrsrc` of the user.
+//! [`testing::setup`](crate::testing::setup) sets the configuration of the
+//! matplotlib tests: the matplotlib look and defaults, the font
+//! `DejaVu Sans`, no window system and no user configuration. It sets the
+//! look and the configuration for the whole test binary, but the settings
+//! only for the calling thread. Thus, call it at the start of each test. Use a fixed figure
+//! size, resolution and data.
 //!
 //! # Comparing two figures
 //!
-//! Often the clearest reference is a second figure drawn another way.
-//! [`testing::check_figures_equal`](crate::testing::check_figures_equal)
-//! builds a test figure and a reference figure with two closures, saves
-//! both as PNG files beside the path given and compares them. The
-//! returned [`Comparison`](crate::testing::Comparison) says whether they
-//! match within the tolerance, an RMS difference of pixel values (0 asks
-//! for identical images); its `Display` is the report for a failed test.
+//! The best reference is often a second figure that you draw in another
+//! way. [`testing::check_figures_equal`](crate::testing::check_figures_equal)
+//! builds two figures with two closures, saves them as PNG files next to
+//! the given path and compares them. The returned
+//! [`Comparison`](crate::testing::Comparison) tells whether they match
+//! within the tolerance, an RMS difference of pixel values. A tolerance of
+//! 0 requires identical images. Its `Display` is the failure report.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -92,12 +86,11 @@
 //!
 //! # Comparing with a baseline image
 //!
-//! For a figure that should not change, save it once, check the image by
-//! eye, and commit it with the tests as a *baseline*. Each run then saves
-//! the figure again and compares it with
-//! [`testing::compare_images`](crate::testing::compare_images). When they
-//! differ, it writes an image of the differences beside the output,
-//! named after it with `-failed-diff`, to look at.
+//! If a figure must not change, save it once, check it and commit it as a
+//! *baseline*. Each test run saves the figure again and compares it with
+//! [`testing::compare_images`](crate::testing::compare_images). If they
+//! differ, it writes an image of the differences next to the output, with
+//! `-failed-diff` in the name.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -124,12 +117,11 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Only PNG images can be compared: pltrs writes SVG, PDF and
-//! PostScript but cannot turn them back into pixels. Test vector output
-//! structurally instead, by looking for what the document must contain.
-//! The [`porting::configuration`](crate::porting::configuration) page
+//! pltrs compares only PNG images, because it cannot render SVG, PDF or
+//! PostScript back into pixels. Test vector output for the content that the
+//! document must have. [`porting::configuration`](crate::porting::configuration)
 //! maps these functions to `matplotlib.testing`.
 //!
-//! That is the end of the tutorial. The [crate overview](crate) lists
-//! every module, and the [`porting`](crate::porting) guide has the
-//! methods of each topic in tables.
+//! This is the end of the tutorial. The [crate overview](crate) lists all
+//! modules, and the [`porting`](crate::porting) guide has tables of the
+//! methods for each topic.

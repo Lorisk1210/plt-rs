@@ -1,6 +1,6 @@
 [package]
 name = "pltrs-codec"
-description = "Self-contained compression and image codecs: DEFLATE/zlib, PNG/APNG, JPEG, TIFF, GIF and WebP, and an AVIF encoder"
+description = "Compression and image codecs without dependencies: DEFLATE/zlib, PNG/APNG, JPEG, TIFF, GIF, WebP and an AVIF encoder"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

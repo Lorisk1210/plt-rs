@@ -1,32 +1,31 @@
 //! Saving figures and the output formats.
 //!
-//! [`Figure::savefig`] picks the format from the file extension, as
-//! matplotlib does: PNG, JPEG, TIFF, GIF, WebP, AVIF and raw RGBA pixels; SVG
-//! (and compressed SVGZ), PDF, PostScript and EPS documents; and PGF
-//! pictures for LaTeX. The keywords of `savefig` are the fields of a
-//! [`SaveOptions`], unset ones following the `savefig.*` rcParams.
+//! [`Figure::savefig`] takes the format from the file extension, as
+//! matplotlib does. pltrs writes PNG, JPEG, TIFF, GIF, WebP, AVIF, raw
+//! RGBA, SVG, SVGZ, PDF, PostScript, EPS and PGF. The keywords of
+//! `savefig` are the fields of a [`SaveOptions`]. Unset fields follow the
+//! `savefig.*` rcParams.
 //!
-//! There are no file-like objects. Instead of saving into a `BytesIO`,
-//! render to memory with [`Figure::to_png`], [`Figure::to_svg`],
-//! [`Figure::to_pdf`], ... or any format with [`Figure::to_format`].
-//! Raster and binary formats return bytes, text formats (SVG, PS, EPS,
-//! PGF) a `String`.
+//! pltrs has no file-like objects. In place of a `BytesIO`, use
+//! [`Figure::to_png`], [`Figure::to_svg`], [`Figure::to_pdf`] and the
+//! other `to_*` methods, or [`Figure::to_format`]. Text formats (SVG, PS,
+//! EPS, PGF) return a `String`. The other formats return bytes.
 //!
-//! Format-specific settings stay rcParams, as in matplotlib
-//! (`pdf.fonttype`, `svg.fonttype`, `ps.papersize`, `pdf.use14corefonts`,
-//! ...). Documents carry pltrs as creator and the current date, or the
-//! date in `SOURCE_DATE_EPOCH` for reproducible builds.
+//! Settings for one format stay rcParams (`pdf.fonttype`, `svg.fonttype`,
+//! `ps.papersize`, ...). Documents name pltrs as the creator and hold the
+//! current date, or the date in `SOURCE_DATE_EPOCH`.
 //!
-//! Like matplotlib, PostScript output runs external programs where asked
-//! to: the distiller of `ps.usedistiller` (Ghostscript's `ps2write`, or
-//! `ps2pdf` and `pdftops` for `xpdf`) at `ps.distiller.res`, and with
-//! `text.usetex` LaTeX with `psfrag`, `dvips` and Ghostscript. They run in
-//! a temporary directory removed afterwards, dated as the document is (as
-//! `SOURCE_DATE_EPOCH`); a missing program fails the save with
-//! matplotlib's message ([`ProgramError`], [`check_distiller`]). Where
-//! matplotlib finds no Ghostscript or `pdftops`, it logs that message and
-//! leaves the document undistilled instead; pltrs, which logs nothing,
-//! fails.
+//! As in matplotlib, PostScript output can run external programs in a
+//! temporary directory:
+//!
+//! * the distiller of `ps.usedistiller` at `ps.distiller.res`: the
+//!   Ghostscript `ps2write`, or `ps2pdf` and `pdftops` for `xpdf`.
+//! * LaTeX with `psfrag`, `dvips` and Ghostscript, for `text.usetex`.
+//!
+//! If a program is missing, the save fails with the matplotlib message
+//! ([`ProgramError`], [`check_distiller`]). In this case matplotlib logs
+//! the message and does not distill the document. pltrs logs nothing, so
+//! it fails.
 //!
 //! # Equivalences
 //!
@@ -49,7 +48,7 @@
 //! | `PdfPages("doc.pdf")`, `pdf.savefig(fig)`          | [`PdfPages::new`], [`PdfPages::savefig`], then [`PdfPages::save`] or [`PdfPages::finish`] |
 //! | `pdf.attach_note(text)`, `pdf.infodict()`          | [`PdfPages::attach_note`], [`PdfPages::metadata_mut`] |
 //! | `fig.canvas.draw()`, `fig.canvas.buffer_rgba()`    | [`FigureCanvas::draw`], [`FigureCanvas::buffer_rgba`] via [`Figure::canvas`] |
-//! | `fig.canvas.device_pixel_ratio`, `_set_device_pixel_ratio(2)` | [`FigureCanvas::device_pixel_ratio`], [`FigureCanvas::set_device_pixel_ratio`]; saving keeps the resolution the figure was made at |
+//! | `fig.canvas.device_pixel_ratio`, `_set_device_pixel_ratio(2)` | [`FigureCanvas::device_pixel_ratio`], [`FigureCanvas::set_device_pixel_ratio`]. A save ignores the ratio and keeps the original dpi |
 //! | `fig.get_tightbbox()`                              | [`Figure::tight_bbox`]                         |
 //! | `mpl.use("pgf")` and `savefig("fig.pgf")`          | [`Figure::to_pgf`], or a `.pgf` file name      |
 //! | `savefig("fig.pdf", backend="pgf")`, `"fig.png"`   | [`Figure::to_pgf_pdf`], [`Figure::to_pgf_png`]: LaTeX (`pgf.texsystem`) typesets the picture |
@@ -60,7 +59,7 @@
 //! | `backend_pdf.PdfFile`: `newPage`, `writeObject`, `reserveObject`, ... | [`PdfRenderer`]: [`PdfRenderer::new_page`], [`PdfRenderer::write_object`], [`PdfRenderer::reserve_object`], ... (snake case) |
 //! | `backend_pdf.Name`, `Reference`, `Verbatim`, `pdfRepr` | [`PdfObject`]`::Name`, `::Ref`, `::Raw`, [`PdfObject::repr`] |
 //! | `backend_svg.XMLWriter`                            | `pltrs_render::svg::xml::XmlWriter`            |
-//! | `savefig("fig.avif")`                              | [`SaveFormat::Avif`]: pltrs' own AV1 encoder, where matplotlib (and pltrs (Python)) go through Pillow and libavif |
+//! | `savefig("fig.avif")`                              | [`SaveFormat::Avif`], with the AV1 encoder of pltrs. matplotlib and pltrs (Python) use Pillow and libavif |
 //! | `rcParams["savefig.dpi"]`, `["pdf.fonttype"]`, ... | [`crate::rc::set`] with the same keys          |
 //! | animations                                         | see [`super::interaction`]                     |
 //!

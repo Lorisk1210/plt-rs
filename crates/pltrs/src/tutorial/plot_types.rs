@@ -1,11 +1,8 @@
-//! Chapter 3: plot types, and when to use which.
+//! Chapter 3: plot types, and when to use each.
 //!
-//! Each kind of plot is a method of [`Axes`] named after matplotlib's
-//! function: `plot`, `scatter`, `bar`, `hist`, `fill_between`, `imshow`,
-//! `contour`, and many more. Each returns a handle to what it drew, or a
-//! struct of handles when it drew several artists. The choice of plot
-//! depends on the shape of the data and on the question the figure
-//! answers:
+//! Each kind of plot is a method of [`Axes`] with the matplotlib name, for
+//! example `plot`, `scatter` or `hist`. It returns a handle, or a struct of
+//! handles. Select the plot from the data and the question:
 //!
 //! | data                                   | question                         | plot |
 //! |----------------------------------------|----------------------------------|------|
@@ -19,13 +16,10 @@
 //!
 //! # Lines and markers
 //!
-//! [`Axes::plot`] joins the points in the order given, which suits data
-//! measured along an ordered x: a time series, a function, a sweep. A
-//! *marker* is a symbol drawn at each point. Add markers when the points
-//! themselves matter (few, irregular, measured), and drop the line when
-//! the order means nothing. [`Axes::plot_fmt`] takes matplotlib's short
-//! format strings: `"o-"` is circles joined by a solid line, `"s"` squares
-//! alone, `"r--"` a red dashed line.
+//! [`Axes::plot`] joins the points in order, with an optional *marker* at
+//! each point. [`Axes::plot_fmt`] accepts matplotlib format
+//! strings: `"o-"` gives circles and a solid line, `"s"` gives squares only
+//! and `"r--"` gives a red dashed line.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -43,21 +37,17 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! A NaN in the data leaves a gap in the line. Related methods:
-//! [`Axes::step`] for values that hold until the next point,
-//! [`Axes::errorbar`] for points with error bars, [`Axes::semilogy`] and
-//! friends for logarithmic axes (chapter [`scales`](super::scales)).
+//! A NaN makes a gap in the line. [`Axes::step`] draws steps,
+//! [`Axes::errorbar`] draws error bars, and [`Axes::semilogy`] and similar
+//! methods use logarithmic axes (chapter [`scales`](super::scales)).
 //! Gallery: `line_plot`, `steps`, `errorbars` and `stem` in `lines.rs`.
 //!
 //! # Scatter plots
 //!
-//! [`Axes::scatter`] draws one marker per point and joins nothing. It
-//! shows how two quantities relate, and can show two more through the
-//! size and the colour of each marker. A colour that stands for a number
-//! goes through a *colormap*, a function from numbers to colours;
-//! [`colormaps::get`](crate::colors::colormaps::get) finds one by name
-//! (`"viridis"`, `"plasma"`, `"coolwarm"`, ...). A *colorbar* beside the
-//! axes shows the mapping.
+//! [`Axes::scatter`] draws one marker per point, and the size and color of
+//! each marker can show more data. A *colormap* maps numbers to
+//! colors. [`colormaps::get`](crate::colors::colormaps::get) finds one by
+//! name (`"viridis"`, `"plasma"`, ...). A *colorbar* shows the mapping.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -77,19 +67,17 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! A scatter plot is a [`Collection`](crate::collections::Collection):
-//! one artist drawing many markers, much faster than one line per point.
-//! Use `plot` with markers and no line instead when all markers look the
-//! same. Gallery: `polar_scatter` in `projections.rs`, `scatter_3d` in
+//! A scatter plot is one [`Collection`](crate::collections::Collection)
+//! artist. If all markers look the same, `plot` with markers and no line
+//! is enough. Gallery: `polar_scatter` in `projections.rs`, `scatter_3d` in
 //! `three_d.rs`.
 //!
 //! # Bars
 //!
-//! [`Axes::bar`] compares one value per category. The x values may be
-//! numbers or names: names become categories, placed at 0, 1, 2, ... in
-//! the order they first appear. [`Axes::barh`] draws horizontal bars,
-//! easier to read with long names. [`Axes::bar_label`] writes the values
-//! on the bars.
+//! [`Axes::bar`] draws one bar per category. The x values can be numbers
+//! or names. pltrs places names at 0, 1, 2, ... in the order of their first
+//! appearance. [`Axes::barh`] draws horizontal bars. [`Axes::bar_label`]
+//! writes the values on the bars.
 //!
 //! ```
 //! use pltrs::axes::BarLabelOptions;
@@ -105,15 +93,13 @@
 //! ```
 //!
 //! Gallery: `grouped_bars`, `stacked_bars` and `horizontal_bars` in
-//! `bars.rs`; `categorical` in `units.rs`.
+//! `bars.rs`, `categorical` in `units.rs`.
 //!
 //! # Histograms
 //!
-//! A histogram shows how many samples of one quantity fall in each
-//! interval (bin) of its range. [`Axes::hist`] counts and draws the bars;
-//! it takes one dataset, or several to draw side by side, stacked or
-//! overlapping. The number of bins changes what the plot shows: too few
-//! hide the shape, too many turn it into noise.
+//! A histogram counts the samples in each interval (bin). [`Axes::hist`]
+//! counts and draws. It accepts one dataset, or several datasets side by
+//! side, stacked or overlapping.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -139,18 +125,15 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`stats::hist`](crate::stats::hist) counts without drawing. For two
-//! quantities at once, [`Axes::hist2d`] and [`Axes::hexbin`] count in
-//! squares or hexagons; for comparing distributions, [`Axes::boxplot`]
-//! and [`Axes::violinplot`] summarise each one. Gallery: `histograms`,
-//! `box_and_violin` and `ecdf` in `stats.rs`; `hist2d` in `density.rs`.
+//! [`stats::hist`](crate::stats::hist) counts without drawing.
+//! [`Axes::hist2d`] and [`Axes::hexbin`] count in squares or hexagons.
+//! [`Axes::boxplot`] and [`Axes::violinplot`] summarize distributions. Gallery: `histograms`, `box_and_violin`
+//! and `ecdf` in `stats.rs`, `hist2d` in `density.rs`.
 //!
 //! # Filled areas
 //!
-//! [`Axes::fill_between`] fills the area between two curves sharing an
-//! x: a range of measurements, an uncertainty band, the area under a
-//! curve (with a constant lower curve, one value for every x: `[0.0]`).
-//! Some transparency lets the grid show through.
+//! [`Axes::fill_between`] fills the area between two curves with the same
+//! x. For a constant curve, give one value, for example `[0.0]`.
 //!
 //! ```
 //! use pltrs::collections::CollectionProps;
@@ -170,22 +153,18 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`Axes::fill`] fills a polygon, [`Axes::stackplot`] stacks areas,
-//! [`Axes::axvspan`] shades a range of x across the whole axes. Gallery:
-//! `confidence_band`, `fill_between_where` and `stackplot` in
-//! `lines.rs`.
+//! [`Axes::fill`] fills a polygon. [`Axes::stackplot`] stacks areas.
+//! [`Axes::axvspan`] shades a range of x across the axes. Gallery:
+//! `confidence_band`, `fill_between_where` and `stackplot` in `lines.rs`.
 //!
 //! # Images and colormaps
 //!
-//! [`Axes::imshow`] draws a 2-D array as a grid of coloured cells, row 0
-//! at the top as in a picture. The values go through a colormap, as in a
-//! colour-mapped scatter plot. The array is a [`Grid`]: rows and columns
-//! of one type, made from a function of the row and column or from rows
-//! (chapter [`data`](super::data)). A grid of RGB(A) pixels is drawn as
-//! the picture it is. The cells sit at the column and row numbers unless
-//! an `extent` (`[left, right, bottom, top]`) places the image in data
-//! coordinates. The colormap has a builder method, the other options are
-//! fields, so struct update syntax fills them around the builder:
+//! [`Axes::imshow`] draws a [`Grid`] (chapter [`data`](super::data)) of
+//! values as colored cells, with row 0 at the top. A colormap gives the
+//! colors. pltrs draws a grid of RGB or RGBA pixels as a picture. An
+//! `extent` (`[left, right, bottom, top]`) places the image in data
+//! coordinates. Without it, the cells are at their column and row numbers.
+//! The colormap is a builder method and the other options are fields:
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -204,23 +183,23 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! An image keeps its cells square unless told otherwise
+//! Cells are square by default
 //! ([`ImshowOptions::aspect`](crate::axes::ImshowOptions::aspect)).
-//! [`Axes::pcolormesh`] draws cells of any size and shape. Colormaps come
-//! in families: *sequential* ones (`viridis`, `magma`) for values from
-//! low to high, *diverging* ones (`coolwarm`, `RdBu`) for values on both
-//! sides of a centre, *qualitative* ones (`tab10`) for categories.
+//! [`Axes::pcolormesh`] draws cells of any size and shape. Use a
+//! sequential colormap (`viridis`, `magma`) for values from low to high.
+//! Use a diverging colormap (`coolwarm`, `RdBu`) for values around a
+//! center, and a qualitative colormap (`tab10`) for categories.
+//!
 //! Gallery: `image_colorbar` and `imshow_interpolation` in `images.rs`,
 //! `colormaps` in `colour.rs`.
 //!
 //! # Contours
 //!
 //! A contour line joins the points where a function of two variables has
-//! one value, as on a map of heights. [`Axes::contour`] draws the lines,
-//! [`Axes::contourf`] fills the bands between them. Both take a
-//! [`QuadField`](crate::contour::QuadField): the values on a grid, with
-//! the x and y of the grid points; [`meshgrid`] makes those from the
-//! values along each axis.
+//! one value. [`Axes::contour`] draws the lines, and [`Axes::contourf`]
+//! fills the bands. Both take a [`QuadField`](crate::contour::QuadField):
+//! values on a grid, with the x and y of the grid points. [`meshgrid`]
+//! makes the grid points.
 //!
 //! ```
 //! use pltrs::contour::{ClabelOptions, ContourOptions, Levels, QuadCoords, QuadField};
@@ -245,9 +224,8 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! For scattered points rather than a grid, [`Axes::tricontour`] works on
-//! a triangulation. Gallery: `contours` and `tricontour` in
-//! `contours.rs`.
+//! For scattered points, [`Axes::tricontour`] uses a triangulation.
+//! Gallery: `contours` and `tricontour` in `contours.rs`.
 //!
 //! # More plot types
 //!
@@ -259,12 +237,12 @@
 //!   in `density.rs`).
 //! * Other projections: polar and map axes ([`Figure::polar_subplot`],
 //!   [`Figure::geo_subplot`]) and 3-D axes ([`Figure::subplot_3d`]), with
-//!   their own plotting methods (gallery: `projections.rs`,
-//!   `three_d.rs`; [`porting::toolkits`](crate::porting::toolkits)).
+//!   their own plotting methods (gallery: `projections.rs`, `three_d.rs`,
+//!   and [`porting::toolkits`](crate::porting::toolkits)).
 //!
-//! The [`porting::plotting`](crate::porting::plotting) and
-//! [`porting::images`](crate::porting::images) pages list every plotting
-//! method with its options.
+//! The pages [`porting::plotting`](crate::porting::plotting) and
+//! [`porting::images`](crate::porting::images) list each plotting method
+//! with its options.
 //!
 //! Next: [data and options](super::data).
 //!

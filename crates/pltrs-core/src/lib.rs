@@ -1,54 +1,55 @@
-//! Geometry, paths, affine transforms and colours shared by every pltrs crate.
+//! Geometry, paths, affine transforms and colors for all pltrs crates.
 //!
-//! This crate is the vocabulary of pltrs. It deliberately mirrors the
-//! semantics of matplotlib's `transforms.Affine2D`, `transforms.Bbox` and
-//! `path.Path` so that higher layers can follow matplotlib's algorithms
-//! faithfully:
+//! This crate holds the base types of pltrs. They follow the matplotlib
+//! types `transforms.Affine2D`, `transforms.Bbox` and `path.Path`, so the
+//! higher crates can use the matplotlib algorithms unchanged:
 //!
-//! * [`Point`] — a 2-D point / vector in `f64`.
-//! * [`Affine2D`] — an affine map with matplotlib's "append" composition
-//!   order (`Affine2D::identity().scale(2.0, 2.0).rotate_deg(90.0)` scales
-//!   first, then rotates).
-//! * [`Bbox`] — a possibly-inverted axis-aligned box (`x0` may exceed `x1`).
-//! * [`Path`] — vertices plus optional [`PathCode`]s, iterated as
-//!   [`Segment`]s; see [`path`] for matplotlib's unit shapes, containment,
-//!   intersection, clipping and extents queries, and [`path::convert`] for
-//!   the conditioning pipeline every backend runs before drawing
-//!   (NaN removal, clipping, snapping, simplification, curve flattening,
-//!   sketching).
-//! * [`alloc`] — allocations that fail as errors ([`alloc::OutOfMemory`],
-//!   matplotlib's `MemoryError`) instead of ending the process.
-//! * [`archive`] — values written to bytes and read back exactly (what
-//!   pickling a figure rests on).
-//! * [`bezier`] — evaluation, subdivision and extrema of Bézier curves.
-//! * `fuzz` (with the feature `fuzzing`) — the harness of the workspace's
-//!   robustness tests.
-//! * [`hatch`] — matplotlib's hatch patterns.
-//! * [`interned`] — run-time strings kept as `&'static str`.
-//! * [`json`] — JSON values, read as Python's `json` module writes them
-//!   (the spec's goldens) or strictly by RFC 8259 (untrusted messages),
-//!   and written back.
-//! * [`numeric`] — Python's and numpy's float semantics (`divmod`, `%`,
-//!   `min`/`max`, `minimum`/`maximum`, `sign`, `linspace`) that
-//!   matplotlib's results depend on, as the binaries pltrs reproduces
-//!   compute them: the copy of numpy's loops a processor runs
-//!   ([`numeric::CpuLevel`]), the products their compiler fuses
-//!   ([`numeric::Contraction`]), and numpy's own ufuncs where a last bit
-//!   decides something discrete ([`numeric::Ufunc`]).
-//! * [`os`] — the conventions that differ between Linux, macOS and
-//!   Windows (programs on `PATH`, resolved paths), as functions of the
-//!   system so that each is tested on any.
-//! * [`pyfmt`] — Python's float formatting (`repr`, `%`-formatting and the
-//!   `str.format` mini-language), which matplotlib's labels and documents
-//!   are written with.
-//! * [`rng`] — the `SplitMix64` generator behind pltrs's reproducible
-//!   pseudo-random streams.
-//! * [`Rgba`] — a straight-alpha colour with components in `[0, 1]`.
-//! * [`stack`] — room on the thread's stack for work that goes deep: on a
-//!   thread of its own where the caller's stack is short.
-//! * [`state`] — the state pltrs keeps where matplotlib keeps
-//!   process-wide variables: per thread ([`thread_state!`]), unless
-//!   threads work with one [`state::State`] together.
+//! * [`Point`]: a 2-D point or vector in `f64`.
+//! * [`Affine2D`]: an affine map that composes in the matplotlib "append"
+//!   order. `Affine2D::identity().scale(2.0, 2.0).rotate_deg(90.0)` scales
+//!   first, then rotates.
+//! * [`Bbox`]: an axis-aligned box that can be inverted (`x0` can be
+//!   larger than `x1`).
+//! * [`Path`]: vertices and optional [`PathCode`]s, iterated as
+//!   [`Segment`]s. [`path`] has the matplotlib unit shapes and the queries
+//!   for containment, intersection, clipping and extents.
+//!   [`path::convert`] is the conditioning pipeline that each backend runs
+//!   before it draws: NaN removal, clipping, snapping, simplification,
+//!   curve flattening and sketching.
+//! * [`alloc`]: allocations that return an error
+//!   ([`alloc::OutOfMemory`], the matplotlib `MemoryError`) and do not end
+//!   the process.
+//! * [`archive`]: values written to bytes and read back exactly. Pickling
+//!   of figures uses it.
+//! * [`bezier`]: evaluation, subdivision and extrema of Bézier curves.
+//! * `fuzz` (with the feature `fuzzing`): the harness of the fuzz tests of
+//!   the workspace.
+//! * [`hatch`]: the matplotlib hatch patterns.
+//! * [`interned`]: strings made at run time and kept as `&'static str`.
+//! * [`json`]: JSON values, written back and read in two ways. The lenient
+//!   reader accepts the output of the Python `json` module (the spec
+//!   goldens). The strict reader follows RFC 8259 (untrusted messages).
+//! * [`numeric`]: the float behavior of Python and numpy that matplotlib
+//!   results depend on (`divmod`, `%`, `min`/`max`, `minimum`/`maximum`,
+//!   `sign`, `linspace`). It computes as the binaries that pltrs copies.
+//!   [`numeric::CpuLevel`] selects the numpy loops of a processor level.
+//!   [`numeric::Contraction`] gives the products that their compiler
+//!   fuses. [`numeric::Ufunc`] gives the numpy ufuncs where the last bit
+//!   decides a discrete result.
+//! * [`os`]: the conventions that differ between Linux, macOS and Windows
+//!   (programs on `PATH`, resolved paths). They are functions of the
+//!   system, so tests on one system can check all of them.
+//! * [`pyfmt`]: Python float formatting (`repr`, `%`-formatting and the
+//!   `str.format` mini-language), which matplotlib uses for labels and
+//!   documents.
+//! * [`rng`]: the `SplitMix64` generator for the reproducible
+//!   pseudo-random streams of pltrs.
+//! * [`Rgba`]: a straight-alpha color with components in `[0, 1]`.
+//! * [`stack`]: stack space for deep work. If the stack of the caller is
+//!   short, the work runs on its own thread.
+//! * [`state`]: the state that matplotlib keeps in process-wide variables.
+//!   pltrs keeps it per thread ([`thread_state!`]), unless threads share
+//!   one [`state::State`].
 #![forbid(unsafe_code)]
 
 mod affine;

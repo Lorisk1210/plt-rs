@@ -1,27 +1,30 @@
 # pltrs-codec
 
-Self-contained compression and image codecs, written for pltrs: no
-dependencies and no `unsafe` code.
+`pltrs-codec` has compression and image codecs. It has no dependencies and
+no `unsafe` code.
 
-* DEFLATE and zlib, writing zlib-ng 2.3's bytes, with a strictly
-  validating decompressor
-* PNG and APNG; JPEG, TIFF and GIF as Pillow writes and reads them; WebP
-  decoding and lossless encoding
-* an intra-only AV1 encoder and AVIF files, as Pillow writes them
-  through libavif
+Contents:
+
+* DEFLATE and zlib. The encoder writes the same bytes as zlib-ng 2.3.
+* PNG and APNG
+* JPEG, TIFF and GIF, with the same output as Pillow
+* WebP: a decoder and a lossless encoder
+* AVIF: an AV1 encoder for still images
 * CRC-32, Adler-32, SHA-1, SHA-256 and base64
 
-## One of pltrs' crates
+## Use
 
-pltrs is matplotlib rebuilt from scratch in Rust, with no dependencies
-outside its own crates. Its crates are released together, at one
-version, and each depends on the exact version of the others: what they
-offer each other is not an interface of its own. Most programs want the
-crate `pltrs`, matplotlib's model with every output format and
-interactive windows; this crate is for those who need its codecs alone.
+Most programs need the crate [`pltrs`](https://crates.io/crates/pltrs).
+It has figures, all output formats and windows. Use `pltrs-codec` directly
+only if you need the codecs alone.
 
-## Licence
+All pltrs crates have the same version. Each crate requires the same
+version of the other pltrs crates.
 
-MIT OR Apache-2.0, at your option (`LICENSE-MIT`, `LICENSE-APACHE`). The
-code and data it takes from other projects keep their own licences:
-`THIRD_PARTY.md` lists them, with their texts in `LICENSES/`.
+## License
+
+You can use this crate under the MIT license (`LICENSE-MIT`) or the Apache
+License 2.0 (`LICENSE-APACHE`).
+
+The code and data from other projects keep their licenses. `THIRD_PARTY.md`
+lists them, and `LICENSES/` has the license texts.

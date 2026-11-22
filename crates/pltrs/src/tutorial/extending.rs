@@ -1,32 +1,26 @@
-//! Chapter 11: extending pltrs with types of your own.
+//! Chapter 11: extending pltrs with your own types.
 //!
-//! pltrs is extended through traits: implement [`Artist`] for something
-//! new to draw, [`Projection`] for a new kind of axes,
-//! [`ConversionInterface`] to plot values of your own types, and
-//! [`LegendHandler`] for a new kind of legend entry. Toolbar tools are
-//! closures. This chapter shows the shape of each; the linked pages have
-//! complete examples.
+//! You extend pltrs with traits. Implement [`Artist`] for a new thing to
+//! draw and [`Projection`] for a new kind of axes. Implement
+//! [`ConversionInterface`] for values of your own types and
+//! [`LegendHandler`] for a new legend entry.
+//! Toolbar tools are closures. The linked pages have complete examples.
 //!
 //! # Artists
 //!
-//! An artist is a type implementing [`Artist`]: it holds an
-//! [`ArtistBase`] with the properties all artists share, and draws itself
-//! in [`Artist::draw`]. [`Axes::add_custom_artist`] adds it and returns a
-//! [`Custom`] handle, which has the shared properties of every handle and
-//! reads or changes your artist through closures.
+//! An artist holds an [`ArtistBase`] with the shared properties and draws
+//! itself in [`Artist::draw`]. [`Axes::add_custom_artist`] adds it and
+//! returns a [`Custom`] handle, which reads or changes your artist through
+//! closures.
 //!
-//! Drawing happens in display coordinates (pixels). The artist's
-//! transform, data coordinates when it was added to an axes, maps its
-//! points there; then the [`Renderer`] draws paths with a
-//! [`GraphicsContext`], which carries the colour, width, dashes, alpha
-//! and clipping. [`DrawContext::base_gc`] fills in what all artists
-//! share (alpha, clipping, ...) and leaves the rest at black, 1 point
-//! wide, for the artist to set from fields of its own. A problem found
-//! while drawing, such as a colour that does not parse, goes to
-//! [`DrawContext::report`]: the figure draws everything else and the
-//! drawing fails with the problems found. Here, a bracket marking a
-//! range of y at one x, with arms of a fixed length in pixels whatever
-//! the zoom:
+//! The transform of the artist (data coordinates in an axes) maps its
+//! points to pixels. The [`Renderer`] draws paths with a
+//! [`GraphicsContext`]: color, width, dashes, alpha and clipping.
+//! [`DrawContext::base_gc`] sets the shared properties. The others start
+//! at black and 1 point wide. Send a problem, such as a bad color, to
+//! [`DrawContext::report`]. pltrs then draws everything else, and the
+//! drawing fails with the problems. This bracket marks a range of y, with
+//! arms of a fixed length in pixels:
 //!
 //! ```
 //! use pltrs::artist::{Artist, ArtistBase, DrawContext};
@@ -98,41 +92,34 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`Custom::get`] returns a copy of your artist, which is why it derives
-//! `Clone`, and [`Custom::update`] changes a copy and puts it back. The
-//! figure is not borrowed while your code runs, so it may use any handle
-//! meanwhile. The [`Artist`] trait has further methods with defaults,
-//! for an artist that takes room in the layout ([`Artist::window_extent`]),
-//! answers the mouse ([`Artist::contains`]) or widens its axes' data
-//! limits ([`Artist::limit_points`]). They run while the figure is drawn
-//! or laid out, so they get what they need as arguments and should leave
-//! other handles alone.
+//! [`Custom::get`] returns a copy of your artist, so the artist derives
+//! `Clone`. [`Custom::update`] changes a copy and puts it back. Your code
+//! does not borrow the figure, so it can use any handle. Optional methods
+//! make an artist take space in the layout ([`Artist::window_extent`]),
+//! react to the mouse ([`Artist::contains`]) or widen the data limits
+//! ([`Artist::limit_points`]). They run during drawing or layout, so they
+//! get their data as arguments and must not use other handles.
 //!
 //! # Projections
 //!
-//! A projection decides how data coordinates map to the axes rectangle:
-//! polar axes and map projections are projections. Implement
-//! [`Projection`], [`register`](crate::projections::register) it under a
-//! name, and make axes of it with
-//! [`Figure::subplot_with_projection`]; every plotting method then works
-//! on them. The trait has one hook for each part a projection may
-//! change: the data transform, the transforms of the axes' ticks, the
-//! outline and spines, panning and zooming. The hooks run while the
-//! figure is laid out and drawn, so they get what they need as
-//! arguments; a projection holds settings, not handles, and is `Send`.
-//! The [`porting::toolkits`](crate::porting::toolkits) page builds skewed
-//! axes, and `custom_projection` in `projections.rs` in
-//! the gallery draws a weather sounding on them.
+//! A projection maps data coordinates to the axes rectangle, as polar axes
+//! do. Implement [`Projection`] and
+//! [`register`](crate::projections::register) it under a name. Then
+//! [`Figure::subplot_with_projection`] makes axes with it, and all
+//! plotting methods work. The trait has hooks for the data transform, the
+//! tick transforms, the outline, the spines, pan and zoom. The hooks get
+//! their data as arguments. A projection holds settings, not handles, and
+//! is `Send`. [`porting::toolkits`](crate::porting::toolkits) builds
+//! skewed axes, and the gallery entry `custom_projection` in
+//! `projections.rs` uses them.
 //!
 //! # Values of your own types
 //!
-//! Plotting methods take numbers, names and dates (chapter
-//! [`data`](super::data)), and also values of your types once they have
-//! a *unit converter*. Implement [`ConversionInterface`] for a converter,
-//! which turns values into axis numbers and may give the axis a label
-//! and tick helpers, then [`Convertible`] for the value type, naming its
-//! converter. Lists of the values then convert into
-//! [`AxisValues`](crate::units::AxisValues) like any other data.
+//! Plotting methods also take your own types if they have a *unit
+//! converter*. Implement [`ConversionInterface`] for the converter. It
+//! converts values to numbers and can give the axis a label and tick
+//! helpers. Then implement [`Convertible`] for the value type. Lists of
+//! the values then convert into [`AxisValues`](crate::units::AxisValues).
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -180,18 +167,15 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! A converter with real units (metres and feet, degrees Celsius and
-//! Fahrenheit) lets an axis switch unit and its artists follow:
-//! [`ConversionInterface`] shows one, and `custom_units` in `units.rs` in
-//! the gallery draws it.
+//! With a converter for real units, such as meters and feet, an axis can
+//! change its unit. [`ConversionInterface`] shows one, and the gallery
+//! entry `custom_units` in `units.rs` uses it.
 //!
 //! # Legend entries
 //!
-//! A legend lists labelled artists, but an entry can stand for anything:
 //! [`LegendHandle::line`](crate::legend::LegendHandle::line) and
-//! [`LegendHandle::patch`](crate::legend::LegendHandle::patch) make
-//! entries from properties alone, for things drawn in another way or not
-//! at all.
+//! [`LegendHandle::patch`](crate::legend::LegendHandle::patch) make legend
+//! entries from properties only, without an artist.
 //!
 //! ```
 //! use pltrs::legend::LegendHandle;
@@ -209,17 +193,15 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! To draw an entry in a new way, implement [`LegendHandler`]: its
-//! documentation draws an ellipse for circles, as matplotlib's legend
-//! guide does.
+//! To draw an entry in a new way, implement [`LegendHandler`]. Its
+//! documentation draws an ellipse for circles, like the matplotlib legend
+//! guide.
 //!
 //! # Toolbar tools
 //!
-//! [`Figure::add_tool`] adds a button to the toolbar of the figure's
-//! window, with a keyboard shortcut, calling your closure. A toggle tool
-//! stays pressed and tells the closure whether it is.
-//! [`Figure::trigger_tool`] runs a tool as a click would, so tools can be
-//! tested without a window.
+//! [`Figure::add_tool`] adds a toolbar button with a keyboard shortcut that
+//! calls your closure. A toggle tool stays pressed and gives the closure
+//! its state. [`Figure::trigger_tool`] runs a tool without a window.
 //!
 //! ```
 //! use pltrs::gui::{Icon, ToolKind, ToolSpec};
@@ -246,8 +228,8 @@
 //! ```
 //!
 //! Colormaps ([`colormaps::register`](crate::colors::colormaps::register)),
-//! scales and style sheets (chapter [`styling`](super::styling)) are
-//! registered by name, after which every call taking a name finds them.
+//! scales and style sheets (chapter [`styling`](super::styling)) also
+//! register by name.
 //!
 //! Next: [testing your plots](super::testing).
 //!

@@ -1,26 +1,27 @@
 //! Anti-aliased scanline rasterizer, stroker and compositor.
 //!
-//! `pltrs-raster` reproduces the parts of Anti-Grain Geometry (Agg) that
-//! matplotlib's Agg backend uses, with the aim of pixel-identical output.
-//! It works purely in device pixel space (y down, origin top-left); the
-//! caller transforms, NaN-filters, snaps and simplifies paths beforehand.
+//! `pltrs-raster` copies the parts of Anti-Grain Geometry (Agg) that the
+//! matplotlib Agg backend uses. The aim is output that is identical pixel
+//! for pixel. It works in device pixels (y down, origin at the top left).
+//! The caller transforms, NaN-filters, snaps and simplifies paths before.
 //!
-//! * [`Pixmap`] — RGBA8 with straight alpha (Agg's `pixfmt_rgba32_plain`),
-//!   and [`Mask`], a gray8 coverage map for clip masks and glyphs, which
-//!   [`Mask::blurred`] blurs as SVG's `feGaussianBlur` does (drop
-//!   shadows).
-//! * [`Rasterizer`] — Agg's `rasterizer_scanline_aa`: 24.8 fixed-point cell
-//!   accumulation, non-zero/even-odd rules, [`Gamma`], clip box.
-//! * The vertex pipeline (curve flattening like `conv_curve`, dashing like
-//!   `vcgen_dash`, stroking like `vcgen_stroke`), configured by
-//!   [`StrokeStyle`].
-//! * Compositing with matplotlib's `fixed_blender_rgba_plain`, clip boxes
-//!   ([`ClipBox`]) and clip masks ([`Clip`]).
-//! * [`Painter`] — fills, strokes, hatch patterns, Gouraud triangles,
-//!   [`MarkerStamp`]s and transformed coverage, plus [`draw_image`] and
-//!   [`draw_coverage`] for blitting.
-//! * [`resample`] — matplotlib's image resampler (`_image.resample`):
-//!   Agg's interpolation kernels and span generators.
+//! * [`Pixmap`]: RGBA8 with straight alpha (Agg `pixfmt_rgba32_plain`).
+//! * [`Mask`]: a gray8 coverage map for clip masks and glyphs.
+//!   [`Mask::blurred`] blurs it as the SVG `feGaussianBlur` does, for drop
+//!   shadows.
+//! * [`Rasterizer`]: the Agg `rasterizer_scanline_aa`, with 24.8
+//!   fixed-point cell accumulation, non-zero and even-odd rules, [`Gamma`]
+//!   and a clip box.
+//! * The vertex pipeline: curve flattening like `conv_curve`, dashing like
+//!   `vcgen_dash` and stroking like `vcgen_stroke`. [`StrokeStyle`]
+//!   configures it.
+//! * Compositing with the matplotlib `fixed_blender_rgba_plain`, clip
+//!   boxes ([`ClipBox`]) and clip masks ([`Clip`]).
+//! * [`Painter`]: fills, strokes, hatch patterns, Gouraud triangles,
+//!   [`MarkerStamp`]s and transformed coverage. [`draw_image`] and
+//!   [`draw_coverage`] blit.
+//! * [`resample`]: the matplotlib image resampler (`_image.resample`), with
+//!   the Agg interpolation kernels and span generators.
 #![forbid(unsafe_code)]
 
 mod blur;

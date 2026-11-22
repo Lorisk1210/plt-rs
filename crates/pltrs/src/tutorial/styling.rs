@@ -1,29 +1,24 @@
-//! Chapter 5: styling, from one line's colour to the defaults of every
-//! figure.
+//! Chapter 5: styling, from one line to the defaults of all figures.
 //!
-//! Styling works at three levels. You style one artist through its
-//! properties. You change the defaults new artists take through the
-//! runtime settings, matplotlib's *rcParams*, either one at a time or by
-//! applying a *style sheet*. And the *look* decides which defaults a
-//! program starts from: pltrs' modern look or matplotlib's.
+//! The properties of an artist style that artist. The runtime settings
+//! (*rcParams*) give the defaults of new artists. A *style sheet* changes
+//! many settings. The *look* gives the settings at the start.
 //!
-//! # Colours
+//! # Colors
 //!
-//! Every colour argument is `impl Into<`[`Color`]`>`, and strings
-//! convert, so a colour is usually a string literal:
+//! Each color argument is `impl Into<`[`Color`]`>`, so a color is usually
+//! a string literal:
 //!
-//! * a name: `"red"`, `"steelblue"`, a Tableau colour such as
-//!   `"tab:orange"`, an xkcd survey colour such as `"xkcd:sky blue"`;
-//! * a hex code: `"#ff8800"`, or `"#ff880080"` with an alpha;
-//! * a grey level from `"0"` (black) to `"1"` (white): `"0.6"`;
-//! * a colour of the cycle: `"C0"` to `"C9"`, the colours lines take in
-//!   turn;
-//! * `"none"`, for no colour at all (an unfilled shape).
+//! * a name: `"red"`, `"steelblue"`, a Tableau color such as
+//!   `"tab:orange"` or an xkcd color such as `"xkcd:sky blue"`
+//! * a hex code: `"#ff8800"`, or `"#ff880080"` with an alpha
+//! * a gray level from `"0"` (black) to `"1"` (white): `"0.6"`
+//! * a color of the cycle that lines use in turn: `"C0"` to `"C9"`
+//! * `"none"` for no color (an unfilled shape)
 //!
-//! Tuples and arrays of floats from 0 to 1 convert too: `(0.1, 0.4, 0.8)`
-//! and `[0.1, 0.4, 0.8, 0.5]` with an alpha. A string is checked when the
-//! figure is drawn, and a bad one makes drawing fail; [`Color::parse`]
-//! checks it at once, which suits colours read from a file.
+//! Floats from 0 to 1 also convert: `(0.1, 0.4, 0.8)`, or
+//! `[0.1, 0.4, 0.8, 0.5]` with an alpha. A bad string makes the drawing
+//! fail. [`Color::parse`] checks a string immediately.
 //!
 //! ```
 //! use pltrs::colors::Color;
@@ -41,11 +36,10 @@
 //!
 //! # Lines and markers
 //!
-//! A line has a width in points (1/72 inch, so it does not change with
-//! the figure's resolution), a [`LineStyle`] (solid, dashed, dotted,
-//! dash-dot, none, or a dash pattern of your own) and, optionally, a
-//! [`Marker`] at each point. Markers have a size in points, a face colour
-//! and an edge colour; both follow the line's colour unless set.
+//! A line has a width in points (1/72 inch), a [`LineStyle`] (solid,
+//! dashed, dotted, dash-dot, none or a dash pattern) and an optional
+//! [`Marker`]. A marker has a size in points, a face color and an edge
+//! color. Both colors are the line color by default.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -61,41 +55,36 @@
 //! let line = ax.plot_with([1.0, 2.0, 3.0, 4.0], [1.0, 3.0, 2.0, 4.0], props)?;
 //! assert_eq!(line.marker(), Marker::Symbol(MarkerSymbol::Diamond));
 //!
-//! // The same, in matplotlib's format-string shorthand, then adjusted.
+//! // The same line from a matplotlib format string, then changed.
 //! let quick = ax.plot_fmt([1.0, 2.0, 3.0, 4.0], [0.0, 2.0, 1.0, 3.0], "D--")?;
 //! quick.set_linewidth(2.5).set_markersize(9.0);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Shapes (bars, histograms, filled areas, polygons) have a face colour,
-//! an edge colour and width, and an optional hatch pattern, set through
-//! a [`PatchProps`] or [`CollectionProps`](crate::collections::CollectionProps).
-//! Gallery: `markers`, `line_styles` and `hatches` in `reference.rs` show
-//! every marker, dash style and hatch.
+//! Shapes have a face color, an edge color, an edge width and an optional
+//! hatch pattern, in a [`PatchProps`] or a
+//! [`CollectionProps`](crate::collections::CollectionProps). The gallery
+//! entries `markers`, `line_styles` and `hatches` in `reference.rs` show
+//! all of them.
 //!
-//! # The modern look and matplotlib's
+//! # The modern look and the matplotlib look
 //!
-//! pltrs draws in its own modern look unless told otherwise: Inter
-//! type, a light grid behind the data, fewer lines around it, a colour
-//! cycle checked for colour-vision deficiencies, and constrained layout
-//! (chapter [`layout`](super::layout)); [`look`](crate::look) lists what
-//! it changes. The other look is matplotlib's own defaults. In
-//! matplotlib's look pltrs draws the same pixels as matplotlib, which
-//! matters when you compare a figure with one made in Python or follow
-//! matplotlib's documentation picture by picture. Behaviour is the same
-//! in both; only the defaults differ.
+//! The modern look is the default. It uses the Inter font, a light grid,
+//! fewer lines around the data and constrained layout (chapter
+//! [`layout`](super::layout)). Its color cycle is safe for color-vision
+//! deficiencies. [`look`](crate::look) lists all changes. In
+//! the matplotlib look, pltrs draws the same pixels as matplotlib.
 //!
-//! The environment chooses the look of a whole program without a
-//! rebuild:
+//! Environment variables select the look without a rebuild:
 //!
 //! ```text
-//! PLTRS_LOOK=matplotlib cargo run            # matplotlib's figures and windows
+//! PLTRS_LOOK=matplotlib cargo run            # the matplotlib look for figures and windows
 //! PLTRS_FIGURE_LOOK=modern-dark cargo run    # the modern look on a dark background
 //! ```
 //!
-//! and code can choose with [`look::set_figure_look`](crate::look::set_figure_look)
-//! at the start of `main`. Each look is a set of rcParams on top of
-//! matplotlib's defaults, which you can inspect:
+//! In code, call [`look::set_figure_look`](crate::look::set_figure_look)
+//! at the start of `main`. Each look is a set of rcParams over the
+//! matplotlib defaults:
 //!
 //! ```
 //! use pltrs::look::{self, FigureLook};
@@ -112,18 +101,16 @@
 //!
 //! # Runtime settings
 //!
-//! Every default comes from the current thread's [`RcParams`]: one typed
-//! field per setting, named after matplotlib's dotted keys
-//! (`lines.linewidth` is `lines_linewidth`). Most artists read them when
-//! they are made, so change the settings before plotting.
-//! A setting naming one of a few keywords holds the enum of its concept,
-//! the type the matching option takes: `axes.titlelocation` is a
-//! [`TitleLocation`], `markers.fillstyle` a [`FillStyle`].
-//! [`rc::set`](crate::rc::set) takes a key and a value as text, checked
-//! as matplotlib checks it; [`rc::update`](crate::rc::update) changes the
-//! typed fields. [`rc::context`](crate::rc::context) runs a closure and
-//! then restores the settings as they were, which keeps a change local.
-//! It returns what the closure returns.
+//! The defaults come from the [`RcParams`] of the current thread. Each
+//! setting is a typed field with the name of the matplotlib key
+//! (`lines.linewidth` is `lines_linewidth`). Most artists read the settings
+//! when pltrs makes them, so change the settings before you plot. A
+//! setting with a fixed set of values is an enum, for example
+//! [`TitleLocation`] or [`FillStyle`].
+//! [`rc::set`](crate::rc::set) takes a key and a value as text and checks
+//! them. [`rc::update`](crate::rc::update) changes the typed fields.
+//! [`rc::context`](crate::rc::context) runs a closure, restores the
+//! settings and returns the result of the closure.
 //!
 //! ```
 //! use std::error::Error;
@@ -148,21 +135,18 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! The closure names its return type, `Result<_, Box<dyn Error>>`, for
-//! the sake of its `?`s: they convert each error into the closure's error
-//! type, which Rust cannot otherwise tell when the result goes through
-//! `?` again. A context that ends the function returning its result
-//! needs none.
+//! The closure states its return type, because Rust cannot infer the error
+//! type of its `?` operators. As the last expression of a function, the
+//! context needs no type.
 //!
 //! # Style sheets
 //!
-//! A style sheet is a named set of settings, applied over the current
-//! ones. pltrs bundles matplotlib's sheets (`ggplot`, `bmh`,
-//! `dark_background`, `fivethirtyeight`, the `seaborn-v0_8` family, ...)
-//! and its own looks (`pltrs-modern`, `pltrs-modern-dark`).
-//! [`style::use_style`](crate::style::use_style) applies one for the
-//! rest of the thread, [`style::context`](crate::style::context) for one
-//! closure.
+//! A style sheet is a named set of settings. pltrs includes the matplotlib
+//! sheets (`ggplot`, `bmh`, `dark_background`, `fivethirtyeight`, the
+//! `seaborn-v0_8` family, ...) and its looks (`pltrs-modern`,
+//! `pltrs-modern-dark`). [`style::use_style`](crate::style::use_style)
+//! applies a sheet for the rest of the thread, and
+//! [`style::context`](crate::style::context) for one closure.
 //!
 //! ```
 //! use std::error::Error;
@@ -181,15 +165,14 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! A sheet that does not exist ends the call with an error of the
-//! closure's error type, without running it, so one `?` covers both.
-//! Gallery: `styles.rs` draws one figure in each bundled sheet.
+//! If the sheet does not exist, `context` returns an error of the closure
+//! error type and does not run the closure. The gallery file `styles.rs`
+//! draws one figure in each sheet.
 //!
 //! # Your configuration file
 //!
-//! Settings you want in every program go in a file named `pltrsrc`, in
-//! matplotlib's `matplotlibrc` syntax: one `key: value` per line, `#`
-//! for comments.
+//! Put the settings for all your programs in a file `pltrsrc`, in the
+//! `matplotlibrc` syntax: one `key: value` per line and `#` for comments.
 //!
 //! ```text
 //! # ~/.config/pltrs/pltrsrc
@@ -198,15 +181,18 @@
 //! savefig.dpi: 200
 //! ```
 //!
-//! pltrs reads it once per process and applies it over the look, so it
-//! changes the defaults of every thread. It looks for `./pltrsrc` first,
-//! then the file (or directory) that `PLTRSRC` names, then `pltrsrc` in the
-//! configuration directory: `$PLTRSCONFIGDIR`, else `pltrs` in
-//! `$XDG_CONFIG_HOME` (by default `~/.config`). Style sheets of your own
-//! go in the `stylelib` directory there, as `name.mplstyle` files, and
-//! [`style::use_style`](crate::style::use_style) finds them by name.
-//! [`config`](crate::config) tells where each file is looked for, and
-//! reports the lines of `pltrsrc` it could not use:
+//! pltrs reads the file once per process and applies it over the look, in
+//! all threads. It uses the first file that it finds:
+//!
+//! 1. `./pltrsrc`
+//! 2. the file or directory in `PLTRSRC`
+//! 3. `pltrsrc` in the configuration directory, which is `$PLTRSCONFIGDIR`,
+//!    or else `pltrs` in `$XDG_CONFIG_HOME` (default `~/.config`)
+//!
+//! Put your style sheets as `name.mplstyle` files in `stylelib` in the
+//! configuration directory. [`style::use_style`](crate::style::use_style)
+//! finds them by name. [`config`](crate::config) shows where pltrs looks
+//! for files and the lines of `pltrsrc` that it could not use:
 //!
 //! ```
 //! use pltrs::config;
@@ -220,12 +206,12 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`rc::restore_startup`](crate::rc::restore_startup) returns the
-//! thread to the look and `pltrsrc`, and [`rc::reset`](crate::rc::reset) to
-//! matplotlib's defaults. The [`porting::colors`](crate::porting::colors)
-//! page covers colormaps, norms and colour cycles, and
-//! [`porting::configuration`](crate::porting::configuration) the
-//! configuration files.
+//! [`rc::restore_startup`](crate::rc::restore_startup) sets the thread
+//! back to the look and `pltrsrc`. [`rc::reset`](crate::rc::reset) sets it
+//! to the matplotlib defaults. See also
+//! [`porting::colors`](crate::porting::colors) for colormaps, norms and
+//! color cycles, and
+//! [`porting::configuration`](crate::porting::configuration).
 //!
 //! Next: [layout](super::layout).
 //!

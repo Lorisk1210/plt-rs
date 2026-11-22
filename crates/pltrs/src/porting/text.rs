@@ -1,44 +1,45 @@
-//! Text, fonts, mathtext, text typeset by LaTeX, and annotations.
+//! Text, fonts, mathtext, text that LaTeX typesets, and annotations.
 //!
-//! [`Axes::text`], [`Figure::text`], the title and label setters return a
-//! [`Text`] handle. matplotlib styles text with keywords at creation
-//! (`fontsize=`, `ha=`, `bbox=`, ...); in pltrs you style the returned
-//! handle, or apply a whole [`TextProps`] with [`Text::update_props`].
-//! Alignments are enums ([`HAlign`], [`VAlign`]) that parse matplotlib's
-//! names; a font size is points or a keyword ([`FontSize`]); a text box is a [`TextBoxProps`] whose [`BoxStyle`] parses matplotlib's
-//! `"round,pad=0.3"` strings.
+//! [`Axes::text`], [`Figure::text`] and the title and label setters return
+//! a [`Text`] handle. In place of the keywords (`fontsize=`, `ha=`,
+//! `bbox=`, ...), style the handle, or apply a [`TextProps`] with
+//! [`Text::update_props`].
+//! Alignments are enums ([`HAlign`], [`VAlign`]) that parse the matplotlib
+//! names. A text box is a [`TextBoxProps`]. Its [`BoxStyle`] parses the
+//! matplotlib strings, such as `"round,pad=0.3"`.
 //!
-//! Fonts follow matplotlib's font manager. A [`FontProperties`] describes
-//! the wanted font (families, style, weight, stretch, size) and the
-//! [`FontManager`] finds the file. Sizes are points or a [`RelativeSize`]
-//! keyword ([`FontSize`]); weights and stretches are numeric newtypes with
-//! named constants ([`FontWeight::BOLD`]).
+//! Fonts work as in the matplotlib font manager. A [`FontProperties`]
+//! describes the font that you want: families, style, weight, stretch and
+//! size. The [`FontManager`] finds the file. A size is points or a
+//! [`RelativeSize`] keyword ([`FontSize`]). Weights and stretches are
+//! numeric newtypes with named constants ([`FontWeight::BOLD`]).
 //!
-//! Mathtext works as in matplotlib. Any line with an even number of
-//! unescaped `$` is typeset, in the fontset of `mathtext.fontset` or the
-//! text's own ([`Text::set_math_fontfamily`]). Errors in the math show up
-//! when the text is laid out ([`Text::layout`]) or drawn.
+//! Mathtext works as in matplotlib. pltrs typesets each line with an even
+//! number of unescaped `$`. It uses the fontset of `mathtext.fontset`, or
+//! the fontset of the text ([`Text::set_math_fontfamily`]). Errors in the
+//! math show when pltrs lays out the text ([`Text::layout`]) or draws it.
 //!
-//! `text.usetex` works as in matplotlib too: a text made while it is on,
-//! or given [`Text::set_usetex`]`(true)`, is typeset by `latex` with the
-//! fonts of `font.family` and the family lists and the preamble of
-//! `text.latex.preamble`, cached in `tex.cache` under the
-//! [cache directory](crate::config::cache_dir); tick formatters wrap their
-//! labels in `$\mathdefault{...}$` for it. PNG output draws the DVI
-//! file's glyphs (or `dvipng`'s image with `text.latex.engine =
-//! "latex+dvipng"`), PDF output embeds its Type 1 fonts, SVG output draws
-//! glyph paths and PGF output hands the string to LaTeX. PostScript and
-//! EPS output, as in matplotlib, tags the texts for LaTeX's `psfrag`
-//! package, and runs LaTeX, `dvips` and Ghostscript on the whole figure;
-//! saving fails with matplotlib's message where one of them is missing
-//! ([`check_usetex_postscript`] tells beforehand).
-//! Where TeX is not installed, drawing usetex text fails with
-//! matplotlib's message ([`check_usetex`] tells beforehand), and a LaTeX
-//! error in the string fails with `latex`'s output, as in matplotlib.
+//! `text.usetex` works as in matplotlib. `latex` typesets a text if
+//! `text.usetex` is on when you make it, or after
+//! [`Text::set_usetex`]`(true)`. It uses the fonts of `font.family`, the
+//! family lists, and `text.latex.preamble`. pltrs caches the results in
+//! `tex.cache` under the [cache directory](crate::config::cache_dir).
+//! Tick formatters put their labels in `$\mathdefault{...}$`.
 //!
-//! Annotations take their keywords in an [`AnnotateOptions`]; coordinate
-//! systems are [`Coords`] values, parsed from matplotlib's names
-//! (`"axes fraction"`, `"offset points"`, ...), and the arrow is an
+//! * PNG draws the glyphs of the DVI file, or the image of `dvipng` with
+//!   `text.latex.engine = "latex+dvipng"`.
+//! * PDF embeds the Type 1 fonts. SVG draws glyph paths. PGF gives the
+//!   string to LaTeX.
+//! * PostScript and EPS tag the texts for the LaTeX package `psfrag`.
+//!   Then LaTeX, `dvips` and Ghostscript run on the whole figure.
+//!
+//! If a program is missing, the draw or save fails with the matplotlib
+//! message. [`check_usetex`] and [`check_usetex_postscript`] check the
+//! programs before. A LaTeX error fails with the output of `latex`.
+//!
+//! Annotations take their keywords in an [`AnnotateOptions`]. Coordinate
+//! systems are [`Coords`] values, which parse the matplotlib names
+//! (`"axes fraction"`, `"offset points"`, ...). The arrow is an
 //! [`ArrowProps`].
 //!
 //! # Equivalences
@@ -50,7 +51,7 @@
 //! | `t.set_text(s)`, `t.get_text()`               | [`Text::set_text`], [`Text::text`]                |
 //! | `fontsize=12`, `fontsize="large"`             | [`Text::set_fontsize`]`(12.0)`, [`Text::set_fontsize`]`(RelativeSize::Large)` |
 //! | `color=`, `rotation=`, `rotation_mode=`       | [`Text::set_color`], [`Text::set_rotation`], [`Text::set_rotation_mode`] |
-//! | `ha="center"`, `va="top"`, `multialignment=`  | [`Text::set_halign`], [`Text::set_valign`], [`Text::set_multialign`]; `"top".parse::<VAlign>()?` |
+//! | `ha="center"`, `va="top"`, `multialignment=`  | [`Text::set_halign`], [`Text::set_valign`], [`Text::set_multialign`], and `"top".parse::<VAlign>()?` |
 //! | `fontfamily=`, `fontstyle=`, `fontweight=`    | [`Text::set_family`], [`Text::set_style`], [`Text::set_weight`] |
 //! | `fontproperties=fp`, `t.get_fontproperties()` | [`Text::set_font`], [`Text::font`]                |
 //! | `linespacing=`, `wrap=True`                   | [`Text::set_linespacing`], [`Text::set_wrap`]     |
@@ -86,7 +87,7 @@
 //! | `TexManager().get_rgba(tex, fontsize, dpi, rgb)` | [`TexManager::rgba`]                            |
 //! | `dviread.Dvi(path, dpi)`, its pages           | `pltrs_text::tex::read_dvi`, [`TexFiles::dvi_pages`] ([`DviPage`]: `text`, `boxes`) |
 //! | `PsfontsMap(find_tex_file("pdftex.map"))[name]` | [`PsfontsMap::parse`], [`PsfontsMap::get`], [`FileFinder`] |
-//! | `ft2font.FT2Font(path)`, `set_size`, `set_text`, `load_char` | `pltrs_font` (a crate of its own): `Face::parse`, `Size::new`, `FontChain::layout`, `Face::glyph_index` with a `Hinter` |
+//! | `ft2font.FT2Font(path)`, `set_size`, `set_text`, `load_char` | `pltrs_font` (a separate crate): `Face::parse`, `Size::new`, `FontChain::layout`, `Face::glyph_index` with a `Hinter` |
 //! | `FT2Font.get_sfnt_table("head")`, `get_kerning` | `Face::head`, `Face::os2`, ..., `Size::kerning` |
 //!
 //! # Styling a text

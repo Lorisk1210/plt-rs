@@ -1,26 +1,30 @@
 # pltrs-platform
 
-Native windowing and input for pltrs on Wayland, X11, macOS and Windows,
-without any windowing library or binding crate.
+`pltrs-platform` opens windows and reads input on Wayland, X11, macOS and
+Windows. It uses no window library.
 
-* an event loop that opens windows, shows pixel buffers in them and
-  turns input into platform-neutral events
-* the X11 and Wayland protocols spoken directly, XKB keymaps and Compose
-  files included
-* AppKit through the Objective-C runtime on macOS, and Win32 on Windows
-* a headless loop for tests, with injected input and recorded frames
+Contents:
 
-## One of pltrs' crates
+* An event loop that opens windows, shows pixel buffers and reports input
+  as events that are the same on all systems
+* The X11 and Wayland protocols, with XKB keymaps and Compose files
+* AppKit on macOS and Win32 on Windows
+* A headless event loop for tests, with simulated input and recorded
+  frames
 
-pltrs is matplotlib rebuilt from scratch in Rust, with no dependencies
-outside its own crates. Its crates are released together, at one
-version, and each depends on the exact version of the others: what they
-offer each other is not an interface of its own. Most programs want the
-crate `pltrs`, matplotlib's model with every output format and
-interactive windows; this crate is for those who need its windows alone.
+## Use
 
-## Licence
+Most programs need the crate [`pltrs`](https://crates.io/crates/pltrs).
+It has figures, all output formats and windows. Use `pltrs-platform` directly
+only if you need the windows alone.
 
-MIT OR Apache-2.0, at your option (`LICENSE-MIT`, `LICENSE-APACHE`). The
-code and data it takes from other projects keep their own licences:
-`THIRD_PARTY.md` lists them, with their texts in `LICENSES/`.
+All pltrs crates have the same version. Each crate requires the same
+version of the other pltrs crates.
+
+## License
+
+You can use this crate under the MIT license (`LICENSE-MIT`) or the Apache
+License 2.0 (`LICENSE-APACHE`).
+
+The code and data from other projects keep their licenses. `THIRD_PARTY.md`
+lists them, and `LICENSES/` has the license texts.

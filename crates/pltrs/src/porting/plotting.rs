@@ -1,37 +1,37 @@
-//! Plotting functions: how their keywords map to options, and the data
-//! they take.
+//! Plotting functions: their keywords as options, and the data they take.
 //!
-//! The plotting methods of [`Axes`] carry matplotlib's names. Where a
-//! matplotlib function behaves differently depending on which arguments it
-//! gets, pltrs has one method per behaviour:
+//! The plotting methods of [`Axes`] have the matplotlib names. If a
+//! matplotlib function behaves differently for different arguments, pltrs
+//! has one method for each behavior:
 //!
-//! * [`Axes::plot`] takes x and y; [`Axes::plot_y`] only y (x is `0, 1,
-//!   2, ...`); [`Axes::plot_fmt`] adds a format string; [`Axes::plot_with`]
-//!   takes a [`LineProps`]. One call draws one line: `plot(x, y1, x, y2)`
-//!   is two calls.
-//! * [`Axes::scatter`] uses the defaults, [`Axes::scatter_with`] takes a
-//!   [`ScatterOptions`]. The same `_with` pattern appears wherever a
-//!   matplotlib function is commonly called without keywords.
-//! * `axhline(y, xmin, xmax)` becomes [`Axes::axhline`] and
-//!   [`Axes::axhline_between`]; the same for `axvline`, `axhspan` and
-//!   `axvspan`.
+//! * [`Axes::plot`] takes x and y, and [`Axes::plot_y`] only y.
+//!   [`Axes::plot_fmt`] adds a format string, and [`Axes::plot_with`] a
+//!   [`LineProps`]. One call draws one line.
+//! * [`Axes::scatter`] uses the defaults, and [`Axes::scatter_with`] takes a
+//!   [`ScatterOptions`]. Other functions that programs often call without
+//!   keywords follow this `_with` pattern.
+//! * `axhline(y, xmin, xmax)` is [`Axes::axhline`] or
+//!   [`Axes::axhline_between`]. `axvline`, `axhspan` and `axvspan` follow
+//!   this pattern.
 //!
-//! Keywords map in three ways. Artist properties (`color`, `linewidth`,
-//! `alpha`, `label`, `zorder`, ...) go into the property set of the artist
-//! the method makes: [`LineProps`] for lines, [`PatchProps`] for patches,
-//! [`CollectionProps`] for collections. Keywords of the method itself
-//! (`bins`, `where`, `capsize`, ...) are fields of its option struct, named
-//! as in matplotlib except where the name was ambiguous: `bar(width=,
-//! bottom=)` is [`BarOptions::thickness`] and [`BarOptions::base`], shared
-//! by `bar` and `barh`, and `fill_between(where=)` is
-//! [`FillBetweenOptions::mask`]. Values that take several forms in
-//! matplotlib are enums: `bins=10`, `bins="auto"` or `bins=[...]` is a
-//! [`Bins`]; scatter's `c=` is a [`ScatterColors`].
+//! Keywords map in three ways:
 //!
-//! matplotlib returns lists, tuples and containers; pltrs returns one
-//! typed value: a [`Line2D`], a [`Collection`], a [`Patch`] or a
-//! container struct with named fields ([`BarContainer`],
-//! [`ErrorbarContainer`], [`HistPlot`], [`BoxplotArtists`], ...).
+//! * Artist properties (`color`, `linewidth`, `label`, ...) go into the
+//!   property set of the new artist: [`LineProps`], [`PatchProps`] or
+//!   [`CollectionProps`].
+//! * Keywords of the method (`bins`, `where`, `capsize`, ...) are fields of
+//!   its option struct, with the matplotlib names. Ambiguous names change:
+//!   `bar(width=, bottom=)` is [`BarOptions::thickness`] and
+//!   [`BarOptions::base`] for `bar` and `barh`, and `fill_between(where=)`
+//!   is [`FillBetweenOptions::mask`].
+//! * A value with several forms is an enum. `bins=10`, `bins="auto"` or
+//!   `bins=[...]` is a [`Bins`], and the `c=` of scatter is a
+//!   [`ScatterColors`].
+//!
+//! pltrs returns one typed value in place of lists and tuples. It is a
+//! [`Line2D`], a [`Collection`], a [`Patch`], or a struct with named fields
+//! ([`BarContainer`], [`ErrorbarContainer`], [`HistPlot`],
+//! [`BoxplotArtists`], ...).
 //!
 //! # Equivalences
 //!
@@ -46,7 +46,7 @@
 //! | `ax.errorbar(x, y, yerr=, xerr=, fmt=, capsize=)`  | [`Axes::errorbar`] with [`ErrorbarOptions`], [`ErrorSize`], [`ErrorbarFormat`] |
 //! | `ax.bar(x, h, width=, bottom=, align=, color=)`    | [`Axes::bar`] with [`BarOptions`]                 |
 //! | `ax.barh(y, w, height=, left=)`                    | [`Axes::barh`] (same [`BarOptions`])              |
-//! | `ax.bar_label(bars, fmt=, label_type=, padding=)`  | [`Axes::bar_label`] with [`BarLabelOptions`]; `fmt` is a [`LabelFormat`] |
+//! | `ax.bar_label(bars, fmt=, label_type=, padding=)`  | [`Axes::bar_label`] with [`BarLabelOptions`], where `fmt` is a [`LabelFormat`] |
 //! | `ax.grouped_bar(heights, ...)`                     | [`Axes::grouped_bar`] with [`GroupedBarOptions`]  |
 //! | `ax.broken_barh(xranges, (y, h))`                  | [`Axes::broken_barh`]                             |
 //! | `ax.fill(x, y, color=)`                            | [`Axes::fill`] with [`PatchProps`]                |
@@ -67,7 +67,7 @@
 //! | `ax.boxplot(data, notch=True, bootstrap=5000)`     | [`BoxplotOptions::bootstrap`]`: Some(`[`Bootstrap`]` { resamples: 5000, seed })`, drawn from a seeded generator, not numpy's |
 //! | `ax.bxp(stats)`                                    | [`Axes::bxp`]                                     |
 //! | `ax.violinplot(data, showmeans=)`, `ax.violin(stats)` | [`Axes::violinplot`], [`Axes::violin`]         |
-//! | `ax.pie(x, labels=, autopct=, explode=)`           | [`Axes::pie`] with [`PieOptions`]; `autopct` is a [`LabelFormat`] |
+//! | `ax.pie(x, labels=, autopct=, explode=)`           | [`Axes::pie`] with [`PieOptions`], where `autopct` is a [`LabelFormat`] |
 //! | `ax.pie_label(...)`                                | [`Axes::pie_label`]                               |
 //! | `ax.ecdf(x)`                                       | [`Axes::ecdf`]                                    |
 //! | `ax.psd`, `ax.csd`, `ax.cohere`, `ax.specgram`     | [`Axes::psd`], [`Axes::csd`], [`Axes::cohere`], [`Axes::specgram`] |
@@ -75,8 +75,8 @@
 //! | `ax.table(cellText=, colLabels=)`                  | [`Axes::table`] with [`TableOptions`]             |
 //! | `data=` with column names                          | not available: pass the columns                   |
 //!
-//! Images, contours, meshes and vector fields are in [`super::images`];
-//! text and annotations in [`super::text`].
+//! Images, contours, meshes and vector fields are in [`super::images`].
+//! Text and annotations are in [`super::text`].
 //!
 //! # Data
 //!
@@ -94,22 +94,20 @@
 //! | `timedelta` or user-value bar heights, widths, error sizes | [`AxisDeltas`] (`Vec<TimeDelta>`, `Vec<T>` of a [`Convertible`] `T`), converted through the values they extend from |
 //! | `xunits=u`, `yunits=u` (`thetaunits=u`, `runits=u` on polar axes) | [`Axis::update_units`]`(x)` then [`Axis::set_units`]`(u)` before the call |
 //! | `np.nan` gaps in a line                | `f64::NAN`                                         |
-//! | masked arrays                          | NaN for lines and markers; [`ScalarField::with_mask`] for images; [`QuadField`] masks for contours; [`FillBetweenOptions::mask`]; `Option<f64>` values for norms and collections |
+//! | masked arrays                          | NaN for lines and markers, [`ScalarField::with_mask`] for images, [`QuadField`] masks for contours, [`FillBetweenOptions::mask`], and `Option<f64>` values for norms and collections |
 //!
 //! The x and y of `plot`, `scatter`, `bar`, `barh`, `step` and the other
-//! methods placing data accept numbers, categories, dates and values of
-//! user types ([`AxisValues`]) in any collection or iterator ([`AxisItem`]);
-//! one value is a list of one, `[v]`. The heights, widths and error sizes
-//! of bars accept numbers, durations and values of user types
-//! ([`AxisDeltas`]) as one value for all the bars or a list: a `Vec`, a
-//! slice, an array, or a reference to a `Vec` or an array. Single values
-//! of the same kinds place texts and annotations (`xy` and `xytext`), set
-//! limits, and give the corner and sides of a [`DataRectangle`]. Data
-//! that can only be numbers (pie values, samples of `ecdf` and
-//! spectra, ...) takes any collection or iterator of [`Number`]s. As in
-//! matplotlib, lines, texts, annotations and rectangles of user values
-//! convert them again when an axis changes unit ([`Axis::set_units`]);
-//! spans, bars, fills and scatters do not.
+//! methods that place data are [`AxisValues`] ([`AxisItem`]). The heights,
+//! widths and error sizes of bars are [`AxisDeltas`].
+//! [`super::conventions`] describes these types. Single values of the same
+//! kinds place texts and annotations (`xy` and `xytext`), set limits, and
+//! give the corner and sides of a [`DataRectangle`]. Data that can only be
+//! numbers takes any collection or iterator of [`Number`]s, for example pie
+//! values and the samples of `ecdf` and spectra.
+//!
+//! If an axis changes its unit ([`Axis::set_units`]), lines, texts,
+//! annotations and rectangles convert their user values again, as in
+//! matplotlib. Spans, bars, fills and scatters do not.
 //!
 //! # Lines
 //!
@@ -149,8 +147,8 @@
 //! # Scatter plots
 //!
 //! A numeric `c` with its `cmap`, `norm`, `vmin` and `vmax` is a
-//! [`MappedColors`]; one colour is [`ScatterColors::Single`], a colour per
-//! point [`ScatterColors::PerPoint`].
+//! [`MappedColors`]. One color is [`ScatterColors::Single`], and one color
+//! for each point is [`ScatterColors::PerPoint`].
 //!
 //! ```python
 //! points = ax.scatter(x, y, s=[20, 40, 60, 80], c=[0.1, 0.4, 0.7, 1.0],
@@ -182,8 +180,8 @@
 //!
 //! # Bars
 //!
-//! Per-bar values are vectors holding one value for all bars or one per
-//! bar, as matplotlib broadcasts its scalars and sequences.
+//! A value for each bar is a vector with one value for all bars or one
+//! value for each bar. matplotlib does the same with scalars and sequences.
 //!
 //! ```python
 //! bars = ax.bar(["apples", "pears", "plums"], [3, 5, 2], width=0.5,
@@ -220,9 +218,9 @@
 //!
 //! # Histograms
 //!
-//! [`Axes::hist`] takes one dataset, or several side by side
-//! ([`Datasets`]). Its options are flat, as matplotlib's keywords; the
-//! binning ones are those [`crate::stats::hist`] takes as a
+//! [`Axes::hist`] takes one dataset, or several datasets side by side
+//! ([`Datasets`]). Its options are flat, like the matplotlib keywords. The
+//! binning options are the ones that [`crate::stats::hist`] takes as a
 //! [`HistOptions`].
 //!
 //! ```python

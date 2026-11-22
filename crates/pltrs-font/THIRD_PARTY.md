@@ -2,16 +2,17 @@
 
 <!-- Written by python/tools/crate_notices.py from the repository's THIRD_PARTY.md: edit that file, then run the tool. -->
 
-pltrs-font is part of pltrs, licensed under the MIT licence or the
-Apache License 2.0, at your option (`LICENSE-MIT`, `LICENSE-APACHE`).
-The parts of it listed below come from other projects and keep their own
-licences, whose texts are in `LICENSES/` (or beside the files they
-cover). These are the rows of pltrs' `THIRD_PARTY.md` that concern this
-crate; paths are those of pltrs' repository.
+pltrs-font is part of pltrs. pltrs has two licenses, and you can use it
+under either one: the MIT license (`LICENSE-MIT`) or the Apache License
+2.0 (`LICENSE-APACHE`). The parts in the tables come from other projects
+and keep their licenses. The license texts are in `LICENSES/`, or next
+to the files that they apply to. The tables are the rows of
+`THIRD_PARTY.md` in the pltrs repository that apply to this crate. The
+paths are paths in the pltrs repository.
 
 ## Ported code
 
-| Project | Licence (text) | Ported into |
+| Project | License (text) | Ported into |
 |---|---|---|
 | matplotlib 3.11 | Matplotlib License, PSF-based (`matplotlib.txt`) | the figure model, artists, layout engines, ticker, scales, styles, colormaps, mathtext and backends (`pltrs`, `pltrs-text`, `pltrs-render`), the Python API of pltrs (`python/pltrs`: its signatures and docstrings, with the pure-Python `_api`, `_pylab_helpers`, `_docstring`, `_enums`, `_color_data`, `units`, `category`, `typing`, `cbook`, `_afm` and `_text_helpers` modules, the `_preprocess_data` decorator, `_get_executable_info`, the test decorators, fixtures and markers of `testing`, the sample units of `testing.jpl_units`, and the Python structure of `transforms`, `path`, `scale`, `colors`, `patheffects`, `markers`, `font_manager` (its property tables, `FontProperties`, system font discovery, `get_font` and `afmFontProperty`), the event, renderer, canvas, manager and navigation classes of `backend_bases`, the pure-Python `backend_tools`, `backend_managers`, `widgets`, `animation`, `_animation_data`, `testing.widgets` and `backends` modules (the registry, the template backend, `backend_webagg_core` and the Qt binding selection of `qt_compat`; the other canvases print through `pltrs`), the Python structure of the toolkits' `axisartist` (`angle_helper`, `grid_finder`, `axislines`, `axis_artist`, `axisline_style`, `grid_helper_curvelinear`, `floating_axes`, `parasite_axes`) and `axes_grid1` (`axes_size`, `axes_divider`, `axes_grid`, `inset_locator`, `anchored_artists`, `parasite_axes`, `mpl_axes`, `axes_rgb`), of `inset` and of `axes._secondary_axes`, `axes_grid1.parasite_axes`' `host_axes` and `axes_grid1.axes_divider.make_axes_area_auto_adjustable`, the pickling of `Figure` (`__getstate__`, `__setstate__`), the simple formatters of `ticker`, the image readers and writer and the array checks of `image`, the projection registry, `mplot3d`'s `_Quaternion` and the mouse handling of its `Axes3D`, the document metadata checks of the PDF, PGF and SVG backends, the `axis()` and `margins()` argument handling of `axes._base`, the `cm` registries, `pylab`, `colorizer`, the multivariate colormaps, `MultiNorm` and `LightSource` of `colors`, the argument checks of `colorbar`, `imshow` and `_image.resample`, `testing.compare` with its converters, the validators and parameter table of `rcsetup`, the `style` package, the version parsing of `__init__`, the classes of `gridspec`, `layout_engine` and `legend_handler`, `get_subplotspec_list` of `_tight_layout`, the argument handling of `legend`, the box geometry and the draggable helpers of `offsetbox`, the property-change callbacks, the `set` signature machinery and the clip path, picking and cursor data methods of `artist`, the `Spines` containers of `spines`, `subplot_mosaic`, `ArtistInspector` and `_blocking_input`, `get_sample_data` of `cbook`, the `stackplot` module and `backend_mixed`'s `MixedModeRenderer`, the Tk backend (`backends._backend_tk`, `backend_tkagg`), the reading side of `_layoutgrid` with its `plot_children`, the signature and argument arithmetic of `_constrained_layout.do_constrained_layout`, the `_AxesStack` of `figure` (`_axes_stack.py`), the helpers of `_tight_bbox`, the renumbering of `tri._tritools`, the staleness of figures (`_figure_stale`), and `date2num`, the date locators, `rrulewrapper`, date formatters and unit converters of `dates`, taken nearly as they are, their numeric work done by `pltrs-python` through `pltrs`), the Type 1 font reader and editor of `_type1font` (`crates/pltrs-font/src/type1`), the system font directories and Windows registry keys of `font_manager` (`crates/pltrs-font/src/db/system`), the triangulation, contour generator and trapezoid map of `_tri` (`Triangulation`, `TriContourGenerator`, `TrapezoidMapTriFinder`; `crates/pltrs/src/tri`), and `texmanager` and `dviread` (`crates/pltrs-text/src/tex`, with the test files `test.map` and `test.tex` of its `test_dviread.py` in `crates/pltrs-text/tests/fixtures/tex`) |
 | matplotlib 3.11, text API | Matplotlib License, PSF-based (`matplotlib.txt`) | in `python/pltrs`: `OffsetFrom` and the coordinate checks of `Annotation` (`text`), `_get_xy`, `_get_xy_transform`, `_get_position_xy` and `_check_xy` of `_AnnotationBase` (`_annotation_coords`), `Text._char_index_at`, the font lists, `addfont` and `_find_fonts_by_props` of `font_manager`, the box nodes of `_mathtext`, the `_tokenize` generator and `Type1Font` interface of `_type1font`, `PsfontsMap` and the `Dvi`, `DviFont` and `Text` classes of `dviread`, `get_glyphs_tex` of `textpath`, `_get_text_metrics_with_cache` and `_get_text_metrics_function` of `text`, `RendererPDFPSBase` of `backends._backend_pdf_ps`, the `PdfPages` and `_metadata_to_str` of `backend_pgf`, `_create_pdf_info_dict` and `_datetime_to_pdf` of `backend_pdf`, and the subsetting interface of `backends._backend_pdf_ps`, taken nearly as they are, their work done by `pltrs-python` through `pltrs`, `pltrs-text` and `pltrs-font` |
@@ -24,10 +25,10 @@ crate; paths are those of pltrs' repository.
 The FreeType parts are based in part on the work of the FreeType Team
 (https://freetype.org).
 
-As matplotlib's licence asks, the changes in summary: pltrs rewrites
-matplotlib and the code above in Rust. It keeps their algorithms and
-output, but replaces their APIs with typed Rust ones, and adds its own UI
-engine, windowing layer and conformance suite.
+The matplotlib license requires a summary of the changes. pltrs
+rewrites matplotlib and the code in the table in Rust. It keeps the
+algorithms and the output. It replaces the APIs with typed Rust APIs. It
+adds a user interface, window code and conformance tests.
 
 ## Bundled fonts and data
 

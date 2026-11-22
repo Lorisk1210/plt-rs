@@ -1,29 +1,27 @@
 //! Artists and their properties.
 //!
-//! Every visible thing is an artist owned by its figure, and the values
-//! you hold are handles to them (see [`super::conventions`]). The
-//! properties every artist shares (visibility, alpha, z-order, label,
-//! clipping, transform, picking, path effects, ...) come from the
-//! [`ArtistHandle`] trait, which [`crate::prelude`] imports. Each artist
-//! type adds its own: [`Line2D`] for lines, [`Patch`] for shapes,
-//! [`Collection`] for batches of shapes, [`Text`] for texts,
+//! Each visible thing is an artist that its figure owns, and you hold
+//! handles to it (see [`super::conventions`]). The [`ArtistHandle`] trait
+//! of [`crate::prelude`] gives the shared properties: visibility, alpha,
+//! z-order, label, clipping, transform, picking, path effects, and more.
+//! Each artist type adds its own: [`Line2D`] for lines, [`Patch`] for
+//! shapes, [`Collection`] for groups of shapes, [`Text`] for texts and
 //! [`AxesImage`] for images.
 //!
-//! matplotlib constructs an artist and then adds it (`ax.add_patch(
-//! Rectangle(...))`); pltrs adds a *shape* and returns the artist's
-//! handle. A patch is a [`Patch<S>`](crate::patches::Patch) whose shape `S` is a plain
-//! struct ([`Rectangle`], [`Circle`], [`Polygon`], [`Wedge`],
-//! [`FancyBboxPatch`], ...): read it with [`Patch::shape`], change it with
-//! [`Patch::update_shape`]. Its paint is set through a [`PatchProps`] when
-//! it is added, or through the setters later.
+//! In place of `ax.add_patch(Rectangle(...))`, pltrs adds a shape and
+//! returns the handle of the artist. A [`Patch<S>`](crate::patches::Patch)
+//! has a plain struct as its shape `S` ([`Rectangle`], [`Circle`],
+//! [`Polygon`], [`Wedge`], [`FancyBboxPatch`], ...). Read it with
+//! [`Patch::shape`], and change it with [`Patch::update_shape`]. Give the
+//! paint as a [`PatchProps`] when you add the patch, or use the setters.
 //!
-//! matplotlib's collection classes are constructors of one [`Collection`]
-//! artist: [`CollectionSpec::lines`] is a `LineCollection`,
-//! [`CollectionSpec::polygons`] a `PolyCollection`, and so on.
+//! The matplotlib collection classes are constructors of one
+//! [`Collection`] artist. [`CollectionSpec::lines`] is a `LineCollection`,
+//! [`CollectionSpec::polygons`] is a `PolyCollection`, and so on.
 //!
-//! Your own `Artist` subclasses are types implementing the [`Artist`]
-//! trait, added with [`Axes::add_custom_artist`]; [`Custom`] shows a
-//! complete example.
+//! To write your own `Artist` subclass, implement the [`Artist`] trait and
+//! add the artist with [`Axes::add_custom_artist`]. [`Custom`] shows a
+//! full example.
 //!
 //! # Equivalences
 //!
@@ -131,7 +129,7 @@
 //! assert!(!circle.style().fill);
 //! let corners = [Point::new(0.0, 0.0), Point::new(1.0, 0.0), Point::new(0.0, 1.0)];
 //! let triangle = ax.add_patch(Polygon::new(corners, true));
-//! // As in matplotlib's `get_xy`, a closed polygon repeats its first vertex.
+//! // As `get_xy` in matplotlib, a closed polygon repeats its first vertex.
 //! assert_eq!(triangle.shape().vertices().len(), 4);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```

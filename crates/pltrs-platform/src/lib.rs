@@ -1,77 +1,78 @@
-//! Native windowing and input abstraction (Wayland, X11, macOS and
-//! Windows).
+//! Native windows and input for Wayland, X11, macOS and Windows.
 //!
-//! The crate opens windows, shows pixel buffers in them and turns user input
-//! into platform-neutral [`Event`]s, without linking to any windowing
-//! library: the X11 backend speaks the X protocol directly over a socket,
-//! the Wayland backend the Wayland protocol, keymaps included; the macOS
-//! and Windows backends call the operating system (`AppKit` through the
-//! Objective-C runtime, Win32) without any binding crate.
+//! The crate opens windows, shows pixel buffers in them and changes user
+//! input into platform-neutral [`Event`]s. It links to no windowing
+//! library. The X11 backend speaks the X protocol over a socket. The
+//! Wayland backend speaks the Wayland protocol, keymaps included. The
+//! macOS and Windows backends call the operating system directly (`AppKit`
+//! through the Objective-C runtime, and Win32).
 //!
 //! # Overview
 //!
-//! * [`EventLoop`] owns the connection to the windowing system. Drive it
-//!   with [`EventLoop::run`] (blocking, `plt.show()`) or
-//!   [`EventLoop::pump_events`] / [`EventLoop::run_until`] (bounded,
+//! * [`EventLoop`] owns the connection to the windowing system. Run it
+//!   with [`EventLoop::run`] (blocking, `plt.show()`), or with
+//!   [`EventLoop::pump_events`] or [`EventLoop::run_until`] (bounded,
 //!   `plt.pause()`).
-//! * Handlers receive a [`Context`] with every [`Event`]; use it to create
-//!   and close windows ([`WindowOptions`]), present [`Frame`]s, set titles
-//!   and cursors, and start timers.
+//! * Handlers get a [`Context`] with each [`Event`]. Use it to create and
+//!   close windows ([`WindowOptions`]), present [`Frame`]s, set titles and
+//!   cursors, and start timers.
 //! * The loop blocks until input comes, a timer is due or something wakes
-//!   it: an [`EventLoopProxy`] from another thread, or a write to a
-//!   [`WakePipe`] (Python's `signal.set_wakeup_fd`). An embedder may run
-//!   those blocking waits through a [`WaitHook`]
-//!   ([`EventLoop::set_wait_hook`]), to let its other threads work
-//!   meanwhile.
-//! * [`EventLoop::headless`] creates an in-memory loop for tests, with a
-//!   [`HeadlessHandle`] to inject input and inspect presented frames.
+//!   it. An [`EventLoopProxy`] on another thread or a write to a
+//!   [`WakePipe`] (Python `signal.set_wakeup_fd`) wakes it. An embedder can
+//!   run the blocking waits through a [`WaitHook`]
+//!   ([`EventLoop::set_wait_hook`]), so that its other threads can work.
+//! * [`EventLoop::headless`] makes an in-memory loop for tests. Its
+//!   [`HeadlessHandle`] injects input and reads the presented frames.
 //!
 //! # Backends
 //!
-//! Platform code sits behind an internal backend trait; callers only see
-//! [`BackendKind`]. The available backends are Wayland (Linux), X11 (also
-//! under `XWayland`, and on macOS under `XQuartz`), macOS (`AppKit`),
-//! Windows (Win32) and headless. [`BackendKind::detect`] picks the native
-//! one on macOS and Windows; on Linux, Wayland when `$WAYLAND_DISPLAY` is
-//! set, else X11 when `$DISPLAY` is. `$PLTRS_PLATFORM` (`wayland`, `x11`,
-//! `macos`, `windows`, `headless`) overrides the choice.
+//! The platform code is behind an internal backend trait. Callers see only
+//! [`BackendKind`]. The backends are Wayland (Linux), X11 (also under
+//! `XWayland`, and on macOS under `XQuartz`), macOS (`AppKit`), Windows
+//! (Win32) and headless. [`BackendKind::detect`] selects the native
+//! backend on macOS and Windows. On Linux, it selects Wayland if
+//! `$WAYLAND_DISPLAY` is set, or else X11 if `$DISPLAY` is set.
+//! `$PLTRS_PLATFORM` (`wayland`, `x11`, `macos`, `windows`, `headless`)
+//! overrides the selection.
 //!
-//! The macOS and Windows backends keep what was presented in each window,
-//! so that they repaint it whenever the system asks (an expose, a live
-//! resize), and the system calls back into the process with input; such
-//! callbacks queue events in a per-thread registry of windows, which the
-//! loop takes in turn. On macOS, the loop must run on the main thread, as
-//! `AppKit` requires.
+//! The macOS and Windows backends keep the last frame of each window. They
+//! paint it again when the system asks, for example on an expose or a live
+//! resize. The system calls back into the process with input. These
+//! callbacks put events in a registry of windows for each thread, and the
+//! loop takes them in turn. On macOS, the loop must run on the main
+//! thread, because `AppKit` requires it.
 //!
-//! Where the desktop leaves window decorations to applications (Wayland
-//! compositors without server-side decorations, such as GNOME's), the
-//! platform adds a title bar and resize borders and handles them, with
-//! the buttons and click actions the desktop's settings give (read from
-//! the XDG desktop portal over D-Bus, which the crate speaks itself); a
-//! [`DecorationPainter`] draws the title bar in the application's look.
+//! Some desktops leave window decorations to applications, for example
+//! Wayland compositors without server-side decorations, such as GNOME.
+//! There, the platform adds a title bar and resize borders and handles
+//! them. The buttons and click actions come from the desktop settings,
+//! which the crate reads from the XDG desktop portal over D-Bus. A
+//! [`DecorationPainter`] draws the title bar in the look of the
+//! application.
 //!
-//! Keys type text through the system's dead keys and compose sequences:
-//! on X11 and Wayland from the Compose files libxkbcommon reads (´ then e
-//! types é, Compose o c types ©), on macOS with the keyboard layout's
-//! `UCKeyTranslate`, on Windows with `TranslateMessage`. A dead key is
-//! [`Key::Dead`], and the key completing a sequence carries its text.
+//! Keys type text through the dead keys and compose sequences of the
+//! system. On X11 and Wayland, they use the Compose files of libxkbcommon
+//! (´ then e types é, Compose o c types ©). On macOS, they use
+//! `UCKeyTranslate` with the keyboard layout. On Windows, they use
+//! `TranslateMessage`. A dead key is [`Key::Dead`], and the key that
+//! completes a sequence carries its text.
 //!
 //! # Unsafe code
 //!
-//! Unsafe code is denied everywhere but in three private `sys` modules,
-//! the FFI to the operating system, which wrap it safely, each `unsafe`
-//! block justified:
+//! Unsafe code is denied everywhere except in three private `sys` modules,
+//! the FFI to the operating system. These modules wrap it in safe
+//! functions and justify each `unsafe` block:
 //!
 //! * `wayland::sys`: Wayland passes file descriptors (shared memory,
-//!   keymaps, clipboard pipes) over its socket, which needs
+//!   keymaps, clipboard pipes) over its socket. This needs
 //!   `sendmsg`/`recvmsg` with `SCM_RIGHTS`, and pixel buffers need
-//!   `memfd_create`; `std` offers neither on this toolchain.
+//!   `memfd_create`. `std` has neither on this toolchain.
 //! * `macos::sys`: the Objective-C runtime (`objc_msgSend`, class
 //!   definitions), `AppKit`, Foundation and Core Graphics.
-//! * `windows::sys`: Win32 (`user32`, `gdi32` and `kernel32`, and
-//!   `advapi32` for `registry_string_values`, linked with `raw-dylib`
-//!   with MSVC, so no import libraries are needed, and with MinGW-w64's
-//!   import libraries on the GNU toolchains).
+//! * `windows::sys`: Win32 (`user32`, `gdi32`, `kernel32`, and `advapi32`
+//!   for `registry_string_values`). With MSVC, it links them with
+//!   `raw-dylib` and needs no import libraries. With the GNU toolchains, it
+//!   uses the MinGW-w64 import libraries.
 //!
 //! ```
 //! use pltrs_platform::{Event, EventLoop, Frame, Key, WindowEvent, WindowOptions};

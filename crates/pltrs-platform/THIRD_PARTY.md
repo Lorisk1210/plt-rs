@@ -2,12 +2,13 @@
 
 <!-- Written by python/tools/crate_notices.py from the repository's THIRD_PARTY.md: edit that file, then run the tool. -->
 
-pltrs-platform is part of pltrs, licensed under the MIT licence or the
-Apache License 2.0, at your option (`LICENSE-MIT`, `LICENSE-APACHE`).
-The parts of it listed below come from other projects and keep their own
-licences, whose texts are in `LICENSES/` (or beside the files they
-cover). These are the rows of pltrs' `THIRD_PARTY.md` that concern this
-crate; paths are those of pltrs' repository.
+pltrs-platform is part of pltrs. pltrs has two licenses, and you can use
+it under either one: the MIT license (`LICENSE-MIT`) or the Apache
+License 2.0 (`LICENSE-APACHE`). The parts in the tables come from other
+projects and keep their licenses. The license texts are in `LICENSES/`,
+or next to the files that they apply to. The tables are the rows of
+`THIRD_PARTY.md` in the pltrs repository that apply to this crate. The
+paths are paths in the pltrs repository.
 
 ## Bundled fonts and data
 

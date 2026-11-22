@@ -1,22 +1,23 @@
 # Third-party code and data
 
-pltrs is licensed under the MIT licence or the Apache License 2.0, at
-your option (`LICENSE-MIT`, `LICENSE-APACHE`). It uses no other crates,
-but to reproduce matplotlib's output exactly it ports the code of the
-libraries matplotlib is built on, and it ships some of their fonts and
-data. Those parts, listed below, keep their own licences: permissive
-licences for the code and data, and font licences for the fonts (the SIL
-Open Font License and others, which let software under any licence
-bundle them). Their notices are in [`LICENSES/`](LICENSES), or beside the
-fonts and files they cover:
+pltrs has two licenses: the MIT license (`LICENSE-MIT`) and the Apache
+License 2.0 (`LICENSE-APACHE`). You can use it under either one.
 
-* `LICENSES/matplotlib.txt` holds matplotlib's licence followed by the
-  licences of the components it bundles.
-* `LICENSES/pillow.txt` does the same for Pillow and its image libraries.
+pltrs uses no other crates. But it contains code ported from matplotlib
+and from the libraries that matplotlib uses. It also contains some of
+their fonts and data. These parts keep their licenses. The code and the
+data have permissive licenses. The fonts have font licenses, such as the
+SIL Open Font License, which permit software under any license to
+include them.
+
+The license texts are in [`LICENSES/`](LICENSES), or next to the fonts
+and files that they apply to. `LICENSES/matplotlib.txt` has the
+matplotlib license and the licenses of the components that matplotlib
+includes. `LICENSES/pillow.txt` has the same for Pillow.
 
 ## Ported code
 
-| Project | Licence (text) | Ported into |
+| Project | License (text) | Ported into |
 |---|---|---|
 | matplotlib 3.11 | Matplotlib License, PSF-based (`matplotlib.txt`) | the figure model, artists, layout engines, ticker, scales, styles, colormaps, mathtext and backends (`pltrs`, `pltrs-text`, `pltrs-render`), the Python API of pltrs (`python/pltrs`: its signatures and docstrings, with the pure-Python `_api`, `_pylab_helpers`, `_docstring`, `_enums`, `_color_data`, `units`, `category`, `typing`, `cbook`, `_afm` and `_text_helpers` modules, the `_preprocess_data` decorator, `_get_executable_info`, the test decorators, fixtures and markers of `testing`, the sample units of `testing.jpl_units`, and the Python structure of `transforms`, `path`, `scale`, `colors`, `patheffects`, `markers`, `font_manager` (its property tables, `FontProperties`, system font discovery, `get_font` and `afmFontProperty`), the event, renderer, canvas, manager and navigation classes of `backend_bases`, the pure-Python `backend_tools`, `backend_managers`, `widgets`, `animation`, `_animation_data`, `testing.widgets` and `backends` modules (the registry, the template backend, `backend_webagg_core` and the Qt binding selection of `qt_compat`; the other canvases print through `pltrs`), the Python structure of the toolkits' `axisartist` (`angle_helper`, `grid_finder`, `axislines`, `axis_artist`, `axisline_style`, `grid_helper_curvelinear`, `floating_axes`, `parasite_axes`) and `axes_grid1` (`axes_size`, `axes_divider`, `axes_grid`, `inset_locator`, `anchored_artists`, `parasite_axes`, `mpl_axes`, `axes_rgb`), of `inset` and of `axes._secondary_axes`, `axes_grid1.parasite_axes`' `host_axes` and `axes_grid1.axes_divider.make_axes_area_auto_adjustable`, the pickling of `Figure` (`__getstate__`, `__setstate__`), the simple formatters of `ticker`, the image readers and writer and the array checks of `image`, the projection registry, `mplot3d`'s `_Quaternion` and the mouse handling of its `Axes3D`, the document metadata checks of the PDF, PGF and SVG backends, the `axis()` and `margins()` argument handling of `axes._base`, the `cm` registries, `pylab`, `colorizer`, the multivariate colormaps, `MultiNorm` and `LightSource` of `colors`, the argument checks of `colorbar`, `imshow` and `_image.resample`, `testing.compare` with its converters, the validators and parameter table of `rcsetup`, the `style` package, the version parsing of `__init__`, the classes of `gridspec`, `layout_engine` and `legend_handler`, `get_subplotspec_list` of `_tight_layout`, the argument handling of `legend`, the box geometry and the draggable helpers of `offsetbox`, the property-change callbacks, the `set` signature machinery and the clip path, picking and cursor data methods of `artist`, the `Spines` containers of `spines`, `subplot_mosaic`, `ArtistInspector` and `_blocking_input`, `get_sample_data` of `cbook`, the `stackplot` module and `backend_mixed`'s `MixedModeRenderer`, the Tk backend (`backends._backend_tk`, `backend_tkagg`), the reading side of `_layoutgrid` with its `plot_children`, the signature and argument arithmetic of `_constrained_layout.do_constrained_layout`, the `_AxesStack` of `figure` (`_axes_stack.py`), the helpers of `_tight_bbox`, the renumbering of `tri._tritools`, the staleness of figures (`_figure_stale`), and `date2num`, the date locators, `rrulewrapper`, date formatters and unit converters of `dates`, taken nearly as they are, their numeric work done by `pltrs-python` through `pltrs`), the Type 1 font reader and editor of `_type1font` (`crates/pltrs-font/src/type1`), the system font directories and Windows registry keys of `font_manager` (`crates/pltrs-font/src/db/system`), the triangulation, contour generator and trapezoid map of `_tri` (`Triangulation`, `TriContourGenerator`, `TrapezoidMapTriFinder`; `crates/pltrs/src/tri`), and `texmanager` and `dviread` (`crates/pltrs-text/src/tex`, with the test files `test.map` and `test.tex` of its `test_dviread.py` in `crates/pltrs-text/tests/fixtures/tex`) |
 | matplotlib 3.11, plotting API | Matplotlib License, PSF-based (`matplotlib.txt`) | in `python/pltrs`: the argument handling and checks of the plotting methods of `axes._axes` (`axes/_plotting`), the `container` and `_style_helpers` modules and the dash helpers and `VertexSelector` of `lines`, the hatch validation of `hatch`, the style registry of `patches` (`_patch_styles`), the argument handling of `contour` (with the event handler of `clabel(manual=True)`), `quiver`, `streamplot` (and its grids, `_stream_grid`), `sankey` and `tri` (`Triangulation`, `triplot`, `tripcolor`), the gradient estimators (`_DOF_estimator`, `_DOF_estimator_user`, `_DOF_estimator_geom`) and the sparse solver (`_Sparse_Matrix_coo`, `_cg`) of `tri._triinterpolate`, the argument checks of the `_tri` extension module, `Collection.get_datalim` and `Quiver.get_datalim`, `Quiver._dots_per_unit` and the transforms `Quiver._set_transform` and `QuiverKey._set_transform` make, `PolarAffine` and `_WedgeBbox` of `projections.polar`, the tick helpers of `projections.polar` (`ThetaFormatter`, `ThetaLocator`, `RadialLocator`), `PathCollection.legend_elements` and the mesh conversions of `QuadMesh` (`_convert_mesh_to_paths`, `_convert_mesh_to_triangles`), the in-place arithmetic of `Affine2D` (`rotate`, `translate`, `scale`, `skew`), `Path.arc`'s arithmetic on its angles, the geometry recomputations of `Ellipse`, `Annulus`, `Wedge` and `Spine` (`_recompute_transform`, `_recompute_path`, `_adjust_location`), `LineCollection.get_segments`, `Collection._bcast_lwls`, the segment arithmetic of `EventCollection` and `LinearLocator.view_limits`, `hexbin` and `pie` for the arguments pltrs (Rust) does not take (`_hexbin_reference`, `_pie_reference`), the contour labeller's `too_close`, `print_label`, `locate_label`, `_find_nearest_contour`, `_find_closest_point_on_path` and `find_nearest_contour` (`_contour_reference`), `add_label` and the label attributes `clabel` sets, and the statistics arithmetic of `cbook.boxplot_stats` (`axes/_plotting/_boxplot_reference`) for those arguments too, the magnification arithmetic of the images' `make_image` (`_image_magnified`), `Path.interpolated` and the checks of `StepPatch._update_path`, taken nearly as they are, their numeric work done by `pltrs-python` through `pltrs` |
@@ -57,10 +58,10 @@ fonts and files they cover:
 The FreeType parts are based in part on the work of the FreeType Team
 (https://freetype.org).
 
-As matplotlib's licence asks, the changes in summary: pltrs rewrites
-matplotlib and the code above in Rust. It keeps their algorithms and
-output, but replaces their APIs with typed Rust ones, and adds its own UI
-engine, windowing layer and conformance suite.
+The matplotlib license requires a summary of the changes. pltrs
+rewrites matplotlib and the code in the table in Rust. It keeps the
+algorithms and the output. It replaces the APIs with typed Rust APIs. It
+adds a user interface, window code and conformance tests.
 
 ## Bundled fonts and data
 
@@ -90,14 +91,14 @@ engine, windowing layer and conformance suite.
 
 ## Test data in the repository only
 
-The goldens of the conformance spec (`spec/goldens`) are files matplotlib
-3.11 wrote on the reference machine. Thirteen of them are PostScript that
-matplotlib wrote through Ghostscript (`ps.usedistiller`, and usetex's
-PostScript, which is distilled too), and Ghostscript's `ps2write` device
-puts its prolog `opdfread.ps` into every file it writes. That prolog is
-part of Ghostscript, which Artifex Software licenses under the GNU Affero
-General Public License, version 3 (AGPL-3.0). These thirteen files
-therefore contain AGPL-3.0 code:
+The directory `spec/goldens` has files that matplotlib 3.11 wrote. The
+conformance tests compare the output of pltrs with them.
+
+matplotlib wrote thirteen of these files through Ghostscript. The
+Ghostscript device `ps2write` puts its prolog `opdfread.ps` into each
+file that it writes. The prolog is part of Ghostscript. Artifex Software
+licenses Ghostscript under the GNU Affero General Public License,
+version 3 (AGPL-3.0). Thus these thirteen files contain AGPL-3.0 code:
 
 - `spec/goldens/figures/basic/line.ghostscript.eps`
 - `spec/goldens/figures/basic/line.ghostscript.ps`
@@ -113,11 +114,10 @@ therefore contain AGPL-3.0 code:
 - `spec/goldens/figures/usetex/ticks.ps`
 - `spec/goldens/figures/vectors/text_fonts.ghostscript.ps`
 
-They are test data: pltrs' checks compare the structure of what pltrs
-writes with them. **No package distributes them**: the source
-distribution and the wheels leave `spec/` out, and no crate includes it.
-`spec/goldens/LICENSE-GHOSTSCRIPT.txt` holds Artifex's notice, where
-the prolog's source is, and the AGPL-3.0's text. pltrs itself holds no
-code of Ghostscript's; where matplotlib runs
-Ghostscript, pltrs runs the `gs` the user has installed, as matplotlib
-does.
+These files are test data. No package contains them: the source
+distribution, the wheels and the crates do not include `spec/`.
+`spec/goldens/LICENSE-GHOSTSCRIPT.txt` has the Artifex notice, the
+location of the prolog source and the text of the AGPL-3.0.
+
+pltrs contains no Ghostscript code. Where matplotlib runs Ghostscript,
+pltrs runs the `gs` program that the user installed.

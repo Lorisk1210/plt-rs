@@ -1,38 +1,33 @@
 //! pyplot and the object-oriented API: figures, windows, `show` and
 //! `savefig`.
 //!
-//! pltrs has both of matplotlib's interfaces. The object-oriented one is
-//! the primary API: you make a [`Figure`], add [`Axes`] and call their
-//! methods. [`crate::pyplot`] is the stateful interface on top: each
-//! thread keeps a list of numbered figures, a current figure and a current
-//! axes, and free functions such as [`pyplot::plot`] act on them. Nearly
-//! every `Axes` method has a pyplot function with the same arguments; the
-//! few that differ are those whose matplotlib function takes other ones
-//! (the axes of `twinx(ax)`, the optional mappable of `colorbar`), and
-//! their documentation says so.
+//! pltrs has both matplotlib interfaces. The main API is object-oriented:
+//! you make a [`Figure`], add [`Axes`] and call their methods.
+//! [`crate::pyplot`] is the stateful interface on top. Each thread keeps
+//! numbered figures, a current figure and current axes, and free functions
+//! such as [`pyplot::plot`] act on them. Almost every `Axes` method has a
+//! pyplot function with the same arguments. If a function takes other
+//! arguments, such as the axes of `twinx(ax)`, its documentation says so.
 //!
-//! Three spellings change because Rust has no keyword arguments or
-//! optional positional arguments:
+//! Rust has no keyword arguments and no optional positional arguments.
+//! Thus some functions split:
 //!
-//! * functions that are both getter and setter in matplotlib split in two:
-//!   `plt.xlim(0, 1)` is [`pyplot::xlim`], `plt.xlim()` is
-//!   [`pyplot::get_xlim`];
-//! * functions whose argument changes meaning by type split by type:
-//!   `plt.figure(3)` is [`pyplot::figure_num`], `plt.figure("name")` is
-//!   [`pyplot::figure_label`], `plt.close("all")` is [`pyplot::close_all`];
-//! * optional arguments become calls of their own, as on the axes:
-//!   `plt.xticks(ticks, labels)` is [`pyplot::xticks`] then
-//!   [`pyplot::xticklabels`], as `ax.set_xticks(ticks, labels)` is
-//!   `set_xticks` then `set_xticklabels`.
+//! * A getter and setter becomes two functions: `plt.xlim(0, 1)` is
+//!   [`pyplot::xlim`], and `plt.xlim()` is [`pyplot::get_xlim`].
+//! * An argument whose meaning depends on its type gives one function
+//!   for each type: `plt.figure(3)` is [`pyplot::figure_num`], and
+//!   `plt.figure("name")` is [`pyplot::figure_label`].
+//! * An optional argument becomes a separate call:
+//!   `plt.xticks(ticks, labels)` is [`pyplot::xticks`] and then
+//!   [`pyplot::xticklabels`].
 //!
-//! To read like Python, import the module as `plt`
-//! (`use pltrs::pyplot as plt;`), as matplotlib users do; the crate's other
+//! Import the module as `plt` (`use pltrs::pyplot as plt;`). The other
 //! items keep their paths, as in `pltrs::legend::LegendOptions`.
 //!
-//! Figures do not need pyplot to be saved or shown: [`Figure::savefig`]
-//! writes a file, [`crate::gui::show`] shows a list of figures with
-//! pyplot's backend and its fallback, and [`crate::web::serve`] serves
-//! them to a browser.
+//! You can save or show figures without pyplot. [`Figure::savefig`] writes
+//! a file. [`crate::gui::show`] shows a list of figures with the pyplot
+//! backend and its fallback. [`crate::web::serve`] serves them to a
+//! browser.
 //!
 //! # Equivalences
 //!
@@ -73,9 +68,9 @@
 //! | `plt.pause(t)`, `plt.ginput(n)`, `plt.waitforbuttonpress()` | [`pyplot::pause`], [`pyplot::ginput`], [`pyplot::waitforbuttonpress`] |
 //! | `plt.connect(name, f)`, `plt.disconnect(cid)` | [`pyplot::connect`] with an [`EventKind`], [`pyplot::disconnect`] |
 //! | `matplotlib.use("agg")`, `plt.switch_backend` | [`pyplot::switch_backend`]`(Backend::Agg)` ([`Backend`]) |
-//! | `matplotlib.get_backend()`, `MPLBACKEND`     | [`pyplot::get_backend`]; `MPLBACKEND` works too |
+//! | `matplotlib.get_backend()`, `MPLBACKEND`     | [`pyplot::get_backend`], and `MPLBACKEND` works too |
 //! | `plt.get_current_fig_manager()`              | [`pyplot::get_current_fig_manager`] → [`FigureManager`] |
-//! | `fig.canvas.manager.resize(w, h)`            | [`FigureManager::resize`]`(w, h)?`; [`FigureWindow::resize`], [`Session::resize`] for windows of your own |
+//! | `fig.canvas.manager.resize(w, h)`            | [`FigureManager::resize`]`(w, h)?`, or [`FigureWindow::resize`] and [`Session::resize`] for your own windows |
 //! | `fig.canvas.manager.window.grab()` (Qt)      | [`FigureWindow::screenshot`]`(&fig, 1.0)?`, off screen with no display |
 //! | `plt.rc("lines", lw=2)`                      | [`pyplot::rc`]`("lines", &[("lw", "2")])`     |
 //! | `plt.rc_context({...})`, `plt.rcdefaults()`  | [`pyplot::rc_context`], [`pyplot::rcdefaults`] |
@@ -113,7 +108,7 @@
 //! plt::legend(LegendOptions::default())?;
 //! assert_eq!(plt::get_xlim(), (0.0, 4.0));
 //!
-//! // `plt::savefig("squares.png")` writes the file; here we keep the bytes.
+//! // `plt::savefig("squares.png")` writes the file. This example keeps the bytes.
 //! let png = plt::gcf().to_png()?;
 //! assert!(png.starts_with(b"\x89PNG"));
 //! plt::close();
@@ -123,9 +118,8 @@
 //!
 //! # Mixing the two interfaces
 //!
-//! pyplot hands out the same handles the object-oriented API uses, so the
-//! two mix freely: plot on a returned axes, or make it current and go on
-//! with pyplot.
+//! pyplot returns the same handles as the object-oriented API, so you can
+//! mix the two.
 //!
 //! ```python
 //! fig, axs = plt.subplots(1, 2, sharey=True)
@@ -151,7 +145,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! # Numbered and labelled figures
+//! # Numbered and labeled figures
 //!
 //! ```python
 //! plt.figure(1)
@@ -176,12 +170,16 @@
 //!
 //! # Showing figures
 //!
-//! [`pyplot::show`] shows every open figure with the current backend: a
-//! window each ([`Backend::Windows`], pltrs's own windows), a web page
-//! each ([`Backend::WebAgg`], also the fallback on macOS and Windows where
-//! windows cannot open), or nothing ([`Backend::Agg`], the fallback on a
-//! Linux machine without a display). Like matplotlib, it blocks until the windows are closed
-//! unless interactive mode is on.
+//! [`pyplot::show`] shows all open figures with the current backend:
+//!
+//! * [`Backend::Windows`] opens a pltrs window for each figure.
+//! * [`Backend::WebAgg`] opens a web page for each figure. It is the
+//!   fallback on macOS and Windows if windows cannot open.
+//! * [`Backend::Agg`] shows nothing. It is the fallback on Linux without a
+//!   display.
+//!
+//! If interactive mode is off, `show` blocks until you close the windows,
+//! as in matplotlib.
 //!
 //! ```python
 //! import matplotlib
@@ -207,9 +205,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Without pyplot, [`crate::gui::show`] takes the figures to show, in
-//! windows or as [`pyplot::show`] falls back without them, and
-//! [`crate::web::serve`] serves them to a browser:
+//! Without pyplot, use [`crate::gui::show`] or [`crate::web::serve`]:
 //!
 //! ```no_run
 //! use pltrs::figure::Figure;
@@ -217,15 +213,15 @@
 //!
 //! let fig = Figure::new();
 //! fig.subplot().plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])?;
-//! pltrs::gui::show(&[fig.clone()])?; // returns when the window is closed, at once headless
+//! pltrs::gui::show(&[fig.clone()])?; // returns when the window closes, at once without a display
 //! serve(&[fig], WebOptions::from_rc()?)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
 //! # Configuration through pyplot
 //!
-//! [`pyplot::rc`] takes string values, exactly as rc files spell them, and
-//! keeps matplotlib's short group aliases (`lw`, `c`, `fc`, ...).
+//! [`pyplot::rc`] takes string values with the spelling of rc files. It
+//! accepts the matplotlib short aliases (`lw`, `c`, `fc`, ...).
 //!
 //! ```python
 //! with plt.rc_context({"lines.linewidth": 3}):

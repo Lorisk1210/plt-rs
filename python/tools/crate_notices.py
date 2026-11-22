@@ -53,7 +53,7 @@ FREETYPE_CREDIT = "The FreeType parts are based in part on the work of the FreeT
 
 #: The paragraph matplotlib's licence asks for (a summary of the changes),
 #: kept with every crate that ports matplotlib's code.
-MATPLOTLIB_CHANGES = "As matplotlib's licence asks, the changes in summary"
+MATPLOTLIB_CHANGES = "The matplotlib license requires a summary of the changes"
 
 
 def _sections(text):
@@ -111,12 +111,13 @@ def _crate_notice(crate, kept, paragraphs, cited):
         f"# Third-party code and data in {crate}",
         GENERATED,
         textwrap.fill(
-            f"{crate} is part of pltrs, licensed under the MIT licence or the Apache "
-            "License 2.0, at your option (`LICENSE-MIT`, `LICENSE-APACHE`). The parts "
-            "of it listed below come from other projects and keep their own licences, "
-            "whose texts are in `LICENSES/` (or beside the files they cover). These "
-            "are the rows of pltrs' `THIRD_PARTY.md` that concern this crate; paths "
-            "are those of pltrs' repository.", width=72),
+            f"{crate} is part of pltrs. pltrs has two licenses, and you can use it "
+            "under either one: the MIT license (`LICENSE-MIT`) or the Apache License "
+            "2.0 (`LICENSE-APACHE`). The parts in the tables come from other projects "
+            "and keep their licenses. The license texts are in `LICENSES/`, or next "
+            "to the files that they apply to. The tables are the rows of "
+            "`THIRD_PARTY.md` in the pltrs repository that apply to this crate. The "
+            "paths are paths in the pltrs repository.", width=72),
     ]
     for heading, header, rows in kept:
         if rows:

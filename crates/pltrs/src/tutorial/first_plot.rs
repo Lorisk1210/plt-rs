@@ -1,27 +1,23 @@
 //! Chapter 1: a first plot.
 //!
-//! A plot is a [`Figure`]: the whole image, with a size in inches, a
-//! resolution in dots (pixels) per inch and a background. Data goes into
-//! an [`Axes`], a rectangle inside the figure with an x axis and a y
-//! axis. "Axes" is singular here: one axes is one plotting area, and a
-//! figure can hold several (chapter [`layout`](super::layout)). You add
-//! axes to a figure, call plotting methods on the axes, and save the
-//! figure to a file or show it in a window.
+//! A plot is a [`Figure`], the whole image. It has a size in inches, a
+//! resolution in dots (pixels) per inch and a background. Data goes into an
+//! [`Axes`], a rectangle in the figure with an x axis and a y axis. The
+//! word "axes" is singular. One axes is one plotting area, and a figure can
+//! hold several (chapter [`layout`](super::layout)). You add axes to a figure,
+//! call plotting methods on them, and save or show the figure.
 //!
 //! # Setting up
 //!
-//! pltrs is not published on crates.io. Depend on its `pltrs` crate by
-//! path, or through git from its repository:
+//! Run `cargo add pltrs`, or depend on the crate by path:
 //!
 //! ```toml
 //! [dependencies]
 //! pltrs = { path = "../plt-rs/crates/pltrs" }
 //! ```
 //!
-//! It has no dependencies of its own and needs no system libraries, so
-//! `cargo build` is all it takes. Rendering is numeric code that runs
-//! slowly unoptimised; to keep debug builds quick, optimise your
-//! dependencies in the dev profile:
+//! pltrs needs no other crates or system libraries. Rendering is slow
+//! without optimization, so optimize dependencies in the dev profile:
 //!
 //! ```toml
 //! [profile.dev.package."*"]
@@ -46,44 +42,38 @@
 //! ax.set_xlabel("time (s)").set_ylabel("amplitude");
 //! fig.savefig("sine.png")?;
 //! # assert!(std::fs::read("sine.png")?.starts_with(b"\x89PNG"));
-//! # std::env::set_current_dir(std::env::temp_dir())?; // Windows cannot remove it otherwise
+//! # std::env::set_current_dir(std::env::temp_dir())?; // Windows cannot remove the directory while it is current
 //! # std::fs::remove_dir_all(&dir)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! The program writes `sine.png`, 600 by 400 pixels: about one and a
-//! half periods of a sine curve, a title above the axes and a label under
-//! each axis. Step by step:
+//! The program writes `sine.png`, 600 by 400 pixels, with a sine curve, a
+//! title and two axis labels. Step by step:
 //!
 //! * [`Figure::with_size`] takes the width and height in inches and the
-//!   resolution. [`Figure::new`] takes the default size instead.
-//! * [`Figure::subplot`] adds one axes filling the figure inside margins
-//!   for the tick and axis labels, and returns it.
+//!   resolution. [`Figure::new`] uses the default size.
+//! * [`Figure::subplot`] adds one axes that fills the figure, with margins
+//!   for the labels, and returns it.
 //! * [`linspace`] makes `n` evenly spaced numbers from `start` to `stop`,
 //!   both included.
 //! * [`Axes::plot`] draws a line through the points `(x[i], y[i])`. It
-//!   takes the data as you have it: borrowed or owned, in an array, a
-//!   slice or a `Vec`, or computed by an iterator as the y here, of `f64`
-//!   or any other number type. It returns a handle to the new line, in a
-//!   `Result` because data can be wrong: an x and a y of different
-//!   lengths are an error, not a panic.
-//! * The axes chose its limits from the data and placed the ticks and
-//!   their labels by itself. Chapter [`scales`](super::scales) shows how
-//!   to choose them.
-//! * [`Axes::set_title`] returns the new title, a text you could style
-//!   further. The label setters return the axes, so they chain.
-//! * [`Figure::savefig`] writes the file, in the format its extension
-//!   names: `.svg` or `.pdf` would write a vector document instead
-//!   (chapter [`saving`](super::saving)).
+//!   accepts arrays, slices, `Vec`s and iterators of any number type,
+//!   borrowed or owned. It returns a handle to the line in a `Result`. If x
+//!   and y have different lengths, it returns an error.
+//! * The axes selects its limits and ticks from the data (chapter
+//!   [`scales`](super::scales)).
+//! * [`Axes::set_title`] returns the title text. The label setters return
+//!   the axes, so you can chain them.
+//! * [`Figure::savefig`] uses the extension to select the format. `.svg`
+//!   and `.pdf` give a vector document (chapter [`saving`](super::saving)).
 //!
-//! The gallery's first figure, `line_plot` in `lines.rs`, is a similar
-//! plot of three damped waves, with a grid and a legend.
+//! The gallery entry `line_plot` in `lines.rs` plots three damped waves
+//! with a grid and a legend.
 //!
 //! # Several lines and a legend
 //!
-//! Each call to `plot` adds another line to the same axes, in the next
-//! colour of a fixed cycle. Give lines labels and ask the axes for a
-//! legend, which lists them.
+//! Each call to `plot` adds a line in the next color of a fixed cycle. Give
+//! the lines labels, and ask the axes for a legend.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -103,15 +93,14 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`Axes::plot_with`] is `plot` with a [`LineProps`]: the properties of
-//! the line, here only its label. Chapter [`data`](super::data) explains
-//! these option values and chapter [`styling`](super::styling) the
-//! properties.
+//! [`Axes::plot_with`] is `plot` with a [`LineProps`], the properties of
+//! the line. Chapter [`data`](super::data) explains option values, and
+//! chapter [`styling`](super::styling) explains the properties.
 //!
 //! # Bytes instead of a file
 //!
-//! [`Figure::to_png`] returns the PNG file's bytes, for a web response, a
-//! database or a test. Every format has such a method (chapter
+//! [`Figure::to_png`] returns the PNG bytes, for example for a web
+//! response or a test. Each format has such a method (chapter
 //! [`saving`](super::saving)).
 //!
 //! ```
@@ -128,9 +117,8 @@
 //! # A window
 //!
 //! [`gui::show`](crate::gui::show) opens a window for each figure and
-//! returns when they are all closed. In the window you can pan and zoom
-//! with the mouse, and save the figure from the toolbar (chapter
-//! [`interactive`](super::interactive)).
+//! returns when you close all of them. In the window, you can pan, zoom and
+//! save (chapter [`interactive`](super::interactive)).
 //!
 //! ```no_run
 //! use pltrs::prelude::*;
@@ -141,16 +129,15 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! `gui::show` adapts to the system as [`pyplot::show`] does: it opens
-//! windows (with Wayland or X11 on Linux, `AppKit` on macOS, Win32 on
-//! Windows), and returns at once on a Linux machine without a display.
+//! Like [`pyplot::show`], `gui::show` uses Wayland or X11 on Linux,
+//! `AppKit` on macOS and Win32 on Windows. On Linux without a display, it
+//! returns immediately.
 //!
 //! # The pyplot shortcut
 //!
-//! [`pyplot`] is a second way to drive pltrs, copied from matplotlib's
-//! `pyplot` module. It keeps a current figure and a current axes per
-//! thread, and its free functions act on them, making both when needed.
-//! It suits short scripts:
+//! [`pyplot`] copies the matplotlib module `pyplot`. Its free functions
+//! act on a current figure and axes for each thread, and make them when
+//! necessary. Use it for short scripts:
 //!
 //! ```
 //! use pltrs::pyplot;
@@ -158,18 +145,16 @@
 //! pyplot::plot([1.0, 2.0, 3.0], [1.0, 4.0, 9.0])?;
 //! pyplot::title("Squares");
 //! pyplot::xlabel("n");
-//! // `pyplot::savefig("squares.png")?` or `pyplot::show()?` would end a script.
+//! // A script ends with `pyplot::savefig("squares.png")?` or `pyplot::show()?`.
 //! let png = pyplot::gcf().to_png()?;
 //! assert!(png.starts_with(b"\x89PNG"));
 //! pyplot::close_all();
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! This tutorial uses the figure and axes handles instead (matplotlib
-//! calls this the object-oriented interface): a program with more than
-//! one axes reads better when each call names the axes it draws on. The
-//! two mix freely, since pyplot hands out the same handles:
-//! [`pyplot::gca`] returns the current [`Axes`].
+//! This tutorial uses the figure and axes handles instead (the
+//! object-oriented interface), so each call names its axes. You can mix
+//! the two: [`pyplot::gca`] returns the current [`Axes`].
 //!
 //! Next: [the anatomy of a figure](super::anatomy).
 //!

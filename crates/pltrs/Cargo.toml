@@ -1,6 +1,6 @@
 [package]
 name = "pltrs"
-description = "matplotlib rebuilt in Rust: figures, axes, artists, every output format, interactive windows and a pyplot-style API"
+description = "A plotting framework ported from matplotlib: figures, axes, artists, all output formats, interactive windows and a pyplot API"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

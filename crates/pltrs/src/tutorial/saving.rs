@@ -1,20 +1,18 @@
 //! Chapter 9: saving figures, and the output formats.
 //!
-//! [`Figure::savefig`] writes a figure in the format its file name's
-//! extension names. Two families of formats suit different uses:
+//! [`Figure::savefig`] uses the file extension to select the format. There
+//! are two families of formats:
 //!
-//! * **Raster images** are grids of pixels: PNG (`.png`), JPEG (`.jpg`),
-//!   TIFF (`.tif`), GIF (`.gif`), lossless WebP (`.webp`), AVIF (`.avif`)
-//!   and raw RGBA bytes (`.raw`). Their size in pixels is the figure's
-//!   size in inches times the resolution. PNG is the usual choice for
-//!   screens, web pages and documents; JPEG blurs thin lines and text and
-//!   suits photographs better than plots; AVIF is smaller than PNG at a
-//!   slight loss, or lossless at quality 100.
-//! * **Vector documents** describe lines, shapes and text as such, and
-//!   stay sharp at any zoom: SVG (`.svg`, or compressed `.svgz`) for the
-//!   web, PDF (`.pdf`) for papers and print, PostScript (`.ps`, `.eps`)
-//!   for older print workflows. PGF (`.pgf`) is a picture for LaTeX
-//!   documents, which LaTeX typesets with the document's own fonts.
+//! * Raster images are grids of pixels: PNG (`.png`), JPEG (`.jpg`), TIFF
+//!   (`.tif`), GIF (`.gif`), lossless WebP (`.webp`), AVIF (`.avif`) and
+//!   raw RGBA bytes (`.raw`). The size in pixels is the size in inches
+//!   times the resolution. Use PNG for screens, web pages and documents.
+//!   JPEG blurs thin lines and text. AVIF is smaller than PNG with a small
+//!   loss, or lossless at quality 100.
+//! * Vector documents stay sharp at any zoom. Use SVG (`.svg`, or
+//!   compressed `.svgz`) for the web, PDF (`.pdf`) for papers and print,
+//!   and PostScript (`.ps`, `.eps`) for older print workflows. PGF
+//!   (`.pgf`) is a picture that LaTeX typesets with the document fonts.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -36,10 +34,10 @@
 //!
 //! # Into memory
 //!
-//! Each format has a method returning the file's contents instead of
-//! writing it: bytes for raster formats and PDF, a `String` for the text
-//! formats (SVG, PostScript, PGF). [`Figure::to_format`] takes the format
-//! as a [`SaveFormat`] value, which parses the extensions.
+//! Each format has a method that returns the file contents: bytes for the
+//! raster formats and PDF, a `String` for SVG, PostScript and PGF.
+//! [`Figure::to_format`] takes a [`SaveFormat`], which parses from the
+//! extensions.
 //!
 //! ```
 //! use pltrs::figure::{SaveFormat, SaveOptions};
@@ -59,26 +57,21 @@
 //!
 //! # Save options
 //!
-//! [`Figure::savefig_with`] and the `_with` variants of the memory
-//! methods take a [`SaveOptions`]. Every field left `None` follows the
-//! `savefig.*` settings:
+//! [`Figure::savefig_with`] and the `_with` methods for memory output take
+//! a [`SaveOptions`]. A field that is `None` uses the `savefig.*` settings.
 //!
-//! * `dpi`: the resolution of raster output, by default the figure's
-//!   own. Vector documents are measured in points whatever it is, but
-//!   draw images at this resolution.
-//! * `bbox_inches: Some(BboxInches::Tight)`: crop (or grow) the output
-//!   to what is drawn, plus `pad_inches` around it, instead of saving the
-//!   whole figure.
-//! * `transparent: Some(true)`: leave out the figure and axes
-//!   backgrounds; `facecolor` paints the figure's background in another
-//!   colour.
-//! * `metadata`: the title, author, subject and keywords of the vector
-//!   documents, and the text entries of PNG files. The other raster
-//!   formats have no room for them and refuse them
-//!   ([`SaveError::MetadataUnsupported`]), so a loop saving every format
-//!   gives them options without it.
-//! * `jpeg_quality`: from 1 to 100, 75 by default; `avif_quality`: from 0
-//!   to 100, 75 by default, 100 lossless.
+//! * `dpi` is the resolution of raster output. The default is the
+//!   resolution of the figure. Vector documents use points, but draw
+//!   images at this resolution.
+//! * `bbox_inches: Some(BboxInches::Tight)` crops or grows the output to
+//!   what is drawn, plus `pad_inches`.
+//! * `transparent: Some(true)` removes the figure and axes backgrounds.
+//!   `facecolor` sets another background color for the figure.
+//! * `metadata` holds the title, author, subject and keywords of vector
+//!   documents and the text entries of PNG files. The other raster formats
+//!   refuse metadata ([`SaveError::MetadataUnsupported`]).
+//! * `jpeg_quality` is from 1 to 100, with 75 by default. `avif_quality` is
+//!   from 0 to 100, with 75 by default and 100 for lossless.
 //!
 //! ```
 //! use pltrs::figure::{BboxInches, Metadata, SaveOptions};
@@ -111,17 +104,16 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! The settings that belong to one format stay runtime settings, as in
-//! matplotlib: `svg.fonttype` (text as paths or as text), `pdf.fonttype`,
+//! As in matplotlib, the settings for one format are runtime settings:
+//! `svg.fonttype` (text as paths or as text), `pdf.fonttype`,
 //! `ps.papersize` and others (chapter [`styling`](super::styling)).
-//! Documents record the date they were made, or the date in the
-//! `SOURCE_DATE_EPOCH` environment variable, so that builds can produce
-//! identical files.
+//! Documents record the date of their creation, or the date in the
+//! environment variable `SOURCE_DATE_EPOCH`. Use it for reproducible
+//! files.
 //!
 //! # Several pages
 //!
-//! [`PdfPages`] collects figures as the pages of one PDF document, a
-//! report for instance.
+//! [`PdfPages`] collects figures as the pages of one PDF document.
 //!
 //! ```
 //! use pltrs::figure::PdfPages;
@@ -139,10 +131,10 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Animations save as animated PNG, GIF or WebP files, an HTML page, or
-//! through ffmpeg as videos (chapter [`interactive`](super::interactive)).
-//! The [`porting::saving`](crate::porting::saving) page has the full
-//! list of options.
+//! pltrs saves animations as animated PNG, GIF or WebP files, as an HTML
+//! page, or as videos through ffmpeg (chapter
+//! [`interactive`](super::interactive)). The page
+//! [`porting::saving`](crate::porting::saving) lists all options.
 //!
 //! Next: [interactive figures](super::interactive).
 //!

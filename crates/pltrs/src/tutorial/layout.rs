@@ -1,19 +1,14 @@
 //! Chapter 6: layout, several axes in one figure.
 //!
-//! A figure can hold any number of axes. Most figures place them on a
-//! grid, and a *layout engine*, when the figure has one, sizes the
-//! grid's cells so that tick labels, axis labels and titles fit without
-//! overlapping. This chapter goes from regular grids to irregular ones,
-//! then to what sits beside or inside an axes: colorbars, twin axes and
-//! insets.
+//! A figure can hold any number of axes, usually on a grid. A *layout
+//! engine* sizes the cells so that labels and titles do not overlap.
 //!
 //! # A grid of axes
 //!
-//! [`Figure::subplots`] adds a grid of axes and returns them as a
-//! [`Grid`]`<`[`Axes`]`>`, indexed by `(row, column)`;
-//! [`Grid::as_slice`] lists them row by row for a loop.
-//! [`Figure::add_subplot`] adds one cell of a grid at a time, numbered
-//! from 1 in reading order.
+//! [`Figure::subplots`] adds a grid of axes and returns a
+//! [`Grid`]`<`[`Axes`]`>`, indexed by `(row, column)`. [`Grid::as_slice`]
+//! lists the axes row by row. [`Figure::add_subplot`] adds one cell at a
+//! time, numbered from 1 in reading order.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -32,17 +27,15 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`Figure::suptitle`], [`Figure::supxlabel`] and
-//! [`Figure::supylabel`] write a title and labels for the whole figure.
+//! [`Figure::suptitle`], [`Figure::supxlabel`] and [`Figure::supylabel`]
+//! write a title and labels for the whole figure.
 //!
 //! # Shared axes
 //!
-//! Axes that show comparable data should share their scales: zooming one
-//! zooms the others, and the limits cover the data of all of them.
-//! [`Figure::subplots_shared`] takes a [`Share`] for x and one for y:
-//! shared by all the axes, by each row, by each column, or not at all.
-//! [`Axes::label_outer`] then keeps tick labels only on the outer edge of
-//! the grid.
+//! Shared axes zoom together, and their limits cover the data of all of
+//! them. [`Figure::subplots_shared`] takes a [`Share`] for x and one for
+//! y: all axes, each row, each column or none. [`Axes::label_outer`] keeps
+//! tick labels only on the outer edge of the grid.
 //!
 //! ```
 //! use pltrs::figure::Share;
@@ -61,14 +54,11 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`Axes::twinx`] makes a second axes over the first, sharing its x
-//! axis but with a y axis of its own on the right, for two quantities
-//! measured in different units along the same x. It returns a `Result`:
-//! axes that fix their aspect, as polar axes do, cannot have twins. Each
-//! of the two axes has its own legend; for one legend listing the
-//! artists of both, give it their handles, and put it on the twin, which
-//! is drawn on top. [`LegendOptions::handle`] adds one handle at a time,
-//! so the bars and the line go in side by side.
+//! [`Axes::twinx`] makes a second axes over the first, with the same x
+//! axis and its own y axis on the right. It fails for axes with a fixed
+//! aspect, such as polar axes. For one legend of both axes, put it on the
+//! twin, which is on top, and add each handle with
+//! [`LegendOptions::handle`].
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -94,13 +84,11 @@
 //!
 //! # Mosaics
 //!
-//! When the cells differ in size, draw the grid as text.
-//! [`Figure::subplot_mosaic`] takes rows of labels separated by `;` (or
-//! a [`Mosaic`] built from cells): a label repeated across cells makes
-//! one axes spanning them, and `.` leaves a cell empty. The result maps
-//! each label to its axes. Index it with a label, which panics for a
-//! label the mosaic does not have, as indexing a map does; `get` returns
-//! an `Option` instead.
+//! For cells of different sizes, draw the grid as text.
+//! [`Figure::subplot_mosaic`] takes rows of labels separated by `;`, or a
+//! [`Mosaic`]. A label in several cells makes one axes across them, and
+//! `.` leaves a cell empty. The result maps labels to axes. An index with
+//! an unknown label panics, and `get` returns an `Option`.
 //!
 //! ```
 //! use pltrs::figure::MosaicOptions;
@@ -119,10 +107,10 @@
 //!
 //! # Gridspecs
 //!
-//! A [`GridSpec`] is the grid underneath: its numbers of rows and
-//! columns, their relative sizes, and the spacing. Take a block of its
-//! cells with [`GridSpec::span`], which uses Rust ranges, and add an axes
-//! on it. [`GridSpec::nested`] divides one block into a grid of its own.
+//! A [`GridSpec`] is the grid below the axes: rows, columns, their
+//! relative sizes and the spacing. [`GridSpec::span`] selects a block of
+//! cells with Rust ranges. [`GridSpec::nested`] divides a block into a new
+//! grid.
 //!
 //! ```
 //! use pltrs::gridspec::{GridSpec, SubplotOverrides};
@@ -144,15 +132,12 @@
 //!
 //! # Layout engines
 //!
-//! Without help, axes keep fixed positions in the figure and long labels
-//! can run into their neighbours or off the edge. A layout engine moves
-//! the axes, every time the figure is drawn, so that their decorations
-//! fit. *Constrained layout* ([`LayoutEngine::constrained`]) also makes
-//! room for colorbars, legends outside the axes and figure titles; the
-//! modern look turns it on for every figure. *Tight layout*
-//! ([`LayoutEngine::tight`]) is an older, simpler engine. matplotlib's
-//! look starts without an engine, as matplotlib does, so set one
-//! explicitly when the layout must not depend on the look.
+//! A layout engine moves the axes at each draw so that their labels fit.
+//! [`LayoutEngine::constrained`] gives *constrained layout*, which also
+//! makes space for colorbars, outside legends and figure titles.
+//! [`LayoutEngine::tight`] gives *tight layout*, an older, simpler engine. The modern look uses
+//! constrained layout, and the matplotlib look uses no engine. If the
+//! layout must not depend on the look, set an engine.
 //!
 //! ```
 //! use pltrs::layout::LayoutEngine;
@@ -168,16 +153,14 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! With no engine, [`Figure::subplots_adjust`] sets the margins and the
-//! spacing of the grid by hand.
+//! Without an engine, [`Figure::subplots_adjust`] sets the margins and
+//! spacing.
 //!
 //! # Colorbars
 //!
-//! [`Figure::colorbar`] adds a colorbar for anything colour-mapped (an
-//! image, a scatter plot coloured by value, filled contours). It makes a
-//! new axes and takes the room from the axes of the mapped artist, or
-//! from the axes you name. One colorbar can serve several axes when they
-//! share a colour scale.
+//! [`Figure::colorbar`] adds a colorbar for a color-mapped artist, such as
+//! an image. It takes the space from the axes of the artist, or from the
+//! axes that you give. One colorbar can serve several axes.
 //!
 //! ```
 //! use pltrs::colorbar::ColorbarAxes;
@@ -203,17 +186,15 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Both images share the limits 0 to 100, set through their
-//! [`ColorizerOptions`], so one colorbar reads for both. Gallery:
-//! `shared_colorbar` in `layout.rs`.
+//! The [`ColorizerOptions`] give both images the limits 0 to 100. Gallery: `shared_colorbar` in
+//! `layout.rs`.
 //!
 //! # Insets
 //!
-//! [`Axes::inset_axes`] places a small axes inside another one, at a
-//! rectangle given in fractions of the parent (left, bottom, width,
-//! height). Set its limits to a detail of the data and
-//! [`Axes::indicate_inset_zoom`] draws a box around that detail in the
-//! parent, with lines to the inset.
+//! [`Axes::inset_axes`] places a small axes in another axes, at fractions
+//! of the parent (left, bottom, width, height).
+//! [`Axes::indicate_inset_zoom`] draws a box around the inset limits in
+//! the parent, with lines to the inset.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -232,15 +213,14 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Gallery: `inset` and `broken_axes` in `layout.rs`; `zoomed_inset` in
+//! Gallery: `inset` and `broken_axes` in `layout.rs`, `zoomed_inset` in
 //! `grids.rs`.
 //!
 //! # Subfigures
 //!
-//! A subfigure is a figure inside a figure: a region with its own axes,
-//! its own suptitle, its own background and its own layout.
-//! [`Figure::subfigures`] divides a figure into a grid of them, returned
-//! as [`Figure`] handles, so everything above works inside each one.
+//! A subfigure is a figure in a figure, with its own axes, title,
+//! background and layout. [`Figure::subfigures`] divides a figure into a
+//! grid of subfigures, which are [`Figure`] handles.
 //!
 //! ```
 //! use pltrs::figure::SubfigureOptions;
@@ -262,9 +242,9 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Gallery: `subfigures` in `layout.rs`. The
-//! [`porting::figures`](crate::porting::figures) page lists the layout
-//! methods and their options.
+//! Gallery: `subfigures` in `layout.rs`. The page
+//! [`porting::figures`](crate::porting::figures) lists the layout methods
+//! and their options.
 //!
 //! Next: [text and annotation](super::text).
 //!

@@ -1,36 +1,36 @@
-//! `mplot3d`, `axes_grid1`, `axisartist`, polar and geographic axes,
-//! projections of your own, and the other specialised modules.
+//! `mplot3d`, `axes_grid1`, `axisartist`, polar and geographic axes, your
+//! own projections, and the other special modules.
 //!
-//! matplotlib picks special axes with `projection=` or `axes_class=`;
+//! matplotlib selects special axes with `projection=` or `axes_class=`.
 //! pltrs gives each kind its own handle and constructor:
 //!
-//! * [`Axes3D`] from [`Figure::subplot_3d`] (and [`Figure::add_subplot_3d`],
-//!   [`Figure::add_axes_3d`]): its own plotting methods taking x, y and z,
-//!   per-axis methods taking an [`Axis3`], and the camera ([`ViewAngles`],
-//!   [`ProjType`]). Limit setters check their arguments and return a
-//!   `Result`.
-//! * [`PolarAxes`] from [`Figure::polar_subplot`] and [`GeoAxes`] from
-//!   [`Figure::geo_subplot`]: they dereference to [`Axes`], so every 2-D
-//!   plotting method works on them, and add the settings of their
-//!   projection. Compass directions and orientations are enums
-//!   ([`Compass`], [`ThetaDirection`]).
-//! * Projections of your own implement [`Projection`]: one hook per
-//!   method matplotlib's projection subclasses override, panning and
-//!   zooming included. [`register`] names them, as `register_projection`
-//!   does, [`register_with`] those whose `__init__` takes keywords, and
-//!   [`Figure::add_subplot_with_projection`] makes axes of any
-//!   [`ProjectionKind`], built-in or registered, with the keywords as
-//!   options; so do the constructors of grids, mosaics, insets and twins.
-//! * [`crate::axes_grid1`] keeps matplotlib's functions
+//! * [`Axes3D`] comes from [`Figure::subplot_3d`], [`Figure::add_subplot_3d`]
+//!   or [`Figure::add_axes_3d`]. Its plotting methods take x, y and z, and
+//!   its per-axis methods take an [`Axis3`]. The camera is [`ViewAngles`]
+//!   and [`ProjType`]. Limit setters return a `Result`.
+//! * [`PolarAxes`] comes from [`Figure::polar_subplot`], and [`GeoAxes`]
+//!   from [`Figure::geo_subplot`]. They dereference to [`Axes`], so all 2-D
+//!   plotting methods work on them. Compass directions and orientations are
+//!   enums ([`Compass`], [`ThetaDirection`]).
+//! * Your own projections implement [`Projection`], with one hook for each
+//!   method that a matplotlib projection subclass overrides, pan and zoom
+//!   included. [`register`] names a projection, as `register_projection`
+//!   does. Use [`register_with`] if its `__init__` takes keywords.
+//!   [`Figure::add_subplot_with_projection`] and the constructors of grids,
+//!   mosaics, insets and twins take any [`ProjectionKind`], with the
+//!   keywords as options.
+//! * [`crate::axes_grid1`] keeps the matplotlib functions
 //!   ([`make_axes_locatable`], [`inset_axes`], [`zoomed_inset_axes`],
 //!   [`mark_inset`], [`host_subplot`]) and classes ([`ImageGrid`],
-//!   [`Divider`]); sizes like `"5%"` are a [`SizeSpec`], sides a
+//!   [`Divider`]). A size such as `"5%"` is a [`SizeSpec`]. A side is a
 //!   [`SpineSide`].
 //! * [`crate::axisartist`] wraps an ordinary axes in an
-//!   [`axisartist::AxisArtistAxes`](crate::axisartist::AxisArtistAxes) ([`AxisArtistAxes::new`](crate::axisartist::AxisArtistAxes::new),
-//!   or [`AxisArtistAxes::zero`](crate::axisartist::AxisArtistAxes::zero) for `AxesZero`);
-//!   `ax.axis["left"]` is [`axis("left")`](crate::axisartist::AxisArtistAxes::axis),
-//!   keyed by name since new axis lines get names of your choosing.
+//!   [`axisartist::AxisArtistAxes`](crate::axisartist::AxisArtistAxes)
+//!   ([`AxisArtistAxes::new`](crate::axisartist::AxisArtistAxes::new), or
+//!   [`AxisArtistAxes::zero`](crate::axisartist::AxisArtistAxes::zero) for
+//!   `AxesZero`). `ax.axis["left"]` is
+//!   [`axis("left")`](crate::axisartist::AxisArtistAxes::axis). The key is
+//!   a name because new axis lines can have any name.
 //!
 //! # Equivalences
 //!
@@ -42,7 +42,7 @@
 //! | `x, y, z = ax._process_unit_info([("x", x), ("y", y), ("z", z)])` before plotting dates or names | none: [`Axes3D::plot`], `scatter`, `text`, `bar`, `bar3d`, `stem`, `errorbar` and `fill_between` take dates, names and values with units, as do the limit setters and [`Axis3D::set_ticks`] |
 //! | `ax.convert_zunits(z)`, `ax.zaxis.convert_units(z)` | [`Axes3D::zaxis`]`().`[`convert_units`](crate::mplot3d::Axis3D::convert_units)`(z)` |
 //! | `ax.zaxis.update_units(v)`, `set_units(u)`, `get_units()` | [`Axis3D::update_units`], [`Axis3D::set_units`], [`Axis3D::units`] |
-//! | `ax.zaxis.set_converter(c)`, `get_converter()`    | [`Axis3D::set_converter`], [`Axis3D::converter`]; `set_converter(mdates.ConciseDateConverter())` is `set_converter(`[`DateConverter::Concise`]`)?` |
+//! | `ax.zaxis.set_converter(c)`, `get_converter()`    | [`Axis3D::set_converter`], [`Axis3D::converter`]. `set_converter(mdates.ConciseDateConverter())` is `set_converter(`[`DateConverter::Concise`]`)?` |
 //! | `ax.zaxis.axis_date(tz)`, `ax.zaxis_date(tz)`     | [`Axis3D::axis_date`]                          |
 //! | `ax.fill_between(x1, y1, z1, x2, y2, z2)`         | [`Axes3D::fill_between`]`((x1, y1, z1), (x2, y2, z2), ..)` ([`Curve3D`]) |
 //! | `ax.bar3d(x, y, z, dx, dy, dz)`                   | [`Axes3D::bar3d`]`(`[`Boxes::new`]`(x, y, z, dx, dy, dz), ..)` |
@@ -99,7 +99,7 @@
 //! | `zoomed_inset_axes(ax, zoom)`, `mark_inset(...)`  | [`zoomed_inset_axes`], [`mark_inset`]          |
 //! | `ImageGrid(fig, 111, nrows_ncols=(2, 2), axes_pad=0.1)` | [`ImageGrid::new`] with [`GridRect`] and [`ImageGridOptions`] |
 //! | `Divider(fig, rect, horizontal, vertical)`, `Size.Fixed(1)` | [`Divider::new`], [`Size::Fixed`]        |
-//! | `divider.get_horizontal()`, `append_size("left", s)`, `get_aspect()` | [`Divider::horizontal`], [`Divider::append_size`], [`Divider::aspect`]; [`AxesDivider::divider`] for an axes divider |
+//! | `divider.get_horizontal()`, `append_size("left", s)`, `get_aspect()` | [`Divider::horizontal`], [`Divider::append_size`], [`Divider::aspect`], and [`AxesDivider::divider`] for an axes divider |
 //! | `host_subplot(111)`, `host.twinx()`               | [`host_subplot`], [`HostAxes`]                 |
 //! | `AnchoredSizeBar`, `AnchoredDirectionArrows`      | [`crate::axes_grid1::anchored_artists`]        |
 //! | `fig.add_subplot(axes_class=axisartist.Axes)`     | [`axisartist::AxisArtistAxes::new`](crate::axisartist::AxisArtistAxes::new)`(fig.subplot())` |

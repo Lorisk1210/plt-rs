@@ -1,50 +1,52 @@
-//! TrueType/OpenType parsing, glyph outlines, text shaping and font
+//! TrueType and OpenType parsing, glyph outlines, text shaping and font
 //! management for pltrs.
 //!
-//! The crate has no dependencies and is organised in layers:
+//! The crate has no dependencies. It has these layers:
 //!
-//! * [`Face`] — a zero-copy view of one face of a `.ttf`/`.otf`/`.ttc` file:
-//!   metrics, character maps, glyph outlines (TrueType `glyf` and `CFF`)
-//!   emitted through an [`OutlineSink`], names, kerning and glyph names.
-//! * [`Size`] — FreeType-compatible scaling, so scaled advances, outlines
-//!   and bounding boxes agree with matplotlib to the 1/64 pixel.
-//! * [`HintingInstance`] — FreeType's TrueType bytecode interpreter (version
-//!   40) for the grid-fitted outlines and advances matplotlib draws text
-//!   with by default ([`Hinting`]), and [`Autohinter`] — FreeType's
-//!   autohinter, for fonts without bytecode and `text.hinting: auto`.
-//!   Loaded glyphs also give their [`ScanOutline`]: the tagged points and
-//!   drop-out rules FreeType's monochrome rasterizer works from.
-//! * [`shape`] / [`shape_at_size`] — libraqm/HarfBuzz-style shaping: the
-//!   Unicode Bidirectional Algorithm with visual reordering of right-to-left
-//!   runs, HarfBuzz's Arabic (joining forms, presentation-form fallback) and
-//!   Hebrew shapers, the default OpenType features (ligatures, `GPOS`
-//!   kerning with fallback to the legacy `kern` table, cursive and mark
-//!   positioning), user [`Feature`]s in HarfBuzz's syntax (also for parts
-//!   of the text), BCP 47 languages ([`LanguageTag`], [`LanguageRange`])
-//!   mapped to the font's language systems with HarfBuzz's tag tables, and
-//!   [`FontChain`] for matplotlib's per-character font fallback and text
-//!   extents.
-//! * [`FontDatabase`] — the bundled matplotlib fonts plus optional system
-//!   fonts, with matplotlib's `findfont` scoring; the system's fonts can
-//!   be catalogued once and the catalogue kept in a file between processes
-//!   ([`FontDatabase::add_system_fonts_catalogued`]), as matplotlib keeps
-//!   its font list, so that starting up opens no font file.
-//! * [`AfmFont`] / [`AfmMetrics`] — matplotlib's catalogue of Adobe Font
-//!   Metrics and its AFM parser, with the bundled metrics of all of them
-//!   (the 14 PDF core fonts and matplotlib's `fonts/afm`), for text
-//!   measured and drawn in standard PostScript fonts.
-//! * [`glyph_name_to_unicode`] — the characters a glyph name stands for,
-//!   by the Adobe Glyph List.
-//! * [`Type1Font`] / [`Type1Face`] — PostScript Type 1 fonts
-//!   (`.pfa`/`.pfb`), the fonts of TeX and `text.usetex`: matplotlib's
-//!   `_type1font` (parsing, slanting, extending, re-encoding and subsetting
-//!   for embedding) and FreeType's Type 1 driver (glyph names and indices,
-//!   metrics, and outlines from its Adobe charstring engine, hinted or
-//!   not).
+//! * [`Face`]: a zero-copy view of one face of a `.ttf`, `.otf` or `.ttc`
+//!   file. It gives metrics, character maps, names, kerning, glyph names
+//!   and glyph outlines (TrueType `glyf` and `CFF`) through an
+//!   [`OutlineSink`].
+//! * [`Size`]: scaling as in FreeType. Scaled advances, outlines and
+//!   bounding boxes agree with matplotlib to 1/64 pixel.
+//! * [`HintingInstance`]: the FreeType TrueType bytecode interpreter
+//!   (version 40). It gives the grid-fitted outlines and advances that
+//!   matplotlib uses for text by default ([`Hinting`]).
+//! * [`Autohinter`]: the FreeType autohinter, for fonts without bytecode
+//!   and for `text.hinting: auto`. A loaded glyph also gives its
+//!   [`ScanOutline`], the tagged points and drop-out rules for the
+//!   monochrome rasterizer of FreeType.
+//! * [`shape`], [`shape_at_size`]: shaping as in libraqm and HarfBuzz.
+//!   This includes the Unicode Bidirectional Algorithm with visual
+//!   reordering of right-to-left runs and the HarfBuzz Arabic and Hebrew
+//!   shapers. It applies the default OpenType features: ligatures, `GPOS`
+//!   kerning (or the legacy `kern` table), and cursive and mark
+//!   positioning. It accepts user [`Feature`]s in HarfBuzz syntax, also
+//!   for parts of the text. BCP 47 languages ([`LanguageTag`],
+//!   [`LanguageRange`]) map to the language systems of the font through
+//!   the HarfBuzz tag tables. [`FontChain`] gives the matplotlib font
+//!   fallback for each character and the text extents.
+//! * [`FontDatabase`]: the included matplotlib fonts and optional system
+//!   fonts, with the matplotlib `findfont` scoring.
+//!   [`FontDatabase::add_system_fonts_catalogued`] keeps a catalogue of the
+//!   system fonts in a file between processes, as matplotlib keeps its
+//!   font list. Thus start-up opens no font file.
+//! * [`AfmFont`], [`AfmMetrics`]: the matplotlib catalogue of Adobe Font
+//!   Metrics and its AFM parser. The crate includes the metrics of the 14
+//!   PDF core fonts and of the matplotlib `fonts/afm`. Text in standard
+//!   PostScript fonts uses them.
+//! * [`glyph_name_to_unicode`]: the characters of a glyph name, from the
+//!   Adobe Glyph List.
+//! * [`Type1Font`], [`Type1Face`]: PostScript Type 1 fonts (`.pfa`,
+//!   `.pfb`), the fonts of TeX and `text.usetex`. `Type1Font` ports the
+//!   matplotlib `_type1font`: parsing, slanting, extending, re-encoding and
+//!   subsetting for embedding. `Type1Face` ports the FreeType Type 1
+//!   driver: glyph names and indices, metrics, and outlines from its Adobe
+//!   charstring engine, with or without hinting.
 //!
-//! What the crate ports from FreeType 2.14 it takes under the FreeType
-//! License (FTL), not FreeType's alternative, the GPL; the modules that
-//! port its drivers and engines say so, and `THIRD_PARTY.md` lists them.
+//! The code ported from FreeType 2.14 uses the FreeType License (FTL), not
+//! the GPL alternative of FreeType. The modules that port its drivers and
+//! engines say so, and `THIRD_PARTY.md` lists them.
 #![forbid(unsafe_code)]
 
 mod aat;

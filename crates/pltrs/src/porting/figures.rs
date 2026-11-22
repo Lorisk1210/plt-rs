@@ -1,31 +1,26 @@
 //! Figures, subplots, gridspecs, mosaics, subfigures and layout engines.
 //!
-//! A [`Figure`] is made directly ([`Figure::new`], [`Figure::with_size`])
-//! or through pyplot. Axes are added to it the way matplotlib adds them,
-//! but the overloaded `add_subplot` splits into one method per form:
-//! [`Figure::subplot`] for the single default subplot,
-//! [`Figure::add_subplot`] for `(nrows, ncols, index)`,
-//! [`Figure::add_subplot_spec`] for a cell of a grid, and one family per
-//! projection ([`Figure::polar_subplot`], [`Figure::subplot_3d`],
-//! [`Figure::geo_subplot`]) instead of `projection="..."`; when the
-//! projection is only known as a [`ProjectionKind`], as for registered
-//! ones, [`Figure::add_subplot_with_projection`] and friends take it,
-//! with the keywords matplotlib passes to the projection as options
+//! Make a [`Figure`] directly ([`Figure::new`], [`Figure::with_size`]) or
+//! through pyplot. The overloaded `add_subplot` becomes one method for each
+//! form, and one family for each projection in place of
+//! `projection="..."`. The table lists them. If you have the projection
+//! only as a [`ProjectionKind`], for example a registered projection, use
+//! [`Figure::add_subplot_with_projection`] and the related methods. The
+//! keywords that matplotlib gives to the projection become options
 //! ([`ProjectionKind::with_options`]).
 //!
-//! [`Figure::subplots`] returns a [`Grid`] of axes, indexed by
-//! `(row, col)` where matplotlib indexes a numpy array with `[row, col]`;
-//! [`Grid::as_slice`] plays the part of `axs.flat`. Sharing is a [`Share`]
-//! value per axis.
+//! [`Figure::subplots`] returns a [`Grid`] of axes. Index it with
+//! `(row, col)` in place of the numpy `[row, col]`. [`Grid::as_slice`]
+//! replaces `axs.flat`. Sharing is a [`Share`] value for each axis.
 //!
-//! A [`GridSpec`] is a plain value. Build it with its ratios and margins,
-//! take blocks of cells with [`GridSpec::cell`] and [`GridSpec::span`]
-//! (Rust ranges instead of slices), and add axes on them. Mosaics are
-//! parsed from matplotlib's strings ([`Mosaic`] implements [`FromStr`]);
-//! subfigures are `Figure` handles of their own.
+//! A [`GridSpec`] is a plain value. Make it with its ratios and margins,
+//! and take cells with [`GridSpec::cell`] and [`GridSpec::span`]. `span`
+//! takes Rust ranges in place of slices. [`Mosaic`] implements
+//! [`FromStr`] for the matplotlib strings. Subfigures are `Figure`
+//! handles.
 //!
-//! Layout engines are values of [`LayoutEngine`]. The modern look turns
-//! constrained layout on by default; matplotlib's look starts without an
+//! Layout engines are values of [`LayoutEngine`]. The modern look uses
+//! constrained layout by default. The matplotlib look starts without an
 //! engine, as matplotlib does.
 //!
 //! # Equivalences
@@ -212,10 +207,10 @@
 //!
 //! # Layout engines and margins
 //!
-//! Set the engine explicitly when a port depends on it, because the
-//! default depends on the look. Swapping engines can fail, as in
-//! matplotlib: once a colorbar exists, an engine placing colorbars
-//! differently is refused.
+//! The default engine depends on the look. If a port depends on the engine,
+//! set it explicitly. A change of engine can fail, as in matplotlib. If a
+//! colorbar exists, pltrs refuses an engine that places colorbars in a
+//! different way.
 //!
 //! ```python
 //! fig = plt.figure(layout="constrained")

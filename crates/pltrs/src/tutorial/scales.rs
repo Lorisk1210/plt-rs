@@ -1,19 +1,15 @@
 //! Chapter 8: scales, ticks and dates.
 //!
-//! An axis maps data values to positions. Its *limits* say which range of
-//! values is shown, its *scale* how values map to positions in between
-//! (evenly, logarithmically, ...), and its *ticks* mark chosen values
-//! with labels. All three are chosen automatically from the data, and
-//! each can be set by hand.
+//! An axis has *limits* (the range that it shows), a *scale* (linear,
+//! logarithmic, ...) and *ticks*. pltrs selects all three from the data,
+//! and you can set each of them.
 //!
 //! # Limits
 //!
-//! An axes fits its limits to the data it holds, with a small margin
-//! (5% of the range by default). [`Axes::set_xlim`] and
-//! [`Axes::set_ylim`] fix them, in any values the axis takes (numbers of
-//! any type, dates, categories); giving the larger value first inverts
-//! the axis. [`Axes::set_margins`] changes the margin instead, keeping
-//! the limits automatic.
+//! An axes fits its limits to its data, with a margin of 5% by default.
+//! [`Axes::set_xlim`] and [`Axes::set_ylim`] set the limits in any values
+//! of the axis (numbers, dates, categories). The larger value first
+//! inverts the axis. [`Axes::set_margins`] changes the margin.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -32,18 +28,14 @@
 //!
 //! # Scales
 //!
-//! On a *logarithmic* scale, equal distances are equal ratios: 1 to 10
-//! takes as much room as 10 to 100. Use it for data spanning several
-//! orders of magnitude, or when ratios matter more than differences;
-//! exponential growth becomes a straight line. It cannot show zero or
-//! negative values. The *symmetric log* scale (`"symlog"`) is logarithmic away
-//! from zero and linear in a band around it, for data of both signs. The
-//! *logit* scale stretches the ends of the range 0 to 1, for
+//! A *logarithmic* scale (`"log"`) cannot show zero or negative values. The *symmetric log* scale
+//! (`"symlog"`) is linear in a band around zero and logarithmic outside
+//! it. The *logit* scale stretches the ends of the range 0 to 1, for
 //! probabilities.
 //!
-//! [`Axes::set_xscale`] and [`Axes::set_yscale`] choose a scale by name;
-//! [`Axes::set_scale_with`] adds its options, such as the base of a log
-//! scale or the width of the linear band of a symlog one.
+//! [`Axes::set_xscale`] and [`Axes::set_yscale`] select a scale by name.
+//! [`Axes::set_scale_with`] also takes options, such as the log base or
+//! the width of the symlog band.
 //! [`Axes::semilogy`], [`Axes::semilogx`] and [`Axes::loglog`] plot and
 //! set the scales in one call.
 //!
@@ -68,30 +60,24 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Gallery: `axis_scales` in `lines.rs` draws the same data on linear,
-//! log, symlog and logit axes.
+//! Gallery: `axis_scales` in `lines.rs`.
 //!
 //! # Ticks
 //!
-//! Two objects decide an axis' ticks. A [`Locator`](crate::ticker::Locator)
-//! chooses the values; a [`Formatter`](crate::ticker::Formatter) writes
-//! their labels. The defaults pick a few round values and write them as
-//! briefly as they allow. To choose:
+//! A [`Locator`](crate::ticker::Locator) selects the tick values, and a
+//! [`Formatter`](crate::ticker::Formatter) writes the labels. Set them on
+//! the [`Axis`](crate::axes::Axis):
 //!
-//! * [`Axes::set_xticks`] and [`Axes::set_xticklabels`] give the exact
-//!   values and labels;
-//! * [`MultipleLocator`](crate::ticker::MultipleLocator) puts ticks at
-//!   multiples of a step, [`MaxNLocator`](crate::ticker::MaxNLocator) at
-//!   most a given number of round values,
-//!   [`AutoMinorLocator`](crate::ticker::AutoMinorLocator) minor ticks
-//!   between the major ones;
-//! * [`StrMethodFormatter`](crate::ticker::StrMethodFormatter) writes a
-//!   label from a pattern in Python's format syntax,
-//!   [`PercentFormatter`](crate::ticker::PercentFormatter) as a
-//!   percentage, [`FuncFormatter`](crate::ticker::FuncFormatter) with a
-//!   closure of yours.
-//!
-//! Set them on the [`Axis`](crate::axes::Axis), whose setters chain.
+//! * [`Axes::set_xticks`] and [`Axes::set_xticklabels`] set exact values
+//!   and labels.
+//! * [`MultipleLocator`](crate::ticker::MultipleLocator) uses multiples of
+//!   a step, [`MaxNLocator`](crate::ticker::MaxNLocator) at most n round
+//!   values, and [`AutoMinorLocator`](crate::ticker::AutoMinorLocator)
+//!   adds minor ticks.
+//! * [`StrMethodFormatter`](crate::ticker::StrMethodFormatter) uses a
+//!   Python format pattern, [`PercentFormatter`](crate::ticker::PercentFormatter)
+//!   writes percentages and [`FuncFormatter`](crate::ticker::FuncFormatter)
+//!   calls your closure.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -116,23 +102,20 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! How ticks look (length, direction, label size and rotation, which
-//! sides carry them) is set with [`Axes::tick_params`]; the grid with
-//! [`Axes::grid`] and [`Axes::grid_with`].
+//! [`Axes::tick_params`] sets the length, direction, label size and
+//! rotation of the ticks, and the sides that have them. [`Axes::grid`]
+//! and [`Axes::grid_with`] set the grid.
 //!
 //! # Dates
 //!
-//! Plotting [`DateTime`] values makes a date axis (chapter
-//! [`data`](super::data)): the values become days since 1970, and the
-//! axis takes a date locator and formatter, which choose years, months,
-//! days or hours to suit the range shown. Replace the formatter with a
-//! [`ConciseDateFormatter`](crate::dates::ConciseDateFormatter) to write
-//! each label as briefly as its neighbours allow and move the rest (the
-//! year, say) to the end of the axis. For a fixed rhythm, a
-//! [`RRuleLocator`](crate::dates::RRuleLocator) places ticks by a
-//! calendar rule, such as the first day of every third month, and a
-//! [`DateFormatter`](crate::dates::DateFormatter) writes them with a
-//! `strftime` pattern.
+//! [`DateTime`] values make a date axis (chapter [`data`](super::data)).
+//! Its locator and formatter select years, months, days or hours for the
+//! range. A [`ConciseDateFormatter`](crate::dates::ConciseDateFormatter)
+//! writes short labels and moves the year to the end of the axis. A
+//! [`RRuleLocator`](crate::dates::RRuleLocator) uses a calendar rule, for
+//! example the first day of every third month. A
+//! [`DateFormatter`](crate::dates::DateFormatter) uses a `strftime`
+//! pattern.
 //!
 //! ```
 //! use std::f64::consts::TAU;
@@ -167,22 +150,18 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`Axes::set_xlim`] takes dates as it takes numbers. A [`DateRange`]
-//! is the series of date-times from a start up to an end, a
-//! [`TimeDelta`] apart, as matplotlib's `drange` but of date-times; it
-//! plots directly, or collects into a `Vec`.
-//! Gallery: `concise_dates` in `units.rs`.
+//! [`Axes::set_xlim`] accepts dates. A [`DateRange`] (series of date-times
+//! a [`TimeDelta`] apart, like `drange`) plots directly or collects into a
+//! `Vec`. Gallery: `concise_dates` in `units.rs`.
 //!
 //! # Time zones
 //!
-//! A [`DateTime`] has no zone: plotting takes it as UTC, and date
-//! numbers count days in UTC. A [`ZonedDateTime`] is a time on the
-//! clocks of a [`TimeZone`]. It plots as the instant it stands for, and
-//! an axis without a unit takes the zone of the first one it plots as
-//! its unit, so its ticks read in that zone, daylight saving time
-//! included, as matplotlib's do with aware `datetime`s. Values of other
-//! zones in the same list plot as their instants. [`TimeZone::named`]
-//! reads a zone from the system's time zone database.
+//! A [`DateTime`] has no time zone, and pltrs plots it as UTC. A
+//! [`ZonedDateTime`] is a time in a [`TimeZone`]. An axis without a unit
+//! takes the zone of the first `ZonedDateTime` that it plots. Its ticks
+//! then show that zone, with daylight saving time. Values in other zones
+//! plot at their instants. [`TimeZone::named`]
+//! reads a zone from the time zone database of the system.
 //!
 //! ```
 //! use pltrs::dates::{DateRange, DateTime, TimeDelta, TimeZone, ZonedDateTime};
@@ -206,17 +185,15 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Times recorded in UTC plot as they are; [`Axes::xaxis_date`]
-//! ([`Axis::axis_date`] on any axis) gives the axis the zone to show
-//! them in. Either way the axis keeps its zone for later plots; without
-//! one, it writes its ticks in the zone the `timezone` setting names,
-//! UTC by default.
+//! For times in UTC, [`Axes::xaxis_date`] or [`Axis::axis_date`] gives the
+//! axis a zone for its ticks. The axis keeps the zone for later plots.
+//! Without a zone, an axis uses the setting `timezone` (UTC by default).
 //!
-//! The kind of label, automatic or concise, follows the `date.converter`
-//! setting, for every date axis; [`Axis::set_converter`] chooses it for
-//! one axis. As in matplotlib, an axis given its converter that way
-//! takes the converter's ticks when it is given a zone, so pass
-//! `&TimeZone::Utc` for UTC.
+//! The setting `date.converter` selects automatic or concise labels for
+//! all date axes. [`Axis::set_converter`] selects them for one axis. As in
+//! matplotlib, `set_converter` alone does not change the ticks. A later
+//! `axis_date` with a zone gives the axis the ticks of the converter. For
+//! UTC, pass `&TimeZone::Utc`.
 //!
 //! ```
 //! use pltrs::dates::{DateRange, DateTime, TimeDelta, TimeZone};
@@ -252,8 +229,8 @@
 //! # rc::restore_startup();
 //! ```
 //!
-//! The [`porting::axes`](crate::porting::axes) page lists the locators,
-//! formatters, scales, tick settings and date converters.
+//! The page [`porting::axes`](crate::porting::axes) lists all locators,
+//! formatters, scales and tick settings.
 //!
 //! Next: [saving and output formats](super::saving).
 //!

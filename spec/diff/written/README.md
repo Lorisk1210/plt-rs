@@ -1,25 +1,28 @@
 # The written family
 
-Short programs of the kind users write to get one chart done, run by
-`cargo xtask diff --corpus written` (the `[written]` entry of
-`spec/diff/corpora.toml`, a corpus of the repository's own) under
-matplotlib and under pltrs (Python), and compared as the other corpora are.
-They are this repository's code (MIT OR Apache-2.0), written for pltrs in
-task USR1 from the task alone.
+The written family is a corpus of short programs, each of which makes one
+chart in the way a typical user writes it. `cargo xtask diff --corpus
+written` runs them under matplotlib and under pltrs (Python) and compares
+the results, as for the other corpora. The corpus is the `[written]`
+entry of `spec/diff/corpora.toml`. The programs are code of this
+repository (MIT OR Apache-2.0).
 
-* `<topic>/` (60 topics, 600 programs): one habit each, as users have them:
-  saving and formats, layouts, legends, colour bars, ticks, dates,
-  categories and scales, every kind of chart, images, 3-D, projections,
-  styles, pandas, events and widgets driven by code, animations,
-  pickling, canvas buffers, pyplot's state, and the mistakes that warn or
+* `<topic>/` (60 topics, 600 programs): each topic is one user habit.
+  Examples are saving and formats, layouts, legends, ticks, dates, chart
+  kinds, 3-D, pandas, animations, pickling, and mistakes that warn or
   raise.
-* `combo_<theme>/` (30 themes, 300 programs): three or more topics in one
-  figure or session, as an analysis script grows (dashboards from one
-  frame, report loops, helper libraries called with options), and values
-  read back from one artist and fed to the next.
+* `combo_<theme>/` (30 themes, 300 programs): each program combines
+  three or more topics in one figure or session, as an analysis script
+  grows. Some programs read values from one artist and give them to the
+  next.
 
-Each program states its task in its first comment line, uses only
-deterministic data (formulas, `np.linspace`, seeded generators, literal
-tables), reads no file and no clock, and ends in `savefig` calls or
-figures left open. A program differing between two runs of matplotlib is
-a mistake of the program: fix the program, not the harness.
+Each program follows these rules:
+
+* Its first comment line states its task.
+* It uses only deterministic data: formulas, `np.linspace`, seeded
+  generators and literal tables.
+* It reads no file and no clock.
+* It ends with `savefig` calls or with open figures.
+
+If a program gives different results in two runs of matplotlib, the
+program is wrong. Fix the program, not the harness.

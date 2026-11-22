@@ -1,17 +1,11 @@
-//! Porting from matplotlib: a map from what you know to what pltrs offers.
+//! Porting guide: the pltrs (Rust) equivalents of matplotlib calls.
 //!
-//! pltrs implements matplotlib's model (figures, axes, artists, tickers,
-//! transforms, the pyplot state machine) and draws the same pictures, but
-//! it speaks Rust rather than Python. Keyword arguments become option
-//! structs, strings become enums, getters lose their `get_` prefix, and
-//! everything that can fail returns a `Result`. This guide is for people
-//! who know matplotlib and want to find the pltrs spelling of it.
-//!
-//! The guide is documentation only. Each topic below introduces how pltrs
-//! does things, gives an equivalence table of matplotlib calls and their
-//! pltrs counterparts, and shows side-by-side examples: the matplotlib
-//! snippet in Python, then the pltrs version as a doctest that runs and
-//! checks its result.
+//! pltrs implements the matplotlib model: figures, axes, artists, tickers,
+//! transforms and the pyplot state machine. It draws the same pictures
+//! with a Rust API. This guide is for programmers who know matplotlib.
+//! Each topic explains how pltrs works and gives a table of matplotlib
+//! calls and their pltrs equivalents. Each example shows the matplotlib
+//! code in Python, then the pltrs code as a doctest.
 //!
 //! # A first translation
 //!
@@ -49,41 +43,41 @@
 //! let legend = ax.legend(LegendOptions::default().loc("upper right".parse::<LegendLoc>()?))?;
 //! assert_eq!(legend.labels(), ["sin", "cos"]);
 //!
-//! // `fig.savefig("waves.png", dpi=150)` writes a file; `to_png_with`
-//! // returns the bytes instead.
+//! // `fig.savefig("waves.png", dpi=150)` writes a file. `to_png_with`
+//! // returns the bytes.
 //! let options = SaveOptions { dpi: Some(150.0), ..SaveOptions::default() };
 //! let png = fig.to_png_with(options)?;
 //! assert!(png.starts_with(b"\x89PNG"));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! The differences in this small script are the ones you meet everywhere:
-//! the figure and its axes are handles you call methods on, keyword
-//! arguments live in an option struct ([`LineProps`]), the format string
-//! is parsed and can fail ([`LineProps::fmt`]), and so can plotting and
-//! saving. [`conventions`] explains each of these rules once.
+//! This script shows the main differences:
+//!
+//! * The figure and its axes are handles with methods.
+//! * Keyword arguments go into an option struct ([`LineProps`]).
+//! * The format string ([`LineProps::fmt`]), plotting and saving can fail
+//!   and return a `Result`.
+//!
+//! [`conventions`] explains these rules.
 //!
 //! # Topics
 //!
-//! * [`conventions`]: naming, getters and setters, option structs, enums
-//!   instead of strings, errors, handles, the per-axis API, and what was
-//!   left out.
-//! * [`pyplot`]: the stateful `pltrs.*` interface next to the
-//!   object-oriented one; figures, windows, `show` and `savefig`.
+//! * [`conventions`]: names, getters and setters, option structs, enums,
+//!   errors, handles, the per-axis API, and what pltrs leaves out.
+//! * [`pyplot`]: the stateful `pltrs.*` interface and the object-oriented
+//!   interface. Figures, windows, `show` and `savefig`.
 //! * [`figures`]: figures, subplots, gridspecs, mosaics, subfigures and
 //!   layout engines.
-//! * [`plotting`]: the plotting methods, how their keywords map to
-//!   options, and the data they take (slices, [`Grid`], dates,
-//!   categories, masked values).
-//! * [`artists`]: artist handles and their properties, for lines,
-//!   patches and collections; z-order, clipping and picking.
-//! * [`colors`]: colours, colormaps, norms, style sheets and rcParams.
-//! * [`configuration`]: the configuration directory, `matplotlibrc` and
-//!   the user style library, and `matplotlib.testing` for testing your
-//!   own figures.
+//! * [`plotting`]: the plotting methods, their options, and the data they
+//!   take (slices, [`Grid`], dates, categories, masked values).
+//! * [`artists`]: artist handles and their properties for lines, patches
+//!   and collections. Z-order, clipping and picking.
+//! * [`colors`]: colors, colormaps, norms, style sheets and rcParams.
+//! * [`configuration`]: the configuration directory, `matplotlibrc`, the
+//!   user style library, and `matplotlib.testing` to test your figures.
 //! * [`axes`]: limits, scales, ticks, locators, formatters, spines, twin
 //!   and secondary axes, units and dates.
-//! * [`text`]: text, fonts, mathtext, text typeset by LaTeX (`usetex`)
+//! * [`text`]: text, fonts, mathtext, text that LaTeX typesets (`usetex`)
 //!   and annotations.
 //! * [`legends`]: legends, their options and custom handlers.
 //! * [`images`]: images, contours, meshes and vector fields.
@@ -91,12 +85,12 @@
 //! * [`interaction`]: events, widgets, navigation, toolbar tools,
 //!   animation and blitting.
 //! * [`toolkits`]: `mplot3d`, `axes_grid1`, `axisartist`, polar and
-//!   geographic axes, and the other specialised modules.
+//!   geographic axes, and the other special modules.
 //!
-//! # Where matplotlib's modules went
+//! # Where the matplotlib modules are
 //!
-//! The crate is organised like matplotlib, so most imports translate
-//! directly:
+//! The modules of pltrs follow the modules of matplotlib. Most imports
+//! translate directly:
 //!
 //! | matplotlib                                   | pltrs                           |
 //! |----------------------------------------------|---------------------------------|
@@ -110,7 +104,7 @@
 //! | `matplotlib.patches`                         | [`crate::patches`]              |
 //! | `matplotlib.collections`                     | [`crate::collections`]          |
 //! | `matplotlib.text`                            | [`crate::text`]                 |
-//! | `matplotlib.texmanager`, `matplotlib.dviread` | [`crate::text`] ([`check_usetex`](crate::text::check_usetex), [`TexEngine`](crate::text::TexEngine)); the TeX machinery is `pltrs_text::tex` |
+//! | `matplotlib.texmanager`, `matplotlib.dviread` | [`crate::text`] ([`check_usetex`](crate::text::check_usetex), [`TexEngine`](crate::text::TexEngine)), and the TeX code in `pltrs_text::tex` |
 //! | `matplotlib.font_manager`                    | [`crate::fonts`]                |
 //! | `matplotlib.ft2font`                         | the `pltrs_font` crate (`Face`, `Size`, `FontChain`) |
 //! | `matplotlib.colors`, `matplotlib.cm`         | [`crate::colors`]               |
@@ -155,27 +149,24 @@
 //! | `mpl_toolkits.axes_grid1`                    | [`crate::axes_grid1`]           |
 //! | `mpl_toolkits.axisartist`                    | [`crate::axisartist`]           |
 //!
-//! [`crate::prelude`] imports the names nearly every program uses
+//! [`crate::prelude`] imports the names that most programs use
 //! ([`Figure`], [`Axes`], [`LineProps`], [`linspace`], ...).
 //!
-//! # Every item of matplotlib's API
+//! # The full matplotlib API
 //!
-//! The tables of this guide name the features programs use most. The
-//! audit in the repository's `spec/api-audit` directory goes through all
-//! of matplotlib 3.11's public API (classes, functions, methods,
-//! properties, attributes and the parameters of the plotting methods,
-//! about 6,800 items), and its `coverage.md` gives the pltrs spelling of
-//! each one: the item that covers it, how pltrs does it differently, or
-//! why it does not apply to Rust. `spec/api-audit/run` regenerates it from
-//! matplotlib and from pltrs' rustdoc output.
+//! The tables in this guide show the features that programs use most. The
+//! file `spec/api-audit/coverage.md` of the repository covers all of the
+//! public API of matplotlib 3.11, about 6,800 items. For each item, it
+//! gives the pltrs item, the difference in pltrs, or the reason why the
+//! item does not apply to Rust. The script `spec/api-audit/run` writes the
+//! file again.
 //!
 //! # Looks
 //!
-//! pltrs draws in its own modern look unless told otherwise (see
-//! [`crate::look`]). Behaviour is the same in both looks; only the default
-//! style differs. To compare a port with matplotlib's output pixel for
-//! pixel, run it with `PLTRS_LOOK=matplotlib`. The examples of this guide
-//! hold in either look.
+//! pltrs draws in the modern look by default (see [`crate::look`]). The two
+//! looks differ only in the default style. To compare a port with the
+//! matplotlib output pixel for pixel, set `PLTRS_LOOK=matplotlib`. The
+//! examples in this guide pass in both looks.
 //!
 //! [`LineProps`]: crate::lines::LineProps
 //! [`LineProps::fmt`]: crate::lines::LineProps::fmt

@@ -1,107 +1,80 @@
 # Changelog
 
-The numbers below are tied to files of the tree (the HTML comments before
-them, which `python/tests/test_readme_facts.py` checks).
+## <!--fact:version-->0.1.1 (unreleased)
 
-## <!--fact:version-->0.1.0 (2026-11-20)
+* The documentation is shorter and uses Simplified Technical English.
+  This includes the README, the API documentation on docs.rs and the
+  documents in the repository. The behavior of pltrs did not change.
+
+## 0.1.0 (2026-11-20)
 
 The first release.
 
-### What pltrs is
+### Packages
 
-matplotlib 3.11, rebuilt from scratch in Rust, with no crates.io
-dependencies, in two faces:
+* pltrs (Python) is the package `pltrs` on PyPI. It has the matplotlib
+  3.11 API. It needs Python 3.12 or later and numpy, cycler, Pillow,
+  python-dateutil and packaging.
+* The `matplotlib` alias package has the version `3.11.2+pltrs.0.1.0`.
+  It lets libraries that import `matplotlib`, such as pandas and seaborn,
+  run on pltrs. Its wheel is on the GitHub release and not on PyPI.
+* pltrs (Rust) is the crate `pltrs` on crates.io. It uses eight more
+  crates: `pltrs-core`, `pltrs-codec`, `pltrs-font`, `pltrs-raster`,
+  `pltrs-platform`, `pltrs-text`, `pltrs-render` and `pltrs-ui`. All
+  nine crates have the same version.
 
-* **pltrs (Python)**, the package `pltrs` on PyPI: matplotlib's API
-  (`import pltrs.pyplot as plt`) over a native extension. It needs
-  Python <!--fact:python.minimum-->3.12 or later and <!--fact:python.dependencies-->numpy, cycler, Pillow, python-dateutil and
-  packaging. Wheels: Linux with glibc 2.17 or musl 1.2 (x86_64 and
-  aarch64), macOS 10.12 or later (one `universal2` wheel), 64-bit Windows;
-  one `cp312-abi3` wheel per platform serves every CPython from 3.12 on.
-  The sdist builds with cargo alone.
-* **pltrs as matplotlib**, a second distribution named `matplotlib`
-  (version <!--fact:alias.version-->`3.11.2+pltrs.0.1.0`), attached to the GitHub release and not on PyPI,
-  where the name is matplotlib's: libraries that import `matplotlib`
-  (pandas, seaborn, ...) run on pltrs unchanged.
-* **pltrs (Rust)**, the crate `pltrs` with matplotlib's model in typed
-  Rust: option structs, enums and `Result`s, on crates.io with the eight
-  crates it is built from (`pltrs-core`, `pltrs-codec`, `pltrs-font`,
-  `pltrs-raster`, `pltrs-platform`, `pltrs-text`, `pltrs-render`,
-  `pltrs-ui`). They are released together, at one version, and each
-  requires the others at exactly that version.
+### Features
 
-Imported as `pltrs`, and in Rust, figures and windows take pltrs' own
-modern look by default; imported as `matplotlib`, matplotlib's look (the
-first import of a process decides, and `PLTRS_LOOK=matplotlib` or
-`PLTRS_LOOK=modern` chooses over it). In matplotlib's look the output is
-matplotlib's: PNG pixel for pixel, and SVG, PDF, PostScript and PGF
-documents drawing the same items.
-Interactive figures open in pltrs' own windows (Wayland, X11, macOS,
-Windows) or in a browser (WebAgg). pltrs (Python) also runs in Jupyter
-(inline, nbAgg, ipympl), with matplotlib's Qt, GTK 3 and 4, Tk, wx and
-Cairo backends, and in Sphinx documentation builds (matplotlib's plot
-directive, `mathmpl`, `figure-mpl` and roles).
+* Two looks. The modern look is the default for `import pltrs` and for
+  Rust. The matplotlib look is the default for `import matplotlib`. The
+  environment variable `PLTRS_LOOK` overrides the default.
+* In the matplotlib look, PNG output has the same pixels as the
+  matplotlib output. SVG, PDF, PostScript and PGF documents draw the same
+  items.
+* Figure windows on Wayland, X11, macOS and Windows, and figures in a
+  web browser.
+* pltrs (Python) runs in Jupyter with the inline, nbAgg and ipympl
+  backends.
+* pltrs (Python) runs the matplotlib backends for Qt, GTK 3, GTK 4, Tk,
+  wx and Cairo.
+* pltrs (Python) runs the matplotlib extensions for Sphinx.
 
-pltrs is MIT OR Apache-2.0. The code it ports from matplotlib and the
-libraries under it keeps their permissive licences (`THIRD_PARTY.md`,
-`LICENSES/`).
+### Supported systems
 
-### Where it runs
+* CPython 3.12, 3.13 and 3.14. Each platform has one `cp312-abi3` wheel
+  for all Python versions.
+* Linux on x86_64 and aarch64, with glibc 2.17 or later or musl 1.2 or
+  later.
+* macOS 10.12 or later on Intel and macOS 11 or later on Apple silicon,
+  in one `universal2` wheel.
+* Windows 10 or later, 64-bit.
+* On other systems, pip builds the source distribution. The build needs
+  Rust 1.99 or later and no other tool. pltrs (Rust) needs the same Rust
+  version.
 
-* Python <!--fact:python.minimum-->3.12 or later: CPython 3.12, 3.13 and 3.14 are tested, through one
-  stable-ABI wheel per platform, also with the lowest versions of the
-  requirements (numpy 1.26, cycler 0.10, Pillow 10.1, python-dateutil
-  2.7, packaging 20.0).
-* Linux, x86_64 and aarch64, with glibc 2.17 or later (CentOS 7, Ubuntu
-  14.04 and newer) or musl 1.2 or later (Alpine 3.13 and newer); figure
-  windows on Wayland and X11.
-* macOS 10.12 or later on Intel, 11 or later on Apple silicon, in one
-  `universal2` wheel.
-* Windows 10 or later, 64-bit (`win_amd64`).
-* Other systems and CPUs build from the sdist with Rust 1.99 or later
-  (the version `rust-toolchain.toml` names) and nothing else; pltrs
-  (Rust) needs the same toolchain.
+### Limits
 
-### What 0.1.0 is not
+* The Rust API is not stable. A 0.x release can change types and
+  functions.
+* The output is not identical to the matplotlib output in every byte.
+  [`DIFFERENCES.md`](DIFFERENCES.md) lists the known differences and the
+  features that pltrs does not have.
+* The `matplotlib` alias package does not replace the matplotlib wheels
+  on PyPI. You must download it from the GitHub release.
 
-* Not a stable Rust API: pltrs (Rust) follows matplotlib's model, and
-  any 0.x release may change its types and functions. pltrs (Python)'s
-  API is matplotlib 3.11's and changes with it.
-* Not matplotlib in every byte: in matplotlib's look the figures match
-  matplotlib's, but what differs, on purpose or not yet, is listed in
-  `DIFFERENCES.md` (below).
-* Not a replacement for matplotlib's own wheels on PyPI: the
-  distribution named `matplotlib` is attached to the GitHub release
-  only.
+### Test results
 
-### How it is measured
-
-* matplotlib 3.11's own test suite, run unchanged against pltrs: all
-  of the <!--fact:mpl-suite.all-passing-->10,205 tests that pass under matplotlib on the same
-  machine pass.
-* The test suites of <!--fact:ecosystem.libraries-->75 libraries built on matplotlib: <!--fact:ecosystem.pltrs-passing-->24,559
-  of the <!--fact:ecosystem.reference-passing-->24,559 tests that pass under matplotlib pass under
-  pltrs, every one in <!--fact:ecosystem.complete-libraries-->75 of the libraries.
-* Jupyter: all <!--fact:notebooks.all-passing-->1,091 notebook comparisons and tests of IPython,
-  matplotlib-inline and ipympl that pass under matplotlib.
-* A differential tester running matplotlib's gallery, generated programs
-  and the programs of <!--fact:corpora-->178 corpora (books, courses, cheat sheets,
-  galleries) under both: of the corpora's programs compared whole,
-  all but <!--fact:corpora.compared-different-->132 of <!--fact:corpora.compared-->4,102 behave as under matplotlib.
-* A conformance spec recorded from matplotlib: about <!--fact:spec.probes-->48,500 probes
-  and some <!--fact:spec.figure-cases-->3,400 figures, accounting for every one of matplotlib's
-  own <!--fact:mpl-tests-->2,939 tests.
-* Speed (`benchmarks/README.md`, on <!--fact:bench.date-->2026-11-18 at
-  `<!--fact:bench.commit-->a9cf3e1a`): pltrs (Python) typically <!--fact:bench.python.warm-->4.3× faster than
-  matplotlib warm and <!--fact:bench.python.cold-->1.79× cold; pltrs (Rust) <!--fact:bench.rust.warm-->5.3× and <!--fact:bench.rust.cold-->16×.
-  `benchmarks/compare/compare.py` times any script of your own in
-  matplotlib's syntax under both libraries and can make a side-by-side
-  clip of the two figures.
-
-### Known differences from matplotlib
-
-What pltrs (Python) does otherwise than matplotlib 3.11.2, on purpose or
-not yet, is listed by topic in [`DIFFERENCES.md`](DIFFERENCES.md), which
-the package carries too (`pltrs/DIFFERENCES.md`); what is not built yet
-is under its "Not built". Imported as `matplotlib`, pltrs draws in
-matplotlib's look; imported first as `pltrs`, in its modern look.
+* pltrs passes all 10,205 tests of the matplotlib 3.11 test suite that
+  pass with matplotlib on the same machine.
+* pltrs passes 24,559 of the 24,559 tests of 75 libraries that pass with
+  matplotlib.
+* pltrs passes all 1,091 Jupyter comparisons and tests that pass with
+  matplotlib.
+* The differential tester runs the programs of 178 collections of user
+  code with matplotlib and with pltrs. Of 4,102 programs, 3,970 give the
+  same result.
+* The conformance tests hold about 48,500 values and 3,400 figures that
+  matplotlib produced. pltrs reproduces them.
+* pltrs (Python) is 4.3× faster than matplotlib for a figure in a
+  running program and 1.79× faster for a complete script. pltrs (Rust)
+  is 5.3× and 16× faster. `benchmarks/README.md` has the measurements.

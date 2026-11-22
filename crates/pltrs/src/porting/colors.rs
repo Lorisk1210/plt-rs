@@ -1,47 +1,43 @@
-//! Colours, colormaps, norms, style sheets and rcParams.
+//! Colors, colormaps, norms, style sheets and rcParams.
 //!
-//! **Colours.** A [`Color`] is anything matplotlib accepts as a colour: a
-//! name (`"tab:blue"`, `"xkcd:sky blue"`), a hex code, a grey level
-//! (`"0.5"`), a cycle reference (`"C2"`), `"none"`, or RGB(A) tuples and
-//! arrays. Strings convert infallibly, so every colour argument takes a
-//! plain `&str`; the colour is checked when it is resolved to an RGBA
-//! value ([`Color::resolve`]) or up front with [`Color::parse`]. Resolved
-//! colours are [`Rgba`] values, which getters such as [`Patch::colors`]
-//! return; setters, figure-level ones included ([`Figure::set_facecolor`],
-//! [`SaveOptions::facecolor`]), take colours and resolve them when drawn.
+//! A [`Color`] is any color that matplotlib accepts: names (`"tab:blue"`,
+//! `"xkcd:sky blue"`), hex codes, gray levels (`"0.5"`), cycle references
+//! (`"C2"`), `"none"`, and RGB(A) tuples and arrays. Color arguments take a
+//! plain `&str`. pltrs checks it when it resolves the color
+//! ([`Color::resolve`]), or at once with [`Color::parse`]. Getters such as
+//! [`Patch::colors`] return resolved [`Rgba`] values. Setters, also those
+//! of the figure ([`Figure::set_facecolor`], [`SaveOptions::facecolor`]),
+//! resolve their colors at draw time.
 //!
-//! **Colormaps and norms.** [`Colormap`] is one type for matplotlib's
-//! `ListedColormap` and `LinearSegmentedColormap`, built with
-//! [`Colormap::listed`], [`Colormap::from_list`] or
-//! [`Colormap::segmented`], and looked up by name in [`colormaps`]. Norms
-//! implement the [`Norm`] trait; they map `f64` data to [`Normalized`]
-//! positions, which distinguish fractions, direct indices
-//! ([`BoundaryNorm`]) and masked values. Plotting options take a
-//! colormap value, not a name: `cmap="plasma"` is
-//! `colormaps::get("plasma")?`.
+//! [`Colormap`] is one type for the matplotlib `ListedColormap` and
+//! `LinearSegmentedColormap`. Make it with [`Colormap::listed`],
+//! [`Colormap::from_list`] or [`Colormap::segmented`], or get it by name
+//! from [`colormaps`]. Plotting options take a colormap value, not a name:
+//! `cmap="plasma"` is `colormaps::get("plasma")?`.
 //!
-//! **Colour mapping.** matplotlib's `cmap`, `norm`, `vmin` and `vmax`
-//! keywords are one [`ColorizerOptions`], held in the `colorizer` field of
-//! every plotting option that maps values to colours (images, meshes,
-//! contours, scatter's [`MappedColors`], streamplot, 3-D surfaces,
-//! `imsave`, `LightSource.shade`). The [`Colorize`] trait (in the
-//! prelude) gives all of them the builders `cmap`, `norm`, `limits` and
-//! `colorizer`.
+//! Norms implement the [`Norm`] trait. They map `f64` data to
+//! [`Normalized`] positions. A position is a fraction, a direct index
+//! ([`BoundaryNorm`]) or a masked value.
 //!
-//! **rcParams.** [`RcParams`] has one typed field per parameter
-//! (`lines.linewidth` is `lines_linewidth`; a parameter naming one of a
-//! few keywords holds the enum of its concept, such as the [`FillStyle`]
-//! of `markers.fillstyle`), and also matplotlib's string-keyed access
-//! with matplotlib's validation and spellings ([`rc::set`],
-//! [`RcParams::get`]). The current parameters belong to the thread, like
-//! pyplot's state. Style sheets apply on top ([`style::use_style`],
+//! The keywords `cmap`, `norm`, `vmin` and `vmax` become one
+//! [`ColorizerOptions`] in the field `colorizer` of each option that maps
+//! values to colors. Examples are images, meshes, contours, the
+//! [`MappedColors`] of scatter, streamplot, 3-D surfaces, `imsave` and
+//! `LightSource.shade`. The [`Colorize`] trait of the prelude gives them
+//! the builders `cmap`, `norm`, `limits` and `colorizer`.
+//!
+//! [`RcParams`] has one typed field for each parameter: `lines.linewidth`
+//! is `lines_linewidth`. A parameter that takes one of a few keywords holds
+//! an enum, such as the [`FillStyle`] of `markers.fillstyle`. [`rc::set`]
+//! and [`RcParams::get`] give string-keyed access with the matplotlib
+//! validation and spellings. Each thread has its own parameters, like the
+//! pyplot state. Style sheets apply on top ([`style::use_style`],
 //! [`style::context`]).
 //!
-//! **Looks.** pltrs starts threads from its modern look, with the user's
-//! `pltrsrc` on top (see [`configuration`](super::configuration));
-//! [`rc::reset`] restores matplotlib's defaults and [`rc::restore_startup`]
-//! the look's and `pltrsrc`'s. See [`crate::look`] to choose the look for a
-//! whole program.
+//! Each thread starts with the modern look and the `pltrsrc` of the user
+//! (see [`configuration`](super::configuration)). [`rc::reset`] restores
+//! the matplotlib defaults. [`rc::restore_startup`] restores the look and
+//! `pltrsrc`. [`crate::look`] tells how to choose the look of a program.
 //!
 //! # Equivalences
 //!
@@ -83,7 +79,7 @@
 //! | `cycler(color=a) + cycler(linestyle=b)`          | [`Cycler::new`] and [`Cycler::zip`]            |
 //! | `cycler(...) * cycler(...)`                      | [`Cycler::product`]                            |
 //!
-//! # Colours
+//! # Colors
 //!
 //! ```python
 //! from matplotlib import colors as mcolors

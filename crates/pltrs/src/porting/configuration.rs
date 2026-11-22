@@ -1,25 +1,30 @@
-//! Configuration files and testing your figures: matplotlib's
-//! configuration directory, `matplotlibrc` and user style library, and
+//! Configuration files and tests of your figures: the matplotlib
+//! configuration directory, `matplotlibrc`, the user style library, and
 //! `matplotlib.testing`.
 //!
-//! **Configuration.** pltrs reads the files matplotlib reads, under names
-//! of its own: the rc file is `pltrsrc` (in matplotlib's syntax, so a
-//! `matplotlibrc` can be copied over), the configuration directory is
-//! `$PLTRSCONFIGDIR` or `~/.config/pltrs`, and user style sheets go in its
-//! `stylelib` directory. Threads start from the look's parameters with the
-//! rc file on top, the way matplotlib's `matplotlibrc` applies over its
-//! defaults; to read what pltrs skipped in the file, ask
-//! [`config::user_rc_file`] rather than a log. [`config`] tells where each
-//! file is looked for.
+//! pltrs reads the same files as matplotlib, under pltrs names:
 //!
-//! **Testing.** [`testing`] has the parts of `matplotlib.testing` that
-//! test your own figures: [`testing::setup`] for the configuration
-//! matplotlib's tests run in, [`testing::compare_images`] and
-//! [`testing::calculate_rms`], and [`testing::check_figures_equal`] and
-//! [`testing::image_comparison`], functions taking the figures' drawing
-//! as closures instead of decorators. PNG and GIF files are compared as
-//! they are, PDF and PostScript files once Ghostscript has rasterised
-//! them and SVG files once Inkscape has, as in matplotlib
+//! * The rc file is `pltrsrc`. It uses the matplotlib syntax, so you can
+//!   copy a `matplotlibrc`.
+//! * The configuration directory is `$PLTRSCONFIGDIR` or `~/.config/pltrs`.
+//! * User style sheets go in its directory `stylelib`.
+//!
+//! Threads start from the parameters of the look, with the rc file on top.
+//! pltrs does not log the lines of the file that it skips. To read them,
+//! call [`config::user_rc_file`]. [`config`] tells where pltrs looks for
+//! each file.
+//!
+//! [`testing`] has the parts of `matplotlib.testing` that test your own
+//! figures:
+//!
+//! * [`testing::setup`] sets the configuration of the matplotlib tests.
+//! * [`testing::compare_images`] and [`testing::calculate_rms`] compare
+//!   images.
+//! * [`testing::check_figures_equal`] and [`testing::image_comparison`]
+//!   replace the decorators. They take the drawing code as closures.
+//!
+//! As in matplotlib, Ghostscript rasterizes PDF and PostScript files, and
+//! Inkscape rasterizes SVG files, before the comparison
 //! ([`testing::convert`]).
 //!
 //! # Equivalences
@@ -38,7 +43,7 @@
 //! | `style.USER_LIBRARY_PATHS`                       | [`style::user_library_paths`], [`style::set_user_library_paths`] |
 //! | `style.reload_library()`                         | [`style::reload_library`]                      |
 //! | `matplotlib.testing.setup()`                     | [`testing::setup`]                             |
-//! | a test environment's own `MPLCONFIGDIR`          | [`config::ignore_user_config`] (which [`testing::setup`] calls) |
+//! | a separate `MPLCONFIGDIR` for tests              | [`config::ignore_user_config`] (which [`testing::setup`] calls) |
 //! | `compare_images(expected, actual, tol)`          | [`testing::compare_images`], returning a [`Comparison`] |
 //! | `calculate_rms(expected, actual)`                | [`testing::calculate_rms`]                     |
 //! | `comparable_formats()`                           | [`testing::comparable_formats`]: PNG, GIF, and PDF, EPS and SVG when their converters are installed |
@@ -64,7 +69,7 @@
 //! print(mpl.get_configdir(), mpl.matplotlib_fname())
 //! mpl.rcParams["lines.linewidth"] = 4
 //! mpl.rc_file_defaults()   # back to what matplotlibrc says
-//! mpl.rcdefaults()         # matplotlib's defaults
+//! mpl.rcdefaults()         # the matplotlib defaults
 //! assert mpl.rcParams["lines.linewidth"] == 1.5
 //! ```
 //!
@@ -77,7 +82,7 @@
 //! assert!(rc_file.is_none_or(|path| path.ends_with("pltrsrc")));
 //! rc::set("lines.linewidth", "4")?;
 //! rc::restore_startup(); // back to the look and what pltrsrc says
-//! rc::reset(); // matplotlib's defaults
+//! rc::reset(); // the matplotlib defaults
 //! assert_eq!(rc::params().lines_linewidth, 1.5);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -121,7 +126,7 @@
 //! )?;
 //! assert!(comparison.matches(), "{comparison}");
 //!
-//! // The test figure saved above stands in for a baseline image.
+//! // The test figure saved above takes the place of a baseline image.
 //! let fig = Figure::new();
 //! fig.subplot().bar(vec![1.0, 2.0], [3.0, 4.0], bars("C1"))?;
 //! fig.savefig(out.join("bars.png"))?;

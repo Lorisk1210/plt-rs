@@ -81,8 +81,8 @@ fn startup(out: &mut String, results: &Results) {
         let numpy = numpy.seconds.median();
         let _ = writeln!(
             out,
-            "\nBoth pyplot modules import numpy. Beyond numpy, importing `matplotlib.pyplot` \
-             costs {} ms and importing `pltrs.pyplot` {} ms.",
+            "\nBoth pyplot modules import numpy. In addition to numpy, the import of \
+             `matplotlib.pyplot` takes {} ms, and the import of `pltrs.pyplot` takes {} ms.",
             ms(mpl.seconds.median() - numpy),
             ms(pltrs.seconds.median() - numpy),
         );
@@ -96,18 +96,18 @@ fn tier_tables(out: &mut String, tier: Tier, rows: &[&WorkloadResult]) {
     for mode in Mode::ALL {
         let intro = match mode {
             Mode::Warm => {
-                "### Warm, in-process\n\nThe figure alone: built and saved to memory in a \
-                 running program."
+                "### Warm, in-process\n\nThese runs time the figure alone. A running \
+                 program builds the figure and saves it to memory."
             }
             Mode::Cold => {
-                "### Cold, end to end\n\nA fresh process that starts, imports, makes the \
-                 data, builds the figure, writes the file and exits."
+                "### Cold, end to end\n\nEach run is a fresh process. It starts, imports \
+                 the libraries, makes the data, builds the figure, writes the file and exits."
             }
         };
         let _ = write!(
             out,
-            "{intro} Times are medians in ms with the interquartile range in brackets. \
-             Speed-ups are against matplotlib, with their 95% interval.\n\n\
+            "{intro} Times are medians in ms, with the interquartile range in brackets. \
+             Speed-ups compare with matplotlib and give their 95% interval.\n\n\
              | workload | matplotlib | pltrs (Python) | speed-up | pltrs (Rust) | speed-up |\n\
              |---|---:|---:|---:|---:|---:|\n"
         );
@@ -152,8 +152,8 @@ fn times_row(out: &mut String, w: &WorkloadResult, mode: Mode) {
 fn memory_and_size(out: &mut String, rows: &[&WorkloadResult]) {
     out.push_str(
         "### Peak memory and document size\n\n\
-         Peak memory is the median peak resident memory of the cold processes, in MiB. The \
-         size is that of the document the warm runs saved, in KiB.\n\n\
+         Peak memory is the median peak resident memory of the cold processes, in MiB. Size \
+         is the size of the document that the warm runs saved, in KiB.\n\n\
          | workload | format | matplotlib MiB | pltrs (Python) MiB | pltrs (Rust) MiB | \
          matplotlib KiB | pltrs (Python) KiB | pltrs (Rust) KiB |\n\
          |---|---|---:|---:|---:|---:|---:|---:|\n",
@@ -195,11 +195,14 @@ fn per_call(out: &mut String, rows: &[&WorkloadResult]) {
     }
     out.push_str(
         "### What a call costs in pltrs (Python)\n\n\
-         pltrs (Python) and pltrs (Rust) run the same Rust code for these figures. On every \
-         call pltrs (Python) also handles matplotlib's signature and keywords, converts the \
-         arguments, crosses into the extension and makes the Python object of the artist it \
-         returns. The table divides the difference of their warm medians by the number of \
-         calls, and gives matplotlib's whole time per call beside it.\n\n\
+         For these figures, pltrs (Python) and pltrs (Rust) run the same Rust code. On each \
+         call, pltrs (Python) also does this work:\n\n\
+         * It handles the signature and the keywords of the matplotlib function.\n\
+         * It converts the arguments.\n\
+         * It calls into the extension.\n\
+         * It makes the Python object of the artist that it returns.\n\n\
+         The table divides the difference of the two warm medians by the number of calls. It \
+         also gives the full time per call of matplotlib.\n\n\
          | workload | calls | pltrs (Python) over pltrs (Rust), µs per call | matplotlib, µs \
          per call |\n|---|---:|---:|---:|\n",
     );
@@ -225,8 +228,8 @@ fn footnotes(out: &mut String, rows: &[&WorkloadResult]) {
             .any(|&i| w.guard.diverges(i))
     }) {
         out.push_str(
-            "† The figure differs from matplotlib's, as the [correctness \
-             guard](#correctness-guard) shows.\n\n",
+            "† The figure differs from the figure of matplotlib. The [correctness \
+             guard](#correctness-guard) shows the difference.\n\n",
         );
     }
     for w in rows {
@@ -240,10 +243,11 @@ fn footnotes(out: &mut String, rows: &[&WorkloadResult]) {
 fn guard(out: &mut String, results: &Results) {
     out.push_str(
         "## Correctness guard\n\n\
-         Pixels give the RMS difference from matplotlib's PNG (for an animation, the \
-         largest over its frames). Structure gives the largest difference between the \
-         numbers of matching drawing operations of a vector document, or what differs. \
-         The renderings are in `target/bench/guard/` after a run.\n\n\
+         The pixels columns give the RMS difference from the PNG of matplotlib. For an \
+         animation, they give the largest difference over its frames. The structure columns \
+         give the largest difference between the numbers of matching drawing operations in \
+         a vector document. If the operations do not match, these columns say what differs. \
+         After a run, the renderings are in `target/bench/guard/`.\n\n\
          | workload | format | pltrs (Python) pixels | pltrs (Python) structure | pltrs (Rust) \
          pixels | pltrs (Rust) structure |\n|---|---|---:|---:|---:|---:|\n",
     );
@@ -306,8 +310,8 @@ fn unsupported(out: &mut String, results: &Results) {
     }
     out.push_str(
         "## Not supported yet by pltrs (Python)\n\n\
-         Each row gives the exception the script raised under pltrs (Python). As pltrs \
-         grows, a new run moves these workloads into the tables.\n\n\
+         Each row gives the exception that the script raised under pltrs (Python). When \
+         pltrs (Python) supports a workload, the next run moves it into the tables.\n\n\
          | workload | exception |\n|---|---|\n",
     );
     for (name, why) in missing {

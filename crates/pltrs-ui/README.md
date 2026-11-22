@@ -1,24 +1,25 @@
 # pltrs-ui
 
-A small retained-mode UI engine, used for pltrs' figure windows:
-widgets, layout, painting and input.
+`pltrs-ui` is the user interface engine of the pltrs figure windows.
 
-* a widget tree: rows and columns, forms, pages and tabs, scrolling
-  views, buttons, labels, text fields, lists, sliders and more
-* full-colour vector icons with gradients and drop shadows
-* layout, painting with `pltrs-raster` and `pltrs-text`, and input
-  routing: hover, pointer capture, popups, tooltips
-* every control usable from the keyboard, following Qt and GTK
+Contents:
 
-## One of pltrs' crates
+* Widgets: rows, columns, forms, tabs, scroll views, buttons, labels,
+  text fields, lists and sliders
+* Vector icons with gradients and shadows
+* Layout, painting and input: hover, pointer capture, popups and tooltips
+* Keyboard operation of all controls
 
-pltrs is matplotlib rebuilt from scratch in Rust, with no dependencies
-outside its own crates. Its crates are released together, at one
-version, and each depends on the exact version of the others: what they
-offer each other is not an interface of its own. Most programs want the
-crate `pltrs`, matplotlib's model with every output format and
-interactive windows; this crate is for those who need its widgets alone.
+## Use
 
-## Licence
+Most programs need the crate [`pltrs`](https://crates.io/crates/pltrs).
+It has figures, all output formats and windows. Use `pltrs-ui` directly
+only if you need the widgets alone.
 
-MIT OR Apache-2.0, at your option (`LICENSE-MIT`, `LICENSE-APACHE`).
+All pltrs crates have the same version. Each crate requires the same
+version of the other pltrs crates.
+
+## License
+
+You can use this crate under the MIT license (`LICENSE-MIT`) or the Apache
+License 2.0 (`LICENSE-APACHE`).

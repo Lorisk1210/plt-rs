@@ -1,27 +1,29 @@
 # pltrs-raster
 
-An anti-aliased scanline rasterizer, stroker and compositor reproducing
-the parts of Anti-Grain Geometry (Agg) matplotlib's Agg backend uses,
-pixel for pixel.
+`pltrs-raster` draws anti-aliased shapes into pixel buffers. It gives the
+same pixels as Anti-Grain Geometry (Agg), which matplotlib uses.
 
-* RGBA pixmaps with straight alpha and gray coverage masks
-* Agg's scanline rasterizer, curve flattening, dashing and stroking
-* compositing with clip boxes and masks, hatches, Gouraud triangles and
-  marker stamps
-* matplotlib's image resampler and its interpolation kernels
+Contents:
 
-## One of pltrs' crates
+* RGBA pixel buffers and gray coverage masks
+* The Agg scanline rasterizer, with curve flattening, dashes and strokes
+* Compositing with clip boxes, clip masks, hatches, Gouraud triangles and
+  markers
+* The image resampler of matplotlib, with all interpolation kernels
 
-pltrs is matplotlib rebuilt from scratch in Rust, with no dependencies
-outside its own crates. Its crates are released together, at one
-version, and each depends on the exact version of the others: what they
-offer each other is not an interface of its own. Most programs want the
-crate `pltrs`, matplotlib's model with every output format and
-interactive windows; this crate is for those who need its rasterizer
-alone.
+## Use
 
-## Licence
+Most programs need the crate [`pltrs`](https://crates.io/crates/pltrs).
+It has figures, all output formats and windows. Use `pltrs-raster` directly
+only if you need the rasterizer alone.
 
-MIT OR Apache-2.0, at your option (`LICENSE-MIT`, `LICENSE-APACHE`). The
-code and data it takes from other projects keep their own licences:
-`THIRD_PARTY.md` lists them, with their texts in `LICENSES/`.
+All pltrs crates have the same version. Each crate requires the same
+version of the other pltrs crates.
+
+## License
+
+You can use this crate under the MIT license (`LICENSE-MIT`) or the Apache
+License 2.0 (`LICENSE-APACHE`).
+
+The code and data from other projects keep their licenses. `THIRD_PARTY.md`
+lists them, and `LICENSES/` has the license texts.

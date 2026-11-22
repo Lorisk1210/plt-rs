@@ -1,26 +1,28 @@
 """
-pltrs (Python): matplotlib's API, drawn by pltrs (Rust).
+pltrs (Python): the matplotlib API, drawn by pltrs (Rust).
 
-Code written for matplotlib runs on pltrs with one change, the import::
+Code written for matplotlib runs on pltrs if you change the import::
 
     import pltrs.pyplot as plt          # import matplotlib.pyplot as plt
     from pltrs import colors            # from matplotlib import colors
 
-The classes and functions here keep matplotlib's names, signatures and
-behaviour; the work (validation, layout, drawing, saving) is done by
-pltrs (Rust), a reimplementation of matplotlib, through the native module
-``pltrs._native``. See ``python/DESIGN.md`` for how the two fit together.
+The classes and functions here have the names, signatures and behavior
+of matplotlib. pltrs (Rust) does the work (validation, layout, drawing,
+saving) through the native module ``pltrs._native``. ``python/DESIGN.md``
+explains how the two parts fit together.
 
-Imported as ``pltrs``, figures take pltrs' modern look by default, as in
-pltrs (Rust): the ``pltrs-modern`` style sheet, Inter type and
-constrained layout. Imported as ``matplotlib`` (the ``matplotlib``
-distribution of pltrs), they take matplotlib's look, in which the output
-is matplotlib's. The first import of a process decides; the environment
-variable ``PLTRS_LOOK`` (``matplotlib`` or ``modern``, set before the
-import) chooses over it. ``rcParamsDefault``, `rcdefaults` and
-``style.use("default")`` give matplotlib's defaults in either look.
+If you import the package as ``pltrs``, figures use the modern look, as
+in pltrs (Rust). The modern look is the style sheet ``pltrs-modern``,
+with the Inter font and constrained layout. If you import it as
+``matplotlib`` (the ``matplotlib`` distribution of pltrs), figures use
+the matplotlib look, and the output is the matplotlib output. The first
+import of a process selects the look. The environment variable
+``PLTRS_LOOK`` (``matplotlib`` or ``modern``, set before the import)
+overrides it.
+``rcParamsDefault``, `rcdefaults` and ``style.use("default")`` give the
+matplotlib defaults in both looks.
 
-This module holds what matplotlib's top level holds: ``rcParams`` and its
+This module holds the top level of matplotlib: ``rcParams`` and its
 helpers (``rc``, ``rc_context``, ``rcdefaults``), backend selection
 (``use``, ``get_backend``) and ``__version__``.
 """

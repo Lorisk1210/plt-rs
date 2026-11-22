@@ -1,22 +1,22 @@
 //! Text shaping, layout, mathtext typesetting and TeX typesetting.
 //!
-//! * [`TextEngine`] — the shared font catalogue; lays out single lines of
-//!   text exactly as matplotlib's FreeType/HarfBuzz pipeline does and
-//!   provides glyph outlines to backends.
-//! * [`TextRun`] — laid-out glyphs (and rules) in pixels, independent of
-//!   the output backend, with the [`TextSource`] they were laid out from.
-//! * [`Shaping`] — the OpenType features and [`Language`] a line is shaped
-//!   with, as matplotlib's backends receive them from a text artist.
-//! * [`layout_block`] — matplotlib's multi-line stacking, alignment and
-//!   rotation of a text block.
-//! * [`mathtext`] — matplotlib's TeX-like math typesetting.
-//! * [`fontconfig`] — the fontconfig patterns font properties are written in.
-//! * [`tex`] — `text.usetex`: typesetting with LaTeX and reading its DVI
-//!   output (matplotlib's `texmanager` and `dviread`).
-//! * AFM text metrics — [`FontRequest::afm_line_metrics`] and
+//! * [`TextEngine`]: the shared font catalogue. It lays out single lines
+//!   of text as the FreeType/HarfBuzz pipeline of matplotlib does, and
+//!   gives glyph outlines to the backends.
+//! * [`TextRun`]: laid-out glyphs (and rules) in pixels, for any backend,
+//!   with the [`TextSource`] of the layout.
+//! * [`Shaping`]: the OpenType features and the [`Language`] for shaping a
+//!   line, as the matplotlib backends get them from a text artist.
+//! * [`layout_block`]: the matplotlib stacking, alignment and rotation of a
+//!   text block with several lines.
+//! * [`mathtext`]: the TeX-like math typesetting of matplotlib.
+//! * [`fontconfig`]: the fontconfig patterns of font properties.
+//! * [`tex`]: `text.usetex`, which typesets with LaTeX and reads its DVI
+//!   output (the matplotlib `texmanager` and `dviread`).
+//! * AFM text metrics: [`FontRequest::afm_line_metrics`] and
 //!   [`FontRequest::afm_height_metrics`] measure text in the standard
-//!   PostScript fonts as matplotlib's PDF and PostScript backends do with
-//!   `pdf.use14corefonts` and `ps.useafm`.
+//!   PostScript fonts. The matplotlib PDF and PostScript backends do this
+//!   with `pdf.use14corefonts` and `ps.useafm`.
 #![forbid(unsafe_code)]
 
 mod afm;

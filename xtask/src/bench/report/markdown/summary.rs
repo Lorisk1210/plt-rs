@@ -18,14 +18,15 @@ const THIN: f64 = 1.5;
 pub(super) fn write(out: &mut String, results: &Results, charts: &Charts) {
     out.push_str(
         "## Summary\n\n\
-         The report makes two claims and measures them apart. pltrs (Python) against \
-         matplotlib compares one Python program with itself under two libraries. pltrs \
-         (Rust) against matplotlib compares a Rust program with a Python program that draws \
-         the same figure. Each claim has a warm number (the figure alone, in a running \
-         program) and a cold number (a whole program in a fresh process, start-up \
-         included). A workload counts as faster or slower only when the 95% confidence \
-         interval of its speed-up excludes 1. Otherwise it is within the noise. A tier's \
-         typical speed-up is the geometric mean over its workloads.\n\n",
+         The report makes two claims and measures each claim separately:\n\n\
+         * pltrs (Python) against matplotlib runs one Python program with two libraries.\n\
+         * pltrs (Rust) against matplotlib compares a Rust program and a Python program that \
+         draw the same figure.\n\n\
+         Each claim has a warm number and a cold number. A warm number times the figure \
+         alone, in a running program. A cold number times a whole program in a fresh \
+         process, including start-up. A workload counts as faster or slower only if the 95% \
+         confidence interval of its speed-up excludes 1. Otherwise, it is within the noise. \
+         The typical speed-up of a tier is the geometric mean over its workloads.\n\n",
     );
     python_claim(out, results, charts);
     rust_claim(out, results, charts);
@@ -41,10 +42,11 @@ fn python_claim(out: &mut String, results: &Results, charts: &Charts) {
     if v.same_python_and_numpy() {
         let _ = writeln!(
             out,
-            "Both columns run the same scripts on the same interpreter (Python {python}, \
-             `{interpreter}`) and the same numpy build ({numpy}, core library digest \
-             `{digest}`). Only the imports differ: `import matplotlib.pyplot as plt` reads \
-             `import pltrs.pyplot as plt`.\n",
+            "Both columns run the same scripts with the same interpreter and the same numpy \
+             build. The interpreter is Python {python} at `{interpreter}`. The numpy build is \
+             {numpy}, with the core library digest `{digest}`. Only the imports differ. The \
+             scripts for pltrs (Python) say `import pltrs.pyplot as plt` in place of \
+             `import matplotlib.pyplot as plt`.\n",
             python = v.pltrs("python"),
             interpreter = v.pltrs("interpreter"),
             numpy = v.pltrs("numpy"),
@@ -53,9 +55,9 @@ fn python_claim(out: &mut String, results: &Results, charts: &Charts) {
     } else {
         let _ = writeln!(
             out,
-            "**The two venvs ran different interpreters or numpy builds** (matplotlib: \
-             Python {} with numpy {}, pltrs (Python): Python {} with numpy {}), so this \
-             run does not support the drop-in claim on its own.\n",
+            "The two venvs ran different interpreters or numpy builds. matplotlib ran \
+             Python {} with numpy {}. pltrs (Python) ran Python {} with numpy {}. Thus this \
+             run alone does not support the drop-in claim.\n",
             v.reference("python"),
             v.reference("numpy"),
             v.pltrs("python"),
@@ -75,9 +77,9 @@ fn rust_claim(out: &mut String, results: &Results, charts: &Charts) {
     let _ = writeln!(
         out,
         "This claim compares programs in two languages that draw the same figure. A cold \
-         run of pltrs (Rust) starts a native executable, while a cold run of matplotlib \
-         starts the Python interpreter and imports numpy and pyplot, which alone take {} ms \
-         here. The warm numbers leave start-up out on both sides.\n",
+         run of pltrs (Rust) starts a native executable. A cold run of matplotlib starts the \
+         Python interpreter and imports numpy and pyplot. On this machine, these steps alone \
+         take {} ms. The warm numbers do not include start-up on either side.\n",
         interpreter(Implementation::Matplotlib.key()).map_or_else(|| "n/a".to_owned(), ms),
     );
     claim_table(out, results, Implementation::Rust);
@@ -189,14 +191,14 @@ fn coverage(out: &mut String, results: &Results) {
     if unsupported.is_empty() {
         let _ = writeln!(
             out,
-            "pltrs (Python) runs all {comparable} workloads matplotlib runs."
+            "pltrs (Python) runs all {comparable} workloads that matplotlib runs."
         );
     } else {
         let _ = writeln!(
             out,
-            "pltrs (Python) runs {} of the {comparable} workloads matplotlib runs. The other \
-             {} need parts of matplotlib's API it does not have yet ([Not supported \
-             yet](#not-supported-yet-by-pltrs-python)).",
+            "pltrs (Python) runs {} of the {comparable} workloads that matplotlib runs. The \
+             other {} need parts of the matplotlib API that pltrs (Python) does not have yet. \
+             [Not supported yet](#not-supported-yet-by-pltrs-python) lists them.",
             comparable - unsupported.len(),
             unsupported.len(),
         );
@@ -211,8 +213,8 @@ fn coverage(out: &mut String, results: &Results) {
         if !diverging.is_empty() {
             let _ = writeln!(
                 out,
-                " The guard found that {} draws a different figure from matplotlib's in {}, \
-                 which the tallies leave out.",
+                " The correctness guard found that {} draws a different figure from \
+                 matplotlib in {}. The tallies leave out these workloads.",
                 contender.title(),
                 diverging.join(", "),
             );
@@ -231,10 +233,11 @@ fn startup(out: &mut String, results: &Results, charts: &Charts) {
     let _ = writeln!(
         out,
         "### Start-up\n\n\
-         A fresh interpreter takes {python} ms to start here and {numpy} ms to import numpy. \
-         One that imports `matplotlib.pyplot` takes {mpl} ms, and one that imports \
-         `pltrs.pyplot` takes {pltrs} ms. The executable of pltrs (Rust) starts and exits in \
-         {rust} ms. [Start-up and imports](#start-up-and-imports) has the details.\n",
+         On this machine, a fresh interpreter takes {python} ms to start and exit. An \
+         interpreter that imports numpy takes {numpy} ms. An interpreter that imports \
+         `matplotlib.pyplot` takes {mpl} ms. An interpreter that imports `pltrs.pyplot` \
+         takes {pltrs} ms. The executable of pltrs (Rust) starts and exits in {rust} ms. \
+         [Start-up and imports](#start-up-and-imports) gives the details.\n",
         python = median("python"),
         numpy = median("numpy"),
         mpl = median(Implementation::Matplotlib.key()),
@@ -246,7 +249,11 @@ fn startup(out: &mut String, results: &Results, charts: &Charts) {
 
 /// The peak memory of the cold runs, against matplotlib's.
 fn memory(out: &mut String, results: &Results) {
-    out.push_str("### Peak memory\n\n");
+    out.push_str(
+        "### Peak memory\n\n\
+         Each ratio compares the peak resident memory of a cold run with the peak of \
+         matplotlib on the same workload.\n\n",
+    );
     for contender in Implementation::CONTENDERS {
         let ratios: Vec<(&str, f64)> = results
             .workloads
@@ -268,9 +275,8 @@ fn memory(out: &mut String, results: &Results) {
             });
         let _ = write!(
             out,
-            "* A cold run of {} typically peaks at {mean:.2} times the resident memory of \
-             matplotlib's run of the same workload, and at {low:.2} to {high:.2} times over \
-             all {} workloads.",
+            "* A cold run of {} typically peaks at {mean:.2} times the memory of matplotlib, \
+             and at {low:.2} to {high:.2} times over all {} workloads.",
             contender.title(),
             ratios.len(),
         );
@@ -289,8 +295,9 @@ fn memory(out: &mut String, results: &Results) {
         out.push('\n');
     }
     out.push_str(
-        "\nBoth Python columns include the interpreter and numpy, which [Start-up and \
-         imports](#start-up-and-imports) measures alone. pltrs (Rust) has neither.\n\n",
+        "\nThe memory of both Python columns includes the interpreter and numpy. [Start-up \
+         and imports](#start-up-and-imports) measures these alone. pltrs (Rust) uses \
+         neither.\n\n",
     );
 }
 
@@ -330,16 +337,18 @@ fn thin_margins(out: &mut String, results: &Results) {
     }
     let _ = writeln!(
         out,
-        "These speed-ups are under {}, or are slowdowns. The workloads near that line fall \
-         in two groups. Most are cold runs: both sides start an interpreter and import \
-         numpy, then their pyplot, before the figure (see [Start-up](#start-up)), so a \
-         figure that takes either library little time is faster in pltrs at most by the \
-         ratio of the two start-ups, and figures of millions of values add the making of \
-         their data in numpy, the same on both sides. The rest are figures of millions of \
-         values, warm, where both libraries transform or map every value in compiled code, \
-         and pltrs also copies the values out of numpy and makes and frees buffers of tens \
-         of megabytes for every figure (on Linux it asks for 2 MiB pages for them, as \
-         numpy does for its arrays).\n\n\
+        "The table lists each speed-up below {} and each slowdown. These workloads fall in \
+         two groups.\n\n\
+         Most are cold runs. In a cold run, each library starts an interpreter and imports \
+         numpy and pyplot before it draws ([Start-up](#start-up)). For a small figure, the \
+         start-up takes most of the time, so the speed-up is close to the ratio of the two \
+         start-up times. For a figure of millions of values, numpy also makes the data, and \
+         this takes the same time on both sides.\n\n\
+         The other group is warm runs of figures with millions of values. Both libraries \
+         transform or map every value in compiled code. pltrs also copies the values out of \
+         numpy, and it makes and frees buffers of tens of megabytes for every figure. On \
+         Linux, pltrs asks for 2 MiB pages for these buffers, as numpy does for its \
+         arrays.\n\n\
          | workload | implementation | run | speed-up [95% interval] |\n|---|---|---|---:|\n{}\n",
         speedup(1.0 / THIN),
         rows.join("\n")

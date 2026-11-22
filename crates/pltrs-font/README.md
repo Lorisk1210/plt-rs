@@ -1,28 +1,31 @@
 # pltrs-font
 
-Font parsing, outlines, hinting, shaping and font management for pltrs,
-with the fonts matplotlib ships bundled.
+`pltrs-font` reads fonts and finds the font for a text. It includes the
+fonts that matplotlib includes, and Inter.
 
-* TrueType, OpenType (CFF), collections and Type 1 fonts: metrics,
-  character maps, glyph outlines, names and kerning
-* FreeType-compatible scaling, TrueType bytecode hinting and FreeType's
-  autohinter
-* HarfBuzz/libraqm-style shaping: bidirectional text, Arabic and Hebrew,
-  OpenType features and languages, per-character fallback
-* a font database with matplotlib's `findfont` scoring, over the bundled
-  fonts (DejaVu, STIX, Computer Modern, Inter) and the system's
+Contents:
 
-## One of pltrs' crates
+* TrueType, OpenType (CFF) and Type 1 fonts, and font collections:
+  metrics, character maps, glyph outlines, names and kerning
+* Glyph scaling and hinting with the same results as FreeType
+* Text shaping with the same results as HarfBuzz and libraqm:
+  bidirectional text, Arabic, Hebrew, OpenType features and fallback fonts
+* A font database that selects fonts as the matplotlib function
+  `findfont` selects them, from the included fonts and the system fonts
 
-pltrs is matplotlib rebuilt from scratch in Rust, with no dependencies
-outside its own crates. Its crates are released together, at one
-version, and each depends on the exact version of the others: what they
-offer each other is not an interface of its own. Most programs want the
-crate `pltrs`, matplotlib's model with every output format and
-interactive windows; this crate is for those who need its fonts alone.
+## Use
 
-## Licence
+Most programs need the crate [`pltrs`](https://crates.io/crates/pltrs).
+It has figures, all output formats and windows. Use `pltrs-font` directly
+only if you need the fonts alone.
 
-MIT OR Apache-2.0, at your option (`LICENSE-MIT`, `LICENSE-APACHE`). The
-code and data it takes from other projects keep their own licences:
-`THIRD_PARTY.md` lists them, with their texts in `LICENSES/`.
+All pltrs crates have the same version. Each crate requires the same
+version of the other pltrs crates.
+
+## License
+
+You can use this crate under the MIT license (`LICENSE-MIT`) or the Apache
+License 2.0 (`LICENSE-APACHE`).
+
+The code and data from other projects keep their licenses. `THIRD_PARTY.md`
+lists them, and `LICENSES/` has the license texts.

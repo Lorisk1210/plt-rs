@@ -1,26 +1,30 @@
 //! Legends, their options and custom handlers.
 //!
-//! [`Axes::legend`] and [`Figure::legend`] take a [`LegendOptions`]: one
-//! builder method per keyword of matplotlib's `legend()`, unset ones read
-//! from the `legend.*` rcParams. A location is a [`LegendLoc`]: an
-//! anchored position ([`AnchorLoc`]), `"best"`, a point, or for figure
-//! legends a place outside the axes. matplotlib's names parse into it
-//! (`"upper left".parse()?`, `"outside upper center".parse()?`) and its
-//! codes through [`LegendLoc::from_code`]; an unknown one is refused there
+//! [`Axes::legend`] and [`Figure::legend`] take a [`LegendOptions`], with
+//! one builder method for each keyword of `legend()`. Unset options come
+//! from the `legend.*` rcParams.
+//!
+//! A location is a [`LegendLoc`]: an anchored position ([`AnchorLoc`]),
+//! `"best"`, a point, or a place outside the axes for figure legends. The
+//! matplotlib names parse into it (`"upper left".parse()?`,
+//! `"outside upper center".parse()?`). [`LegendLoc::from_code`] reads the
+//! matplotlib codes. Both refuse an unknown location
 //! ([`LegendError::InvalidLocation`]).
 //!
-//! Without explicit handles the legend lists the labelled artists and
-//! containers, skipping labels that start with an underscore, as
-//! matplotlib does. Explicit handles are anything convertible into a
-//! [`LegendHandle`]: an artist handle (`&line`), a proxy drawn only in
-//! the legend ([`LegendHandle::line`], [`LegendHandle::patch`]), a tuple
-//! of handles ([`LegendHandle::tuple`]) or any object with a handler.
+//! If you give no handles, the legend lists the labeled artists and
+//! containers, without labels that start with an underscore. A handle that you give converts into a [`LegendHandle`]:
 //!
-//! Handlers are values implementing [`LegendHandler`]. The built-in ones
-//! carry matplotlib's names ([`HandlerPatch`], [`HandlerTuple`],
-//! [`HandlerLine2D`], ...); a handler is attached to a kind of artist with
-//! [`LegendOptions::handler`] and a [`HandlerKey`], or to one handle with
-//! [`LegendHandle::with_handler`].
+//! * an artist handle (`&line`).
+//! * a proxy that only the legend draws ([`LegendHandle::line`],
+//!   [`LegendHandle::patch`]).
+//! * a tuple of handles ([`LegendHandle::tuple`]).
+//! * any object with a handler.
+//!
+//! Handlers are values that implement [`LegendHandler`]. The built-in
+//! handlers have the matplotlib names ([`HandlerPatch`], [`HandlerTuple`],
+//! [`HandlerLine2D`], ...). To attach a handler to a kind of artist, use
+//! [`LegendOptions::handler`] with a [`HandlerKey`]. To attach it to one
+//! handle, use [`LegendHandle::with_handler`].
 //!
 //! # Equivalences
 //!
@@ -44,7 +48,7 @@
 //! | `handles=[bars, line]` (artists of several kinds)  | [`LegendOptions::handle`]`(&bars).handle(&line)` |
 //! | `ax.get_legend_handles_labels()`                   | [`Axes::legend_handles_labels`]               |
 //! | `ax.get_legend()`                                  | [`Axes::current_legend`]                      |
-//! | `[t.get_text() for t in leg.get_texts()]`          | [`Legend::labels`]; [`Legend::texts`] for the text handles |
+//! | `[t.get_text() for t in leg.get_texts()]`          | [`Legend::labels`], or [`Legend::texts`] for the text handles |
 //! | `leg.set_title(s)`, `leg.get_frame()`              | [`Legend::set_title`], [`Legend::frame`]      |
 //! | `ax.add_artist(first_legend)`                      | [`Axes::keep_legend`]                         |
 //! | `label="_nolegend_"`                               | any label starting with `_`                   |
@@ -189,8 +193,8 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! A handler of your own implements [`LegendHandler::create_artists`];
-//! the trait's documentation ports matplotlib's `HandlerEllipse`.
+//! Your own handler implements [`LegendHandler::create_artists`]. The
+//! documentation of the trait ports the matplotlib `HandlerEllipse`.
 //!
 //! [`Axes::legend`]: crate::axes::Axes::legend
 //! [`Axes::current_legend`]: crate::axes::Axes::current_legend

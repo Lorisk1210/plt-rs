@@ -1,26 +1,29 @@
 # pltrs-text
 
-Text layout, mathtext and usetex for pltrs, as matplotlib does them.
+`pltrs-text` lays out text, mathtext and usetex text. It gives the same
+results as matplotlib.
 
-* lines of text laid out into glyph runs as matplotlib's FreeType and
-  HarfBuzz pipeline lays them out
-* multi-line text blocks: stacking, alignment and rotation
-* mathtext, matplotlib's TeX-like math typesetting
-* `text.usetex`: typesetting with LaTeX and reading its DVI, virtual
-  font, TFM and font map files
+Contents:
 
-## One of pltrs' crates
+* Layout of a line of text into positioned glyphs
+* Text with more than one line: line spacing, alignment and rotation
+* Mathtext, the math syntax of matplotlib
+* `text.usetex`: pltrs runs LaTeX and reads the DVI, virtual font, TFM
+  and font map files
 
-pltrs is matplotlib rebuilt from scratch in Rust, with no dependencies
-outside its own crates. Its crates are released together, at one
-version, and each depends on the exact version of the others: what they
-offer each other is not an interface of its own. Most programs want the
-crate `pltrs`, matplotlib's model with every output format and
-interactive windows; this crate is for those who need its text layout
-alone.
+## Use
 
-## Licence
+Most programs need the crate [`pltrs`](https://crates.io/crates/pltrs).
+It has figures, all output formats and windows. Use `pltrs-text` directly
+only if you need the text layout alone.
 
-MIT OR Apache-2.0, at your option (`LICENSE-MIT`, `LICENSE-APACHE`). The
-code and data it takes from other projects keep their own licences:
-`THIRD_PARTY.md` lists them, with their texts in `LICENSES/`.
+All pltrs crates have the same version. Each crate requires the same
+version of the other pltrs crates.
+
+## License
+
+You can use this crate under the MIT license (`LICENSE-MIT`) or the Apache
+License 2.0 (`LICENSE-APACHE`).
+
+The code and data from other projects keep their licenses. `THIRD_PARTY.md`
+lists them, and `LICENSES/` has the license texts.

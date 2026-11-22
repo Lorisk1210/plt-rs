@@ -1,23 +1,18 @@
 //! Chapter 4: data, options and errors.
 //!
-//! Three conventions run through every plotting call: data goes in as
-//! whatever container you have, the rest of what the call needs goes in
-//! an option struct, and anything that can be wrong comes back as a
-//! `Result`.
+//! Plotting calls take data in the container that you have, settings in an
+//! option struct, and return errors in a `Result`.
 //!
 //! # Numbers
 //!
-//! Plotting methods take their data as `impl Into<...>` or
-//! `impl IntoIterator<...>` parameters, so you pass the data you have, by
-//! value or by reference: an array, a slice, a `Vec`, a range, or an
-//! iterator computing the values as they are plotted. Any number type
-//! goes: `f64`, `f32` and the integers (`i32`, `u8`, `usize`, ...).
-//! Passing a reference keeps the data for later; plotting copies what it
-//! needs, as `f64`.
+//! Plotting methods take data as `impl Into<...>` or
+//! `impl IntoIterator<...>`. Pass an array, slice, `Vec`, range or
+//! iterator, by value or by reference, of `f64`, `f32` or an integer type.
+//! Plotting copies the values as `f64`.
 //!
 //! [`numeric`](crate::numeric) makes the usual sequences: [`linspace`]
-//! (`n` points from `start` to `stop`), [`arange`] (from `start` in steps
-//! of `step`, before `stop`), [`logspace`] (evenly spaced powers).
+//! (`n` points from `start` to `stop`), [`arange`] (steps of `step` from
+//! `start`, before `stop`) and [`logspace`] (evenly spaced powers).
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -37,21 +32,16 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! One value is a list of one, `[2.5]`. An empty list needs its type
-//! spelled out, as in `Vec::<f64>::new()`, since nothing in it tells Rust
-//! what it holds.
-//!
-//! A NaN leaves a gap: lines break around it and markers skip it. Use it
-//! for missing measurements.
+//! A single value is `[2.5]`. An empty list needs its type, as in
+//! `Vec::<f64>::new()`. A NaN makes a gap.
 //!
 //! # Grids
 //!
 //! Images, meshes and contours take 2-D data as a [`Grid`]: rows and
-//! columns of one type stored in a single `Vec`, row by row, and indexed
-//! by `(row, column)`. Build one from a function of the row and column,
-//! from nested rows, or from a flat `Vec` and its shape. [`meshgrid`]
-//! turns the values along x and along y into the two grids of x and y at
-//! every point, from which a function of both is one `from_fn` away.
+//! columns of one type in one `Vec`, indexed by `(row, column)`. Make a
+//! grid from a function, from nested rows, or from a flat `Vec` and a
+//! shape. [`meshgrid`] makes the x grid and the y grid from the values
+//! along each axis.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -73,15 +63,13 @@
 //!
 //! # Categories and dates
 //!
-//! The x and y of `plot`, `scatter` and `bar` need not be numbers. Strings
-//! are *categories*: the axis places them at 0, 1, 2, ... in the order it
-//! first sees them, and labels its ticks with them. [`DateTime`] values
-//! make a date axis, whose ticks read as dates (chapter
-//! [`scales`](super::scales)). Both are converted to numbers when
-//! plotted: categories to their index, dates to days since 1970. A
-//! [`DateRange`] gives a series of date-times, from a start up to an
-//! end, a [`TimeDelta`] apart (`TimeDelta::from_hours(6)`,
-//! `TimeDelta::from_days(1)?`), and plots as it is.
+//! The x and y of `plot`, `scatter` and `bar` can also be strings
+//! (*categories*) or dates. The axis places categories at 0, 1, 2, ... in
+//! the order of their first appearance, as tick labels.
+//! [`DateTime`] values make a date axis (chapter [`scales`](super::scales)),
+//! where a date is the number of days since 1970. A [`DateRange`] is a
+//! series of date-times a [`TimeDelta`] apart (`TimeDelta::from_hours(6)`,
+//! `TimeDelta::from_days(1)?`).
 //!
 //! ```
 //! use pltrs::dates::{DateRange, DateTime, TimeDelta};
@@ -102,23 +90,13 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! A [`ZonedDateTime`] plots as the instant it stands for, and gives an
-//! axis without a unit its zone, in which the ticks then read; chapter
-//! [`scales`](super::scales) shows it.
+//! A [`ZonedDateTime`] also gives its time zone to an axis without a unit.
 //!
-//! Behind these parameters is one type, [`AxisValues`]: numbers,
-//! category names, dates, or values of your own types converted by a
-//! unit converter (chapter [`extending`](super::extending)). Every
-//! collection and iterator shown above converts into it, which is why the
-//! same method takes all of them. Extents measured from such values, such
-//! as bar heights or error sizes, are [`AxisDeltas`]: numbers, durations
-//! or user values, one for all the items or a list (an array, a slice or
-//! a `Vec`). You rarely name either type; it shows up in signatures.
-//! Data that can only be numbers, such as the values of a pie chart,
-//! takes any collection or iterator of [`Number`]s.
-//!
-//! The plotting methods of 3-D axes take their x, y and z the same way,
-//! and each of the three axes converts its values as a 2-D axis does:
+//! The type of these parameters is [`AxisValues`]: numbers, categories,
+//! dates, or your own values (chapter [`extending`](super::extending)). Extents such as bar heights or error
+//! sizes are [`AxisDeltas`]: one value for all items, or a list. Data that
+//! can only be numbers, such as pie values, takes [`Number`]s. 3-D axes
+//! take x, y and z in the same way:
 //!
 //! ```
 //! use pltrs::dates::DateTime;
@@ -135,13 +113,10 @@
 //!
 //! # Options
 //!
-//! Python has keyword arguments; Rust has structs. A plotting method that
-//! takes settings takes one *option struct*, by value. Its public fields
-//! are the settings, named after matplotlib's keywords. Its `Default`
-//! gives matplotlib's defaults, mostly by leaving fields unset (`None` or
-//! empty) so that the runtime settings decide (chapter
-//! [`styling`](super::styling)). Fill in the fields you want with struct
-//! update syntax:
+//! A plotting method with settings takes one *option struct* by value. Its
+//! public fields have the names of the matplotlib keywords. Most fields
+//! are unset (`None` or empty) by default, so the runtime settings decide
+//! (chapter [`styling`](super::styling)). Use struct update syntax:
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -161,17 +136,15 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! The property sets of artists ([`LineProps`], [`PatchProps`],
+//! [`LineProps`], [`PatchProps`],
 //! [`CollectionProps`](crate::collections::CollectionProps),
-//! [`TextProps`](crate::text::TextProps)) and
-//! [`LegendOptions`](crate::legend::LegendOptions) add a builder method
-//! per field, as in `LineProps::default().color("k").linewidth(2.0)`.
-//! The builders take anything convertible (`impl Into<Color>` for a
-//! colour), so plain literals work; struct fields need the `.into()`
-//! written out, as in the bar example above.
+//! [`TextProps`](crate::text::TextProps) and
+//! [`LegendOptions`](crate::legend::LegendOptions) also have builder
+//! methods, as in `LineProps::default().color("k").linewidth(2.0)`. The
+//! builders take `impl Into<...>`, so literals work. A struct field needs
+//! `.into()`.
 //!
-//! The call consumes its options. To use the same ones twice, clone
-//! them, or write a function returning them:
+//! The call consumes its options. To use them twice, clone them:
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -183,10 +156,9 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Where matplotlib takes a string from a fixed set, pltrs takes an enum
-//! ([`LineStyle::Dashed`] for `"--"`). Those enums parse matplotlib's
-//! strings through [`str::parse`], which suits values read from a file
-//! or a command line and reports a bad one at once.
+//! If matplotlib takes a string from a fixed set, pltrs takes an enum
+//! ([`LineStyle::Dashed`] for `"--"`). [`str::parse`] reads the matplotlib
+//! strings into these enums.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -198,20 +170,18 @@
 //!
 //! # Errors
 //!
-//! A call that can fail returns a `Result` whose error is an enum of its
-//! module, one variant per problem: [`PlotError`] from plotting methods,
-//! [`SaveError`] from saving, [`ImageError`](crate::image::ImageError)
-//! from images, [`LegendError`](crate::legend::LegendError) from
-//! legends, and so on. They fail where matplotlib raises an exception:
-//! lengths that differ, NaN limits, unknown colormaps, files that cannot
-//! be written. Calls that cannot fail, such as [`Axes::text`], return
-//! their handle directly. Bad input gives an error, never a panic.
+//! A call that can fail returns a `Result`. Its error is an enum of the
+//! module: [`PlotError`] for plotting, [`SaveError`] for saving,
+//! [`ImageError`](crate::image::ImageError),
+//! [`LegendError`](crate::legend::LegendError) and so on. pltrs returns an
+//! error where matplotlib raises an exception, for example for different
+//! lengths or an unknown colormap. Bad input never causes a panic. Calls
+//! that cannot fail, such as [`Axes::text`], return the handle directly.
 //!
-//! Every error type implements [`std::error::Error`], so the habit is to
-//! propagate with `?` from a function returning
-//! `Result<_, Box<dyn Error>>`, and to match on a variant only where you
-//! can do something about it. A library of your own may prefer an error
-//! enum with a `From` implementation for each pltrs error it meets.
+//! Each error type implements [`std::error::Error`]. Propagate errors with
+//! `?`, and match on a variant only where you can handle it. A library can
+//! define its own error enum with a `From` implementation for each pltrs
+//! error.
 //!
 //! ```
 //! use std::error::Error;
@@ -228,7 +198,7 @@
 //!     Ok(())
 //! }
 //!
-//! // Three names and two values: refused before anything is written.
+//! // Three names and two values: `bar` fails before `savefig` writes a file.
 //! let path = Path::new("never-written.png");
 //! let error = bar_chart(&["a", "b", "c"], &[1.0, 2.0], path).unwrap_err();
 //! assert!(error.is::<PlotError>());
@@ -241,8 +211,8 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! The messages read like matplotlib's, so searching for one usually
-//! finds the explanation of the matplotlib error it mirrors.
+//! The messages are similar to the matplotlib messages, so a search for a
+//! message usually finds help.
 //!
 //! Next: [styling](super::styling).
 //!

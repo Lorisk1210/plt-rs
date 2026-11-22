@@ -1,176 +1,198 @@
-//! Conventions: the rules that turn a matplotlib call into a pltrs call.
+//! The rules that translate a matplotlib call into a pltrs call.
 //!
-//! A handful of rules cover most of the translation. Once you know them
-//! you can usually guess the pltrs name of a matplotlib function, and
-//! rustdoc's search does the rest.
+//! With these rules, you can usually guess the pltrs name of a matplotlib
+//! function. The rustdoc search finds the rest.
 //!
-//! * **Getters drop `get_`.** `ax.get_xlim()` is `ax.xlim()`,
-//!   `line.get_color()` is `line.color()`. Setters keep `set_` and return
-//!   `&Self` so calls chain. A setter whose argument can be invalid
-//!   returns `Result<&Self, _>` and chains through `?`:
-//!   `ax.set_xlim(0.0, 10.0)?.set_ylim(-1.0, 1.0)?` refuses limits that
-//!   are NaN or infinite, where matplotlib raises. Values that are not
-//!   handles ([`FontProperties`], [`ScalarMappable`], [`Triangulation`])
-//!   chain the same way through `&mut self`, returning `&mut Self`.
-//!   Setters that create an artist, such as `set_title`, return its
-//!   handle. Where the plain name already makes something, the getter
-//!   reads `current_`: `ax.legend()` makes a legend, as in matplotlib, so
-//!   `ax.get_legend()` is [`Axes::current_legend`], the way `plt.gci()`
-//!   is [`Axes::current_image`].
-//! * **Keyword arguments become option structs, passed by value.** Each
-//!   function or method taking keywords takes a struct of them and
-//!   consumes it: plotting methods, artist and widget constructors, save
-//!   functions, and settings such as [`Axes::tick_params`],
-//!   [`Axes::locator_params`], [`Figure::tight_layout`] and
-//!   [`Figure::subplots_adjust`]; clone a struct to use it again. The
-//!   public fields are the API: fill them with struct update syntax
-//!   (`..Default::default()`); their names are matplotlib's keywords.
-//!   Unset options fall back to rcParams, as in matplotlib.
-//!   Builder methods are conveniences a few structs add on top of their
-//!   fields: the property sets ([`LineProps`], [`PatchProps`],
-//!   [`CollectionProps`], [`TextProps`]) and [`LegendOptions`], whose
-//!   fields are all `Option`s set from `impl Into` values, and the
-//!   options mapping values to colours, which share matplotlib's `cmap`,
-//!   `norm`, `vmin` and `vmax` as one [`ColorizerOptions`] in their
-//!   `colorizer` field and its builders through [`Colorize`]
-//!   ([`ImshowOptions`], [`ContourOptions`], [`MappedColors`], ...).
-//!   Other option structs have none, not even for a field used often;
-//!   the colorizer's builders end the struct update instead:
+//! # The rules
+//!
+//! ## Getters drop `get_`
+//!
+//! `ax.get_xlim()` is `ax.xlim()`. Setters keep `set_` and return `&Self`
+//! for chained calls. A setter that can refuse its argument returns
+//! `Result<&Self, _>`: `ax.set_xlim(0.0, 10.0)?.set_ylim(-1.0, 1.0)?`.
+//! Values that are not handles ([`FontProperties`], [`ScalarMappable`],
+//! [`Triangulation`]) chain through `&mut self`. A setter that makes an
+//! artist, such as `set_title`, returns its handle.
+//!
+//! If the plain name already makes something, the getter starts with
+//! `current_`. `ax.legend()` makes a legend, so `ax.get_legend()` is
+//! [`Axes::current_legend`], and `plt.gci()` is [`Axes::current_image`].
+//!
+//! ## Keyword arguments become option structs
+//!
+//! Each function with keywords takes a struct of them by value. Examples
+//! are plotting methods, constructors, save functions, [`Axes::tick_params`],
+//! [`Axes::locator_params`], [`Figure::tight_layout`] and
+//! [`Figure::subplots_adjust`]. The public fields have the names of the
+//! matplotlib keywords. Fill them with struct update syntax
+//! (`..Default::default()`), and clone a struct to use it again. An unset
+//! option takes its rcParam.
+//!
+//! Only these structs also have builder methods:
+//!
+//! * the property sets [`LineProps`], [`PatchProps`], [`CollectionProps`]
+//!   and [`TextProps`], and [`LegendOptions`]. Their builders take
+//!   `impl Into` values.
+//! * the options that map values to colors ([`ImshowOptions`],
+//!   [`ContourOptions`], [`MappedColors`], ...). Their field `colorizer` is
+//!   a [`ColorizerOptions`] with `cmap`, `norm`, `vmin` and `vmax`. The
+//!   trait [`Colorize`] gives them its builders. Put these builders last in
+//!   a struct update:
 //!   `ImshowOptions { extent: .., ..ImshowOptions::default().cmap(..) }`.
-//!   [`UnitAxisInfo`] has builders too, which take a locator or a
-//!   formatter by value as the [`Axis`] setters do: tickers go as
-//!   `impl Locator` and `impl Formatter` wherever they are given. A
-//!   function an option holds has a type with a constructor taking a
-//!   plain closure, whose default does what matplotlib's does:
-//!   `func: LegendValueFn::new(|size| size / 20.0)` ([`LegendValueFn`],
-//!   [`AxesLocatorFn`]).
-//! * **Strings become enums or parsed types.** `linestyle="--"` is
-//!   [`LineStyle::Dashed`]; matplotlib's spelling still works through
-//!   [`str::parse`] (every such type implements [`FromStr`]), which
-//!   validates it where it is given, format strings and legend locations
-//!   ([`LegendLoc`]) included. Two kinds of names convert from any string
-//!   instead: a [`Color`], validated when it is resolved, and a
-//!   [`ScaleName`], since a scale can be registered under any name; a
-//!   setter refuses an unknown scale.
-//! * **Keyword rcParams hold the type of their option.** An rcParam naming
-//!   one of a few keywords holds the enum the matching option takes
-//!   (`axes.titlelocation` is a [`TitleLocation`]), read and written in
-//!   matplotlib's spelling through `FromStr` and `Display`. Where the
-//!   spellings carry nothing of their own, aliases or names that differ
-//!   per axis, the rcParam keeps them in a type of its own that converts
-//!   into the one the API takes, so that `rc::get` gives back what
-//!   `rc::set` took: [`XLabelLoc`] and [`YLabelLoc`] convert into the
-//!   [`LabelLoc`] of [`Axis::set_label_loc`], [`TextHinting`] into a
-//!   [`Hinting`], and `axes.grid.axis` is a [`WhichAxis`] where options
-//!   take an `Option<AxisName>` (`None` for both). A type defined for an
-//!   rcParam is also named in the module of the methods taking it:
-//!   `image.aspect`'s [`Aspect`] is `pltrs::axes::Aspect` for
-//!   [`Axes::set_aspect`], as well as `pltrs::rc::Aspect`.
-//! * **Errors are `Result`s.** Invalid data, options or settings return
-//!   an error enum of the module ([`PlotError`], [`ImageError`],
-//!   [`LegendError`], [`AxesRectError`], ...), wherever matplotlib
-//!   raises. All of them implement [`std::error::Error`], so `?` into
-//!   `Box<dyn Error>` works everywhere. A problem pltrs can name has a
-//!   variant of its own carrying the values involved, rather than a
-//!   message in a catch-all variant ([`TexError::NoType1Font`],
-//!   [`TexError::NotInstalled`]), and parsing a name fails with such an
-//!   error, never a bare `String` ([`UnknownName`] for the keyword types
-//!   of `pltrs`).
-//! * **Limits are public.** Where matplotlib allocates whatever an input
-//!   asks for until memory runs out, pltrs refuses inputs beyond a
-//!   `MAX_*` constant of the module ([`MAX_HIST_BARS`],
-//!   [`MAX_EQUAL_BINS`], [`MAX_DRAWN_TICKS`], ...), named after what it
-//!   counts and documented on the functions and options it bounds. The
-//!   error variant is named `TooMany*` after the same things
-//!   (`FftTooLong` for a length) and carries what was asked for.
-//! * **Data takes every form.** Plotting values that may be numbers,
-//!   category names, dates or values of user types are [`AxisValues`]
-//!   (one is an [`AxisValue`], two make a [`DataPoint`]): any collection
-//!   or iterator of [`AxisItem`]s converts into them, numbers of every
-//!   primitive type included, so data goes in borrowed, owned or computed
-//!   by an iterator, and one value is a list of one, `[v]`. Extents from
-//!   them, numbers, durations or user values, are [`AxisDeltas`] (one is
-//!   an [`AxisDelta`]); they, and the types made of them such as
-//!   [`ErrorSize`], take one value for all the items or a `Vec`, a slice,
-//!   an array or a reference to a `Vec` or an array. Data that can only be
-//!   numbers takes `impl IntoIterator<Item: Number>` ([`Number`]), and
-//!   one dataset or several, as histograms take them, are [`Datasets`].
-//!   Methods take these as they are, option fields through `.into()`, and
-//!   setters of data (`Line2D::set_ydata`) take what the plotting method
-//!   takes, as tick setters take what [`Axes::set_xticks`] takes, on
-//!   other projections too ([`PolarAxes::set_rticks`]). A list of
-//!   numbers in a setting converts from an array or a `Vec`: an image's
-//!   [`Extent`] from `[left, right, bottom, top]`, the multiples every
-//!   `with_subs` takes (of the log, symlog and asinh locators and scales
-//!   alike) from `[2.0, 5.0]` ([`LogLocator::with_subs`]). Where
-//!   matplotlib takes a string or a list of them for the datasets of one
-//!   call, one label or a list converts: [`HistPlotOptions::label`] is
-//!   `"samples".into()` or `["a", "b"].into()` ([`DatasetLabels`]).
-//! * **User code may use the figure.** Closures pltrs runs between draws
-//!   (event callbacks, timers, toolbar tools, widgets, animation frames,
-//!   pickers, unit converters) may use any handle of the figure. Methods
-//!   handing state to a closure ([`Custom::update`],
-//!   [`Patch::update_shape`], [`Axes::with_projection_mut`],
-//!   [`rc::update`]) give it a copy and store it back, so the figure is
-//!   not borrowed meanwhile. Functions and traits that run while a figure
-//!   is laid out or drawn (formatters, scale and norm functions, axes
-//!   locators, image filters, colorbar label functions, legend handlers,
-//!   projections) get what they need as arguments and are `Send`, which
-//!   keeps handles out of them.
-//! * **Contexts return the closure's result.** Helpers running a closure
-//!   in temporary settings return what it returns ([`rc::context`]).
-//!   Those that can fail before running it ([`style::context`],
-//!   [`pyplot::rc_context`], [`pyplot::xkcd`]) take a closure returning
-//!   `Result<T, E>` and convert their own error into `E`, so the call ends
-//!   in one `?`.
-//! * **Lookups index as `std` does.** Indexing a collection of handles
-//!   (`axs[(0, 1)]`, `axd["A"]` of a mosaic) panics on an entry that is
-//!   not there, as indexing a slice or a map does; `get` returns an
-//!   `Option` instead.
-//! * **Type names are unique.** Where matplotlib gives two classes one
-//!   name in modules a program may use together, pltrs prefixes one with
-//!   its module: `units.AxisInfo` is [`UnitAxisInfo`], beside the
-//!   [`ticker::AxisInfo`] tick helpers read, and `GeoAxes.ThetaFormatter`
-//!   is [`GeoThetaFormatter`], beside the polar [`ThetaFormatter`]. A
-//!   type is imported under the name rustdoc shows for it: `pltrs`
-//!   re-exports the types of its lower crates under their own names
-//!   ([`RotationMode`] in `pltrs::text`), never renamed.
-//! * **pltrs' own rcParams start with `pltrs.`**, then the matplotlib rc
-//!   group, module or class they belong to in lower case, then the
-//!   keyword whose value matplotlib fixes in code, spelled as that keyword:
-//!   `pltrs.widgets.button.color` for `Button(color=...)`,
-//!   `pltrs.table.facecolor` for a table cell's `facecolor`,
-//!   `pltrs.widgets.radiobuttons.activecolor`. A behaviour of pltrs' own
-//!   is named in lower-case words joined by underscores
-//!   (`pltrs.image.hide_grid`, `pltrs.tight_layout.keep_constrained`), and a
-//!   setting shared by a whole group sits at its level
-//!   (`pltrs.widgets.frame`; `pltrs.ink` for every mark matplotlib draws
-//!   black).
-//! * **Handles, not objects.** `Figure`, `Axes`, `Line2D` and every other
-//!   artist type are cheap handles into a figure. Cloning a handle gives a
-//!   second reference to the same artist, never a copy. Every handle knows
-//!   its [`figure`](crate::artist::ArtistHandle::figure) and its
-//!   [`axes`](crate::artist::ArtistHandle::axes), and searches what it
-//!   owns with [`findobj`](crate::artist::ArtistHandle::findobj).
-//!   Widgets are values instead: each owns its connections to the
-//!   figure's events, which end when it is dropped, so a widget is not
-//!   `Clone`; share one between callbacks through an `Rc`. Legends take
-//!   the handles of what they draw owned or borrowed ([`LegendHandle`]
-//!   converts from both), and a list of handles of several types one at
-//!   a time ([`LegendOptions::handle`]).
-//! * **The per-axis API takes an axis argument.** Where matplotlib has
-//!   `get_xmargin` and `get_ymargin`, pltrs has `margin(AxisName::X)`.
-//!   The most common pairs (`set_xlim`, `set_xlabel`, `set_xscale`,
-//!   `twinx`, ...) keep their x and y spellings.
-//! * **3-D axes are 2-D axes with a z.** A method of [`Axes3D`] or
-//!   [`Axis3D`] doing what a method of [`Axes`] or [`Axis`] does has its
-//!   name and takes the same kinds of values, with an [`Axis3`] where the
-//!   2-D one takes an [`AxisName`]: plotting values for data, limits and
-//!   fixed ticks ([`Axis3D::set_ticks`] as [`Axis::set_ticks`]),
-//!   [`Axes3D::autoscale_on`] as [`Axes::autoscale_on`],
-//!   [`Axes3D::set_margins`] as [`Axes::set_margins`]. Grids of surfaces
-//!   and contours are numbers on both.
+//! * [`UnitAxisInfo`].
 //!
+//! Tickers are `impl Locator` and `impl Formatter` values. If an option
+//! holds a function, its type has a constructor that takes a closure:
+//! `func: LegendValueFn::new(|size| size / 20.0)` ([`LegendValueFn`],
+//! [`AxesLocatorFn`]). The default does what matplotlib does.
+//!
+//! ## Strings become enums or parsed types
+//!
+//! `linestyle="--"` is [`LineStyle::Dashed`]. These types implement
+//! [`FromStr`], so [`str::parse`] checks a matplotlib string at once. This
+//! includes format strings and legend locations ([`LegendLoc`]). A
+//! [`Color`] and a [`ScaleName`] convert from any string. pltrs checks a
+//! color when it resolves it. A setter refuses an unknown scale.
+//!
+//! ## Keyword rcParams hold the type of their option
+//!
+//! An rcParam that takes one of a few keywords holds an enum:
+//! `axes.titlelocation` is a [`TitleLocation`]. `FromStr` and `Display`
+//! use the matplotlib spelling. If the rcParam accepts aliases or names
+//! for each axis, it has its own type, so that `rc::get` returns what
+//! `rc::set` took. That type converts into the type of the API:
+//!
+//! * [`XLabelLoc`] and [`YLabelLoc`] into the [`LabelLoc`] of
+//!   [`Axis::set_label_loc`].
+//! * [`TextHinting`] into a [`Hinting`].
+//! * the [`WhichAxis`] of `axes.grid.axis` into an `Option<AxisName>`, where
+//!   `None` means both axes.
+//!
+//! The module of the methods also exports such a type: the [`Aspect`] of
+//! `image.aspect` is `pltrs::rc::Aspect` and `pltrs::axes::Aspect`
+//! ([`Axes::set_aspect`]).
+//!
+//! ## Errors are `Result`s
+//!
+//! If matplotlib raises, pltrs returns an error enum of the module
+//! ([`PlotError`], [`ImageError`], [`LegendError`], [`AxesRectError`],
+//! ...). All error enums implement [`std::error::Error`], so `?` into
+//! `Box<dyn Error>` works. Each problem has its own variant with the values
+//! involved ([`TexError::NoType1Font`], [`TexError::NotInstalled`]). A
+//! failed parse of a name returns such an error, never a `String`
+//! ([`UnknownName`] for the keyword types of `pltrs`).
+//!
+//! ## Limits are public
+//!
+//! matplotlib allocates what an input asks for, until memory runs out. pltrs
+//! refuses inputs above a `MAX_*` constant of the module ([`MAX_HIST_BARS`],
+//! [`MAX_EQUAL_BINS`], [`MAX_DRAWN_TICKS`], ...). The documentation of each
+//! limited function names its constant. The error variant is `TooMany*`
+//! with the same name (`FftTooLong` for a length), and holds the requested
+//! value.
+//!
+//! ## Data takes every form
+//!
+//! Plotting values are [`AxisValues`]: numbers, category names, dates or
+//! user values. One value is an [`AxisValue`], and two make a
+//! [`DataPoint`]. Any collection or iterator of [`AxisItem`]s converts into
+//! [`AxisValues`], numbers of each primitive type included. Thus data can
+//! be borrowed, owned or made by an iterator. One value is a list of one:
+//! `[v]`.
+//!
+//! Extents are [`AxisDeltas`] (one is an [`AxisDelta`]): numbers, durations
+//! or user values. They and the types made of them, such as [`ErrorSize`],
+//! take one value for all items or a list. A list is a `Vec`, a slice, an
+//! array, or a reference to a `Vec` or an array. Data that can only be numbers takes
+//! `impl IntoIterator<Item: Number>` ([`Number`]). One or more datasets are
+//! [`Datasets`].
+//!
+//! Option fields take these types through `.into()`. A data setter
+//! (`Line2D::set_ydata`) takes what the plotting method takes. A tick
+//! setter takes what [`Axes::set_xticks`] takes, also on other projections
+//! ([`PolarAxes::set_rticks`]).
+//!
+//! A list of numbers in a setting converts from an array or a `Vec`. An
+//! image [`Extent`] converts from `[left, right, bottom, top]`. The
+//! multiples of each `with_subs` convert from `[2.0, 5.0]`
+//! ([`LogLocator::with_subs`]). One label
+//! or a list of labels converts into [`DatasetLabels`]:
+//! [`HistPlotOptions::label`] is `"samples".into()` or `["a", "b"].into()`.
+//!
+//! ## User code can use the figure
+//!
+//! Closures that pltrs runs between draws can use any handle of the figure.
+//! These are event callbacks, timers, toolbar tools, widgets, animation
+//! frames, pickers and unit converters. Methods that give state to a closure
+//! ([`Custom::update`], [`Patch::update_shape`],
+//! [`Axes::with_projection_mut`], [`rc::update`]) give it a copy and store
+//! the copy back. Thus the figure is not borrowed during the call.
+//!
+//! Code that runs during layout or drawing gets what it needs as arguments.
+//! This is formatters, scale and norm functions, axes locators, image
+//! filters, colorbar label functions, legend handlers and projections. It is
+//! `Send`, which keeps handles out of it.
+//!
+//! ## Contexts return the result of the closure
+//!
+//! A helper that runs a closure with temporary settings returns the result
+//! of the closure ([`rc::context`]). If the helper can fail before it runs
+//! the closure ([`style::context`], [`pyplot::rc_context`],
+//! [`pyplot::xkcd`]), the closure returns `Result<T, E>`. The helper
+//! converts its own error into `E`, so the call ends in one `?`.
+//!
+//! ## Indexing works as in `std`
+//!
+//! `axs[(0, 1)]` and `axd["A"]` panic on a missing entry, as a slice or a
+//! map does. `get` returns an `Option`.
+//!
+//! ## Type names are unique
+//!
+//! If matplotlib has two classes with one name, pltrs adds the module name
+//! to one. `units.AxisInfo` is [`UnitAxisInfo`], beside
+//! [`ticker::AxisInfo`]. `GeoAxes.ThetaFormatter` is [`GeoThetaFormatter`],
+//! beside the polar [`ThetaFormatter`]. `pltrs` re-exports the types of its
+//! lower crates under their original names ([`RotationMode`] in
+//! `pltrs::text`).
+//!
+//! ## The rcParams of pltrs start with `pltrs.`
+//!
+//! The name continues with the matplotlib rc group, module or class in
+//! lower case. It ends with the keyword whose value matplotlib fixes in
+//! code: `pltrs.widgets.button.color` for `Button(color=...)`, or
+//! `pltrs.table.facecolor` for the `facecolor` of a table cell. A behavior
+//! that only pltrs has uses lower-case words and underscores
+//! (`pltrs.image.hide_grid`). A setting for a whole group is at the level
+//! of the group: `pltrs.widgets.frame`, or `pltrs.ink` for each mark that
+//! matplotlib draws black.
+//!
+//! ## Handles, not objects
+//!
+//! `Figure`, `Axes`, `Line2D` and all other artist types are cheap handles.
+//! A clone refers to the same artist. Each handle knows its
+//! [`figure`](crate::artist::ArtistHandle::figure) and its
+//! [`axes`](crate::artist::ArtistHandle::axes), and
+//! [`findobj`](crate::artist::ArtistHandle::findobj) searches what it owns.
+//!
+//! Widgets are values. A widget owns its event connections, and they end
+//! when you drop it. Thus a widget is not `Clone`. To share one between
+//! callbacks, use an `Rc`. Legends take handles owned or borrowed
+//! ([`LegendHandle`]), and handles of several types one at a time
+//! ([`LegendOptions::handle`]).
+//!
+//! ## The per-axis API takes an axis argument
+//!
+//! `get_xmargin` and `get_ymargin` become `margin(AxisName::X)`. The common
+//! pairs keep their x and y names (`set_xlim`, `set_xlabel`, `set_xscale`,
+//! `twinx`, ...).
+//!
+//! ## 3-D axes are 2-D axes with a z
+//!
+//! A method of [`Axes3D`] or [`Axis3D`] has the name of the matching method
+//! of [`Axes`] or [`Axis`]. It takes the same kinds of values, with an
+//! [`Axis3`] in place of an [`AxisName`]. Examples are
+//! [`Axis3D::set_ticks`] and [`Axes3D::autoscale_on`]. Grids of surfaces and
+//! contours are numbers on both kinds of axes.
 //! # Equivalences
 //!
 //! | matplotlib                              | pltrs                                            |
@@ -188,13 +210,13 @@
 //! | `ax.errorbar(..., fmt="o")`             | `fmt: "o".parse()?` ([`ErrorbarFormat`])         |
 //! | `linestyle="--"`                        | [`LineStyle::Dashed`], or `"--".parse::<LineStyle>()?` |
 //! | `marker="o"`                            | [`MarkerSymbol::Circle`], or `"o".parse::<Marker>()?` |
-//! | `arrowprops=dict(arrowstyle="->")`      | `Some("->".parse()?)` ([`ArrowProps`]; [`FancyArrowProps`] for its settings) |
+//! | `arrowprops=dict(arrowstyle="->")`      | `Some("->".parse()?)` ([`ArrowProps`], with [`FancyArrowProps`] for its settings) |
 //! | `axd = fig.subplot_mosaic("AB;CC")`, `axd["A"]` | [`Figure::subplot_mosaic`]`("AB;CC", ..)?`, `axd["A"]` |
 //! | `ax.set_xlim(date1, date2)`             | [`Axes::set_xlim`]`(date1, date2)?` (any [`AxisValue`]) |
 //! | `ax.plot(np.arange(10), counts)`        | `ax.plot(0..10, &counts)?` (integers and iterators) |
-//! | `color="tab:red"`                       | `"tab:red"` (any `Into<`[`Color`]`>`); [`Color::parse`] validates now |
+//! | `color="tab:red"`                       | `"tab:red"` (any `Into<`[`Color`]`>`), or [`Color::parse`] to check it at once |
 //! | `loc="upper left"`                      | `AnchorLoc::UpperLeft`, or `"upper left".parse::<`[`LegendLoc`]`>()?` |
-//! | `ax.set_xscale("log")`, `ax.get_xscale()` | [`Axes::set_xscale`]`(ScaleName::Log)` or `("log")`; [`Axes::xscale`] is a [`ScaleName`] |
+//! | `ax.set_xscale("log")`, `ax.get_xscale()` | [`Axes::set_xscale`]`(ScaleName::Log)` or `("log")`, and [`Axes::xscale`] returns a [`ScaleName`] |
 //! | `ValueError` from a plotting call       | `Err(`[`PlotError`]`::...)`                      |
 //! | `ax.get_xmargin()`, `ax.set_ymargin(m)` | [`Axes::margin`], [`Axes::set_margin`]           |
 //! | `ax.get_xbound()`, `ax.set_ybound(lo, hi)` | [`Axes::bound`], [`Axes::set_bound`]          |
@@ -243,10 +265,8 @@
 //!
 //! # Keyword arguments
 //!
-//! A property set is built with chained methods named after matplotlib's
-//! keywords (without the abbreviations). Plain option structs are filled
-//! with struct update syntax; their fields carry matplotlib's keyword
-//! names too. Either way the options are moved into the call.
+//! Property sets use builder methods. Other option structs use struct
+//! update syntax.
 //!
 //! ```python
 //! ax.plot(x, y, "o--", color="tab:red", linewidth=2, markersize=4, label="data")
@@ -282,9 +302,8 @@
 //!
 //! # Strings, enums and parsing
 //!
-//! Enums name every value matplotlib accepts. When the value comes from a
-//! string (a config file, a user), parse it: the error says what was
-//! wrong instead of failing later.
+//! If a value comes from a string, for example from a configuration file,
+//! parse it. The parse error says what is wrong.
 //!
 //! ```python
 //! line.set_linestyle("--")
@@ -316,9 +335,8 @@
 //!
 //! # Errors
 //!
-//! matplotlib raises an exception, pltrs returns an error value. Errors
-//! are enums with one variant per problem, so you can match on them; their
-//! `Display` reads like matplotlib's message.
+//! Errors have one variant for each problem, so you can match on them.
+//! Their `Display` text reads like the matplotlib message.
 //!
 //! ```python
 //! ax.plot([1, 2, 3], [1, 2])
@@ -356,24 +374,20 @@
 //!
 //! # Handles
 //!
-//! Every artist lives in its figure; what you hold is a handle to it.
-//! Handles are cheap to clone, compare equal when they refer to the same
-//! artist, and see each other's changes. A figure and its handles stay on
-//! the thread that made them, like pyplot's state. A handle knows the
-//! axes and the figure it belongs to.
+//! Two handles are equal if they refer to the same artist. A figure and its
+//! handles stay on the thread that made them, like the pyplot state.
 //!
-//! [`ArtistHandle::remove`] takes the artist, with everything it owns, out
-//! of the figure, as in matplotlib: the figure no longer draws it, lays it
-//! out, autoscales over it or finds it, and its `axes()` are `None`. The
-//! handle stays usable. Properties read and change as before, and
-//! [`Axes::attach`] or [`Figure::attach`] put the artist back, as
-//! matplotlib's `add_artist` does. Removing twice does nothing.
+//! [`ArtistHandle::remove`] takes the artist and all that it owns out of the
+//! figure, as in matplotlib. The figure then does not draw it, lay it out,
+//! autoscale over it or find it, and its `axes()` are `None`. The handle
+//! stays usable. [`Axes::attach`] or
+//! [`Figure::attach`] puts the artist back, as `add_artist` does. A second
+//! remove does nothing.
 //!
-//! Python frees a removed artist once nothing refers to it. A figure
-//! cannot tell when the last handle goes, so it keeps its removed artists
-//! until it is dropped itself. A program that removes artists by the
-//! thousand, an animation clearing its axes every frame for instance,
-//! keeps them all; update the artists in place or make a fresh figure.
+//! A figure keeps its removed artists until you drop it, because it cannot
+//! know when the last handle goes. Thus an animation that clears its axes
+//! in each frame keeps all the old artists. Update the artists in place,
+//! or make a new figure.
 //!
 //! ```python
 //! line, = ax.plot([0, 1], [0, 1])
@@ -413,10 +427,9 @@
 //!
 //! # The per-axis API
 //!
-//! Methods that exist once per axis in matplotlib take an [`AxisName`]
-//! (or an [`Axis3`] on 3-D axes). The [`Axis`] handle returned by
-//! [`Axes::xaxis`] and [`Axes::yaxis`] carries what matplotlib keeps on
-//! `ax.xaxis`: ticks, locators, formatters, the label, inversion.
+//! The [`Axis`] handle of [`Axes::xaxis`] and [`Axes::yaxis`] holds what
+//! matplotlib keeps on `ax.xaxis`: ticks, locators, formatters, the label
+//! and the inversion. On 3-D axes, an [`Axis3`] replaces the [`AxisName`].
 //!
 //! ```python
 //! ax.set_xmargin(0.2)
@@ -443,22 +456,21 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! # What was left out, and why
+//! # What pltrs leaves out
 //!
-//! * **Aliases.** `lw`, `ls`, `c`, `ec`, `fc`, `mec`, `mfc`, `ms`, `aa`,
-//!   and the 3-D aliases `plot3D`, `scatter3D`, `text3D` and `contour3D`
-//!   are gone. Each property has one name, the long one. Only the string
-//!   keys of [`pyplot::rc`] still accept matplotlib's short forms, since
-//!   they are rc-file text.
-//! * **Introspection.** `setp`, `getp` and `get_plot_commands` exist
-//!   because Python objects are dynamic. Typed getters and setters take
-//!   their place, and `Artist.set(**kwargs)` becomes `update_props`.
-//! * **Change tracking.** `pchanged`, `add_callback`,
-//!   `Transform.invalidate` and frozen transforms have no counterpart.
-//!   pltrs resolves transforms and recomputes the layout each time a
-//!   figure is drawn, so nothing is invalidated by hand. Handles share
-//!   state, so there is nothing for `update_from` to copy.
-//! * **Back-pointers of tickers.** Tickers do not point to their axis; a
+//! * Aliases. pltrs has no `lw`, `ls`, `c`, `ec`, `fc`, `mec`, `mfc`, `ms`
+//!   and `aa`, and no 3-D aliases `plot3D`, `scatter3D`, `text3D` and
+//!   `contour3D`. Each property has one name, the long one. Only the string
+//!   keys of [`pyplot::rc`] accept the matplotlib short forms, because they
+//!   are rc-file text.
+//! * Introspection. `setp`, `getp` and `get_plot_commands` exist because
+//!   Python objects are dynamic. Typed getters and setters replace them.
+//!   `Artist.set(**kwargs)` becomes `update_props`.
+//! * Change tracking. `pchanged`, `add_callback`, `Transform.invalidate` and
+//!   frozen transforms have no equivalent. pltrs resolves transforms and
+//!   computes the layout again at each draw, so you never invalidate
+//!   anything. Handles share state, so `update_from` has nothing to copy.
+//! * Back-pointers of tickers. Tickers do not point to their axis. A
 //!   [`TickContext`] gives them what they need when they run.
 //!
 //! [`LineProps`]: crate::lines::LineProps
@@ -569,10 +581,7 @@
 //! [`Axis3D`]: crate::mplot3d::Axis3D
 //! [`Axes`]: crate::axes::Axes
 //! [`Axis3D::set_ticks`]: crate::mplot3d::Axis3D::set_ticks
-//! [`Axis::set_ticks`]: crate::axes::Axis::set_ticks
 //! [`Axes3D::autoscale_on`]: crate::mplot3d::Axes3D::autoscale_on
-//! [`Axes3D::set_margins`]: crate::mplot3d::Axes3D::set_margins
-//! [`Axes::set_margins`]: crate::axes::Axes::set_margins
 //! [`Aspect`]: crate::axes::Aspect
 //! [`Axes::set_aspect`]: crate::axes::Axes::set_aspect
 //! [`Axes::set_xticks`]: crate::axes::Axes::set_xticks

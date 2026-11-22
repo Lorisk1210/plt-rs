@@ -1,34 +1,33 @@
 //! Interaction: events, widgets, navigation, toolbar tools, animation
 //! and blitting.
 //!
-//! **Events.** Callbacks connect to the figure itself, not to a canvas:
-//! [`Figure::connect`] takes an [`EventKind`] (matplotlib's event name)
-//! and a closure receiving an [`Event`], whose variants carry the
-//! matplotlib event objects ([`MouseEvent`], [`KeyEvent`],
-//! [`PickEvent`]). Windows ([`crate::gui`]) and the browser backend
-//! ([`crate::web`]) feed real input; an [`EventSource`] feeds synthetic
-//! input the same way, which makes interactive code testable without a
-//! display. Timers are [`Figure::add_timer`]; the closure returns whether
-//! the timer keeps running.
+//! Callbacks connect to the figure, not to a canvas. [`Figure::connect`]
+//! takes an [`EventKind`] (the matplotlib event name) and a closure. The
+//! closure receives an [`Event`]. Its variants hold the matplotlib event
+//! objects ([`MouseEvent`], [`KeyEvent`], [`PickEvent`]).
 //!
-//! **Widgets.** Each widget takes an axes and an options struct, and
-//! registers callbacks with `on_*` methods. A widget stays connected as
-//! long as its value lives, so keep it while the figure is shown.
+//! Windows ([`crate::gui`]) and the browser backend ([`crate::web`]) send
+//! real input. An [`EventSource`] sends synthetic input in the same way, so
+//! you can test interactive code without a display. [`Figure::add_timer`]
+//! makes a timer. Its closure returns whether the timer continues.
 //!
-//! **Navigation.** The toolbar's pan, zoom and view history live in a
-//! [`Navigation`] value that works on any figure, shown or not. Toolbar
-//! tools of your own are [`Figure::add_tool`] (matplotlib's tool
-//! manager).
+//! Each widget takes an axes and an options struct. Its `on_*` methods add
+//! callbacks. A widget stays connected while its value lives, so keep it
+//! while the figure shows.
 //!
-//! **Animation.** [`FuncAnimation`] covers both of matplotlib's
-//! animation classes: [`FuncAnimation::new`] calls a closure per frame,
-//! [`FuncAnimation::from_artists`] is `ArtistAnimation`. Saving does not
-//! need writers: animated PNG, GIF and WebP and the HTML player are
-//! encoded by pltrs; videos go through an installed ffmpeg.
+//! A [`Navigation`] value holds the pan, zoom and view history of the
+//! toolbar. It works on any figure, shown or not. [`Figure::add_tool`] adds
+//! your own toolbar tools, as the matplotlib tool manager does.
 //!
-//! **Blitting.** The [`FigureCanvas`] from [`Figure::canvas`] keeps the
-//! last rendering, with matplotlib's `copy_from_bbox`, `restore_region`
-//! and `blit`, and [`Axes::draw_artist`] draws one artist onto it.
+//! [`FuncAnimation`] covers both matplotlib animation classes.
+//! [`FuncAnimation::new`] calls a closure for each frame.
+//! [`FuncAnimation::from_artists`] is `ArtistAnimation`. You do not need
+//! writers to save. pltrs encodes animated PNG, GIF and WebP, and the HTML
+//! player. Videos need an installed ffmpeg.
+//!
+//! [`Figure::canvas`] returns a [`FigureCanvas`] that keeps the last
+//! rendering. It has the matplotlib `copy_from_bbox`, `restore_region` and
+//! `blit`. [`Axes::draw_artist`] draws one artist on it.
 //!
 //! # Equivalences
 //!
@@ -54,7 +53,7 @@
 //! | `plt.ginput(n)`, `plt.waitforbuttonpress()`     | [`crate::pyplot::ginput`], [`crate::pyplot::waitforbuttonpress`] |
 //! | `Slider(ax, label, valmin, valmax, valinit=)`   | [`Slider::new`] with [`SliderOptions`]         |
 //! | `slider.on_changed(f)`, `slider.set_val(v)`     | [`Slider::on_changed`], [`Slider::set_val`]    |
-//! | `cid = button.on_clicked(f)`, `button.disconnect(cid)` | [`Button::on_clicked`] returns a [`CallbackId`] for [`Button::disconnect`]; every widget has both |
+//! | `cid = button.on_clicked(f)`, `button.disconnect(cid)` | [`Button::on_clicked`] returns a [`CallbackId`] for [`Button::disconnect`]. Each widget has both |
 //! | `RangeSlider`, `Button`, `CheckButtons`, `RadioButtons`, `TextBox` | [`RangeSlider`], [`Button`], [`CheckButtons`], [`RadioButtons`], [`TextBox`] |
 //! | `Cursor(ax, useblit=True)`, `MultiCursor(axes)` | [`Cursor`], [`MultiCursor`] with [`CursorOptions::useblit`] |
 //! | `SpanSelector`, `RectangleSelector`, `EllipseSelector` | [`SpanSelector`], [`RectangleSelector`], [`EllipseSelector`] |
@@ -68,7 +67,7 @@
 //! | `ax.set_navigate(False)`                        | [`Axes::set_navigate`]                         |
 //! | `toolmanager.add_tool(name, ToolBase)`          | [`Figure::add_tool`] with a [`ToolSpec`]       |
 //! | `toolmanager.trigger_tool(name)`                | [`Figure::trigger_tool`]                       |
-//! | `ToolToggleBase.radio_group`, `cursor`, `default_toggled` | [`ToolSpec::radio_group`], [`ToolSpec::cursor`], [`ToolSpec::default_toggled`]; pan and zoom are in [`NAVIGATION_GROUP`] |
+//! | `ToolToggleBase.radio_group`, `cursor`, `default_toggled` | [`ToolSpec::radio_group`], [`ToolSpec::cursor`], [`ToolSpec::default_toggled`]. Pan and zoom are in [`NAVIGATION_GROUP`] |
 //! | `toolmanager.remove_tool(name)`, `get_tool(name)`, `tools` | [`Figure::remove_tool`], [`Figure::tool`], [`Figure::tools`] |
 //! | `toolmanager.get_tool_keymap(name)`, `update_keymap(name, keys)` | [`Figure::tool`]`(name)`'s [`ToolSpec::keys`], [`Figure::set_tool_keys`] |
 //! | `toolmanager.active_toggle[group]`              | [`Figure::active_toggle`]`(group)`             |
@@ -121,7 +120,7 @@
 //!     }
 //! });
 //!
-//! // A click at data (5, 5): where a window would report it, in pixels.
+//! // A click at data (5, 5), in the pixels that a window reports.
 //! let at = ax.data_to_display((5.0, 5.0))?;
 //! let mut input = EventSource::new();
 //! input.button_press(&fig, at.x, at.y, PointerButton::Left, false);
@@ -267,9 +266,9 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! A figure is its own tool manager. matplotlib's tool manager events
+//! A figure is its own tool manager. The matplotlib tool manager events
 //! (`tool_added_event`, `tool_trigger_<name>`, `tool_message_event`, ...)
-//! reach one callback as a [`ToolChange`]:
+//! go to one callback as a [`ToolChange`]:
 //!
 //! ```python
 //! tm = fig.canvas.manager.toolmanager
@@ -338,8 +337,8 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Without an animation object, a [`MovieWriter`] records the frames the
-//! program draws itself, in any format [`FuncAnimation::save`] writes:
+//! Without an animation object, a [`MovieWriter`] records the frames that
+//! the program draws. It writes all formats of [`FuncAnimation::save`]:
 //!
 //! ```python
 //! writer = PillowWriter(fps=10)

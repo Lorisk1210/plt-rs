@@ -1,6 +1,6 @@
 [package]
 name = "pltrs-core"
-description = "Geometry, paths, affine transforms, colours and numpy's float semantics shared by every pltrs crate"
+description = "Geometry, paths, affine transforms, colors and numpy float semantics for the pltrs crates"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

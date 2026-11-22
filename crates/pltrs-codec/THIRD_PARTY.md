@@ -2,16 +2,17 @@
 
 <!-- Written by python/tools/crate_notices.py from the repository's THIRD_PARTY.md: edit that file, then run the tool. -->
 
-pltrs-codec is part of pltrs, licensed under the MIT licence or the
-Apache License 2.0, at your option (`LICENSE-MIT`, `LICENSE-APACHE`).
-The parts of it listed below come from other projects and keep their own
-licences, whose texts are in `LICENSES/` (or beside the files they
-cover). These are the rows of pltrs' `THIRD_PARTY.md` that concern this
-crate; paths are those of pltrs' repository.
+pltrs-codec is part of pltrs. pltrs has two licenses, and you can use it
+under either one: the MIT license (`LICENSE-MIT`) or the Apache License
+2.0 (`LICENSE-APACHE`). The parts in the tables come from other projects
+and keep their licenses. The license texts are in `LICENSES/`, or next
+to the files that they apply to. The tables are the rows of
+`THIRD_PARTY.md` in the pltrs repository that apply to this crate. The
+paths are paths in the pltrs repository.
 
 ## Ported code
 
-| Project | Licence (text) | Ported into |
+| Project | License (text) | Ported into |
 |---|---|---|
 | zlib-ng 2.3 | zlib licence (`zlib-ng.txt`) | DEFLATE compression, step for step, so that pltrs writes zlib-ng's bytes: its parsers (`deflate_quick`, `deflate_fast`, `deflate_medium`, `deflate_slow`, `deflate_stored`, `deflate_huff`, `deflate_rle`), `fill_window` and the hash chains, `longest_match` and its slow variant, and zlib's `trees.c` (`crates/pltrs-codec/src/deflate/encode`); the reference program its tests are checked with (`crates/pltrs-codec/tools/zlib_ng`) |
 | Pillow 12 | MIT-CMU (`pillow.txt`) | image file reading and writing (`pltrs-codec`, `crates/pltrs/src/image`) |

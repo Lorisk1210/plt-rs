@@ -1,6 +1,6 @@
 [package]
 name = "pltrs-text"
-description = "Text layout, mathtext typesetting and usetex (DVI, virtual fonts, TFM, font maps) as matplotlib does them"
+description = "Text layout, mathtext and usetex (DVI, virtual fonts, TFM, font maps) with the results of matplotlib"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -1,20 +1,17 @@
 //! Chapter 7: text and annotation.
 //!
-//! Titles, axis labels, legend texts and the texts you place yourself
-//! are [`Text`] artists. The methods that add text return its handle,
-//! and the handle styles it: font size, colour, weight, alignment,
-//! rotation, a box behind it. A text between two `$` signs is typeset as
-//! a mathematical formula, without needing a TeX installation; with one,
-//! LaTeX can typeset text too.
+//! All texts are [`Text`] artists. The methods that add text return its
+//! handle, which sets the font, color, alignment, rotation and a box behind
+//! the text. pltrs typesets text between `$` signs as a formula. If TeX is
+//! installed, LaTeX can also typeset text.
 //!
 //! # Titles and labels
 //!
-//! [`Axes::set_title`] puts the title where the `axes.titlelocation`
-//! setting says; [`Axes::set_title_at`] chooses the place (left, centre
-//! or right), and an axes can have a title at each of the three. The
-//! label setters chain, and
-//! [`Axis::set_label_color`](crate::axes::Axis::set_label_color) and its
-//! siblings style an axis label afterwards.
+//! [`Axes::set_title`] puts the title at the place that
+//! `axes.titlelocation` gives. [`Axes::set_title_at`] selects the place
+//! (left, center or right), and an axes can have a title at each place.
+//! [`Axis::set_label_color`](crate::axes::Axis::set_label_color) and
+//! similar methods style an axis label.
 //!
 //! ```
 //! use pltrs::axes::TitleLocation;
@@ -34,12 +31,10 @@
 //!
 //! # Text anywhere
 //!
-//! [`Axes::text`] places a text at a point in data coordinates, so it
-//! moves with the data when the limits change. To pin a text to a place
-//! in the axes instead, give it the axes' own coordinate system,
-//! [`Axes::trans_axes`]: there `(0, 0)` is the lower left corner of the
-//! axes and `(1, 1)` the upper right, whatever the data. The alignment
-//! says which point of the text sits at the position.
+//! [`Axes::text`] places a text at a point in data coordinates. To fix a
+//! text in the axes, give it the transform [`Axes::trans_axes`], where
+//! `(0, 0)` is the lower left corner and `(1, 1)` the upper right corner.
+//! The alignment selects the point of the text that is at the position.
 //!
 //! ```
 //! use pltrs::patches::{BoxStyle, PatchProps};
@@ -49,7 +44,7 @@
 //! let ax = Figure::new().subplot();
 //! ax.plot([0.0, 1.0, 2.0, 3.0], [0.0, 2.0, 1.0, 3.0])?;
 //!
-//! // At the data point (1, 2), centred above it.
+//! // At the data point (1, 2), centered above it.
 //! let peak = ax.text(1.0, 2.0, "local maximum");
 //! peak.set_halign(HAlign::Center).set_valign(VAlign::Bottom);
 //!
@@ -68,25 +63,23 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`Figure::text`] places a text in fractions of the whole figure.
+//! [`Figure::text`] places a text in fractions of the figure.
 //! [`porting::text`](crate::porting::text) lists the text properties.
 //!
 //! # Annotations
 //!
 //! An annotation is a text that points at something. [`Axes::annotate`]
-//! takes the text and the point `xy` it refers to; the
-//! [`AnnotateOptions`](crate::text::AnnotateOptions) say where the text
-//! goes (`xytext`) and how the arrow from the text to the point looks.
-//! An arrow parses from matplotlib's names of arrow styles: `"->"` is a
-//! line with an open head, `"-|>"` a filled head, `"<->"` heads at both
-//! ends; [`FancyArrowProps`](crate::text::FancyArrowProps) holds the rest
-//! of its settings.
+//! takes the text and the point `xy`. The
+//! [`AnnotateOptions`](crate::text::AnnotateOptions) give the text
+//! position (`xytext`) and the arrow. Arrow styles parse from the
+//! matplotlib names: `"->"` (open head), `"-|>"` (filled head), `"<->"`
+//! (two heads). [`FancyArrowProps`](crate::text::FancyArrowProps) holds
+//! the other arrow settings.
 //!
-//! Positions can be in other coordinate systems than the data's, chosen
-//! by a [`Coords`](crate::coords::Coords) value that parses matplotlib's
-//! names. A common pair is a point in data coordinates with the text
-//! offset from it by a distance in points (`"offset points"`), so the text
-//! keeps its distance whatever the limits.
+//! A [`Coords`](crate::coords::Coords) value, parsed from the matplotlib
+//! names, selects the coordinate system of a position. Often the point is
+//! in data coordinates and the text is at an offset in points
+//! (`"offset points"`).
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -108,24 +101,19 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Gallery: `annotations` in `text.rs`; `arrow_styles`,
-//! `connection_styles` and `box_styles` in `annotations.rs` show every
-//! style.
+//! Gallery: `annotations` in `text.rs`, and `arrow_styles`,
+//! `connection_styles` and `box_styles` in `annotations.rs`.
 //!
 //! # Mathematical text
 //!
-//! Text between `$` signs is *mathtext*: a subset of TeX's math notation
-//! typeset by pltrs itself. Greek letters (`\alpha`), sub- and
-//! superscripts (`x_i^2`), fractions (`\frac{a}{b}`), roots (`\sqrt{x}`),
-//! operators (`\sum`, `\int`) and accents all work, in titles, labels,
-//! tick labels, legends and annotations alike. Write it in raw strings
-//! (`r"..."`) so backslashes stay as they are.
+//! Text between `$` signs is *mathtext*, a subset of the TeX math notation.
+//! Greek letters (`\alpha`), subscripts and superscripts (`x_i^2`),
+//! fractions (`\frac{a}{b}`), roots (`\sqrt{x}`), operators (`\sum`,
+//! `\int`) and accents work in all texts. Use raw strings (`r"..."`).
 //!
-//! A string with an even number of unescaped `$` signs is typeset this
-//! way; escape a literal dollar as `\$`, or turn math off for one text
-//! with [`Text::set_parse_math`]. A malformed formula is reported when
-//! the figure is drawn, as a drawing error; [`Text::layout`] checks a text
-//! on its own.
+//! Math needs an even number of unescaped `$` signs. Write a literal dollar
+//! as `\$`, or turn math off with [`Text::set_parse_math`]. A bad formula
+//! makes the drawing fail. [`Text::layout`] checks one text.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -143,29 +131,26 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! The math takes its fonts from the `mathtext.*` settings, which each
-//! look sets to match its text; `mathtext.fontset` selects Computer
-//! Modern (`"cm"`), STIX and others. Gallery: `mathtext` in `text.rs`.
+//! Each look sets the `mathtext.*` fonts to match its text.
+//! `mathtext.fontset` selects Computer Modern (`"cm"`), STIX and others. Gallery: `mathtext` in `text.rs`.
 //!
 //! # Text typeset by LaTeX
 //!
-//! With a TeX installation (`latex`, plus `dvipng` and `kpsewhich`, as
-//! matplotlib needs them), LaTeX itself can typeset the text: every text
-//! made while the `text.usetex` setting is on, or one text with
-//! [`Text::set_usetex`]. The whole string goes to LaTeX, so it may use any
-//! LaTeX the preamble (`text.latex.preamble`) provides, and math is
-//! written between `$` as in a LaTeX document. The font comes from
-//! `font.family`: `"serif"` (Computer Modern), `"sans-serif"`,
-//! `"monospace"`, or one of the PostScript fonts LaTeX knows
-//! (`"helvetica"`, `"times"`, `"palatino"`, ...). Tick labels follow the
-//! setting too.
+//! If TeX is installed (`latex`, `dvipng` and `kpsewhich`), LaTeX can
+//! typeset text. pltrs uses LaTeX for all texts made while `text.usetex`
+//! is on, tick labels included, or for one text with
+//! [`Text::set_usetex`]. LaTeX gets the whole string, so it can use the
+//! preamble (`text.latex.preamble`), and math goes between `$` signs.
+//! `font.family` selects the font: `"serif"` (Computer Modern),
+//! `"sans-serif"`, `"monospace"`, or a PostScript font such as
+//! `"helvetica"`, `"times"` or `"palatino"`.
 //!
-//! The typeset strings are cached in the cache directory
-//! ([`config::cache_dir`](crate::config::cache_dir)), so a figure is
-//! typeset once. Without TeX, drawing such a figure fails with an error
-//! saying which program is missing; [`check_usetex`] tells beforehand.
-//! Every format takes TeX text; PostScript output runs LaTeX's `psfrag`,
-//! `dvips` and Ghostscript on the whole figure, as matplotlib does.
+//! pltrs caches the typeset strings in
+//! [`config::cache_dir`](crate::config::cache_dir). Without TeX, drawing
+//! fails with an error that names the missing program. [`check_usetex`]
+//! checks before. All formats accept LaTeX text. For PostScript, pltrs runs
+//! `psfrag`, `dvips` and Ghostscript on the whole figure, as matplotlib
+//! does.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -188,12 +173,12 @@
 //!
 //! # Fonts
 //!
-//! The `font.family` and `font.size` settings choose the default font
-//! (chapter [`styling`](super::styling)); a text's own family, size,
-//! weight and style override them ([`Text::set_family`],
-//! [`Text::set_fontsize`], [`Text::set_weight`], [`Text::set_style`]).
-//! pltrs bundles `DejaVu Sans`, `DejaVu Serif`, Inter and the mathtext
-//! fonts, and finds fonts installed on the system by family name.
+//! The settings `font.family` and `font.size` give the default font
+//! (chapter [`styling`](super::styling)). [`Text::set_family`],
+//! [`Text::set_fontsize`], [`Text::set_weight`] and [`Text::set_style`]
+//! override them for one text. pltrs includes `DejaVu Sans`,
+//! `DejaVu Serif`, Inter and the mathtext fonts. It finds system fonts by
+//! family name.
 //!
 //! Next: [scales, ticks and dates](super::scales).
 //!

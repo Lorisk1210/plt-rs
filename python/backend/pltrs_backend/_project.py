@@ -13,7 +13,7 @@ The two distributions the backend builds, as ``pyproject.toml``'s
   matplotlib, or a real matplotlib it, openly, rather than both writing
   ``matplotlib/`` into the same ``site-packages``. Its version is the
   matplotlib version pltrs implements with pltrs' as a local label
-  (``3.11.2+pltrs.0.1.0``), and it requires that pltrs.
+  (``3.11.2+pltrs.0.1.1``), and it requires that pltrs.
 
 ``[tool.pltrs-backend]`` holds what both share (``urls``, and
 ``license-files``, the patterns of the licence files every distribution

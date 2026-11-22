@@ -1,51 +1,54 @@
-//! How figures, and the windows that show them, look unless told
-//! otherwise.
+//! The look of figures and of the windows that show them.
 //!
-//! Figures take pltrs' modern look by default: the `pltrs-modern` style
-//! sheet, with Inter type, hairline grids behind the data, no top or
-//! right spines, left-aligned titles, constrained layout and a palette
-//! checked for colour-vision deficiencies, with math in Inter too and 3-D
-//! panes in the greys of the chrome. Windows take pltrs' modern chrome.
-//! matplotlib's look of either is one choice away, and the two are
-//! independent: matplotlib's figures in modern windows, say.
+//! Figures use the modern look by default. The modern look is the style
+//! sheet `pltrs-modern`. It uses the Inter font, a thin grid behind the
+//! data, no top or right spine, left-aligned titles and constrained
+//! layout. Its color palette is safe for readers with a color-vision
+//! deficiency. Math also uses Inter, and 3-D panes use the grays of the
+//! window chrome. Windows use the modern chrome. You can select the
+//! matplotlib look for figures, for windows or for both.
 //!
-//! What matplotlib fixes in code rather than in rcParams, the looks set
-//! through pltrs' own `pltrs.*` parameters, whose defaults are matplotlib's:
-//! the ink of marks matplotlib draws black (`pltrs.ink`: quiver arrows,
-//! barbs, error bars of bar charts, size bars), the faces and edges of
-//! table cells and annotation boxes (`pltrs.table.*`, `pltrs.offsetbox.*`),
-//! the colours and frames of widgets (`pltrs.widgets.*`), whether
-//! `tight_layout` leaves constrained layout in place
-//! (`pltrs.tight_layout.keep_constrained`), the symbols of math in Inter
-//! (`pltrs.mathtext.dejavu_symbols`: display-size sums and integrals, and
-//! sans-serif symbols where Inter has none), framed insets
-//! (`pltrs.inset.frame`) and twin axes without a grid of their own
-//! (`pltrs.axes.twin_grid`).
+//! The looks set some values that matplotlib fixes in code through `pltrs.*`
+//! parameters. Their defaults give the matplotlib behavior:
 //!
-//! The choice comes from code ([`set_appearance`], [`set_figure_look`],
-//! [`set_chrome_look`]) or, until code makes one, from the environment:
+//! * `pltrs.ink`: the color of marks that matplotlib draws black (quiver
+//!   arrows, barbs, error bars of bar charts, size bars)
+//! * `pltrs.table.*` and `pltrs.offsetbox.*`: the faces and edges of table
+//!   cells and annotation boxes
+//! * `pltrs.widgets.*`: the colors and frames of widgets
+//! * `pltrs.tight_layout.keep_constrained`: whether `tight_layout` keeps
+//!   constrained layout
+//! * `pltrs.mathtext.dejavu_symbols`: the math symbols with Inter
+//!   (display-size sums and integrals, and sans-serif symbols that Inter
+//!   does not have)
+//! * `pltrs.inset.frame`: framed insets
+//! * `pltrs.axes.twin_grid`: whether twin axes have their own grid
 //!
-//! | variable            | values                                | chooses          |
+//! Code selects the look with [`set_appearance`], [`set_figure_look`] or
+//! [`set_chrome_look`]. Until code selects a look, these environment
+//! variables select it:
+//!
+//! | variable            | values                                | selects          |
 //! |---------------------|---------------------------------------|------------------|
 //! | `PLTRS_LOOK`        | `modern`, `matplotlib`                | figures, windows |
 //! | `PLTRS_FIGURE_LOOK` | `modern`, `modern-dark`, `matplotlib` | figures          |
 //! | `PLTRS_CHROME_LOOK` | `modern`, `matplotlib`                | windows          |
 //!
-//! The specific variables win over `PLTRS_LOOK`: `PLTRS_LOOK=matplotlib
-//! PLTRS_CHROME_LOOK=modern` gives matplotlib's figures in modern windows.
-//! Unknown values are ignored when pltrs starts; [`Appearance::from_env`]
-//! reports them. A program serving another library's name may put another
-//! appearance under the variables in place of the modern one
-//! ([`set_default`]): pltrs (Python) imported as `matplotlib` takes
-//! matplotlib's.
+//! The two specific variables override `PLTRS_LOOK`. For example,
+//! `PLTRS_LOOK=matplotlib PLTRS_CHROME_LOOK=modern` gives matplotlib
+//! figures in modern windows. pltrs ignores unknown values, and
+//! [`Appearance::from_env`] reports them. [`set_default`] replaces the
+//! modern look as the default for a program that serves under the name of
+//! another library. For example, pltrs (Python) imported as `matplotlib`
+//! uses the matplotlib look.
 //!
-//! The figure look decides the parameters threads start from
-//! ([`RcParams::startup`]), and the user's rc file (`pltrsrc`, found in the
-//! working directory, through `PLTRSRC` or in the configuration directory
-//! `PLTRSCONFIGDIR` or `~/.config/pltrs`; see [`config`](crate::config))
-//! applies on top of it, as matplotlib's `matplotlibrc` applies over its
-//! defaults. [`rc::reset`](crate::rc::reset) still restores matplotlib's
-//! defaults, and style sheets apply on top of either look:
+//! Threads start from the parameters of the figure look
+//! ([`RcParams::startup`]). The user file `pltrsrc` applies over them, as
+//! `matplotlibrc` applies over the matplotlib defaults. pltrs finds
+//! `pltrsrc` in the working directory, through `PLTRSRC`, or in the
+//! configuration directory (`PLTRSCONFIGDIR` or `~/.config/pltrs`, see
+//! [`config`](crate::config)). [`rc::reset`](crate::rc::reset) restores
+//! the matplotlib defaults. Style sheets apply over either look:
 //!
 //! ```
 //! use pltrs::look::FigureLook;
@@ -55,7 +58,7 @@
 //!
 //! ```
 //! use pltrs::look::{self, Appearance, ChromeLook, FigureLook};
-//! // matplotlib's figures, pltrs' windows.
+//! // The matplotlib look for figures, the modern look for windows.
 //! look::set_appearance(Appearance {
 //!     figures: FigureLook::Matplotlib,
 //!     chrome: ChromeLook::Modern,

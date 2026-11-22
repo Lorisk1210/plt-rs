@@ -1,18 +1,17 @@
-# DEFLATE: zlib-ng's parse (2026-11-07)
+# DEFLATE: the port of zlib-ng
 
-pltrs's DEFLATE encoder (`crates/pltrs-codec/src/deflate/encode`) is a
-port of zlib-ng 2.3's: for the same input, level and strategy it writes
-zlib-ng's bytes, checked against a zlib-ng 2.3.3 build
-(`crates/pltrs-codec/tools/zlib_ng`). PNG images are filtered by
-Pillow's heuristic and compressed as Pillow feeds zlib-ng: a row at a
-time, into 64 KiB buffers, one `IDAT` chunk each. Every PNG, PDF and
-SVG-embedded image changed its compressed bytes once with it; pixels and
-document structure did not. [`README.md`](README.md) predates the change;
-the next `cargo xtask bench --report` includes it.
+This page records the speed of the DEFLATE encoder
+(`crates/pltrs-codec/src/deflate/encode`) before and after its port of
+zlib-ng 2.3. For the same input, level and strategy, the encoder writes
+the bytes of zlib-ng 2.3.3. `crates/pltrs-codec/tools/zlib_ng` checks
+this. pltrs filters PNG rows as Pillow does, and compresses one row at
+a time into 64 KiB buffers, with one `IDAT` chunk per buffer. The port
+changed the compressed bytes of every PNG, PDF and image in an SVG, but
+not pixels or document structure.
 
 ## DEFLATE alone
 
-Level 6, one stream at a time, on one core of MS-02 (AMD Ryzen 9 9955HX),
+Level 6, one stream at a time, one core of MS-02 (AMD Ryzen 9 9955HX),
 median of 31 runs:
 
 | input | before | after | zlib-ng C, SIMD / generic |
@@ -22,15 +21,21 @@ median of 31 runs:
 | 3.4 MB of PNG rows (`gallery_images/plot_streamplot_1`) | 20.7 ms | 15.9 ms | 14.9 / 16.9 ms |
 | 1.2 MB of PDF path text | 35.3 ms | 21.6 ms | |
 
-PNG encoding with filtering, same machine: 54.8 → 25.0 ms on the 4.0 MB
-image, 43.5 → 30.0 ms and 22.9 → 17.5 ms on the others. Level 9 on the
-first image: 770–920 → 113 ms.
+PNG encoding with filtering, on the same machine:
+
+| image | before | after |
+|---|---:|---:|
+| 4.0 MB | 54.8 ms | 25.0 ms |
+| 2.9 MB | 43.5 ms | 30.0 ms |
+| 3.4 MB | 22.9 ms | 17.5 ms |
+| 4.0 MB at level 9 | 770 to 920 ms | 113 ms |
 
 ## The PNG and PDF workloads
 
 `cargo xtask bench meshes/imshow medium/imshow meshes/pcolormesh
 output/lissajous_1e5_pdf lines/plot_1e6_png lines/plot_1e6_pdf small/
---against` the pack of `b414751d`, this build's median over the other's:
+--against` the pack of commit `b414751d` gives these values. Each value
+is the new median over the old median.
 
 | | MS-02 | Framework laptop (Ryzen AI 9 HX 370) |
 |---|---:|---:|
@@ -42,16 +47,16 @@ output/lissajous_1e5_pdf lines/plot_1e6_png lines/plot_1e6_pdf small/
 | `small/*_png`, Rust warm | −15% to −36% | −16% to −35% |
 | `meshes/imshow_60_*`, Rust warm | −11% to −13% | −8% to −12% |
 
-The laptop's column is of the build before PDF streams shared one
-compressor's tables; there `small/line_pdf` was 23% slower in
-pltrs (Rust) (zlib-ng allocates and clears 300 KiB of tables per stream,
-and a small PDF has some thirty streams), now 10.8% faster on MS-02.
+The laptop column comes from an earlier build, in which each PDF stream
+had a separate compressor. zlib-ng allocates and clears 300 KiB of tables per stream,
+and a small PDF has about thirty streams. Thus `small/line_pdf` was 23%
+slower in pltrs (Rust). Now the streams of a PDF share one compressor,
+and `small/line_pdf` is 10.8% faster on MS-02.
 
-Two workloads are slower in pltrs (Rust) and faster in pltrs (Python) on
-both machines: `meshes/imshow_4000_antialiased` (+5.3% / −8.4% on MS-02)
-and `meshes/imshow_2000_bicubic_colorbar` (+9.7% / −10.0%). Their PNG
-encoding is faster in either build (13.3 → 10.8 ms on the image they
-write) and the page faults are as many; stack samples put the difference
-in unchanged code (resampling, normalisation, colormap lookup), most
-likely how that code is inlined and placed in the two benchmark
-binaries rather than compression.
+Two workloads are slower in pltrs (Rust) and faster in pltrs (Python)
+on both machines. On MS-02, `meshes/imshow_4000_antialiased` is +5.3%
+and −8.4%, and `meshes/imshow_2000_bicubic_colorbar` is +9.7% and
+−10.0%. Their PNG encoding is faster (13.3 ms to 10.8 ms), with as many page
+faults. Stack samples put the difference in unchanged
+code (resampling, normalization, colormap lookup). The probable cause is
+how the compiler inlines and places that code.

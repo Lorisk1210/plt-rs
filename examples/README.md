@@ -1,78 +1,79 @@
 # pltrs examples
 
-Twenty graphs of the kinds people plot most, each written twice: in Rust
-with pltrs (Rust), and in Python with pltrs (Python), which keeps
-matplotlib's syntax (`import pltrs.pyplot as plt`). The two versions of
-an example draw the same figure from the same data.
+This directory holds twenty common graphs, each in Rust for pltrs (Rust)
+and in Python for pltrs (Python). Both versions draw the same figure from
+the same data. The Python version uses matplotlib's syntax (`import
+pltrs.pyplot as plt`).
 
 * `rust/` is the `pltrs-examples` crate, with one binary per graph in
-  `src/bin/`, and matplotlib's tutorials as programs in `tutorials/`
-  (see [Tutorials](#tutorials)).
+  `src/bin/` and matplotlib's tutorials in `tutorials/`. See
+  [Tutorials](#tutorials).
 * `python/` has one script per graph, with the same names.
-* `images/` holds what the Rust examples draw. These are the images below.
+* `images/` holds the images of the Rust examples, which the gallery
+  below shows.
 
 ## The look
 
-The images show pltrs' modern look, the look pltrs (Rust) and pltrs
-(Python) draw in by default. The Python scripts are ordinary matplotlib code apart from the
-import, so they also run under matplotlib once the import names
-`matplotlib`, and matplotlib then draws them in its own look.
-`cargo xtask examples` gives matplotlib the modern look's style sheet
-(`crates/pltrs/src/style/sheets/pltrs-modern.mplstyle`) and the Inter font,
-so that it draws them in the modern look too.
+The images show the modern look, the default of pltrs (Rust) and pltrs
+(Python). The Python scripts are matplotlib code except for the import.
+If the import names `matplotlib`, matplotlib runs them in the matplotlib
+look. `cargo xtask examples` gives matplotlib the Inter font and the
+style sheet of the modern look
+(`crates/pltrs/src/style/sheets/pltrs-modern.mplstyle`).
 
-With `PLTRS_LOOK=matplotlib`, both versions draw in matplotlib's look
-instead, and their images are the ones matplotlib draws from the Python
-scripts with its default settings.
+If you set `PLTRS_LOOK=matplotlib`, both versions draw the images that
+matplotlib draws from the Python scripts with its default settings.
 
-## Running one example
+## Run one example
 
 ```sh
 cargo run --release -p pltrs-examples --bin line_plot  # writes line_plot.png here
 python examples/python/line_plot.py                    # the same, with pltrs installed
 ```
 
-Each example saves its figure in the working directory, as `<name>.png`.
+Each example saves its figure as `<name>.png` in the working directory.
 The animation saves `animation.gif`.
 
-The examples that need noisy data draw it from a seeded generator, so
-every run plots the same points. numpy's generators cannot be reproduced
-outside numpy, so both languages use SplitMix64, the generator inside
-pltrs: `pltrs_examples::Samples` in Rust and `python/samples.py` in Python.
+Noisy data comes from a seeded generator, so every run plots the same
+points. Only numpy can reproduce numpy's generators. Thus both languages
+use SplitMix64, the generator of pltrs: `pltrs_examples::Samples` in
+Rust and `python/samples.py` in Python.
 
-## Running them all
+## Run all examples
 
 ```sh
 cargo xtask examples [NAME...]           # render the gallery and compare
 cargo xtask examples --check [NAME...]   # check that the gallery is up to date
 ```
 
-`cargo xtask examples` runs every Rust example and writes its image to
-`images/`. It then runs every Python example under real matplotlib from
-the reference venv (`.venv`), writing to `target/examples/python-mpl/`.
-The runner (`xtask/src/examples/run_matplotlib.py`) answers the scripts'
-`pltrs` imports with matplotlib and applies the modern look, so the
-examples themselves stay untouched. A table then gives, for each
-example, the RMS difference between the Rust image and matplotlib's, on
-the 0 to 255 scale of the spec's pixel comparisons.
+`cargo xtask examples` does these steps:
 
-The same command runs the Python examples under pltrs too, writing to
-`target/examples/python-pltrs/` and adding a column to the table. It
-does so when pltrs can be imported: by the pltrs venv's interpreter
-(`.venv-pltrs/bin/python`, or the one `PLTRS_PYTHON` names), with
-`python/` on `PYTHONPATH`. Otherwise it says why it skipped pltrs.
-Its runs are reported, and fail `--check` only with `--require-pltrs`,
-so that the check needs no pltrs build; every example runs under pltrs.
+1. It runs every Rust example and writes its image to `images/`.
+2. It runs every Python example under matplotlib from `.venv` and
+   writes to `target/examples/python-mpl/`.
+3. If it can import pltrs, it runs every Python example under pltrs and
+   writes to `target/examples/python-pltrs/`. Otherwise it tells you why
+   it skipped pltrs.
+4. It prints the RMS difference between the Rust image and each Python
+   image, on the 0 to 255 scale of the spec's pixel comparisons.
 
-With `--check`, the Rust images go to `target/examples/rust/` instead,
-and the command fails when
+The runner `xtask/src/examples/run_matplotlib.py` gives matplotlib to
+the `pltrs` imports and applies the modern look, so the examples do not
+change. The pltrs runs use `.venv-pltrs/bin/python`, or the interpreter
+that `PLTRS_PYTHON` names, with `python/` on `PYTHONPATH`.
 
-* an example does not run, in Rust, under matplotlib or under pltrs;
-* an image in `images/` is not the one its Rust example draws now;
-* this page does not link an example's image or one of its sources;
-* `images/` holds an image that belongs to no example;
-* the Rust and matplotlib images of an example differ by an RMS above
+With `--check`, the command writes the Rust images to
+`target/examples/rust/` and fails in these cases:
+
+* An example does not run in Rust, under matplotlib or under pltrs.
+* An image in `images/` differs from what its Rust example draws now.
+* This page does not link the image or a source of an example.
+* `images/` holds an image that belongs to no example.
+* The Rust and matplotlib images of an example differ by an RMS above
   1.0, the tolerance of the spec's pixel comparisons.
+
+A failed pltrs run fails `--check` only with `--require-pltrs`, so the
+check needs no build of pltrs (Python).
 
 To add an example, write `rust/src/bin/<name>.rs` and
 `python/<name>.py`, run `cargo xtask examples`, and add the example to
@@ -80,19 +81,19 @@ the gallery below.
 
 ## Tutorials
 
-`rust/tutorials/` shows a matplotlib user how each of matplotlib's
-tutorials maps to pltrs (Rust), one program per tutorial. Each section
-of a program names the matplotlib calls it stands for. They are cargo
+`rust/tutorials/` has one program per matplotlib tutorial. It shows a
+matplotlib user how to do the tutorial in pltrs (Rust). Each section
+names the matplotlib calls that it replaces. The programs are cargo
 examples of the `pltrs-examples` crate:
 
 ```sh
 cargo run -p pltrs-examples --example quick_start   # writes its images here
 ```
 
-`cargo xtask examples` builds and runs every tutorial, each in a
-directory of its own under `target/examples/tutorials/`, and fails when
-one fails; a tutorial's name runs that one alone. To add one, write
-`rust/tutorials/<name>.rs` and give it an `[[example]]` entry in
+`cargo xtask examples` runs every tutorial in a separate directory under
+`target/examples/tutorials/`, and fails if one fails. The name of a
+tutorial runs only that tutorial. To add a tutorial, write
+`rust/tutorials/<name>.rs` and add an `[[example]]` entry to
 `rust/Cargo.toml`.
 
 | tutorial | matplotlib's tutorials |
@@ -120,8 +121,8 @@ The step response of a spring-mass system for three damping ratios.
 
 ### Scatter plot with a colorbar
 
-The weight and fuel use of 150 cars, coloured by power through a
-colormap, the marker size giving the engine size.
+The weight and fuel use of 150 cars. Color shows power, and marker size
+shows engine size.
 
 ![Scatter plot with a colorbar](images/scatter_colorbar.png)
 
@@ -129,8 +130,8 @@ colormap, the marker size giving the engine size.
 
 ### Grouped bars with labels
 
-Daily screen time by age group and device, each bar labelled with its
-value.
+Daily screen time by age group and device, with a value label on each
+bar.
 
 ![Grouped bars with labels](images/grouped_bars.png)
 
@@ -138,8 +139,8 @@ value.
 
 ### Stacked area chart
 
-A country's electricity generation by source, year by year, the top edge
-giving the total.
+The electricity generation of a country by source and year. The top
+edge is the total.
 
 ![Stacked area chart](images/stacked_area.png)
 
@@ -147,8 +148,8 @@ giving the total.
 
 ### Histogram with a density curve
 
-1500 commute times as a density histogram, against the log-normal
-distribution they were drawn from.
+A density histogram of 1500 commute times, with the log-normal
+distribution that the times come from.
 
 ![Histogram with a density curve](images/histogram_density.png)
 
@@ -156,8 +157,8 @@ distribution they were drawn from.
 
 ### Box plots and violin plots
 
-The exam scores of four classes taught four ways, summarised both ways
-on a shared axis.
+The exam scores of four classes with four teaching methods, as box
+plots and violin plots on a shared axis.
 
 ![Box plots and violin plots](images/box_violin.png)
 
@@ -165,7 +166,8 @@ on a shared axis.
 
 ### Donut chart
 
-A household's monthly spending by category, with the total in the hole.
+The monthly spending of a household by category, with the total in the
+hole.
 
 ![Donut chart](images/donut.png)
 
@@ -173,8 +175,8 @@ A household's monthly spending by category, with the total in the hole.
 
 ### Error bars
 
-The activity of an enzyme and of a heat-stable variant across
-temperatures, each point a mean with its standard deviation.
+The activity of an enzyme and of a heat-stable variant at different
+temperatures. Each point is a mean with its standard deviation.
 
 ![Error bars](images/error_bars.png)
 
@@ -182,8 +184,8 @@ temperatures, each point a mean with its standard deviation.
 
 ### Annotated heatmap
 
-The correlations between six daily weather measurements, each cell
-labelled with its value.
+The correlations between six daily weather measurements, with a value
+label in each cell.
 
 ![Annotated heatmap](images/heatmap.png)
 
@@ -191,8 +193,8 @@ labelled with its value.
 
 ### Contour and filled contour plot
 
-A relief map of two hills and a valley, labelled contour lines drawn over
-coloured height bands.
+A relief map of two hills and a valley. Labeled contour lines are on top
+of colored height bands.
 
 ![Contour and filled contour plot](images/contours.png)
 
@@ -200,7 +202,7 @@ coloured height bands.
 
 ### Streamplot
 
-Air flowing past a cylinder, the streamlines coloured by speed.
+Air that flows past a cylinder, with streamlines colored by speed.
 
 ![Streamplot](images/streamplot.png)
 
@@ -208,7 +210,7 @@ Air flowing past a cylinder, the streamlines coloured by speed.
 
 ### Polar axes
 
-A radar chart scoring three laptops on six criteria.
+A radar chart that scores three laptops on six criteria.
 
 ![Polar axes](images/polar.png)
 
@@ -216,7 +218,7 @@ A radar chart scoring three laptops on six criteria.
 
 ### 3-D surface
 
-The "peaks" function as a surface coloured by height, with a colorbar.
+The "peaks" function as a surface colored by height, with a colorbar.
 
 ![3-D surface](images/surface_3d.png)
 
@@ -224,8 +226,8 @@ The "peaks" function as a surface coloured by height, with a colorbar.
 
 ### Time series with dates
 
-A year of daily visits to a website with its 7-day mean, a campaign
-marked, and the concise date formatter on the x axis.
+Daily visits to a website for a year, with the 7-day mean, a marked
+campaign and the concise date formatter on the x axis.
 
 ![Time series with dates](images/time_series.png)
 
@@ -233,8 +235,8 @@ marked, and the concise date formatter on the x axis.
 
 ### Subplot mosaic dashboard
 
-Four views of an online shop's year, laid out by name with
-`subplot_mosaic`.
+Four views of the year of an online shop. `subplot_mosaic` places the
+views by name.
 
 ![Subplot mosaic dashboard](images/dashboard.png)
 
@@ -242,8 +244,8 @@ Four views of an online shop's year, laid out by name with
 
 ### Log axes
 
-The running time of three sorting algorithms against the input size, on
-log-log axes where power laws become straight lines.
+The running time of three sorting algorithms by input size. On log-log
+axes, power laws are straight lines.
 
 ![Log axes](images/log_axes.png)
 
@@ -252,7 +254,7 @@ log-log axes where power laws become straight lines.
 ### Twin axes
 
 A climate chart with rainfall as bars on the left axis and temperature
-as a line on the right one.
+as a line on the right axis.
 
 ![Twin axes](images/twin_axes.png)
 
@@ -260,8 +262,8 @@ as a line on the right one.
 
 ### Annotations and arrows
 
-A year of a share price with its high, its sharpest fall and a summary
-box pointed out.
+A year of a share price, with arrows to its high and its sharpest fall,
+and a summary box.
 
 ![Annotations and arrows](images/annotations.png)
 
@@ -269,8 +271,8 @@ box pointed out.
 
 ### Mathtext
 
-Normal distributions labelled with TeX-like formulas, which pltrs
-typesets itself, without TeX.
+Normal distributions labeled with TeX-like formulas, which pltrs
+typesets without TeX.
 
 ![Mathtext](images/mathtext.png)
 
@@ -278,8 +280,8 @@ typesets itself, without TeX.
 
 ### Animation saved as a GIF
 
-A wave packet travelling along a string, 30 frames saved as an animated
-GIF.
+A wave packet that travels along a string, saved as an animated GIF of
+30 frames.
 
 ![Animation saved as a GIF](images/animation.gif)
 

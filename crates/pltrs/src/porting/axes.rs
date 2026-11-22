@@ -1,29 +1,32 @@
 //! Axes: limits, scales, ticks, locators, formatters, spines, twin and
 //! secondary axes, units and dates.
 //!
-//! An [`Axes`] handle has the methods matplotlib puts on `Axes`; the
-//! [`Axis`] handles from [`Axes::xaxis`] and [`Axes::yaxis`] have those of
-//! `ax.xaxis` and `ax.yaxis`: locators and formatters, tick labels and
-//! lines, the axis label, inversion and units. Per-axis methods of
-//! `Axes` take an [`AxisName`] (see [`super::conventions`]).
+//! An [`Axes`] handle has the methods of the matplotlib `Axes`.
+//! [`Axes::xaxis`] and [`Axes::yaxis`] return [`Axis`] handles with the
+//! methods of `ax.xaxis` and `ax.yaxis`. These are locators, formatters,
+//! tick labels and lines, the axis label, inversion and units. Per-axis
+//! methods of `Axes` take an [`AxisName`] (see [`super::conventions`]).
 //!
-//! A few things look different:
+//! These things are different:
 //!
-//! * `set_xlim(left=2)` (one limit) is [`Axes::set_limits_with`] with a
-//!   [`Limits`]; inverting an axis is [`Axis::set_inverted`].
-//! * Scales are chosen by name as in matplotlib, `"log"`, `"symlog"`,
-//!   `"logit"`, `"asinh"`, `"function"`, with their keywords in a
-//!   [`ScaleOptions`] ([`Axes::set_scale_with`]), or as a [`Scale`] value
-//!   ([`Axes::set_scale`]).
-//! * Locators and formatters are values implementing [`Locator`] and
-//!   [`Formatter`]; constructors that can fail (`MultipleLocator(0)`, an
-//!   invalid format string) return a `Result`.
-//! * `tick_params(**kwargs)` takes a [`TickParams`], `grid(**kwargs)` a
-//!   [`GridOptions`], `ticklabel_format(**kwargs)` a [`TicklabelFormat`].
-//! * Axis labels are styled through the [`Axis`]: `set_xlabel("x",
-//!   loc="left", labelpad=4)` is `set_xlabel("x")` followed by
+//! * `set_xlim(left=2)` sets one limit. In pltrs, this is
+//!   [`Axes::set_limits_with`] with a [`Limits`]. To invert an axis, use
+//!   [`Axis::set_inverted`].
+//! * You choose a scale by name, as in matplotlib (`"log"`, `"symlog"`,
+//!   `"logit"`, `"asinh"`, `"function"`). Its keywords go in a
+//!   [`ScaleOptions`] ([`Axes::set_scale_with`]). You can also give a
+//!   [`Scale`] value ([`Axes::set_scale`]).
+//! * Locators and formatters are values that implement [`Locator`] and
+//!   [`Formatter`]. A constructor that can fail returns a `Result`, for
+//!   example `MultipleLocator(0)` or an invalid format string.
+//! * `tick_params(**kwargs)` takes a [`TickParams`], `grid(**kwargs)` takes
+//!   a [`GridOptions`], and `ticklabel_format(**kwargs)` takes a
+//!   [`TicklabelFormat`].
+//! * You style axis labels through the [`Axis`].
+//!   `set_xlabel("x", loc="left", labelpad=4)` is `set_xlabel("x")`, then
 //!   [`Axis::set_label_loc`] and [`Axis::set_label_pad`].
-//! * Spines are fields of [`Spines`]; positions are a [`SpinePosition`].
+//! * Spines are fields of [`Spines`]. Their positions are a
+//!   [`SpinePosition`].
 //!
 //! # Equivalences
 //!
@@ -58,14 +61,14 @@
 //! | `ax.locator_params(nbins=4)`                   | [`Axes::locator_params`]`(LocatorParams { .. })`  |
 //! | `ax.xaxis.tick_top()`, `set_ticks_position("both")` | [`Axis::tick_to`]`(SpineSide::Top)`, [`Axis::set_ticks_position`] |
 //! | `ax.yaxis.set_offset_position("right")`             | [`Axis::set_offset_position`]`(SpineSide::Right)?`, [`Axis::offset_position`] |
-//! | `ax.xaxis.set_picker(True)`, `ax.xaxis.contains(event)` | [`Axis::set_picker`]`(Some(Picker::Default))`, [`Axis::contains`]`(point)`; picks name the axis in [`PickEvent::axis`] |
+//! | `ax.xaxis.set_picker(True)`, `ax.xaxis.contains(event)` | [`Axis::set_picker`]`(Some(Picker::Default))`, [`Axis::contains`]`(point)`, and [`PickEvent::axis`] names the picked axis |
 //! | `ax.xaxis.set_pickradius(r)`, `get_pickradius()`, `pickradius` | [`Axis::set_pickradius`]`(r)?`, [`Axis::pickradius`] |
-//! | `LockableBbox(bbox, y0=0)`, `locked.locked_y0 = None` | [`LockableBbox`]` { locked_y0: Some(0.0), ..LockableBbox::new(bbox) }`, the public `locked_*` fields; [`LockableBbox::bbox`] is `get_points()` |
+//! | `LockableBbox(bbox, y0=0)`, `locked.locked_y0 = None` | [`LockableBbox`]` { locked_y0: Some(0.0), ..LockableBbox::new(bbox) }` with the public `locked_*` fields, and [`LockableBbox::bbox`] is `get_points()` |
 //! | `ax.grid(True, which="both", axis="y", ...)`   | [`Axes::grid`], [`Axes::grid_with`] with [`GridOptions`] |
 //! | `ax.set_axisbelow(True)`                       | [`Axes::set_axisbelow`]`(AxisBelow::Below)` ([`AxisBelow`]) |
 //! | `ax.set_xlabel(s)`, `ax.get_xlabel()`          | [`Axes::set_xlabel`], [`Axes::label`]`(AxisName::X)` |
 //! | `set_xlabel(..., loc=, labelpad=, fontsize=, color=)` | [`Axis::set_label_loc`], [`Axis::set_label_pad`], [`Axis::set_label_fontsize`], [`Axis::set_label_color`] |
-//! | `set_xlabel(s, loc="left")`, `set_ylabel(s, loc="top")` | [`Axis::set_label_loc`] with [`XLabelLoc::Left`] or [`YLabelLoc::Top`], matplotlib's names, or the [`LabelLoc`] of either axis |
+//! | `set_xlabel(s, loc="left")`, `set_ylabel(s, loc="top")` | [`Axis::set_label_loc`] with [`XLabelLoc::Left`] or [`YLabelLoc::Top`], the matplotlib names, or the [`LabelLoc`] of either axis |
 //! | `ax.xaxis.set_in_layout(False)`                | [`Axis::set_in_layout`]`(false)`: the layout engines leave that axis out |
 //! | `ax.xaxis.set_label_position("top")`           | [`Axis::set_label_position`]`(SpineSide::Top)`   |
 //! | `ax.xaxis.set_label_coords(x, y)`              | [`Axis::set_label_coords`]                       |
@@ -80,13 +83,13 @@
 //! | `ax.secondary_xaxis("top", color="r")`, `sec.set_color("r")` | [`Axis::set_color`] on the secondary axes' [`Axes::xaxis`] |
 //! | `ax.sharex(other)`, `ax.get_shared_x_axes()`   | [`Axes::share_x`], [`Axes::shared_axes`]         |
 //! | `ax.label_outer()`                             | [`Axes::label_outer`]                            |
-//! | `ax.xaxis_date()`, `ax.xaxis.axis_date(tz)`    | [`Axes::xaxis_date`], [`Axis::axis_date`]: ticks of the kind of the axis' converter of dates |
+//! | `ax.xaxis_date()`, `ax.xaxis.axis_date(tz)`    | [`Axes::xaxis_date`], [`Axis::axis_date`], with the date ticks of the converter of the axis |
 //! | `ax.xaxis.convert_units(values)`               | [`Axis::convert_units`]                          |
 //! | `ax.xaxis.set_units(u)`, `ax.xaxis.get_units()` | [`Axis::set_units`], [`Axis::units`] ([`Unit`])  |
 //! | `ax.xaxis.update_units(data)`                  | [`Axis::update_units`]                           |
 //! | `ax.xaxis.set_converter(c)`, `get_converter()` | [`Axis::set_converter`], [`Axis::converter`]     |
 //! | `ax.xaxis.set_converter(mdates.ConciseDateConverter())`, `DateConverter()` | [`Axis::set_converter`]`(`[`DateConverter::Concise`]`)?`, `(DateConverter::Auto)`: a [`UnitConverter::DatesBy`], whose ticks ignore `date.converter` |
-//! | the converter plotted dates get (`units.registry[datetime]`, a `_SwitchableDateConverter`) | [`UnitConverter::Dates`], whose ticks follow `date.converter`; [`UnitConverter::is_dates`] tells either converter of dates from the others |
+//! | the converter plotted dates get (`units.registry[datetime]`, a `_SwitchableDateConverter`) | [`UnitConverter::Dates`], whose ticks follow `date.converter`. [`UnitConverter::is_dates`] is true for each date converter |
 //! | `class C(units.ConversionInterface)`, `units.registry[T] = C()` | `impl` [`ConversionInterface`] `for C`, `impl` [`Convertible`] `for T` |
 //! | `def convert(value, unit, axis)` (and `axisinfo`, `default_units`) | `fn convert(&self, values, unit, axis: &`[`UnitAxis`]`)`: the axis of 2-D or of 3-D axes |
 //! | `units.AxisInfo(majloc=, label=, default_limits=)` | [`UnitAxisInfo`] `{ majloc, label, default_limits, .. }` |
@@ -95,9 +98,9 @@
 //! | `mdates.YearLocator`, `AutoDateLocator`        | [`YearLocator`], [`AutoDateLocator`]             |
 //! | `mdates.DateFormatter("%b %Y")`, `ConciseDateFormatter` | [`DateFormatter::new`], [`ConciseDateFormatter`] |
 //! | `mdates.date2num`, `num2date`, `datestr2num`   | [`date2num`], [`num2date`], [`datestr2num`]      |
-//! | `mdates.drange(d1, d2, delta)`                 | [`drange`] for the date numbers; [`DateRange::new`]`(d1, d2, delta)?` for the date-times, which plot directly |
+//! | `mdates.drange(d1, d2, delta)`                 | [`drange`] for the date numbers, or [`DateRange::new`]`(d1, d2, delta)?` for date-times that you can plot directly |
 //! | `timedelta(hours=6)`, `timedelta(days=1)`      | [`TimeDelta::from_hours`]`(6)`, [`TimeDelta::from_days`]`(1)?` (also `from_secs`, `from_mins`, `from_weeks`) |
-//! | aware `datetime`s, whose first `tzinfo` becomes the unit | [`ZonedDateTime`]s: an axis without a unit takes the first one's zone, and its ticks follow it |
+//! | aware `datetime`s, whose first `tzinfo` becomes the unit | [`ZonedDateTime`]s. An axis without a unit takes the zone of the first value, and its ticks follow that zone |
 //! | `mdates.set_epoch`, `get_epoch`                | [`set_epoch`], [`get_epoch`]                     |
 //!
 //! # Limits, margins and aspect
@@ -147,8 +150,8 @@
 //! ax.set_yscale("function", functions=(np.sqrt, np.square))
 //! ```
 //!
-//! A scale name is a [`ScaleName`]; matplotlib's strings convert to it,
-//! and an unknown name is refused when the scale is set.
+//! A scale name is a [`ScaleName`]. The matplotlib strings convert to it.
+//! pltrs refuses an unknown name when you set the scale.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -181,7 +184,7 @@
 //! ax.yaxis.set_major_formatter(FormatStrFormatter("%.1f"))
 //! ax.yaxis.set_minor_locator(AutoMinorLocator())
 //! ax.tick_params(axis="x", labelrotation=45, labelsize=8, direction="in")
-//! # like the locator, the tick lists reach one step beyond the view
+//! # the tick lists reach one step past the view, as the locator does
 //! assert list(ax.get_yticks()) == [-0.5, 0, 0.5, 1, 1.5]
 //! assert [t.get_text() for t in ax.get_yticklabels()] == ["-0.5", "0.0", "0.5", "1.0", "1.5"]
 //! ```
@@ -281,7 +284,7 @@
 //!
 //! let radians = FuncTransform::new(f64::to_radians, f64::to_degrees);
 //! let sec = ax.secondary_xaxis(SecondaryLocation::Side(SpineSide::Top), Some(radians))?;
-//! fig.layout(); // a secondary axis takes its host's limits when laid out
+//! fig.layout(); // at layout, a secondary axis takes the limits of its host
 //! assert!((sec.xlim().1 - std::f64::consts::PI).abs() < 1e-12);
 //!
 //! let other = fig.add_subplot(2, 1, 2)?;
@@ -313,7 +316,7 @@
 //!     .set_major_formatter(DateFormatter::new("%b %Y"));
 //! ax.set_xlim(datestr2num("2024-01-01")?, datestr2num("2024-06-01")?)?;
 //! assert_eq!(datestr2num("2024-01-01")?, 19723.0);
-//! // The rule starts a step before the view, as matplotlib's does.
+//! // The rule starts a step before the view, as in matplotlib.
 //! assert_eq!(ax.xaxis().ticklabels(false)?, ["Feb 2024", "Apr 2024", "Jun 2024"]);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```

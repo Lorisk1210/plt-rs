@@ -1,30 +1,32 @@
 # pltrs-core
 
-Geometry, paths, affine transforms and colours shared by every pltrs
-crate, mirroring matplotlib's `Affine2D`, `Bbox` and `Path`, with the
-float semantics of Python and numpy that matplotlib's results depend on.
+`pltrs-core` has the geometry and number types that all pltrs crates use.
 
-* `Point`, `Affine2D` (matplotlib's composition order), `Bbox` and
-  `Path`, with matplotlib's path conditioning (NaN removal, clipping,
-  snapping, simplification, curve flattening, sketching)
-* Bézier curves, hatch patterns and `Rgba` colours
-* Python's float formatting (`repr`, `%`, `str.format`) and numpy's
-  float semantics, as the binaries pltrs reproduces compute them
-* archives (values written to bytes and read back exactly), JSON, and a
-  reproducible `SplitMix64` generator
+Contents:
 
-## One of pltrs' crates
+* `Point`, `Affine2D`, `Bbox` and `Path`, with the same results as the
+  matplotlib classes
+* The path operations of matplotlib: NaN removal, clipping, snapping,
+  simplification, curve flattening and sketching
+* Bézier curves, hatch patterns and `Rgba` colors
+* Number formatting with the same output as Python (`repr`, `%` and
+  `str.format`), and float operations with the same results as numpy
+* Archives that write values to bytes and read them back, JSON, and the
+  random number generator `SplitMix64`
 
-pltrs is matplotlib rebuilt from scratch in Rust, with no dependencies
-outside its own crates. Its crates are released together, at one
-version, and each depends on the exact version of the others: what they
-offer each other is not an interface of its own. Most programs want the
-crate `pltrs`, matplotlib's model with every output format and
-interactive windows; this crate is for those who need its geometry and
-numerics alone.
+## Use
 
-## Licence
+Most programs need the crate [`pltrs`](https://crates.io/crates/pltrs).
+It has figures, all output formats and windows. Use `pltrs-core` directly
+only if you need the geometry and number types alone.
 
-MIT OR Apache-2.0, at your option (`LICENSE-MIT`, `LICENSE-APACHE`). The
-code and data it takes from other projects keep their own licences:
-`THIRD_PARTY.md` lists them, with their texts in `LICENSES/`.
+All pltrs crates have the same version. Each crate requires the same
+version of the other pltrs crates.
+
+## License
+
+You can use this crate under the MIT license (`LICENSE-MIT`) or the Apache
+License 2.0 (`LICENSE-APACHE`).
+
+The code and data from other projects keep their licenses. `THIRD_PARTY.md`
+lists them, and `LICENSES/` has the license texts.

@@ -1,34 +1,8 @@
-//! Interactive figure windows (matplotlib's GUI backends and
-//! `pyplot.show`), built on the `pltrs-ui` engine and `pltrs-platform`
-//! windows.
+//! Figure windows with a toolbar, keyboard shortcuts and dialogs
+//! (matplotlib's GUI backends and `pyplot.show`).
 //!
-//! Each [`FigureWindow`] shows a figure above a toolbar — home, back,
-//! forward, pan, zoom, subplot configuration, figure options and save,
-//! with matplotlib's own icons in matplotlib's [look](crate::look) —
-//! with a readout of the data coordinates under the pointer. Dragging pans
-//! or zooms as in matplotlib (see [`crate::navigation`]), the wheel zooms
-//! around the pointer with Control (or `x` or `y`) held, and the
-//! `keymap.*` rcParams bind the usual
-//! shortcuts (`h` home, `p` pan, `o` zoom, `g` grids, `l`/`k` log scales,
-//! `s` save, `f` full screen, `q` close, ...), and the mouse's back and
-//! forward buttons step through the views. The window resizes the
-//! figure with it and renders at the screen's scale factor. Saving opens a
-//! dialog to pick the directory, the file name and the format (every
-//! format matplotlib's Qt dialog offers, by its name there); the figure
-//! options dialog edits the titles, limits, labels and scales of the axes,
-//! the style of their curves and the colormaps and interpolation of their
-//! images; the subplot tool adjusts the subplot parameters as matplotlib's
-//! Qt tool does, and under constrained layout that layout's padding and
-//! spacing, or hands the subplots over to the parameters.
-//!
-//! Everything works from the keyboard too, following Qt and GTK. The
-//! canvas has the focus, as in matplotlib's Qt backend, and takes it back
-//! when clicked; Ctrl+Tab moves the focus on to the toolbar, whose buttons
-//! Tab steps through and Space presses, while the keys they leave unused
-//! still reach the canvas. In the dialogs, the first field has the focus,
-//! Tab and Shift+Tab move it, Enter presses the primary button (Save, OK,
-//! Close) unless the focused control uses Enter, Escape closes, and
-//! Ctrl+Tab switches the figure options' tabs.
+//! [`show`] shows each figure in its own window. It returns when the user
+//! closes all windows.
 //!
 //! ```no_run
 //! use pltrs::figure::Figure;
@@ -38,20 +12,133 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`FigureWindow::screenshot`] draws such a window off screen, with no
-//! display, and returns what it shows; [`FigureWindow::capture`] reads a
-//! window of a headless event loop driven by synthetic input.
+//! # The window
 //!
-//! A [`WindowHost`] shows figures in the same windows for programs that
-//! handle their figures' input themselves, as matplotlib's backends do
-//! (pltrs (Python)'s native backend): it reports input, resizes and
-//! toolbar clicks, and leaves navigation and callbacks to the program.
+//! A [`FigureWindow`] shows a figure below a toolbar. A status line shows
+//! the data coordinates under the pointer, and the value of an image under
+//! it. When the user resizes the window, the figure changes its size too.
+//! The window draws the figure at the scale factor of the screen.
 //!
-//! Every window shows pltrs's [`app_icon`], drawn at the sizes and in the
-//! layout each platform asks for (in the Dock on macOS). GNOME's shell
-//! takes the icons of its dash and overview from the desktop entry of
-//! the windows' application instead, which [`install_desktop_entry`]
-//! writes when asked to.
+//! The mouse controls the view ([`navigation`](crate::navigation)):
+//!
+//! * In pan mode, a drag moves the data. In zoom mode, a drag selects a
+//!   rectangle to zoom to.
+//! * The wheel zooms around the pointer while you hold Control, `x` or `y`.
+//! * A drag turns 3-D axes.
+//! * The back and forward buttons of the mouse step through the views.
+//!
+//! The figure gets the input as events ([`events`](crate::events)), so the
+//! callbacks, pickers and widgets of the figure work in the window.
+//!
+//! # Toolbar and keyboard shortcuts
+//!
+//! | Action | Default key |
+//! |--------|-------------|
+//! | Go to the original view (home) | `h` |
+//! | Go back or forward through the views | `left`, `right` |
+//! | Pan, or zoom to a rectangle | `p`, `o` |
+//! | Show or hide the major grid or the minor grid | `g`, `G` |
+//! | Switch the y axis or the x axis to a logarithmic scale | `l`, `k` |
+//! | Save the figure, or copy it to the clipboard | `s`, `ctrl+c` |
+//! | Show the window full screen, or close it | `f`, `q` |
+//! | Show the keyboard shortcuts | `F1` |
+//! | Change the subplot spacing | |
+//! | Change the figure options | |
+//!
+//! The `keymap.*` runtime settings change the keys ([`rc`](crate::rc)).
+//! [`format_shortcut`] writes a key name as the help window shows it.
+//!
+//! You can use all controls from the keyboard. The canvas has the keyboard
+//! focus. Ctrl+Tab moves the focus to the toolbar. There, Tab moves from
+//! button to button, and Space presses the button.
+//!
+//! # Tools of your own
+//!
+//! [`Figure::add_tool`] adds a toolbar button with a keyboard shortcut. A
+//! [`ToolSpec`] describes the tool. It has a name, a description, an
+//! [`Icon`], shortcuts and a [`ToolKind`]: a trigger or a toggle. Toggles
+//! in [`NAVIGATION_GROUP`] take turns with the pan and zoom tools.
+//!
+//! | Item | What it is |
+//! |------|------------|
+//! | [`ToolEvent`] | A use of a tool, as its callback gets it. |
+//! | [`ToolChange`] | A change to the tools, for [`Figure::on_tool_change`]. |
+//! | [`ToolListenerId`] | The id of an [`on_tool_change`](Figure::on_tool_change) callback. |
+//! | [`ToolError`] | Why pltrs cannot add a tool. |
+//!
+//! # Dialogs
+//!
+//! | Dialog | What it does |
+//! |--------|--------------|
+//! | Save | Selects the directory, the file name and the format. It offers all 13 formats of [`SaveFormat`](crate::figure::SaveFormat): AVIF, EPS, GIF, JPEG, PGF, PDF, PNG, PostScript, raw RGBA, SVG, compressed SVG, TIFF and WebP. |
+//! | Figure options | Changes the titles, limits, labels and scales of the axes, the style of the lines, and the colormap and interpolation of the images. |
+//! | Subplot spacing | Changes the margins and the spacing of the subplots. Under constrained layout, it changes the padding and the spacing of that layout ([`SubplotLayout`], [`SubplotChange`], [`ConstrainedSpacing`]). |
+//! | Keyboard shortcuts | Lists the shortcuts. |
+//!
+//! In a dialog, Tab and Shift+Tab move the focus. Enter presses the main
+//! button, and Escape closes the dialog. Ctrl+Tab selects the next tab of
+//! the figure options.
+//!
+//! # Platforms
+//!
+//! pltrs opens windows on Wayland, X11, macOS and Windows. It links to no
+//! GUI toolkit. On Linux, pltrs uses Wayland if `WAYLAND_DISPLAY` is set,
+//! or else X11 if `DISPLAY` is set. The environment variable
+//! `PLTRS_PLATFORM` selects the platform: `wayland`, `x11`, `macos`,
+//! `windows` or `headless`.
+//!
+//! The windows use the modern look by default. The matplotlib look gives
+//! them the toolbar icons of matplotlib ([`look`](crate::look)). The
+//! runtime setting `toolbar` selects the toolbar ([`ToolbarKind`]). On
+//! macOS, `macosx.window_mode` selects tabs or separate windows
+//! ([`MacosxWindowMode`]).
+//!
+//! # Where no window can open
+//!
+//! On Linux, [`show`] shows nothing if no display is available. On macOS
+//! and Windows, it shows the figures in a web browser
+//! ([`web`](crate::web)). The environment variable `MPLBACKEND` and
+//! [`pyplot::switch_backend`](crate::pyplot::switch_backend) select another
+//! backend.
+//!
+//! Tests can use windows without a display:
+//!
+//! * [`FigureWindow::screenshot`] gives the pixels of a window that shows a
+//!   figure, with its toolbar.
+//! * [`Session::headless`] runs windows without a display, for synthetic
+//!   input.
+//! * [`FigureWindow::capture`] gives the pixels of such a window.
+//!
+//! # Control windows from your program
+//!
+//! A [`Session`] opens windows and returns at once. Use it to update
+//! windows while your program computes.
+//!
+//! | Method | What it does |
+//! |--------|--------------|
+//! | [`Session::new`], [`Session::headless`] | Start a session with or without a display. |
+//! | [`Session::show`], [`Session::close`] | Open or close the windows of figures. |
+//! | [`Session::run`], [`Session::pause`] | Run the windows until a time, or for a duration. |
+//! | [`Session::ginput`] | Collects the points that the user clicks ([`GinputOptions`]). |
+//! | [`Session::wait_for_button_press`] | Waits for a click or a key press. |
+//! | [`Session::configure_subplots`] | Opens the subplot spacing dialog. |
+//!
+//! A [`WindowHost`] shows figures in the same windows for a program that
+//! handles the input itself. pltrs (Python) uses it. The host reports
+//! input ([`HostEvent`], [`CanvasInput`], [`InputKind`]), resizes and
+//! toolbar clicks. The program describes the toolbar ([`ToolItem`],
+//! [`ToolImage`]) and the help window ([`ShortcutGroup`]).
+//!
+//! # Icons and desktop integration
+//!
+//! Each window shows the pltrs icon ([`app_icon`]). The GNOME shell takes
+//! the icons of its dash from a desktop entry instead.
+//! [`install_desktop_entry`] writes this entry, and
+//! [`remove_desktop_entry`] removes it ([`DesktopEntry`], [`ICON_SIDES`]).
+//!
+//! # Errors
+//!
+//! [`GuiError`] tells why a window or a browser view failed.
 
 pub(crate) mod actions;
 mod app_icon;

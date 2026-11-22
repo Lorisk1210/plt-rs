@@ -24,7 +24,14 @@ use crate::gridspec::SubplotSpec;
 use crate::text::Text;
 use crate::transforms::{Transform, TransformContext};
 
-/// A handle to a 3-D axes of a figure (matplotlib's `Axes3D`).
+/// A 3-D axes of a figure (`Axes3D` in matplotlib).
+///
+/// A 3-D axes projects data from a box onto the screen through a camera. It
+/// draws the panes, gridlines and axes of the box around the data. `Axes3D`
+/// is a handle. A clone is cheap and refers to the same axes. Get one from a
+/// [`Figure`] with [`Figure::subplot_3d`], [`Figure::subplot_3d_with`],
+/// [`Figure::add_subplot_3d`] or [`Figure::add_axes_3d`]. The last three
+/// take an [`Axes3DOptions`] with the first view and the shares.
 ///
 /// ```
 /// use pltrs::figure::Figure;
@@ -35,6 +42,338 @@ use crate::transforms::{Transform, TransformContext};
 /// assert_eq!(ax.zlim(), (-0.0625, 3.0625));
 /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
 /// ```
+///
+/// A method of `Axes3D` has the name of the matching method of [`Axes`]. It
+/// takes an [`Axis3`] in place of an [`AxisName`]. A method that can fail
+/// returns an [`Axes3DError`].
+///
+/// # Plot types
+///
+/// | Method | What it draws | Options |
+/// |--------|---------------|---------|
+/// | [`plot`] | A line through 3-D points | |
+/// | [`plot_fmt`] | A line styled by a format string | |
+/// | [`plot_with`] | A line in a plane, or through 3-D points, with properties | [`LineProps`] |
+/// | [`scatter`] | Markers at 3-D points | |
+/// | [`scatter_with`] | Markers with depth shading, sizes and colors | [`Scatter3DOptions`] |
+/// | [`plot_surface`] | A surface through a grid of points | [`SurfaceOptions`] |
+/// | [`plot_wireframe`] | Lines along the rows and columns of a grid | [`WireframeOptions`] |
+/// | [`plot_trisurf`] | A surface of the triangles of a [`Triangulation`] | [`TrisurfOptions`] |
+/// | [`contour`], [`contourf`] | Contour lines or filled contours of a surface | [`Contour3DOptions`] |
+/// | [`tricontour`], [`tricontourf`] | Contours on a triangulation | [`Contour3DOptions`] |
+/// | [`fill_between`] | The area between two 3-D curves | [`Curve3D`], [`FillBetween3DOptions`] |
+/// | [`errorbar`] | Points with error bars along each axis | [`Errorbar3DOptions`] |
+/// | [`bar`] | Flat bars in a plane of the box | [`BarOptions`] |
+/// | [`bar3d`] | Boxes with a corner and three sizes | [`Boxes`], [`Bar3DOptions`] |
+/// | [`quiver`] | 3-D arrows | [`Quiver3DOptions`] |
+/// | [`voxels`] | Cubes in the filled cells of an [`Array3`] | [`VoxelOptions`] |
+/// | [`stem`] | Stems from a baseline to 3-D points | [`Stem3DOptions`] |
+/// | [`text`], [`text_along`] | A text at a 3-D point, optionally along a direction | |
+/// | [`text2d`] | A text in axes fractions over the scene | |
+///
+/// A [`LightSource`] shades surfaces, bars and voxels.
+///
+/// # View
+///
+/// | Task | Methods |
+/// |------|---------|
+/// | View angles in degrees | [`view_init`], [`view`], [`view_init_shared`] |
+/// | Perspective or orthographic projection | [`set_proj_type`] with [`ProjType`], [`focal_length`] |
+/// | Vertical axis | [`set_vertical_axis`] |
+/// | Ratio of the box edges and zoom | [`set_box_aspect`], [`box_aspect`], [`stored_box_aspect`] |
+/// | Equal data scales | [`set_aspect`] with [`Aspect3D`], [`aspect`], [`set_adjustable`], [`adjustable`], [`set_anchor`] |
+/// | Margin around the view | [`set_view_margin`], [`view_margin`] |
+/// | Order of the artists by depth | [`set_computed_zorder`] |
+/// | Share the view | [`share_view`], [`shared_views`], [`view_share_target`] |
+/// | Projection matrix | [`proj`] |
+///
+/// # Limits and scales
+///
+/// | Task | Methods |
+/// |------|---------|
+/// | Limits | [`set_xlim`], [`set_ylim`], [`set_zlim`], [`xlim`], [`ylim`], [`zlim`], [`set_limits`], [`set_limits_with_margin`], [`limits`] |
+/// | Bounds | [`set_xbound`], [`set_ybound`], [`set_zbound`], [`set_bound`], [`set_bound_with_margin`], [`bound`] |
+/// | Margins | [`set_margin`], [`set_margins`], [`margin`] |
+/// | Autoscaling | [`autoscale`], [`autoscale_on`], [`set_axis_autoscale_on`], [`autoscale_view`], [`auto_scale_xyz`], [`request_autoscale`] |
+/// | Direction | [`invert`], [`inverted`], [`set_inverted`] |
+/// | Data and view intervals | [`data_interval`], [`set_data_interval`], [`set_view_interval`], [`has_data`] |
+/// | Hide data outside the limits | [`set_axlim_clip`], [`axlim_clip`] |
+/// | Zoom the limits | [`scale_limits`], [`zoom_data_limits`] |
+/// | React to new limits | [`on_limits_changed`], [`disconnect_limits_changed`] |
+/// | Scales | [`set_xscale`], [`set_yscale`], [`set_zscale`], [`set_scale_with`], [`set_scale`], [`scale`] |
+///
+/// # Axes, labels and decorations
+///
+/// | Task | Methods |
+/// |------|---------|
+/// | The three axes | [`xaxis`], [`yaxis`], [`zaxis`], [`axis`] (each an [`Axis3D`]) |
+/// | Axis labels | [`set_xlabel`], [`set_ylabel`], [`set_zlabel`], [`set_label`], [`label`] |
+/// | Label rotation | [`set_rotate_label`], [`rotate_label`], [`rotates_label`] |
+/// | Ticks | [`tick_params`], [`ticklabel_format`] |
+/// | Titles | [`set_title`], [`set_title_at`], [`title`], [`title_at`] |
+/// | Grid and panes | [`grid`], [`grid_on`], [`set_pane_color`], [`pane_color`], [`set_pane_style`] |
+/// | Hide the box | [`set_axis_off`], [`set_axis_on`], [`axis_on`] |
+/// | Legend | [`legend`], [`current_legend`] |
+/// | Where each axis is drawn | [`axis_info`], [`set_axis_info`], [`set_axis_box`], [`axis_highs`] |
+///
+/// # Shared axes
+///
+/// | Task | Methods |
+/// |------|---------|
+/// | Share an axis | [`share_x`], [`share_y`], [`share_z`], [`share_axis`], [`share_axis_with`] |
+/// | Read the shares | [`shared_axes`], [`sharing`], [`share_target`] |
+///
+/// # Add and change 3-D artists
+///
+/// | Task | Methods |
+/// |------|---------|
+/// | Add 3-D collections | [`add_collection3d`], [`add_line_collection3d`], [`add_poly_collection3d`], [`add_poly_collection3d_with`] with [`Poly3DOptions`], [`adopt_collection3d`] |
+/// | Add a 3-D patch | [`add_path_patch3d`] |
+/// | Place 2-D contours in 3-D | [`add_contour_set`], [`add_contourf_set`], [`lift_contour_paths`] |
+/// | Turn 2-D artists into 3-D artists | [`line_2d_to_3d`], [`patch_2d_to_3d`], [`pathpatch_2d_to_3d`], [`text_2d_to_3d`], [`lift_paths`] |
+/// | Lines and scatter points | [`set_line_data`], [`line_data`], [`projected_line_mask`], [`set_scatter_offsets`], [`scatter_offsets`] |
+/// | Depth shading | [`set_depthshade`], [`depthshade`], [`set_depthshade_minalpha`] |
+/// | Polygons | [`set_segments`], [`set_poly_verts`], [`set_poly_verts_and_codes`], [`poly_colors`], [`refresh_poly_colors`], [`set_poly_3d_properties`], [`poly_projected`] |
+/// | Order by depth | [`set_zsort`], [`set_sort_zpos`], [`sort_zpos`] |
+/// | Texts and patches | [`set_text_position`], [`text_position`], [`patch_path`] |
+///
+/// # Mouse and readout
+///
+/// The mouse rotates, pans and zooms a 3-D axes in a window. The rcParam
+/// `axes3d.mouserotationstyle` selects the [`RotationStyle`].
+///
+/// | Task | Methods |
+/// |------|---------|
+/// | Buttons | [`mouse_init`] with [`MouseButtons`], [`mouse_buttons`], [`disable_mouse_rotation`] |
+/// | Rotate, pan and zoom from your code | [`drag_rotate`], [`drag_zoom`], [`pan_view`], [`zoom_to_rect`] |
+/// | Coordinate readout | [`format_coord`], [`format_data`], [`rotation_coords`], [`pane_point`] |
+///
+/// # Position and the projection plane
+///
+/// A 3-D axes draws its 2-D parts on a 2-D [`Axes`], its projection plane.
+///
+/// | Task | Methods |
+/// |------|---------|
+/// | Position | [`position`], [`set_position`], [`original_position`], [`squared_position`], [`subplot_spec`], [`set_subplot_spec`], [`tight_bbox`] |
+/// | Projection plane | [`projection_plane`], [`of_plane`], [`of_artist`], [`trans_axes`], [`set_top_view`] |
+/// | Clear the axes | [`clear`], [`cla`] |
+///
+/// [`Figure`]: crate::figure::Figure
+/// [`Figure::subplot_3d`]: crate::figure::Figure::subplot_3d
+/// [`Figure::subplot_3d_with`]: crate::figure::Figure::subplot_3d_with
+/// [`Figure::add_subplot_3d`]: crate::figure::Figure::add_subplot_3d
+/// [`Figure::add_axes_3d`]: crate::figure::Figure::add_axes_3d
+/// [`Axes3DOptions`]: crate::mplot3d::Axes3DOptions
+/// [`AxisName`]: crate::axes::AxisName
+/// [`plot`]: Self::plot
+/// [`plot_fmt`]: Self::plot_fmt
+/// [`plot_with`]: Self::plot_with
+/// [`LineProps`]: crate::lines::LineProps
+/// [`scatter`]: Self::scatter
+/// [`scatter_with`]: Self::scatter_with
+/// [`Scatter3DOptions`]: crate::mplot3d::Scatter3DOptions
+/// [`plot_surface`]: Self::plot_surface
+/// [`SurfaceOptions`]: crate::mplot3d::SurfaceOptions
+/// [`plot_wireframe`]: Self::plot_wireframe
+/// [`WireframeOptions`]: crate::mplot3d::WireframeOptions
+/// [`plot_trisurf`]: Self::plot_trisurf
+/// [`Triangulation`]: crate::tri::Triangulation
+/// [`TrisurfOptions`]: crate::mplot3d::TrisurfOptions
+/// [`contour`]: Self::contour
+/// [`contourf`]: Self::contourf
+/// [`Contour3DOptions`]: crate::mplot3d::Contour3DOptions
+/// [`tricontour`]: Self::tricontour
+/// [`tricontourf`]: Self::tricontourf
+/// [`fill_between`]: Self::fill_between
+/// [`Curve3D`]: crate::mplot3d::Curve3D
+/// [`FillBetween3DOptions`]: crate::mplot3d::FillBetween3DOptions
+/// [`errorbar`]: Self::errorbar
+/// [`Errorbar3DOptions`]: crate::mplot3d::Errorbar3DOptions
+/// [`bar`]: Self::bar
+/// [`BarOptions`]: crate::axes::BarOptions
+/// [`bar3d`]: Self::bar3d
+/// [`Boxes`]: crate::mplot3d::Boxes
+/// [`Bar3DOptions`]: crate::mplot3d::Bar3DOptions
+/// [`quiver`]: Self::quiver
+/// [`Quiver3DOptions`]: crate::mplot3d::Quiver3DOptions
+/// [`voxels`]: Self::voxels
+/// [`Array3`]: crate::mplot3d::Array3
+/// [`VoxelOptions`]: crate::mplot3d::VoxelOptions
+/// [`stem`]: Self::stem
+/// [`Stem3DOptions`]: crate::mplot3d::Stem3DOptions
+/// [`text`]: Self::text
+/// [`text_along`]: Self::text_along
+/// [`text2d`]: Self::text2d
+/// [`LightSource`]: crate::colors::LightSource
+/// [`view_init`]: Self::view_init
+/// [`view`]: Self::view
+/// [`view_init_shared`]: Self::view_init_shared
+/// [`set_proj_type`]: Self::set_proj_type
+/// [`focal_length`]: Self::focal_length
+/// [`set_vertical_axis`]: Self::set_vertical_axis
+/// [`set_box_aspect`]: Self::set_box_aspect
+/// [`box_aspect`]: Self::box_aspect
+/// [`stored_box_aspect`]: Self::stored_box_aspect
+/// [`set_aspect`]: Self::set_aspect
+/// [`Aspect3D`]: crate::mplot3d::Aspect3D
+/// [`aspect`]: Self::aspect
+/// [`set_adjustable`]: Self::set_adjustable
+/// [`adjustable`]: Self::adjustable
+/// [`set_anchor`]: Self::set_anchor
+/// [`set_view_margin`]: Self::set_view_margin
+/// [`view_margin`]: Self::view_margin
+/// [`set_computed_zorder`]: Self::set_computed_zorder
+/// [`share_view`]: Self::share_view
+/// [`shared_views`]: Self::shared_views
+/// [`view_share_target`]: Self::view_share_target
+/// [`proj`]: Self::proj
+/// [`set_xlim`]: Self::set_xlim
+/// [`set_ylim`]: Self::set_ylim
+/// [`set_zlim`]: Self::set_zlim
+/// [`xlim`]: Self::xlim
+/// [`ylim`]: Self::ylim
+/// [`zlim`]: Self::zlim
+/// [`set_limits`]: Self::set_limits
+/// [`set_limits_with_margin`]: Self::set_limits_with_margin
+/// [`limits`]: Self::limits
+/// [`set_xbound`]: Self::set_xbound
+/// [`set_ybound`]: Self::set_ybound
+/// [`set_zbound`]: Self::set_zbound
+/// [`set_bound`]: Self::set_bound
+/// [`set_bound_with_margin`]: Self::set_bound_with_margin
+/// [`bound`]: Self::bound
+/// [`set_margin`]: Self::set_margin
+/// [`set_margins`]: Self::set_margins
+/// [`margin`]: Self::margin
+/// [`autoscale`]: Self::autoscale
+/// [`autoscale_on`]: Self::autoscale_on
+/// [`set_axis_autoscale_on`]: Self::set_axis_autoscale_on
+/// [`autoscale_view`]: Self::autoscale_view
+/// [`auto_scale_xyz`]: Self::auto_scale_xyz
+/// [`request_autoscale`]: Self::request_autoscale
+/// [`invert`]: Self::invert
+/// [`inverted`]: Self::inverted
+/// [`set_inverted`]: Self::set_inverted
+/// [`data_interval`]: Self::data_interval
+/// [`set_data_interval`]: Self::set_data_interval
+/// [`set_view_interval`]: Self::set_view_interval
+/// [`has_data`]: Self::has_data
+/// [`set_axlim_clip`]: Self::set_axlim_clip
+/// [`axlim_clip`]: Self::axlim_clip
+/// [`scale_limits`]: Self::scale_limits
+/// [`zoom_data_limits`]: Self::zoom_data_limits
+/// [`on_limits_changed`]: Self::on_limits_changed
+/// [`disconnect_limits_changed`]: Self::disconnect_limits_changed
+/// [`set_xscale`]: Self::set_xscale
+/// [`set_yscale`]: Self::set_yscale
+/// [`set_zscale`]: Self::set_zscale
+/// [`set_scale_with`]: Self::set_scale_with
+/// [`set_scale`]: Self::set_scale
+/// [`scale`]: Self::scale
+/// [`xaxis`]: Self::xaxis
+/// [`yaxis`]: Self::yaxis
+/// [`zaxis`]: Self::zaxis
+/// [`axis`]: Self::axis
+/// [`Axis3D`]: crate::mplot3d::Axis3D
+/// [`set_xlabel`]: Self::set_xlabel
+/// [`set_ylabel`]: Self::set_ylabel
+/// [`set_zlabel`]: Self::set_zlabel
+/// [`set_label`]: Self::set_label
+/// [`label`]: Self::label
+/// [`set_rotate_label`]: Self::set_rotate_label
+/// [`rotate_label`]: Self::rotate_label
+/// [`rotates_label`]: Self::rotates_label
+/// [`tick_params`]: Self::tick_params
+/// [`ticklabel_format`]: Self::ticklabel_format
+/// [`set_title`]: Self::set_title
+/// [`set_title_at`]: Self::set_title_at
+/// [`title`]: Self::title
+/// [`title_at`]: Self::title_at
+/// [`grid`]: Self::grid
+/// [`grid_on`]: Self::grid_on
+/// [`set_pane_color`]: Self::set_pane_color
+/// [`pane_color`]: Self::pane_color
+/// [`set_pane_style`]: Self::set_pane_style
+/// [`set_axis_off`]: Self::set_axis_off
+/// [`set_axis_on`]: Self::set_axis_on
+/// [`axis_on`]: Self::axis_on
+/// [`legend`]: Self::legend
+/// [`current_legend`]: Self::current_legend
+/// [`axis_info`]: Self::axis_info
+/// [`set_axis_info`]: Self::set_axis_info
+/// [`set_axis_box`]: Self::set_axis_box
+/// [`axis_highs`]: Self::axis_highs
+/// [`share_x`]: Self::share_x
+/// [`share_y`]: Self::share_y
+/// [`share_z`]: Self::share_z
+/// [`share_axis`]: Self::share_axis
+/// [`share_axis_with`]: Self::share_axis_with
+/// [`shared_axes`]: Self::shared_axes
+/// [`sharing`]: Self::sharing
+/// [`share_target`]: Self::share_target
+/// [`add_collection3d`]: Self::add_collection3d
+/// [`add_line_collection3d`]: Self::add_line_collection3d
+/// [`add_poly_collection3d`]: Self::add_poly_collection3d
+/// [`add_poly_collection3d_with`]: Self::add_poly_collection3d_with
+/// [`Poly3DOptions`]: crate::mplot3d::Poly3DOptions
+/// [`adopt_collection3d`]: Self::adopt_collection3d
+/// [`add_path_patch3d`]: Self::add_path_patch3d
+/// [`add_contour_set`]: Self::add_contour_set
+/// [`add_contourf_set`]: Self::add_contourf_set
+/// [`lift_contour_paths`]: Self::lift_contour_paths
+/// [`line_2d_to_3d`]: Self::line_2d_to_3d
+/// [`patch_2d_to_3d`]: Self::patch_2d_to_3d
+/// [`pathpatch_2d_to_3d`]: Self::pathpatch_2d_to_3d
+/// [`text_2d_to_3d`]: Self::text_2d_to_3d
+/// [`lift_paths`]: Self::lift_paths
+/// [`set_line_data`]: Self::set_line_data
+/// [`line_data`]: Self::line_data
+/// [`projected_line_mask`]: Self::projected_line_mask
+/// [`set_scatter_offsets`]: Self::set_scatter_offsets
+/// [`scatter_offsets`]: Self::scatter_offsets
+/// [`set_depthshade`]: Self::set_depthshade
+/// [`depthshade`]: Self::depthshade
+/// [`set_depthshade_minalpha`]: Self::set_depthshade_minalpha
+/// [`set_segments`]: Self::set_segments
+/// [`set_poly_verts`]: Self::set_poly_verts
+/// [`set_poly_verts_and_codes`]: Self::set_poly_verts_and_codes
+/// [`poly_colors`]: Self::poly_colors
+/// [`refresh_poly_colors`]: Self::refresh_poly_colors
+/// [`set_poly_3d_properties`]: Self::set_poly_3d_properties
+/// [`poly_projected`]: Self::poly_projected
+/// [`set_zsort`]: Self::set_zsort
+/// [`set_sort_zpos`]: Self::set_sort_zpos
+/// [`sort_zpos`]: Self::sort_zpos
+/// [`set_text_position`]: Self::set_text_position
+/// [`text_position`]: Self::text_position
+/// [`patch_path`]: Self::patch_path
+/// [`RotationStyle`]: crate::mplot3d::RotationStyle
+/// [`mouse_init`]: Self::mouse_init
+/// [`MouseButtons`]: crate::mplot3d::MouseButtons
+/// [`mouse_buttons`]: Self::mouse_buttons
+/// [`disable_mouse_rotation`]: Self::disable_mouse_rotation
+/// [`drag_rotate`]: Self::drag_rotate
+/// [`drag_zoom`]: Self::drag_zoom
+/// [`pan_view`]: Self::pan_view
+/// [`zoom_to_rect`]: Self::zoom_to_rect
+/// [`format_coord`]: Self::format_coord
+/// [`format_data`]: Self::format_data
+/// [`rotation_coords`]: Self::rotation_coords
+/// [`pane_point`]: Self::pane_point
+/// [`position`]: Self::position
+/// [`set_position`]: Self::set_position
+/// [`original_position`]: Self::original_position
+/// [`squared_position`]: Self::squared_position
+/// [`subplot_spec`]: Self::subplot_spec
+/// [`set_subplot_spec`]: Self::set_subplot_spec
+/// [`tight_bbox`]: Self::tight_bbox
+/// [`projection_plane`]: Self::projection_plane
+/// [`of_plane`]: Self::of_plane
+/// [`of_artist`]: Self::of_artist
+/// [`trans_axes`]: Self::trans_axes
+/// [`set_top_view`]: Self::set_top_view
+/// [`clear`]: Self::clear
+/// [`cla`]: Self::cla
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Axes3D {
     raw: RawHandle,

@@ -37,13 +37,19 @@ impl fmt::Display for GeoError {
 
 impl std::error::Error for GeoError {}
 
-/// A handle to geographic axes: longitude (radians, `-π..π`) along x and
-/// latitude (radians, `-π/2..π/2`) along y, drawn through a map
-/// projection.
+/// A geographic axes: longitude in radians along x, latitude in radians
+/// along y, drawn through a map projection.
 ///
-/// It dereferences to [`Axes`], so everything that plots on axes plots
-/// here, in `(longitude, latitude)` coordinates. The view limits are
-/// fixed: changing them is refused like matplotlib refuses it.
+/// The longitude goes from -π to π, and the latitude from -π/2 to π/2. The
+/// map fills an ellipse, or a circle for the Lambert projection. A
+/// geographic axes dereferences to [`Axes`], so all plotting methods of
+/// `Axes` work here, in `(longitude, latitude)` coordinates.
+///
+/// Get one from a [`Figure`] with [`Figure::geo_subplot`],
+/// [`Figure::add_geo_subplot`] or [`Figure::add_geo_axes`]. Each takes a
+/// [`GeoProjection`]: `Aitoff`, `Hammer`, `Lambert` or `Mollweide`. For an
+/// inset, use [`Axes::geo_inset_axes`]. [`Axes::as_geo`] gives the
+/// geographic axes behind an `Axes`.
 ///
 /// ```
 /// use pltrs::figure::Figure;
@@ -56,6 +62,45 @@ impl std::error::Error for GeoError {}
 /// assert_eq!(ax.format_coord(0.5, -0.25), "14.323945°S, 28.647890°E");
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
+///
+/// # What is different from a rectangular axes
+///
+/// * The view limits always show the whole sphere. A geographic axes refuses
+///   new limits, as matplotlib does.
+/// * pltrs divides each path in data coordinates into small segments before
+///   it projects the path. Thus straight lines follow the curves of the map.
+/// * The toolbar cannot pan or zoom a geographic axes ([`Axes::can_pan`],
+///   [`Axes::can_zoom`]).
+/// * The gridlines have labels in degrees. The Lambert projection shows no
+///   latitude labels.
+///
+/// # Methods
+///
+/// | Task | Methods |
+/// |------|---------|
+/// | Gridlines | [`set_longitude_grid`], [`set_latitude_grid`], [`set_longitude_grid_ends`], [`longitude_grid_ends`] |
+/// | Center of the Lambert projection | [`set_lambert_center`] |
+/// | Projection | [`geo_projection`] |
+/// | Coordinate readout in degrees | [`format_coord`] |
+/// | Outline of the map | [`spine`] |
+/// | The `Axes` handle | [`axes`] |
+///
+/// [`Figure::geo_subplot`]: crate::figure::Figure::geo_subplot
+/// [`Figure::add_geo_subplot`]: crate::figure::Figure::add_geo_subplot
+/// [`Figure::add_geo_axes`]: crate::figure::Figure::add_geo_axes
+/// [`Axes::geo_inset_axes`]: crate::axes::Axes::geo_inset_axes
+/// [`Axes::as_geo`]: crate::axes::Axes::as_geo
+/// [`Axes::can_pan`]: crate::axes::Axes::can_pan
+/// [`Axes::can_zoom`]: crate::axes::Axes::can_zoom
+/// [`set_longitude_grid`]: Self::set_longitude_grid
+/// [`set_latitude_grid`]: Self::set_latitude_grid
+/// [`set_longitude_grid_ends`]: Self::set_longitude_grid_ends
+/// [`longitude_grid_ends`]: Self::longitude_grid_ends
+/// [`set_lambert_center`]: Self::set_lambert_center
+/// [`geo_projection`]: Self::geo_projection
+/// [`format_coord`]: Self::format_coord
+/// [`spine`]: Self::spine
+/// [`axes`]: Self::axes
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GeoAxes {
     axes: Axes,

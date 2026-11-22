@@ -1,44 +1,8 @@
-//! 3-D plotting (matplotlib's `mpl_toolkits.mplot3d`).
+//! 3-D plotting (`mpl_toolkits.mplot3d` in matplotlib).
 //!
-//! An [`Axes3D`] — created with [`Figure::subplot_3d`] and friends —
-//! projects data from a 3-D box onto the screen through a camera
-//! ([`ViewAngles`], [`ProjType`], box aspect) and draws the box's panes,
-//! gridlines and axes around it.
-//!
-//! Like matplotlib, every 3-D artist is a 2-D artist drawn in the
-//! projected coordinates of the axes (its *projection plane*) plus a 3-D
-//! geometry. Before each draw the layout pass projects the geometry onto
-//! the 2-D artist; collections and patches are then ordered by depth
-//! ("computed z-order") so that nearer ones are drawn on top, and the
-//! polygons and markers inside a collection are sorted back to front.
-//!
-//! Each axis has a scale (linear, log, symlog, logit, ...): data are
-//! mapped through the scales before the projection, and autoscaling,
-//! panning, zooming and the status-bar readout work in the transformed
-//! coordinates, as in matplotlib 3.11.
-//!
-//! Artists draw beyond the panes when the data exceed the view limits,
-//! unless clipped to them (matplotlib 3.10's `axlim_clip`: an option field
-//! of the plotting methods, or [`Axes3D::set_axlim_clip`]): their points
-//! outside the limits are then hidden.
-//!
-//! * [`math`] — homogeneous projection matrices (matplotlib's `proj3d`).
-//! * [`Axes3D`] — limits, bounds, margins, scales, equal aspects
-//!   ([`Aspect3D`]), labels, view and decoration settings, sharing of axes
-//!   and views, and the plotting methods: `plot`, `scatter`,
-//!   `plot_surface`, `plot_wireframe`, `plot_trisurf`, `contour`,
-//!   `contourf`, `tricontour`, `tricontourf`, `fill_between`, `errorbar`,
-//!   `bar3d`, `bar`, `quiver`, `voxels`, `stem`, `text`, `text2d` and
-//!   `add_collection3d`.
-//! * [`Axis3D`] — one axis: tick locators and formatters (major and
-//!   minor), fixed ticks and labels, tick parameters, its tick marks and
-//!   gridlines, and unit conversion: the point-plotting methods take
-//!   dates, category names and values with units as 2-D plotting methods
-//!   do, converted on the axis each lies along
-//!   ([`Axis3D::convert_units`]).
-//! * [`LightSource`] — the light shading surfaces, bars and voxels.
-//! * [`DrawFailure`] — a problem drawing an artist meets, recorded in
-//!   advance for data matplotlib accepts but fails to draw.
+//! An [`Axes3D`] projects data from a 3-D box onto the screen through a
+//! camera. Its page lists all 3-D plot types, the view settings and the axes
+//! settings. Start there. [`Figure::subplot_3d`] makes one.
 //!
 //! ```
 //! use pltrs::figure::Figure;
@@ -52,6 +16,37 @@
 //! assert_eq!(ax.label(Axis3::Z), "time");
 //! # Ok::<(), pltrs::mplot3d::Axes3DError>(())
 //! ```
+//!
+//! # How a 3-D axes draws
+//!
+//! Each 3-D artist is a 2-D artist with a 3-D geometry. Before each draw,
+//! pltrs projects the geometry onto the 2-D artist. Then it sorts the
+//! collections and patches by depth, so that nearer artists cover farther
+//! ones. It also sorts the polygons and markers in a collection from back to
+//! front.
+//!
+//! Each axis has a scale, such as linear or log. pltrs maps the data through
+//! the scales before the projection. Autoscaling, panning, zooming and the
+//! coordinate readout use the scaled coordinates.
+//!
+//! Artists can extend past the panes if the data is outside the view limits.
+//! To hide those parts, set the option field `axlim_clip` of a plotting
+//! method, or call [`Axes3D::set_axlim_clip`].
+//!
+//! # Types
+//!
+//! | Group | Types |
+//! |-------|-------|
+//! | The axes | [`Axes3D`], [`Axis3D`] (one axis), [`Axis3`] (the name of an axis), [`SharedAxes`] |
+//! | View | [`ViewAngles`], [`ProjType`], [`Aspect3D`], [`PaneStyle`] |
+//! | Options of the plot types | [`Axes3DOptions`], [`Scatter3DOptions`], [`SurfaceOptions`], [`WireframeOptions`], [`TrisurfOptions`], [`Contour3DOptions`], [`FillBetween3DOptions`], [`Errorbar3DOptions`], [`Bar3DOptions`], [`Quiver3DOptions`], [`VoxelOptions`], [`Stem3DOptions`], [`Poly3DOptions`] |
+//! | Data | [`Vec3`], [`Curve3D`], [`Boxes`], [`Array3`] |
+//! | Results | [`Errorbar3D`], [`Stem3D`] |
+//! | Shading and depth | [`LightSource`], [`ZSort`] |
+//! | Mouse | [`MouseButtons`], [`RotationStyle`] |
+//! | Errors | [`Axes3DError`], [`DrawFailure`] |
+//!
+//! The module [`math`] has the projection matrices (`proj3d` in matplotlib).
 //!
 //! [`Figure::subplot_3d`]: crate::figure::Figure::subplot_3d
 

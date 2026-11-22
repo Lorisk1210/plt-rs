@@ -1,11 +1,34 @@
-//! The types and traits most programs need: `use pltrs::prelude::*;`.
+//! The types and traits that most programs need.
 //!
-//! Figures, axes, lines and the [`ArtistHandle`] trait every artist's
-//! common methods come from; the option structs of the common plot types
-//! (lines, scatter plots, bars, histograms, filled areas, images); the
-//! options of legends and colorbars; colours, colormaps, line styles and
-//! markers; and the numeric helpers that make data: ranges, meshes and
-//! [`Grid`]s.
+//! Import them all with one line:
+//!
+//! ```
+//! use pltrs::prelude::*;
+//!
+//! let fig = Figure::new();
+//! let ax = fig.subplot();
+//! ax.plot_with(linspace(0.0, 1.0, 5), [0.0, 1.0, 0.0, 1.0, 0.0], LineProps::default())?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! The prelude exports these names:
+//!
+//! | Group | Names |
+//! |-------|-------|
+//! | Figures and axes | [`Figure`], [`Axes`] |
+//! | Artists | [`ArtistHandle`], the trait that gives every artist its common methods |
+//! | Lines and markers | [`Line2D`], [`LineProps`], [`LineStyle`], [`DrawStyle`], [`MarkEvery`], [`Marker`], [`MarkerSymbol`], [`FillStyle`] |
+//! | Patches | [`PatchProps`] |
+//! | Scatter plots | [`ScatterOptions`], [`ScatterColors`], [`MappedColors`] |
+//! | Bars and histograms | [`BarOptions`], [`BarAlign`], [`HistPlotOptions`] |
+//! | Error bars and areas | [`ErrorbarOptions`], [`FillBetweenOptions`] |
+//! | Images | [`ImshowOptions`] |
+//! | Legends and colorbars | [`LegendOptions`], [`ColorbarOptions`] |
+//! | Colors | [`Color`], [`colormaps`], [`Colorize`], the trait that gives the colormap builders |
+//! | Data | [`linspace`], [`arange`], [`logspace`], [`meshgrid`], [`Grid`] |
+//!
+//! Other names are in their modules. The [crate documentation](crate) lists
+//! the modules.
 
 pub use crate::artist::ArtistHandle;
 pub use crate::axes::{

@@ -34,8 +34,40 @@ impl From<f64> for PadInches {
     }
 }
 
-/// Options of [`Figure::savefig_with`](crate::figure::Figure::savefig_with);
-/// unset ones follow the `savefig.*` rcParams.
+/// The options of a save (matplotlib's `savefig` keywords).
+///
+/// [`Figure::savefig_with`](crate::figure::Figure::savefig_with),
+/// [`Figure::to_format`](crate::figure::Figure::to_format) and each
+/// `to_*_with` method of [`Figure`](crate::figure::Figure) take these
+/// options. A field that is `None` uses its `savefig.*` runtime setting.
+///
+/// | Fields | What they set | Formats |
+/// |--------|---------------|---------|
+/// | [`dpi`](Self::dpi) | The resolution. Vector formats draw their images at it. | All |
+/// | [`bbox_inches`](Self::bbox_inches), [`pad_inches`](Self::pad_inches) | The part of the figure to save, such as a tight crop, and its padding. | All |
+/// | [`transparent`](Self::transparent) | Removes the figure and axes backgrounds. | All |
+/// | [`facecolor`](Self::facecolor), [`edgecolor`](Self::edgecolor) | The background color and the frame color of the figure. | All |
+/// | [`format`](Self::format) | The file format, instead of the extension of the file name. | All |
+/// | [`metadata`](Self::metadata) | The title, author and other document entries. | PNG and vector formats |
+/// | [`jpeg_quality`](Self::jpeg_quality) | The JPEG quality, from 1 to 100. | JPEG |
+/// | [`avif_quality`](Self::avif_quality) | The AVIF quality, from 0 to 100. 100 is lossless. | AVIF |
+/// | [`orientation`](Self::orientation), [`papertype`](Self::papertype) | The orientation and the paper of the page. | PostScript |
+/// | [`pgf_text_metrics`](Self::pgf_text_metrics) | How pltrs measures the text: with its own text engine or with LaTeX. | PGF |
+///
+/// ```
+/// use pltrs::figure::{BboxInches, Figure, SaveOptions};
+///
+/// let fig = Figure::with_size(4.0, 3.0, 100.0);
+/// fig.subplot().plot([0.0, 1.0], [0.0, 1.0])?;
+/// let options = SaveOptions {
+///     dpi: Some(300.0),
+///     bbox_inches: Some(BboxInches::Tight),
+///     transparent: Some(true),
+///     ..SaveOptions::default()
+/// };
+/// assert!(fig.to_png_with(options)?.starts_with(b"\x89PNG"));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SaveOptions {
     /// Resolution (`savefig.dpi`, by default the resolution the figure

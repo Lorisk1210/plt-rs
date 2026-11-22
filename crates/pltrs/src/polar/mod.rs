@@ -1,16 +1,19 @@
-//! Polar axes (matplotlib's `projections.polar`): data given as angle θ
-//! (radians, the x axis) and radius r (the y axis) drawn inside a circle
-//! or an annular sector.
+//! Polar axes (`projections.polar` in matplotlib).
 //!
-//! * [`PolarAxes`] — the handle returned by
-//!   [`Figure::polar_subplot`](crate::figure::Figure::polar_subplot); it
-//!   dereferences to [`Axes`] for plotting and adds the polar settings
-//!   (θ orientation and limits, radial origin, label positions, ...).
-//! * [`ThetaFormatter`] — the θ axis' labels in degrees, for unit
-//!   converters of angles to give polar axes.
-//! * The projection itself (`PolarTransform`, `PolarAffine`,
-//!   `_WedgeBbox`), the angular and radial locators, and the painting of
-//!   the circular grid live in private submodules.
+//! A polar axes shows the angle θ in radians along x and the radius r along
+//! y. It draws inside a circle or an annular sector. [`PolarAxes`] lists what
+//! is different from a rectangular axes and all polar settings. Start there.
+//!
+//! * [`PolarAxes`]: the handle of a polar axes. It dereferences to
+//!   [`Axes`] for plotting.
+//! * [`ThetaDirection`], [`Compass`] and [`PolarFrame`]: the direction of θ,
+//!   the position of θ = 0, and the outline of the axes.
+//! * [`ThetaLocator`], [`RadialLocator`] and [`ThetaFormatter`]: the tick
+//!   locators of θ and r, and the degree labels of θ.
+//! * [`PolarError`]: the errors of the polar settings.
+//!
+//! The projection, the locators and the drawing of the circular grid are in
+//! private modules.
 
 mod api;
 mod create;

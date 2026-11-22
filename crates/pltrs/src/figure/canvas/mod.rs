@@ -1,34 +1,6 @@
 //! The raster canvas a figure keeps between draws (matplotlib's
-//! `FigureCanvasAgg` and its cached renderer), and blitting: redrawing
-//! only what changes.
-//!
-//! A full [`FigureCanvas::draw`] fills the canvas, leaving out the
-//! animated artists ([`ArtistHandle::set_animated`]). A program saves the
-//! background with [`FigureCanvas::copy_from_bbox`], then for every update
-//! puts it back with [`FigureCanvas::restore_region`], draws the changed
-//! artists with [`Axes::draw_artist`](crate::axes::Axes::draw_artist) or
-//! [`Figure::draw_artist`] and shows the result with
-//! [`FigureCanvas::blit`]: a window showing the figure updates only that
-//! part of itself.
-//!
-//! ```
-//! use pltrs::prelude::*;
-//! let fig = Figure::with_size(2.0, 2.0, 50.0);
-//! let ax = fig.subplot();
-//! let line = ax.plot(vec![0.0, 1.0], vec![0.0, 1.0])?;
-//! line.set_animated(true);
-//! let canvas = fig.canvas();
-//! canvas.draw()?;
-//! let background = canvas.copy_from_bbox(&fig.bbox())?;
-//! for i in 0..3 {
-//!     canvas.restore_region(&background)?;
-//!     line.set_data(&[0.0, 1.0], &[0.0, f64::from(i)]);
-//!     ax.draw_artist(&line)?;
-//!     canvas.blit(Some(&ax.bbox()))?;
-//! }
-//! assert_eq!(canvas.buffer_rgba()?.width(), 100);
-//! # Ok::<(), Box<dyn std::error::Error>>(())
-//! ```
+//! `FigureCanvasAgg` and its cached renderer), and blitting. The page of
+//! [`FigureCanvas`] describes both.
 
 mod artists;
 mod ratio;
@@ -114,12 +86,61 @@ impl std::error::Error for CanvasError {
     }
 }
 
-/// The raster canvas of a figure (matplotlib's `fig.canvas` with the Agg
-/// renderer it keeps): what the figure was last drawn as, changed by
-/// restored regions and artists drawn one by one, and shown by the
-/// figure's windows. Subfigures share the canvas of their figure.
+/// The canvas of a figure holds the pixels of its last draw (matplotlib's
+/// `fig.canvas` with its Agg renderer).
 ///
-/// `FigureCanvas` is a cheap handle; clones refer to the same canvas.
+/// The windows and browser pages that show the figure show these pixels.
+/// You can change parts of them without a full draw. This is blitting.
+/// [`Figure::canvas`] gives the canvas. Subfigures share the canvas of
+/// their figure.
+///
+/// `FigureCanvas` is a cheap handle. Its clones refer to the same canvas.
+///
+/// | Method | What it does |
+/// |--------|--------------|
+/// | [`draw`](Self::draw) | Draws the whole figure, without the animated artists. |
+/// | [`draw_saving`](Self::draw_saving) | Draws the whole figure with the animated artists. |
+/// | [`draw_idle`](Self::draw_idle) | Asks for a full draw at the next refresh of the window. |
+/// | [`draw_through`](Self::draw_through) | Draws the whole figure through a renderer that replaces some drawing methods. |
+/// | [`copy_from_bbox`](Self::copy_from_bbox) | Saves the pixels in a box as a [`BufferRegion`]. |
+/// | [`restore_region`](Self::restore_region), [`restore_region_with`](Self::restore_region_with) | Put saved pixels back, or a part of them at another position. |
+/// | [`draw_path`](Self::draw_path), [`draw_text`](Self::draw_text), [`draw_drawing`](Self::draw_drawing) | Draw a path, a line of text or a recorded drawing over the pixels. |
+/// | [`blit`](Self::blit) | Shows a changed part of the canvas in the windows and browser pages. |
+/// | [`buffer_rgba`](Self::buffer_rgba) | Gives the pixels as RGBA rows. |
+/// | [`device_pixel_ratio`](Self::device_pixel_ratio), [`set_device_pixel_ratio`](Self::set_device_pixel_ratio) | Get or set the physical pixels for each logical pixel of the display. |
+/// | [`figure`](Self::figure) | Gives the figure of the canvas. |
+///
+/// # Blitting
+///
+/// 1. Mark the artists that change as animated
+///    ([`ArtistHandle::set_animated`]). A full draw leaves them out.
+/// 2. Draw the figure with [`draw`](Self::draw).
+/// 3. Save the background with [`copy_from_bbox`](Self::copy_from_bbox).
+/// 4. For each update, put the background back with
+///    [`restore_region`](Self::restore_region).
+/// 5. Draw the changed artists with [`Figure::draw_artist`] or
+///    [`Axes::draw_artist`](crate::axes::Axes::draw_artist).
+/// 6. Show the result with [`blit`](Self::blit). A window updates only
+///    that part of itself.
+///
+/// ```
+/// use pltrs::prelude::*;
+/// let fig = Figure::with_size(2.0, 2.0, 50.0);
+/// let ax = fig.subplot();
+/// let line = ax.plot(vec![0.0, 1.0], vec![0.0, 1.0])?;
+/// line.set_animated(true);
+/// let canvas = fig.canvas();
+/// canvas.draw()?;
+/// let background = canvas.copy_from_bbox(&fig.bbox())?;
+/// for i in 0..3 {
+///     canvas.restore_region(&background)?;
+///     line.set_data(&[0.0, 1.0], &[0.0, f64::from(i)]);
+///     ax.draw_artist(&line)?;
+///     canvas.blit(Some(&ax.bbox()))?;
+/// }
+/// assert_eq!(canvas.buffer_rgba()?.width(), 100);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct FigureCanvas {
     figure: Figure,

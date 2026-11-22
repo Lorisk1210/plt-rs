@@ -7,7 +7,33 @@ use std::str::FromStr;
 use super::SaveError;
 use crate::image::BitmapFormat;
 
-/// The file formats figures can be saved in.
+/// A file format that pltrs can save a figure in.
+///
+/// [`Figure::savefig`](crate::figure::Figure::savefig) selects the format
+/// from the file extension. [`SaveOptions::format`](crate::figure::SaveOptions::format)
+/// and [`Figure::to_format`](crate::figure::Figure::to_format) take it as a
+/// value. A format parses from its name or extension, in uppercase or
+/// lowercase.
+///
+/// | Kind | Formats |
+/// |------|---------|
+/// | Raster images, drawn by the Agg-compatible renderer | [`Png`](Self::Png), [`Jpeg`](Self::Jpeg), [`Tiff`](Self::Tiff), [`Gif`](Self::Gif), [`Webp`](Self::Webp), [`Avif`](Self::Avif), [`Raw`](Self::Raw) |
+/// | Vector documents | [`Svg`](Self::Svg), [`Svgz`](Self::Svgz), [`Pdf`](Self::Pdf), [`Ps`](Self::Ps), [`Eps`](Self::Eps) |
+/// | Pictures for LaTeX | [`Pgf`](Self::Pgf) |
+///
+/// | Method | What it does |
+/// |--------|--------------|
+/// | [`extension`](Self::extension) | Gives the file extension. |
+/// | [`file_name_for`](Self::file_name_for) | Makes a file name from a window title. |
+/// | [`takes_metadata`](Self::takes_metadata) | Tells if the format holds document metadata. |
+/// | [`bitmap`](Self::bitmap) | Gives the bitmap encoding of a raster format. |
+///
+/// ```
+/// use pltrs::figure::SaveFormat;
+/// assert_eq!("JPEG".parse::<SaveFormat>()?, SaveFormat::Jpeg);
+/// assert_eq!(SaveFormat::Jpeg.extension(), "jpg");
+/// # Ok::<(), pltrs::figure::SaveError>(())
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SaveFormat {
     /// Portable Network Graphics (the Agg canvas).

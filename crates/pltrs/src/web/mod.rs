@@ -1,20 +1,8 @@
-//! Interactive figures in a web browser (matplotlib's `WebAgg` backend), for
-//! machines where pltrs's windows cannot open: WSL, a remote host.
+//! Interactive figures in a web browser (matplotlib's `WebAgg` backend).
 //!
-//! A [`WebServer`] is a small HTTP/1.1 and WebSocket (RFC 6455) server on
-//! `std::net`. It serves matplotlib's own browser client — `mpl.js`, its
-//! style sheets and toolbar icons, embedded unchanged — at matplotlib's
-//! URLs: `/` shows every figure, `/<number>` one figure, and
-//! `/<number>/download.<format>` saves it. The client speaks matplotlib's
-//! protocol over `/<number>/ws`: it reports mouse and key input, resizes
-//! and toolbar clicks; the server answers with PNG frames (whole, or only
-//! the pixels that changed), the coordinate readout, the zoom rectangle,
-//! cursors and the state of the toolbar buttons.
-//!
-//! Input reaches the figure as it does in a window ([`crate::events`]):
-//! connected callbacks run, the toolbar pans and zooms
-//! ([`crate::navigation`]), the wheel zooms, `keymap.*` shortcuts work
-//! (`q` closes the figure), and figure timers and animations play.
+//! Use the browser where a window cannot open, for example on WSL or on a
+//! remote machine. [`serve`] shows figures in the browser and returns when
+//! the user closes all of them.
 //!
 //! ```no_run
 //! use pltrs::figure::Figure;
@@ -28,26 +16,90 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`crate::pyplot`] uses this backend when it is selected
-//! ([`crate::pyplot::Backend::WebAgg`], or `MPLBACKEND=webagg`) and, on
-//! macOS and Windows, in place of windows that cannot open.
+//! # What the browser page can do
 //!
-//! Figures are single-threaded: the thread that owns the server runs the
-//! figures, and network threads pass it what clients send through bounded
-//! queues. Requests and messages from the network are untrusted: malformed
-//! HTTP, WebSocket frames or messages, oversized input and slow clients
-//! end their connection without affecting the figures.
+//! The page shows the figure with the toolbar of a window: home, back,
+//! forward, pan, zoom and download. Input reaches the figure as it does in a
+//! window ([`gui`](crate::gui)):
 //!
-//! Left out from matplotlib's `WebAgg`: the `IPython` inline display and
-//! `nbagg`, and toolbar buttons for tools added with `Figure::add_tool`
-//! (their keyboard shortcuts work).
+//! * The callbacks that you connect with
+//!   [`Figure::connect`](crate::figure::Figure::connect) get the mouse and
+//!   key events.
+//! * Pan, zoom and the mouse wheel change the view
+//!   ([`navigation`](crate::navigation)).
+//! * A status line shows the data coordinates under the pointer.
+//! * The `keymap.*` shortcuts work. `q` closes the figure.
+//! * Figure timers run, and animations play ([`animation`](crate::animation)).
+//! * When the user resizes the page, the figure changes its size too.
+//! * The download menu offers 12 formats: all formats of
+//!   [`SaveFormat`](crate::figure::SaveFormat) except compressed SVG.
 //!
-//! A [`WebRelay`] is the same server for programs that run matplotlib's
-//! side of the protocol themselves (pltrs (Python)'s `webagg` backend):
-//! it serves the pages and files, and hands over what the WebSocket
-//! connections send and the downloads asked for ([`RelayEvent`]),
-//! sending the clients what the program wants. [`client_files`] gives the files of the
-//! browser client, for programs serving them themselves.
+//! The page uses the modern look or the matplotlib look of the windows
+//! ([`look`](crate::look)). In the modern look, a page whose figures all have
+//! a dark background is dark.
+//!
+//! The page cannot show toolbar buttons for tools that you add with
+//! [`Figure::add_tool`](crate::figure::Figure::add_tool). Their keyboard
+//! shortcuts work. pltrs has no `IPython` inline display and no `nbagg`
+//! backend.
+//!
+//! # Serve figures
+//!
+//! | Item | What it does |
+//! |------|--------------|
+//! | [`serve`] | Shows figures in the browser until the user closes all of them. |
+//! | [`WebOptions`] | The address, the port, the port retries, a URL prefix, and if pltrs opens a browser. [`WebOptions::from_rc`] reads the `webagg.*` runtime settings. |
+//! | [`WebServer`] | A server that you control: add and close figures, run it for a time, collect clicks. |
+//! | [`WebError`] | Why the server failed. |
+//!
+//! The [`WebServer`] methods:
+//!
+//! | Method | What it does |
+//! |--------|--------------|
+//! | [`WebServer::bind`] | Starts the server. |
+//! | [`WebServer::add_figure`], [`WebServer::add_figure_as`] | Serve a figure, with the next free number or with a number and a title of your choice. |
+//! | [`WebServer::close`], [`WebServer::take_closed`] | Stop serving a figure, or give the figures that the user closed. |
+//! | [`WebServer::run`], [`WebServer::pause`] | Serve until a time or a condition, or for a duration. |
+//! | [`WebServer::ginput`], [`WebServer::wait_for_button_press`] | Collect clicked points, or wait for a click or a key press. |
+//! | [`WebServer::url`], [`WebServer::figure_url`], [`WebServer::local_addr`] | Give the addresses of the pages. |
+//! | [`WebServer::open_in_browser`] | Opens the page in the web browser of the system. |
+//! | [`WebServer::number_of`], [`WebServer::shows`], [`WebServer::is_empty`] | Tell which figures the server shows. |
+//!
+//! [`pyplot`](crate::pyplot) uses this backend if you select it
+//! ([`Backend::WebAgg`](crate::pyplot::Backend::WebAgg), or
+//! `MPLBACKEND=webagg`). On macOS and Windows, pyplot also uses it where a
+//! window cannot open.
+//!
+//! # How it works
+//!
+//! [`WebServer`] is an HTTP/1.1 and WebSocket (RFC 6455) server on
+//! `std::net`. It serves the browser client of matplotlib, `mpl.js`, with
+//! its style sheets and toolbar icons, at the URLs of matplotlib:
+//!
+//! | URL | What it gives |
+//! |-----|---------------|
+//! | `/` | A page with all figures. |
+//! | `/<number>` | A page with one figure. |
+//! | `/<number>/download.<format>` | The figure saved in a format. |
+//! | `/<number>/ws` | The WebSocket of the figure. |
+//!
+//! Over the WebSocket, the client sends mouse input, key input, resizes and
+//! toolbar clicks. The server sends PNG frames, the coordinate text, the
+//! zoom rectangle, the cursor and the state of the toolbar buttons. A frame
+//! holds the whole figure or only the pixels that changed.
+//!
+//! The thread that owns the server runs the figures. Network threads send
+//! it the client messages through bounded queues. pltrs does not trust the
+//! network. A malformed request, an oversized message or a slow client
+//! ends its connection, and the figures stay as they are.
+//!
+//! # For programs that run the protocol themselves
+//!
+//! A [`WebRelay`] serves the pages and files, and gives the WebSocket
+//! messages and download requests to the program ([`RelayEvent`]). The
+//! program sends the replies. pltrs (Python) uses it for its `webagg`
+//! backend. [`client_script`] and [`client_files`] give the files of the
+//! browser client to a program that serves them itself.
 
 mod assets;
 mod browser;

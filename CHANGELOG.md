@@ -1,10 +1,14 @@
 # Changelog
 
-## <!--fact:version-->0.1.1 (2026-11-22)
+## <!--fact:version-->0.1.1 (2026-11-23)
 
 * The documentation is shorter and uses Simplified Technical English.
   This includes the README, the API documentation on docs.rs and the
-  documents in the repository. The behavior of pltrs did not change.
+  documents in the repository.
+* The API documentation has an overview of what you can do. The page of
+  the crate lists each capability by topic with a link. The pages of
+  `Figure`, `Axes`, `Axes3D` and `pyplot` group their methods by task.
+* The behavior of pltrs did not change.
 
 ## 0.1.0 (2026-11-20)
 

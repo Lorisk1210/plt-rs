@@ -1,11 +1,16 @@
-//! Animations (matplotlib's `animation.FuncAnimation` and
-//! `ArtistAnimation`): a function updates the figure for each frame, or
-//! each frame shows prepared artists. A figure window plays the frames on
-//! a timer once it has drawn the figure, either redrawing the figure for
-//! each frame or blitting: drawing only the artists the frame changed
-//! over the saved background of their axes. The animation can be saved
-//! as an animated PNG or GIF, as a web page with matplotlib's JavaScript
-//! player, or as a video through ffmpeg.
+//! Animations that play in a window and save as animated images, web pages
+//! or videos (matplotlib's `matplotlib.animation`).
+//!
+//! # Make an animation
+//!
+//! | Constructor | What it animates |
+//! |-------------|------------------|
+//! | [`FuncAnimation::new`] | Calls your function with each frame number. The function changes the artists. |
+//! | [`FuncAnimation::with_init`] | The same, after an init function sets up the first frame. |
+//! | [`FuncAnimation::from_artists`] | Shows a list of prepared artists for each frame (matplotlib's `ArtistAnimation`). |
+//!
+//! [`Frames`] sets the number of frames, or no end. [`AnimationOptions`]
+//! sets the time between frames, the repetition and blitting.
 //!
 //! ```
 //! use pltrs::animation::{AnimationOptions, Frames, FuncAnimation};
@@ -22,9 +27,48 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! With [`AnimationOptions::blit`], the frame function returns the
-//! artists it changed. They should be animated from the start, so that
-//! the background saved when the figure is first drawn leaves them out:
+//! # Show an animation
+//!
+//! Keep the animation in a variable, and show its figure with
+//! [`gui::show`](crate::gui::show), [`pyplot::show`](crate::pyplot::show)
+//! or [`web::serve`](crate::web::serve). The animation starts when the
+//! window draws the figure. A timer then shows the next frame at each
+//! interval. The animation stops when you drop it.
+//!
+//! | Method | What it does |
+//! |--------|--------------|
+//! | [`FuncAnimation::pause`], [`FuncAnimation::resume`] | Pause the animation, or continue from the frame where it paused. |
+//! | [`FuncAnimation::stop`] | Stops the animation. |
+//!
+//! # Save an animation
+//!
+//! [`FuncAnimation::save`] selects the format from the file extension.
+//!
+//! | Output | Extensions | Methods |
+//! |--------|------------|---------|
+//! | Animated PNG | `.png`, `.apng` | [`to_apng`](FuncAnimation::to_apng), [`save_apng`](FuncAnimation::save_apng) |
+//! | Animated GIF | `.gif` | [`to_gif`](FuncAnimation::to_gif), [`save_gif`](FuncAnimation::save_gif) |
+//! | Lossless animated WebP | `.webp` | [`to_webp`](FuncAnimation::to_webp), [`save_webp`](FuncAnimation::save_webp) |
+//! | Web page with the JavaScript player of matplotlib | `.html`, `.htm` | [`save_html`](FuncAnimation::save_html), [`to_jshtml`](FuncAnimation::to_jshtml) ([`HtmlOptions`], [`PlayMode`]) |
+//! | Video through an installed ffmpeg | All other extensions, such as `.mp4` | [`save_movie`](FuncAnimation::save_movie) ([`MovieOptions`]), [`to_html5_video`](FuncAnimation::to_html5_video) |
+//!
+//! The `to_*` methods return the file contents. [`to_jshtml`](FuncAnimation::to_jshtml)
+//! and [`to_html5_video`](FuncAnimation::to_html5_video) return HTML that
+//! you can put in a page. [`FuncAnimation::repr_html`] returns the HTML that
+//! the runtime setting `animation.html` selects for a notebook
+//! ([`HtmlRepr`]). The runtime setting `animation.frame_format` selects the
+//! frame format of a web page ([`FrameFormat`]).
+//!
+//! A [`MovieWriter`] writes the frames that you draw yourself. Change the
+//! figure, then add it as a frame with [`MovieWriter::grab_frame`].
+//!
+//! # Blitting
+//!
+//! With [`AnimationOptions::blit`], pltrs draws only the changed artists
+//! for each frame, over the saved background of their axes. The frame
+//! function returns the artists that it changed ([`ChangedArtists`]). Mark
+//! these artists as animated before the first draw. Then the saved
+//! background does not include them:
 //!
 //! ```
 //! use pltrs::animation::{AnimationOptions, Frames, FuncAnimation};
@@ -45,6 +89,11 @@
 //! assert!(!fig.is_stale(), "the frame was blitted, not redrawn");
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
+//!
+//! # Errors
+//!
+//! [`AnimationError`] tells why pltrs cannot save an animation.
+//! [`MovieError`] tells why ffmpeg cannot make a video.
 
 use std::cell::RefCell;
 use std::fmt;

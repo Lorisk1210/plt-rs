@@ -13,13 +13,24 @@ use super::save::{SaveError, pdf_options};
 /// `positionRect`): off the page.
 const NOTE_RECT: [f64; 4] = [-100.0, -100.0, 0.0, 0.0];
 
-/// A PDF document collecting figures, one page per saved figure, sharing
-/// fonts and other resources between its pages.
+/// A PDF document with one page for each figure that you add (matplotlib's
+/// `PdfPages`).
 ///
-/// The document is configured by the `pdf.*` rcParams in effect when it is
-/// created; each page is drawn like [`Figure::savefig_with`] draws a PDF
-/// file (the `metadata` of the save options is ignored: the document has
-/// its own, see [`metadata_mut`](Self::metadata_mut)).
+/// The pages share fonts and other resources. The document uses the
+/// `pdf.*` runtime settings of the moment you make it. Each page is drawn
+/// as [`Figure::savefig_with`] draws a PDF file. The document ignores the
+/// `metadata` of the save options, because it has its own metadata
+/// ([`metadata_mut`](Self::metadata_mut)).
+///
+/// | Method | What it does |
+/// |--------|--------------|
+/// | [`new`](Self::new), [`with_metadata`](Self::with_metadata) | Make an empty document. |
+/// | [`savefig`](Self::savefig), [`savefig_with`](Self::savefig_with) | Add a figure as a new page. |
+/// | [`attach_note`](Self::attach_note), [`attach_note_at`](Self::attach_note_at) | Attach a text note to the next page. |
+/// | [`page_count`](Self::page_count), [`image_names`](Self::image_names) | Give the number of pages, or the names of their images. |
+/// | [`metadata_mut`](Self::metadata_mut) | Gives the document metadata to change it. |
+/// | [`finish`](Self::finish), [`save`](Self::save) | End the document and give its bytes, or write it to a file. |
+/// | [`document_mut`](Self::document_mut), [`into_document`](Self::into_document) | Give the PDF renderer, to write other objects into the document. |
 ///
 /// ```
 /// use pltrs::figure::{Figure, PdfPages};

@@ -1,21 +1,19 @@
-//! Geographic axes (matplotlib's `projections.geo`): longitude (the x
-//! axis) and latitude (the y axis) in radians drawn through a map
-//! projection inside an ellipse or a circle.
+//! Geographic axes (`projections.geo` in matplotlib).
 //!
-//! * [`GeoAxes`] — the handle returned by
-//!   [`Figure::geo_subplot`](crate::figure::Figure::geo_subplot); it
-//!   dereferences to [`Axes`] for plotting and adds the grid settings
-//!   (`set_longitude_grid`, `set_latitude_grid`,
-//!   `set_longitude_grid_ends`).
-//! * [`GeoProjection`] — the four projections (Aitoff, Hammer, Lambert,
-//!   Mollweide) with their forward and inverse maps.
-//! * [`GeoThetaFormatter`] — the degree labels of the grid.
+//! A geographic axes shows longitude in radians along x and latitude in
+//! radians along y, through a map projection. [`GeoAxes`] lists what is
+//! different from a rectangular axes and all geographic settings. Start
+//! there.
 //!
-//! The view limits are fixed to the whole sphere, `[-π, π]` × `[-π/2,
-//! π/2]`; every path drawn in data coordinates is subdivided before it is
-//! projected, so straight segments follow the curvature of the map.
-//! Geographic axes are drawn through the same [`Projection`] hooks as
-//! projections defined by the program.
+//! * [`GeoAxes`]: the handle of a geographic axes. It dereferences to
+//!   [`Axes`] for plotting.
+//! * [`GeoProjection`]: the four projections Aitoff, Hammer, Lambert and
+//!   Mollweide, with their forward and inverse maps.
+//! * [`GeoThetaFormatter`]: the degree labels of the gridlines.
+//! * [`GeoError`]: the errors of the geographic settings.
+//!
+//! Geographic axes draw through the same [`Projection`] trait as the
+//! projections that you define.
 //!
 //! [`Projection`]: crate::projections::Projection
 

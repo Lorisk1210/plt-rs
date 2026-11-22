@@ -48,10 +48,15 @@ impl fmt::Display for PolarError {
 
 impl std::error::Error for PolarError {}
 
-/// A handle to polar axes: θ (radians) along x, r along y.
+/// A polar axes: the angle θ in radians along x, and the radius r along y.
 ///
-/// It dereferences to [`Axes`], so everything that plots on axes plots
-/// here, in `(θ, r)` coordinates.
+/// A polar axes draws its data in a circle or in an annular sector. It
+/// dereferences to [`Axes`], so all plotting methods of `Axes` work here, in
+/// `(θ, r)` coordinates. Get one from a [`Figure`] with
+/// [`Figure::polar_subplot`], [`Figure::polar_subplots`],
+/// [`Figure::add_polar_subplot`] or [`Figure::add_polar_axes`]. For an
+/// inset, use [`Axes::polar_inset_axes`]. [`Axes::as_polar`] gives the polar
+/// axes behind an `Axes`.
 ///
 /// ```
 /// use pltrs::figure::Figure;
@@ -64,6 +69,72 @@ impl std::error::Error for PolarError {}
 /// assert_eq!(ax.thetamax(), 360.0);
 /// # Ok::<(), pltrs::axes::PlotError>(())
 /// ```
+///
+/// # What is different from a rectangular axes
+///
+/// * The θ gridlines have labels in degrees. [`set_thetamin`],
+///   [`set_thetamax`], [`set_thetagrids`] and [`set_rlabel_position`] take
+///   degrees. [`set_thetalim`] and [`set_theta_offset`] take radians.
+/// * The aspect is equal, and the box changes to keep it. A polar axes
+///   refuses [`Adjustable::Datalim`].
+/// * The zoom-to-rectangle tool does not work on a polar axes
+///   ([`Axes::can_zoom`]). Panning works.
+/// * The methods of `Axes` for the y axis act on r. The methods below give
+///   the polar names.
+///
+/// # Methods
+///
+/// | Task | Methods |
+/// |------|---------|
+/// | Direction of θ = 0 | [`set_theta_zero_location`] with [`Compass`], [`set_theta_offset`], [`theta_offset`] |
+/// | Direction in which θ increases | [`set_theta_direction`] with [`ThetaDirection`], [`theta_direction`] |
+/// | θ limits, for a sector | [`set_thetamin`], [`set_thetamax`], [`set_thetalim`], [`thetamin`], [`thetamax`] |
+/// | θ gridlines | [`set_thetagrids`], [`set_thetagrids_labeled`] |
+/// | r limits | [`set_rmin`], [`set_rmax`], [`set_rlim`], [`rmin`], [`rmax`] |
+/// | Radius at the center, for a hole | [`set_rorigin`], [`rorigin`], [`rorigin_set`] |
+/// | r scale | [`set_rscale`] |
+/// | r ticks and gridlines | [`set_rticks`], [`set_rgrids`], [`set_rgrids_labeled`] |
+/// | Angle of the r labels | [`set_rlabel_position`], [`rlabel_position`] |
+/// | Outline: circle, polygon or path | [`set_frame`] with [`PolarFrame`], [`frame`] |
+/// | The `Axes` handle | [`axes`] |
+///
+/// [`Figure`]: crate::figure::Figure
+/// [`Figure::polar_subplot`]: crate::figure::Figure::polar_subplot
+/// [`Figure::polar_subplots`]: crate::figure::Figure::polar_subplots
+/// [`Figure::add_polar_subplot`]: crate::figure::Figure::add_polar_subplot
+/// [`Figure::add_polar_axes`]: crate::figure::Figure::add_polar_axes
+/// [`Axes::polar_inset_axes`]: crate::axes::Axes::polar_inset_axes
+/// [`Axes::as_polar`]: crate::axes::Axes::as_polar
+/// [`set_thetamin`]: Self::set_thetamin
+/// [`set_thetamax`]: Self::set_thetamax
+/// [`set_thetagrids`]: Self::set_thetagrids
+/// [`set_rlabel_position`]: Self::set_rlabel_position
+/// [`set_thetalim`]: Self::set_thetalim
+/// [`set_theta_offset`]: Self::set_theta_offset
+/// [`Axes::can_zoom`]: crate::axes::Axes::can_zoom
+/// [`set_theta_zero_location`]: Self::set_theta_zero_location
+/// [`theta_offset`]: Self::theta_offset
+/// [`set_theta_direction`]: Self::set_theta_direction
+/// [`theta_direction`]: Self::theta_direction
+/// [`thetamin`]: Self::thetamin
+/// [`thetamax`]: Self::thetamax
+/// [`set_thetagrids_labeled`]: Self::set_thetagrids_labeled
+/// [`set_rmin`]: Self::set_rmin
+/// [`set_rmax`]: Self::set_rmax
+/// [`set_rlim`]: Self::set_rlim
+/// [`rmin`]: Self::rmin
+/// [`rmax`]: Self::rmax
+/// [`set_rorigin`]: Self::set_rorigin
+/// [`rorigin`]: Self::rorigin
+/// [`rorigin_set`]: Self::rorigin_set
+/// [`set_rscale`]: Self::set_rscale
+/// [`set_rticks`]: Self::set_rticks
+/// [`set_rgrids`]: Self::set_rgrids
+/// [`set_rgrids_labeled`]: Self::set_rgrids_labeled
+/// [`rlabel_position`]: Self::rlabel_position
+/// [`set_frame`]: Self::set_frame
+/// [`frame`]: Self::frame
+/// [`axes`]: Self::axes
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PolarAxes {
     axes: Axes,

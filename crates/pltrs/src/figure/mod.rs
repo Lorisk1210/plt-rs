@@ -1,4 +1,81 @@
-//! Figures: the top-level container of everything drawn (matplotlib.figure).
+//! Figures, subfigures, the figure canvas and the options to save a
+//! figure (matplotlib's `matplotlib.figure`).
+//!
+//! A [`Figure`] is the whole image. The page of [`Figure`] lists all that
+//! a figure can do, grouped by task. Start there.
+//!
+//! ```
+//! use pltrs::figure::Figure;
+//!
+//! let fig = Figure::with_size(4.0, 3.0, 100.0);
+//! fig.subplot().plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])?;
+//! let svg: String = fig.to_svg()?;
+//! assert!(svg.contains("<svg"));
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! # Figures and their parts
+//!
+//! | Item | What it is |
+//! |------|------------|
+//! | [`Figure`] | The whole image, or a subfigure in it. |
+//! | [`WeakFigure`] | A handle that does not keep a figure alive. |
+//! | [`FigSize`], [`SizeUnit`] | A figure size in inches, centimeters or pixels. |
+//! | [`SubfigureOptions`] | The ratios and the spacing of a grid of subfigures. |
+//! | [`Share`] | The axes of a subplot grid that share their x or y axis. |
+//! | [`Mosaic`], [`MosaicCell`], [`MosaicOptions`] | A layout of labeled cells for [`Figure::subplot_mosaic`]. |
+//! | [`MosaicAxes`] | The axes of a mosaic, by label. |
+//!
+//! # Save
+//!
+//! | Item | What it is |
+//! |------|------------|
+//! | [`SaveOptions`] | The options of a save: resolution, crop, transparency, colors, metadata, quality and page. |
+//! | [`SaveFormat`] | The 13 file formats that pltrs writes. |
+//! | [`BboxInches`], [`PadInches`] | The part of the figure to save, and the padding of a tight crop. |
+//! | [`Metadata`], [`PngMetadata`], [`SvgMetadata`] | The document metadata of a saved file. |
+//! | [`Paper`], [`PageOrientation`] | The page of a PostScript document. |
+//! | [`SvgFontType`] | How an SVG document writes text: as paths or as text. |
+//! | [`ImageFile`] | An image file to write beside an SVG document or a PGF picture. |
+//! | [`PdfPages`] | A PDF document with one page for each figure. |
+//! | [`PgfPages`] | A PDF document that LaTeX typesets, with one page for each figure. |
+//! | [`PgfTexSystem`], [`PgfTextMetrics`], [`PdfToPng`] | The LaTeX program, the text measurement and the PNG converter of PGF output. |
+//!
+//! # Canvas
+//!
+//! | Item | What it is |
+//! |------|------------|
+//! | [`FigureCanvas`] | The pixels of the last draw. Use it to draw only the artists that change (blitting). |
+//! | [`BufferRegion`] | A rectangle of the canvas that you saved, to put back later. |
+//! | [`PixelBox`] | A rectangle of whole canvas pixels. |
+//!
+//! # Errors
+//!
+//! | Error | When it occurs |
+//! |-------|----------------|
+//! | [`SaveError`] | A save fails. |
+//! | [`CanvasError`] | A canvas operation fails. |
+//! | [`DrawErrors`] | Some artists cannot be drawn. |
+//! | [`SizeError`] | A figure size is not valid. |
+//! | [`AxesRectError`] | A rectangle cannot hold new axes. |
+//! | [`MosaicError`] | A mosaic is not valid. |
+//! | [`PageSetupError`] | A paper or orientation name does not exist. |
+//! | [`UnknownSvgFontType`] | A name is not an SVG font type. |
+//! | [`ProgramError`] | An external program of the PostScript output fails. |
+//!
+//! # For programs that wrap pltrs
+//!
+//! pltrs (Python) uses these items to give matplotlib objects to Python
+//! code. Most Rust programs do not need them.
+//!
+//! | Purpose | Items |
+//! |---------|-------|
+//! | Run code during a draw | [`DrawHook`], [`set_draw_end_handler`], [`clear_draw_end_handler`], [`draw_tick`], [`replaying_changes_from`] |
+//! | Call into a figure that a draw uses | [`reenter`], [`FigureInUse`], [`Access`] |
+//! | Follow changes | [`take_changed_figures`], [`unseen`], [`unreported`], [`stale_reports_asked`] |
+//! | Make the renderer of one page | [`svg_page`], [`ps_page`], [`pgf_page`] |
+//! | Prepare text for LaTeX | [`pgf_preamble`], [`pgf_text`], [`measure_pgf_text`], [`log_unknown_font`] |
+//! | Distill PostScript | [`DistillOptions`], [`check_distiller`], [`distill_file`] |
 
 mod archive;
 mod artists;
@@ -155,9 +232,75 @@ impl DrawErrors {
     }
 }
 
-/// A figure: the canvas, its background and every axes and artist on it.
+/// A figure is the whole image, with its background, its axes and the other
+/// artists on it.
 ///
-/// `Figure` is a cheap handle; clones refer to the same figure.
+/// A figure has a size in inches and a resolution in dots per inch (dpi).
+/// The size in pixels is the size in inches times the resolution. For
+/// example, a figure of 6 by 4 inches at 100 dpi has 600 by 400 pixels. The
+/// figure holds axes, and each axes holds the plots of your data.
+///
+/// `Figure` is a cheap handle. Its clones refer to the same figure. A
+/// subfigure is also a `Figure`, for a part of its parent figure.
+///
+/// ```
+/// use pltrs::figure::Figure;
+///
+/// let fig = Figure::with_size(6.0, 4.0, 100.0);
+/// let axes = fig.subplots(2, 3)?;
+/// axes[(0, 0)].plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])?;
+/// fig.suptitle("Six panels");
+/// let png: Vec<u8> = fig.to_png()?; // `fig.savefig("plot.png")?` writes a file
+/// assert!(png.starts_with(b"\x89PNG"));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Make a figure
+///
+/// A new figure takes its size, resolution and colors from the runtime
+/// settings `figure.figsize`, `figure.dpi`, `figure.facecolor` and
+/// `figure.edgecolor` ([`rc`](crate::rc)).
+///
+/// | Method | What it does |
+/// |--------|--------------|
+/// | [`new`](Self::new) | Makes a figure with the size and resolution of the runtime settings. |
+/// | [`with_size`](Self::with_size) | Makes a figure with a size in inches and a resolution. |
+/// | [`with_figsize`](Self::with_figsize) | Makes a figure with a size in inches, centimeters or pixels ([`FigSize`]). |
+/// | [`size_inches`](Self::size_inches), [`set_size_inches`](Self::set_size_inches) | Get or set the size in inches. |
+/// | [`set_figwidth`](Self::set_figwidth), [`set_figheight`](Self::set_figheight) | Set the width or the height in inches. |
+/// | [`size_pixels`](Self::size_pixels), [`width_height`](Self::width_height) | Give the size in pixels, as a decimal value or in whole pixels. |
+/// | [`dpi`](Self::dpi), [`set_dpi`](Self::set_dpi) | Get or set the resolution. |
+/// | [`facecolor`](Self::facecolor), [`set_facecolor`](Self::set_facecolor) | Get or set the background color. |
+/// | [`edgecolor`](Self::edgecolor), [`set_edgecolor`](Self::set_edgecolor) | Get or set the color of the frame around the figure. |
+/// | [`linewidth`](Self::linewidth), [`set_linewidth`](Self::set_linewidth) | Get or set the width of that frame in points. |
+/// | [`frameon`](Self::frameon), [`set_frameon`](Self::set_frameon) | Get or set whether pltrs draws the background and the frame. |
+/// | [`patch_style`](Self::patch_style), [`set_patch_style`](Self::set_patch_style) | Get or set the style of the background patch. |
+/// | [`patch_outline`](Self::patch_outline), [`set_patch_outline`](Self::set_patch_outline) | Get or set a shape for the background other than a rectangle. |
+/// | [`patch_gid`](Self::patch_gid), [`set_patch_gid`](Self::set_patch_gid) | Get or set the SVG id of the background. |
+///
+/// # Add axes
+///
+/// Axes are the areas that show data. Each method adds axes to the figure
+/// and returns them. A method that makes a grid returns a
+/// [`Grid`](crate::numeric::Grid). Index it by `(row, column)`.
+///
+/// | Method | What it does |
+/// |--------|--------------|
+/// | [`subplot`](Self::subplot) | Adds one axes in the default subplot area. |
+/// | [`subplots`](Self::subplots) | Adds a grid of `nrows` by `ncols` axes. |
+/// | [`subplots_shared`](Self::subplots_shared) | Adds a grid of axes that share their x or y axes ([`Share`]). |
+/// | [`add_subplot`](Self::add_subplot) | Adds axes in one cell of a grid. Cells count from 1, row by row. |
+/// | [`add_subplot_span`](Self::add_subplot_span) | Adds axes over a range of cells of a grid. |
+/// | [`add_gridspec`](Self::add_gridspec) | Makes a grid specification ([`GridSpec`](crate::gridspec::GridSpec)). [`GridSpec::with_ratios`](crate::gridspec::GridSpec::with_ratios) makes one with width and height ratios. |
+/// | [`add_subplot_spec`](Self::add_subplot_spec) | Adds axes on one cell or a block of cells of a grid specification. |
+/// | [`subplots_on`](Self::subplots_on) | Adds one axes for each cell of a grid specification. |
+/// | [`subplot_mosaic`](Self::subplot_mosaic) | Adds axes from a layout of labels, such as `"AAB;CCB"`, and gives them by label ([`MosaicAxes`]). |
+/// | [`add_axes`](Self::add_axes) | Adds axes at `[left, bottom, width, height]` in figure fractions. |
+/// | [`subfigures`](Self::subfigures) | Divides the figure into a grid of subfigures. Each subfigure has its own axes, titles and legends. |
+/// | [`add_subfigure`](Self::add_subfigure), [`subfigs`](Self::subfigs) | Add one subfigure, or give the subfigures. |
+/// | [`gca`](Self::gca), [`current_axes`](Self::current_axes), [`sca`](Self::sca) | Get or set the current axes. |
+/// | [`axes`](Self::axes), [`axes3d`](Self::axes3d) | Give all axes, or all 3-D axes. |
+/// | [`delaxes`](Self::delaxes) | Removes axes from the figure. |
 ///
 /// ```
 /// use pltrs::figure::Figure;
@@ -167,6 +310,180 @@ impl DrawErrors {
 /// assert_eq!(ax.xlim(), (0.0, 10.0));
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
+///
+/// Axes with another projection have their own methods:
+///
+/// | Projection | Methods |
+/// |------------|---------|
+/// | Polar | [`polar_subplot`](Self::polar_subplot), [`polar_subplots`](Self::polar_subplots), [`add_polar_subplot`](Self::add_polar_subplot), [`add_polar_subplot_spec`](Self::add_polar_subplot_spec), [`add_polar_axes`](Self::add_polar_axes) |
+/// | 3-D | [`subplot_3d`](Self::subplot_3d), [`subplot_3d_with`](Self::subplot_3d_with), [`add_subplot_3d`](Self::add_subplot_3d), [`add_subplot_spec_3d`](Self::add_subplot_spec_3d), [`add_axes_3d`](Self::add_axes_3d) |
+/// | Geographic: Aitoff, Hammer, Lambert, Mollweide | [`geo_subplot`](Self::geo_subplot), [`add_geo_subplot`](Self::add_geo_subplot), [`add_geo_subplot_spec`](Self::add_geo_subplot_spec), [`add_geo_axes`](Self::add_geo_axes) |
+/// | Any projection, by name or by value | [`subplot_with_projection`](Self::subplot_with_projection), [`subplots_with_projection`](Self::subplots_with_projection), [`add_subplot_with_projection`](Self::add_subplot_with_projection), [`add_subplot_spec_with_projection`](Self::add_subplot_spec_with_projection), [`subplots_on_with_projection`](Self::subplots_on_with_projection), [`add_axes_with_projection`](Self::add_axes_with_projection) |
+/// | Any projection, sharing axes | [`add_subplot_spec_sharing`](Self::add_subplot_spec_sharing), [`add_axes_sharing`](Self::add_axes_sharing) |
+///
+/// # Add titles, legends and other figure artists
+///
+/// These artists belong to the figure, not to one axes. Their positions are
+/// in figure fractions. The point `(0, 0)` is the bottom-left corner, and
+/// `(1, 1)` is the top-right corner.
+///
+/// | Method | What it does |
+/// |--------|--------------|
+/// | [`suptitle`](Self::suptitle), [`supxlabel`](Self::supxlabel), [`supylabel`](Self::supylabel) | Set the title, the x label and the y label of the whole figure. |
+/// | [`set_suptitle_y`](Self::set_suptitle_y), [`set_supxlabel_y`](Self::set_supxlabel_y), [`set_supylabel_x`](Self::set_supylabel_x) | Move the title or a label. |
+/// | [`suptitle_text`](Self::suptitle_text), [`supxlabel_text`](Self::supxlabel_text), [`supylabel_text`](Self::supylabel_text) | Give the text of the title or a label. |
+/// | [`text`](Self::text), [`texts`](Self::texts) | Add text at a point, or give the texts of the figure. |
+/// | [`legend`](Self::legend), [`legends`](Self::legends) | Add a legend for the labeled artists of all axes, or give the legends. |
+/// | [`colorbar`](Self::colorbar) | Adds a colorbar for an image, a contour set or another color-mapped artist. |
+/// | [`figimage`](Self::figimage), [`images`](Self::images) | Add an image in figure pixels without resampling, or give these images. |
+/// | [`set_suppress_composite`](Self::set_suppress_composite), [`suppress_composite`](Self::suppress_composite) | Set or get whether pltrs combines adjacent images into one. |
+/// | [`add_line`](Self::add_line), [`add_patch`](Self::add_patch), [`add_artist`](Self::add_artist) | Add a line or a patch. |
+/// | [`add_custom_artist`](Self::add_custom_artist) | Adds an artist type of your own (the [`Artist`] trait). |
+/// | [`add_anchored_box`](Self::add_anchored_box), [`add_offset_box`](Self::add_offset_box), [`add_annotation_bbox`](Self::add_annotation_bbox) | Add an offset box, such as a box of text or an image that points to a location. |
+/// | [`autofmt_xdate`](Self::autofmt_xdate) | Turns long date tick labels so that they do not overlap. |
+///
+/// # Arrange the axes
+///
+/// A layout engine moves the axes at each draw so that their labels do not
+/// overlap. The modern look uses constrained layout. The matplotlib look
+/// uses no layout engine.
+///
+/// | Method | What it does |
+/// |--------|--------------|
+/// | [`set_layout_engine`](Self::set_layout_engine), [`layout_engine`](Self::layout_engine) | Set or get the layout engine, such as constrained layout or tight layout ([`LayoutEngine`](crate::layout::LayoutEngine)). |
+/// | [`tight_layout`](Self::tight_layout) | Runs tight layout once. |
+/// | [`subplots_adjust`](Self::subplots_adjust) | Changes the margins and the spacing of the subplot grids, and moves the axes. |
+/// | [`subplot_params`](Self::subplot_params), [`set_subplot_params`](Self::set_subplot_params) | Get or set the margins and the spacing for the axes that you add next. |
+/// | [`align_labels`](Self::align_labels), [`align_xlabels`](Self::align_xlabels), [`align_ylabels`](Self::align_ylabels) | Align the axis labels of subplots. |
+/// | [`align_titles`](Self::align_titles) | Aligns the titles of the subplots in a row. |
+/// | [`layout`](Self::layout) | Runs the layout without drawing. After it, positions, limits and ticks have their final values. |
+/// | [`bbox`](Self::bbox), [`tight_bbox`](Self::tight_bbox) | Give the box of the figure in pixels, or the box of all visible artists in inches. |
+///
+/// # Save the figure
+///
+/// [`savefig`](Self::savefig) writes a file in the format of its extension.
+/// [`savefig_with`](Self::savefig_with) and each `_with` method take
+/// [`SaveOptions`]. The options set the resolution, a tight crop
+/// ([`BboxInches::Tight`]), a transparent background and the background
+/// color. They also set the document metadata, the JPEG and AVIF quality
+/// and the PostScript page. Each format also has a method that returns the
+/// file contents:
+///
+/// | Format | Extensions | Into memory |
+/// |--------|------------|-------------|
+/// | PNG | `.png` | [`to_png`](Self::to_png), [`to_png_with`](Self::to_png_with) |
+/// | PDF | `.pdf` | [`to_pdf`](Self::to_pdf), [`to_pdf_with`](Self::to_pdf_with) |
+/// | SVG | `.svg` | [`to_svg`](Self::to_svg), [`to_svg_with`](Self::to_svg_with), [`to_svg_document`](Self::to_svg_document) |
+/// | PostScript | `.ps` | [`to_ps`](Self::to_ps), [`to_ps_with`](Self::to_ps_with) |
+/// | Encapsulated PostScript | `.eps` | [`to_eps`](Self::to_eps), [`to_eps_with`](Self::to_eps_with) |
+/// | PGF picture for LaTeX | `.pgf` | [`to_pgf`](Self::to_pgf), [`to_pgf_with`](Self::to_pgf_with), [`to_pgf_document`](Self::to_pgf_document) |
+/// | Compressed SVG, JPEG, TIFF, GIF, lossless WebP, AVIF, raw RGBA | `.svgz`, `.jpg`, `.tif`, `.gif`, `.webp`, `.avif`, `.raw` | [`to_format`](Self::to_format) |
+///
+/// [`to_format`](Self::to_format) gives each format with a [`SaveFormat`].
+/// If LaTeX is installed, [`to_pgf_pdf`](Self::to_pgf_pdf),
+/// [`to_pgf_pdf_with`](Self::to_pgf_pdf_with),
+/// [`to_pgf_png`](Self::to_pgf_png) and
+/// [`to_pgf_png_with`](Self::to_pgf_png_with) give a PDF or PNG file with
+/// text that LaTeX typesets. [`PdfPages`] collects several figures as the
+/// pages of one PDF document.
+///
+/// ```
+/// use pltrs::figure::{BboxInches, Figure, SaveOptions};
+///
+/// let fig = Figure::new();
+/// fig.subplot().plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])?;
+/// let options = SaveOptions {
+///     dpi: Some(200.0),
+///     bbox_inches: Some(BboxInches::Tight),
+///     ..SaveOptions::default()
+/// };
+/// let pdf = fig.to_pdf_with(options)?; // `fig.savefig_with("plot.pdf", options)?` writes a file
+/// assert!(pdf.starts_with(b"%PDF"));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// To draw the figure yourself, use these methods:
+///
+/// | Method | What it does |
+/// |--------|--------------|
+/// | [`render_raster`](Self::render_raster), [`render_raster_with`](Self::render_raster_with) | Draw the figure into pixels, as a PNG save does. |
+/// | [`raster_canvas`](Self::raster_canvas) | Makes an empty raster renderer with the size of the figure. |
+/// | [`draw`](Self::draw) | Draws the figure through a [`Renderer`] of your choice. |
+/// | [`draw_without_rendering`](Self::draw_without_rendering) | Draws the figure without output, so that artists get their final size. |
+///
+/// # Show the figure and react to input
+///
+/// [`gui::show`](crate::gui::show) shows figures in windows and returns
+/// when the user closes them. [`web::serve`](crate::web::serve) shows them
+/// in a web browser. [`animation`](crate::animation) plays and saves
+/// animations. Synthetic input from an
+/// [`EventSource`](crate::events::EventSource) calls the same callbacks
+/// without a window.
+///
+/// | Method | What it does |
+/// |--------|--------------|
+/// | [`connect`](Self::connect), [`disconnect`](Self::disconnect) | Call a closure for each event of one kind ([`EventKind`](crate::events::EventKind)), such as a key press, a click or a draw. |
+/// | [`process_event`](Self::process_event) | Sends an event to the connected callbacks. |
+/// | [`block_callbacks`](Self::block_callbacks), [`with_callbacks_blocked`](Self::with_callbacks_blocked) | Stop the callbacks for a time. |
+/// | [`pick`](Self::pick) | Sends pick events for the artists under the pointer that have a picker. |
+/// | [`add_timer`](Self::add_timer), [`remove_timer`](Self::remove_timer), [`timers`](Self::timers), [`fire_timer`](Self::fire_timer) | Call a closure at an interval while the figure is shown. |
+/// | [`canvas`](Self::canvas) | Gives the [`FigureCanvas`]. Use it to draw only the artists that change (blitting). |
+/// | [`draw_artist`](Self::draw_artist), [`draw_cell`](Self::draw_cell) | Draw one artist or one table cell onto the canvas. |
+/// | [`add_tool`](Self::add_tool), [`remove_tool`](Self::remove_tool) | Add a toolbar button and keyboard shortcut of your own to the windows, or remove one. |
+/// | [`tool`](Self::tool), [`tools`](Self::tools), [`tool_names`](Self::tool_names) | Give the tools of the figure. |
+/// | [`set_tool_keys`](Self::set_tool_keys) | Changes the keyboard shortcuts of a tool. |
+/// | [`trigger_tool`](Self::trigger_tool), [`tool_toggled`](Self::tool_toggled), [`active_toggle`](Self::active_toggle) | Use a tool, or find which toggle tools are on. |
+/// | [`on_tool_change`](Self::on_tool_change), [`disconnect_tool_change`](Self::disconnect_tool_change), [`tool_message`](Self::tool_message) | Follow the changes to the tools, and show a message in the status line. |
+/// | [`grab_mouse`](Self::grab_mouse), [`release_mouse`](Self::release_mouse), [`mouse_grabber`](Self::mouse_grabber) | Send all mouse events to one axes. |
+/// | [`set_capture_keys`](Self::set_capture_keys), [`captures_keys`](Self::captures_keys) | Send key presses to a widget instead of the window shortcuts. |
+/// | [`lock_widgets`](Self::lock_widgets), [`release_widgets`](Self::release_widgets), [`widgets_available`](Self::widgets_available), [`widgets_locked`](Self::widgets_locked) | Let one widget use the pointer while the others wait. |
+/// | [`set_cursor`](Self::set_cursor), [`cursor`](Self::cursor) | Set or get the cursor shape over the figure. |
+///
+/// # Find, remove and clear artists
+///
+/// `Figure` implements [`ArtistHandle`]. Thus
+/// [`findobj`](ArtistHandle::findobj) finds the artists of the figure that
+/// match a condition. [`ArtistHandle::remove`] removes any artist.
+///
+/// | Method | What it does |
+/// |--------|--------------|
+/// | [`axes`](Self::axes), [`texts`](Self::texts), [`legends`](Self::legends), [`images`](Self::images), [`subfigs`](Self::subfigs) | Give the axes, texts, legends, images or subfigures. |
+/// | [`artists`](Self::artists) | Gives the other artists that you added to the figure. |
+/// | [`current_image`](Self::current_image) | Gives the image of the current axes, or else of the last axes with an image. |
+/// | [`contains_artist`](Self::contains_artist) | Tells if an artist is in this figure or in one of its subfigures. |
+/// | [`attach`](Self::attach) | Adds a removed artist back to the figure. |
+/// | [`clear`](Self::clear), [`clf`](Self::clf) | Remove all axes and artists, and keep the size, the colors and the layout engine. |
+/// | [`is_stale`](Self::is_stale) | Tells if the figure changed after the last draw. |
+///
+/// # Archive a figure
+///
+/// [`to_archive`](Self::to_archive) writes the figure and all its artists
+/// to bytes. [`from_archive`](Self::from_archive) reads them back, as
+/// matplotlib reads a pickled figure. [`downgrade`](Self::downgrade) gives a
+/// [`WeakFigure`], which does not keep the figure alive.
+///
+/// # The look
+///
+/// pltrs has two looks: the modern look and the matplotlib look
+/// ([`look`](crate::look)). A look sets the defaults of the runtime
+/// settings. Thus it sets the fonts, colors, grid and layout engine of new
+/// figures. Select the look before you make a figure.
+///
+/// # Methods for programs that wrap pltrs
+///
+/// pltrs (Python) uses these methods to give matplotlib objects to Python
+/// code. Most Rust programs do not need them.
+///
+/// | Purpose | Methods |
+/// |---------|---------|
+/// | Make axes outside the figure, then add them with [`attach`](Self::attach) | [`removed_axes`](Self::removed_axes), [`removed_subplot`](Self::removed_subplot), [`removed_axes_3d`](Self::removed_axes_3d), [`removed_subplot_3d`](Self::removed_subplot_3d), [`removed_axes_with_projection`](Self::removed_axes_with_projection), [`removed_subplot_with_projection`](Self::removed_subplot_with_projection) |
+/// | Add artists that were made outside any figure | [`adopt_artist`](Self::adopt_artist), [`take_artist`](Self::take_artist), [`list_among_texts`](Self::list_among_texts) |
+/// | Run code of the program during layout and drawing | [`set_layout_hook`](Self::set_layout_hook), [`set_draw_hook`](Self::set_draw_hook), [`set_evaluation_hook`](Self::set_evaluation_hook), [`set_tick_updater`](Self::set_tick_updater) |
+/// | Follow changes | [`report_stale`](Self::report_stale), [`take_stale_reports`](Self::take_stale_reports), [`watch_changes`](Self::watch_changes) |
+/// | Read transforms | [`resolve_transform`](Self::resolve_transform), [`resolve_transform_as_is`](Self::resolve_transform_as_is), [`tree_leaves`](Self::tree_leaves) |
+/// | Read the layout | [`execute_layout`](Self::execute_layout), [`set_layout_when_drawn_only`](Self::set_layout_when_drawn_only), [`tight_layout_params`](Self::tight_layout_params), [`tight_extent`](Self::tight_extent), [`print_window`](Self::print_window), [`super_text_artists`](Self::super_text_artists) |
+/// | Align texts of axes on different grids | [`join_aligned`](Self::join_aligned), [`aligned_with`](Self::aligned_with) |
+/// | Draw parts of a figure | [`render_raster_partial`](Self::render_raster_partial), [`draw_artist_unpainted`](Self::draw_artist_unpainted), [`pick_order`](Self::pick_order) |
 #[derive(Clone)]
 pub struct Figure {
     state: Rc<FigureCell>,

@@ -47,25 +47,7 @@ Do the steps on Linux or macOS, in a clone where `origin` is the GitHub
 repository. A Windows checkout can change line endings, and the crate
 packages are then different from the tag.
 
-### 1. Update the symbol order, if native code changed
-
-Skip this step if no Rust code changed since the last release.
-
-The file `crates/pltrs-python/symbol-order.txt` gives the link order of
-the functions in the x86_64 manylinux wheel. A correct order decreases
-the memory that each process uses. Run the tool two times, then commit
-the file:
-
-```sh
-cargo xtask python --release
-.venv-pltrs/bin/python crates/pltrs-python/tools/symbol_order.py
-cargo xtask python --release
-.venv-pltrs/bin/python crates/pltrs-python/tools/symbol_order.py
-git add crates/pltrs-python/symbol-order.txt
-git commit -m "pltrs-python: the symbol order of the release"
-```
-
-### 2. Set the version
+### 1. Set the version
 
 `Cargo.toml` is the only source of the version. The crates, the wheels
 and the alias package read it.
@@ -80,7 +62,34 @@ and the alias package read it.
    heading, and remove the marker from the previous heading.
 5. In `README.md`, update the version of the alias package.
 
-Then run the checks, commit and push `main`:
+### 2. Update the symbol order
+
+Do this step for each release, after you set the version. Do not skip
+it.
+
+The file `crates/pltrs-python/symbol-order.txt` gives the link order of
+the functions in the x86_64 manylinux wheel. It names each function with
+the name that rustc gives it. A new version changes all these names,
+even if no code changed. The linker then ignores the file, the wheel
+uses more memory, and `python/tests/test_startup_work.py` fails in the
+workflow.
+
+Run the tool two times, build one more time, and run the test. Then
+stage the file:
+
+```sh
+cargo xtask python --release
+.venv-pltrs/bin/python crates/pltrs-python/tools/symbol_order.py
+cargo xtask python --release
+.venv-pltrs/bin/python crates/pltrs-python/tools/symbol_order.py
+cargo xtask python --release
+PYTHONPATH=python .venv-pltrs/bin/python -m pytest python/tests/test_startup_work.py
+git add crates/pltrs-python/symbol-order.txt
+```
+
+### 3. Check, commit and push
+
+Run the checks, then commit and push `main`:
 
 ```sh
 git switch main && git pull --ff-only
@@ -94,7 +103,7 @@ git push origin main
 
 The dry run builds each crate from its package and uploads nothing.
 
-### 3. Optional: run the workflow without publishing
+### 4. Optional: run the workflow without publishing
 
 A manual run builds and tests all archives. It publishes nothing. You
 can download the archives from the run page.
@@ -105,10 +114,10 @@ gh run watch --exit-status $(gh run list --workflow wheels.yml --event workflow_
 ```
 
 A full run uses about 10 hours of billed Actions minutes. Skip this step
-if the tag run in step 4 is sufficient for you. If the tag run fails,
+if the tag run in step 5 is sufficient for you. If the tag run fails,
 nothing is published. You then delete the tag and try again.
 
-### 4. Push the tag
+### 5. Push the tag
 
 The tag starts the workflow.
 
@@ -125,7 +134,7 @@ The workflow does these steps:
 3. It installs each archive on its platform and runs the tests.
 4. It waits for your approval before it publishes.
 
-### 5. Approve the upload to PyPI (PUBLISHES)
+### 6. Approve the upload to PyPI (PUBLISHES)
 
 1. Open the run page: *Actions*, then *wheels*, then the run.
 2. Click *Review deployments*.
@@ -134,7 +143,7 @@ The workflow does these steps:
 The job uploads the archives to PyPI through trusted publishing. Then it
 creates a draft GitHub release with all archives.
 
-### 6. Publish the crates (PUBLISHES)
+### 7. Publish the crates (PUBLISHES)
 
 Run the commands one at a time, from a clean checkout of the tag:
 
@@ -162,7 +171,7 @@ it.
   that crate. Wait for the time in the message, then run the same
   command again.
 
-### 7. Publish the GitHub release (PUBLISHES)
+### 8. Publish the GitHub release (PUBLISHES)
 
 Use the changelog section of the version as the release notes:
 
@@ -197,7 +206,7 @@ gh release edit v0.1.1 --notes-file target/release-notes.md --draft=false
 
 * If a workflow job fails, nothing goes to PyPI. Correct the problem on
   `main`. Delete the tag with
-  `git push --delete origin v0.1.1 && git tag -d v0.1.1`. Then do step 4
+  `git push --delete origin v0.1.1 && git tag -d v0.1.1`. Then do step 5
   again.
 * If PyPI has the version but a crate did not publish, correct the
   crate. Then release the next version of all nine crates and of the

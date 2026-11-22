@@ -1,6 +1,6 @@
 # Changelog
 
-## <!--fact:version-->0.1.1 (unreleased)
+## <!--fact:version-->0.1.1 (2026-11-22)
 
 * The documentation is shorter and uses Simplified Technical English.
   This includes the README, the API documentation on docs.rs and the

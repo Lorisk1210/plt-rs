@@ -207,53 +207,55 @@ def test_extension_lays_out_functions_in_order():
 #: and an official benchmark (RELEASING.md), and whenever this fails.
 RESIDENT_CODE_CEILING_KIB = {"import": 4_750, "figure": 7_100}
 
-#: Measures, in a fresh process, the fault-around window (the pages that
-#: become present when one page of a cached file is read through a
-#: mapping) and the extension's code resident after the import and after a
-#: small figure, the whole extension read first so that the page cache
-#: holds it as after a build or an install.
+#: Measures, in a fresh process, the code of the extension that a process
+#: holds after the import and after a small figure. The program does not
+#: read the number from the kernel. It records each code page that it
+#: reads (`load_traced` in symbol_order.py) and counts 64 KiB for each
+#: 64 KiB block of memory that has such a page. This is what a kernel
+#: holds if it maps 64 KiB around each page fault.
+#:
+#: The number from the kernel is not stable. Linux 6.18 and later can map
+#: a complete large folio of the page cache for one page fault. On the
+#: workflow runners (Linux 7.0), an extension that held 6,028 KiB on
+#: Linux 6.12 then held 7,304 KiB: one page fault mapped about 1 MiB. The
+#: result depended on how the file came into the page cache (release
+#: 0.1.1).
+#:
+#: The arguments are the tool and the directories to try for the copy of
+#: the extension. A directory in memory (tmpfs) cannot hold the copy.
 _RESIDENT_PROGRAM = """
-import io, json, mmap, os, sys
-PAGE = os.sysconf("SC_PAGE_SIZE")
+import io, json, os, runpy, sys
+tool = runpy.run_path(sys.argv[1])
+copy, problem = None, None
+for directory in sys.argv[2:]:
+    try:
+        os.makedirs(directory, exist_ok=True)
+        copy = tool["load_traced"](directory)
+        break
+    except OSError as error:
+        problem = str(error)
+if copy is None:
+    print(json.dumps({"problem": problem}))
+    raise SystemExit
+BLOCK = 65536 // tool["PAGE"]
 
 
-def present(path, executable):
-    total, current = 0, None
-    with open("/proc/self/smaps") as smaps:
-        for line in smaps:
-            fields = line.split()
-            if "-" in fields[0] and len(fields) >= 5 and not fields[0].endswith(":"):
-                current = (fields[1], fields[5] if len(fields) >= 6 else "")
-            elif fields[0] == "Rss:" and current and current[1] == path and (
-                    not executable or "x" in current[0]):
-                total += int(fields[1])
-    return total
+def held():
+    return 64 * len({in_memory // BLOCK for _, in_memory in tool["code_pages_read"](copy)})
 
 
-probe = os.path.join(sys.argv[1], "fault-around")
-with open(probe, "wb") as file:
-    file.write(bytes(64 * PAGE))
-with open(probe, "rb") as file:
-    file.read()
-    mapped = mmap.mmap(file.fileno(), 64 * PAGE, prot=mmap.PROT_READ)
-    mapped[32 * PAGE]
-    window_kib = present(probe, False)
-    mapped.close()
-import numpy, PIL.Image, dateutil.parser
-import pltrs
-native = os.path.realpath(pltrs._native.__file__)
-with open(native, "rb") as file:
-    while file.read(1 << 24):
-        pass
-import pltrs.pyplot as plt
-at_import = present(native, True)
-fig, ax = plt.subplots()
-ax.plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])
-ax.set_title("A title")
-ax.set_xlabel("x")
-fig.savefig(io.BytesIO(), format="png")
-print(json.dumps({"window_kib": window_kib, "page": PAGE, "import": at_import,
-                  "figure": present(native, True)}))
+try:
+    import numpy, PIL.Image, dateutil.parser
+    import pltrs.pyplot as plt
+    at_import = held()
+    fig, ax = plt.subplots()
+    ax.plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])
+    ax.set_title("A title")
+    ax.set_xlabel("x")
+    fig.savefig(io.BytesIO(), format="png")
+    print(json.dumps({"import": at_import, "figure": held()}))
+finally:
+    os.unlink(copy)
 """
 
 
@@ -267,17 +269,21 @@ def test_extension_code_a_small_program_holds_stays_under_its_ceiling(tmp_path):
     env = {**os.environ, "MPLBACKEND": "agg", "PLTRS_LOOK": "matplotlib",
            "PLTRSCONFIGDIR": str(tmp_path)}
 
+    tool = ROOT / "crates/pltrs-python/tools/symbol_order.py"
+    # The second directory is for a machine whose temporary directory is
+    # in memory. It is the directory that the tool uses.
+    directories = [str(tmp_path), str(ROOT / "target/symbol-order")]
+
     def measure():
-        result = subprocess.run([sys.executable, "-c", _RESIDENT_PROGRAM, str(tmp_path)],
-                                env=env, capture_output=True, text=True, check=True)
+        result = subprocess.run([sys.executable, "-c", _RESIDENT_PROGRAM, str(tool),
+                                 *directories], env=env, capture_output=True, text=True,
+                                check=True)
         return json.loads(result.stdout.splitlines()[-1])
 
     measure()  # the caches of a first import written
     resident = measure()
-    if resident["page"] != 4096 or resident["window_kib"] != 64:
-        pytest.skip(f"the kernel maps {resident['window_kib']} KiB in pages of "
-                    f"{resident['page']} bytes around a fault, not the 64 KiB in pages of "
-                    "4096 the ceilings are for")
+    if "problem" in resident:
+        pytest.skip(f"no directory can hold the copy of the extension: {resident['problem']}")
     over = {what: (resident[what], ceiling)
             for what, ceiling in RESIDENT_CODE_CEILING_KIB.items() if resident[what] > ceiling}
     assert not over, (

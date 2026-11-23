@@ -68,8 +68,30 @@ def _mappings(path):
                 yield start, end, int(fields[2], 16), fields[1]
 
 
+def _cached(path):
+    """The part of the file *path* that the page cache holds, from 0 to 1."""
+    size = os.path.getsize(path)
+    pages = -(-size // PAGE)
+    held = (ctypes.c_ubyte * pages)()
+    libc = ctypes.CDLL(None, use_errno=True)
+    libc.mincore.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p]
+    with open(path, "rb") as file:
+        mapped = mmap.mmap(file.fileno(), size, access=mmap.ACCESS_COPY)
+    try:
+        view = ctypes.c_char.from_buffer(mapped)
+        failed = libc.mincore(ctypes.addressof(view), size, held)
+        del view
+    finally:
+        mapped.close()
+    if failed:
+        raise OSError(ctypes.get_errno(), f"mincore of {path} failed")
+    return sum(byte & 1 for byte in held) / pages
+
+
 def _uncached_copy(extension, directory):
-    """A copy of *extension* in *directory* that no page cache holds."""
+    """A copy of *extension* in *directory* that no page cache holds.
+    Raises `OSError` if the file system of *directory* keeps its files in
+    memory, as tmpfs does."""
     copy = directory / f"_native-{os.getpid()}{extension.suffix}"
     shutil.copyfile(extension, copy)
     descriptor = os.open(copy, os.O_RDONLY)
@@ -78,6 +100,10 @@ def _uncached_copy(extension, directory):
         os.posix_fadvise(descriptor, 0, 0, os.POSIX_FADV_DONTNEED)
     finally:
         os.close(descriptor)
+    if _cached(copy) > 0.5:
+        copy.unlink()
+        raise OSError(f"{directory} keeps its files in memory: "
+                      "the copy of the extension cannot leave the page cache")
     return copy
 
 
@@ -94,31 +120,56 @@ class _Redirect:
         return importlib.util.spec_from_file_location(name, self.path, loader=loader)
 
 
-def trace(out, script, arguments):
-    """Run *script* with *arguments* and write the file offsets of the
-    extension's code pages it read to *out*, one per line."""
+def load_traced(directory):
+    """Loads a copy of the package's extension that no page cache holds,
+    with read-ahead turned off, and makes the package import it. The copy
+    is in *directory*. After this, the process maps a code page of the copy
+    only when it runs code on that page. Returns the copy."""
     package = pathlib.Path(importlib.util.find_spec("pltrs").origin).parent
     extension = next(package.glob("_native*.so"))
-    copy = _uncached_copy(extension, pathlib.Path(out).parent)
+    copy = _uncached_copy(extension, pathlib.Path(directory).resolve())
     try:
         ctypes.CDLL(str(copy), mode=os.RTLD_NOW)
         libc = ctypes.CDLL(None, use_errno=True)
         libc.madvise.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int]
         for start, end, _, _ in _mappings(str(copy)):
             libc.madvise(start, end - start, mmap.MADV_RANDOM)
-        sys.meta_path.insert(0, _Redirect(copy))
+    except BaseException:
+        copy.unlink()
+        raise
+    sys.meta_path.insert(0, _Redirect(copy))
+    return copy
+
+
+def code_pages_read(copy):
+    """The code pages of *copy* (see `load_traced`) that this process
+    read: ``(page number in the file, page number in memory)``. The page
+    number in memory counts from the address where the copy is loaded."""
+    mappings = list(_mappings(str(copy)))
+    base = min(start for start, _, _, _ in mappings)
+    read = []
+    with open("/proc/self/pagemap", "rb") as pagemap:
+        for start, end, offset, permissions in mappings:
+            if "x" not in permissions:
+                continue
+            pagemap.seek(start // PAGE * 8)
+            count = (end - start) // PAGE
+            entries = struct.unpack(f"{count}Q", pagemap.read(count * 8))
+            read += [(offset // PAGE + index, (start - base) // PAGE + index)
+                     for index, entry in enumerate(entries) if entry >> 63]
+    return read
+
+
+def trace(out, script, arguments):
+    """Run *script* with *arguments* and write the file offsets of the
+    extension's code pages it read to *out*, one per line."""
+    copy = load_traced(pathlib.Path(out).parent)
+    try:
         sys.path.insert(0, str(pathlib.Path(script).parent))
         sys.argv = [script, *arguments]
         runpy.run_path(script, run_name="__main__")
-        with open("/proc/self/pagemap", "rb") as pagemap, open(out, "w") as written:
-            for start, end, offset, permissions in _mappings(str(copy)):
-                if "x" not in permissions:
-                    continue
-                pagemap.seek(start // PAGE * 8)
-                count = (end - start) // PAGE
-                entries = struct.unpack(f"{count}Q", pagemap.read(count * 8))
-                written.writelines(f"{offset + index * PAGE}\n"
-                                   for index, entry in enumerate(entries) if entry >> 63)
+        with open(out, "w") as written:
+            written.writelines(f"{page * PAGE}\n" for page, _ in code_pages_read(copy))
     finally:
         copy.unlink()
 

@@ -88,6 +88,19 @@ During 0.x, a release can change the Rust API.
 PyPI or crates.io is permanent. Ask me before you run a step that
 publishes.
 
+Release 0.1.1 needed four tag runs because of two agent mistakes. Do not
+repeat them:
+
+* The agent changed the version and did not write the symbol order
+  again. A new version renames each function, so the old order named
+  none of them. Do step 2 of `RELEASING.md` for each release.
+* The next two runs failed the same test. The agent assumed that the
+  order was the cause again and changed it two times, from measurements
+  on this machine. The cause was the test: it read a number from the
+  kernel, and the kernel of the workflow runners gave a different
+  number. If a check fails only in the workflow, measure on a runner
+  before you change code.
+
 ## Design & Taste
 
 Users see three things: the figures in the modern look, the figure
